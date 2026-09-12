@@ -96,6 +96,17 @@ const controlClass = 'mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 
 const secondaryButtonClass = 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700';
 const dangerButtonClass = 'bg-rose-600 text-white hover:bg-rose-500';
 
+// Providers with no non-billable validation endpoint. Their credential probe
+// falls back to a minimal real request (e.g. a one-token chat completion)
+// through Silk Road, which may create a small upstream charge. Keep this in
+// sync with the tunnel prober registrations in
+// services/control-plane/internal/platformcredentials/tunnel_prober.go.
+const BILLABLE_PROBE_PROVIDERS = new Set(['zai', 'tokenbazaar']);
+
+function hasBillableProbe(providerSlug?: string) {
+  return Boolean(providerSlug && BILLABLE_PROBE_PROVIDERS.has(providerSlug));
+}
+
 async function platformRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/admin/control-plane/${path}`, {
     cache: 'no-store',
@@ -515,11 +526,18 @@ export default function ProviderConnectionsPage() {
               {schema && !schema.runtime_ready ? (
                 <div className="flex gap-3 rounded-md border border-amber-800 bg-amber-950/70 p-3 text-sm leading-6 text-amber-100">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  <p>This authentication schema is documented, but runtime support is not implemented yet. It cannot be activated.</p>
+                  <p>This authentication schema is documented, but runtime support is not implemented yet. The credential can still be created and stored, but it cannot be tested or activated until runtime support ships.</p>
                 </div>
               ) : null}
 
-              <Button type="button" className="w-full" disabled={busy || !schema?.runtime_ready || createMissing} onClick={createConnection}>
+              {schema && hasBillableProbe(schema.provider_slug) ? (
+                <div className="flex gap-3 rounded-md border border-amber-800 bg-amber-950/70 p-3 text-sm leading-6 text-amber-100">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <p>This provider has no non-billable validation endpoint. Testing or activating this credential sends a minimal real request upstream and may incur a small charge.</p>
+                </div>
+              ) : null}
+
+              <Button type="button" className="w-full" disabled={busy || createMissing} onClick={createConnection}>
                 <KeyRound className="size-4" aria-hidden="true" />
                 Create draft and save key
               </Button>
@@ -630,7 +648,7 @@ export default function ProviderConnectionsPage() {
                       />
                     </FieldShell>
                   ))}
-                  <Button type="button" className="w-full" disabled={busy || !selectedSchema?.runtime_ready || rotationMissing} onClick={rotateCredential}>
+                  <Button type="button" className="w-full" disabled={busy || rotationMissing} onClick={rotateCredential}>
                     <KeyRound className="size-4" aria-hidden="true" />
                     {lifecycle.hasVersion ? 'Create version' : 'Save key version'}
                   </Button>
@@ -642,6 +660,12 @@ export default function ProviderConnectionsPage() {
                   <ShieldCheck className="size-4 text-cyan-300" aria-hidden="true" />
                   Credential versions
                 </h3>
+                {hasBillableProbe(selected.provider_slug) ? (
+                  <div className="mt-3 flex gap-3 rounded-md border border-amber-800 bg-amber-950/70 p-3 text-sm leading-6 text-amber-100">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <p>{selected.provider_slug} has no non-billable validation endpoint. Pressing Test sends a minimal real request upstream and may incur a small charge.</p>
+                  </div>
+                ) : null}
                 <div className="mt-3 space-y-3">
                   {selectedVersions.length === 0 ? (
                     <div className="rounded-md border border-dashed border-amber-800 bg-amber-950/30 p-4 text-sm leading-6 text-amber-100">

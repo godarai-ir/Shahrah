@@ -23,6 +23,7 @@ func NewTunnelCredentialProber(tunnel platform.TunnelTransport) *TunnelCredentia
 	registry.Register("anthropic", &anthropicTunnelCredentialProber{tunnel: tunnel})
 	registry.Register("xai", &xaiTunnelCredentialProber{tunnel: tunnel})
 	registry.Register("zai", &zaiTunnelCredentialProber{tunnel: tunnel})
+	registry.Register("tokenbazaar", &tokenBazaarTunnelCredentialProber{tunnel: tunnel})
 
 	return &TunnelCredentialProber{registry: registry}
 }
@@ -145,6 +146,41 @@ func (p *zaiTunnelCredentialProber) Probe(
 	})
 	if err != nil {
 		return ProbeResult{Category: "network", Summary: "Z.ai validation could not reach Silk Road."}
+	}
+
+	return genericProbeResult(response.StatusCode)
+}
+
+// tokenBazaarTunnelCredentialProber validates TokenBazaar credentials through
+// Silk Road. TokenBazaar exposes no non-billable validation endpoint, so this
+// prober deliberately bypasses the documentedProbe allowlist and dispatches
+// Silk Road's explicit one-token chat completion probe, which may create a
+// small upstream charge.
+type tokenBazaarTunnelCredentialProber struct {
+	tunnel platform.TunnelTransport
+}
+
+func (p *tokenBazaarTunnelCredentialProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	if p == nil || p.tunnel == nil {
+		return ProbeResult{Category: "network", Summary: "TokenBazaar validation could not reach Silk Road."}
+	}
+
+	deployment, ok := credentialProbeDeployment(record, secrets)
+	if !ok {
+		return unsupportedProbeResult()
+	}
+
+	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
+		Operation:  platform.ProviderOperationCredentialProbe,
+		Deployment: deployment,
+		Headers:    map[string]string{"Accept": "application/json"},
+	})
+	if err != nil {
+		return ProbeResult{Category: "network", Summary: "TokenBazaar validation could not reach Silk Road."}
 	}
 
 	return genericProbeResult(response.StatusCode)

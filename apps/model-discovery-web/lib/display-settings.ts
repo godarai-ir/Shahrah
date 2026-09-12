@@ -62,7 +62,17 @@ export function formatDisplayPriceAmount(
     transformed /= 10;
   }
 
-  const fractionDigits = settings.priceScale === 'PER_TOKEN' ? 8 : 2;
+  let fractionDigits = settings.priceScale === 'PER_TOKEN' ? 8 : 2;
+  if (settings.currencyUnit === 'IRR') {
+    // Rial is the smallest currency unit and cannot have a fractional part.
+    transformed = Math.ceil(transformed);
+    fractionDigits = 0;
+  } else if (settings.currencyUnit === 'TOMAN') {
+    // Round the toman amount up, then round the last three digits (hundreds) up too.
+    transformed = Math.ceil(Math.ceil(transformed) / 1000) * 1000;
+    fractionDigits = 0;
+  }
+
   const formatted = new Intl.NumberFormat('fa-IR', {
     maximumFractionDigits: fractionDigits,
   }).format(transformed);

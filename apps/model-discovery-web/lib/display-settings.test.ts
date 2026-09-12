@@ -25,6 +25,14 @@ test('dynamic exchange rate only changes IRR and TOMAN prices', () => {
   assert.equal(formatDisplayPriceAmount(2, toman, labels, 1_800_000), '۳۶۰٬۰۰۰ تومان');
 });
 
+test('IRR has no fractional digits and TOMAN rounds up to the nearest thousand', () => {
+  const irr = { ...DISPLAY_SETTINGS_DEFAULTS, currencyUnit: 'IRR' as const };
+  const toman = { ...DISPLAY_SETTINGS_DEFAULTS, currencyUnit: 'TOMAN' as const };
+
+  assert.equal(formatDisplayPriceAmount(1.2540345, irr, labels, 1_800_000), '۲٬۲۵۷٬۲۶۳ ریال');
+  assert.equal(formatDisplayPriceAmount(1.2540345, toman, labels, 1_800_000), '۲۲۶٬۰۰۰ تومان');
+});
+
 test('non-USD prices do not silently use a fixed fallback', () => {
   const irr = { ...DISPLAY_SETTINGS_DEFAULTS, currencyUnit: 'IRR' as const };
   const toman = { ...DISPLAY_SETTINGS_DEFAULTS, currencyUnit: 'TOMAN' as const };

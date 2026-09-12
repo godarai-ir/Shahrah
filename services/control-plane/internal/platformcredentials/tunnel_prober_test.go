@@ -233,3 +233,48 @@ func TestTunnelCredentialProberClassifiesZAIRejectedCredential(t *testing.T) {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 }
+
+func TestTunnelCredentialProberRoutesTokenBazaarBillableProbeThroughSilkRoad(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: http.StatusOK}}
+	prober := NewTunnelCredentialProber(tunnel)
+
+	result := prober.Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{
+			ProviderSlug:        "tokenbazaar",
+			AuthMode:            "api_key",
+			ConnectionID:        "connection-1",
+			CredentialVersionID: "credential-version-1",
+		},
+	}, map[string]string{"api_key": "tokenbazaar-secret"})
+
+	if !result.Ready || result.Category != "ok" {
+		t.Fatalf("probe failed: ready=%v category=%q summary=%q", result.Ready, result.Category, result.Summary)
+	}
+
+	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
+		t.Fatalf("operation = %q", tunnel.request.Operation)
+	}
+
+	if tunnel.request.Deployment.Provider != "tokenbazaar" ||
+		tunnel.request.Deployment.ProviderAuth == nil ||
+		tunnel.request.Deployment.ProviderAuth.APIKey != "tokenbazaar-secret" {
+		t.Fatalf("unexpected deployment: %#v", tunnel.request.Deployment)
+	}
+}
+
+func TestTunnelCredentialProberClassifiesTokenBazaarRejectedCredential(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: http.StatusUnauthorized}}
+	prober := NewTunnelCredentialProber(tunnel)
+
+	result := prober.Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{ProviderSlug: "tokenbazaar", AuthMode: "api_key"},
+	}, map[string]string{"api_key": "tokenbazaar-secret"})
+
+	if result.Ready || result.Authenticated || result.Category != "invalid_credential" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
