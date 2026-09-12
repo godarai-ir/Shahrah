@@ -151,15 +151,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 			return credentialProbeSpec{}, err
 		}
 
-		spec = credentialProbeSpec{
-			url:         strings.TrimRight(base, "/") + "/v1/chat/completions",
-			auth:        "bearer",
-			method:      http.MethodPost,
-			contentType: "application/json",
-			body: []byte(
-				`{"model":"` + tokenBazaarCredentialProbeModel + `","messages":[{"role":"user","content":"ping"}],"max_tokens":1}`,
-			),
-		}
+		spec = credentialProbeSpec{url: strings.TrimRight(base, "/") + "/v1/models", auth: "bearer"}
 	case "google-gemini":
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"

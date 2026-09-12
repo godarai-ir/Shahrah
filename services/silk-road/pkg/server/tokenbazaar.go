@@ -39,21 +39,6 @@ const (
 	// this adapter will ever read into memory before normalizing/discarding
 	// it (see normalizeTokenBazaarErrorResponse).
 	tokenBazaarMaxErrorBodyBytes = 64 * 1024
-
-	// tokenBazaarCredentialProbeModel is the model used for the explicit,
-	// UI-approval-gated, billable connection test (see credential_probe.go).
-	// It is the lowest-cost of the 21 in-scope chat models per this
-	// delivery's spot check of the imported TokenBazaar catalog (see
-	// plans/tokenbazaar-production-readiness.md, "Pricing anomalies" —
-	// deepseek-v4-flash is priced roughly 85% below GodarAI's direct-provider
-	// DeepSeek cost, making it the cheapest observed model in scope by a wide
-	// margin). This is a fixed fallback for this Go-level probe wiring only;
-	// conflict-register item #6 already flags that per-key pricing from the
-	// live authenticated GET /v1/models should be the long-term source of
-	// truth, and the tenant-admin connection-test dialog re-derives the
-	// cheapest model from the imported catalog rather than trusting this
-	// constant blindly.
-	tokenBazaarCredentialProbeModel = "deepseek-v4-flash"
 )
 
 // tokenBazaarMaxResponseBytes is a response-size ceiling applied to every

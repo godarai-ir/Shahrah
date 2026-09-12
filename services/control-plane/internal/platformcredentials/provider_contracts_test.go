@@ -223,6 +223,7 @@ func TestDocumentedHTTPProbeCoverageForRuntimeReadyDirectAuthModes(t *testing.T)
 		{Binding: Binding{ProviderSlug: "openai", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "openrouter", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "together-ai", AuthMode: "api_key"}},
+		{Binding: Binding{ProviderSlug: "tokenbazaar", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "xai", AuthMode: "api_key"}},
 	}
 

@@ -101,7 +101,7 @@ const dangerButtonClass = 'bg-rose-600 text-white hover:bg-rose-500';
 // through Silk Road, which may create a small upstream charge. Keep this in
 // sync with the tunnel prober registrations in
 // services/control-plane/internal/platformcredentials/tunnel_prober.go.
-const BILLABLE_PROBE_PROVIDERS = new Set(['zai', 'tokenbazaar']);
+const BILLABLE_PROBE_PROVIDERS = new Set(['zai']);
 
 function hasBillableProbe(providerSlug?: string) {
   return Boolean(providerSlug && BILLABLE_PROBE_PROVIDERS.has(providerSlug));
