@@ -521,26 +521,22 @@ func safeProbeURL(providerSlug, raw string) bool {
 		return false
 	}
 
-	exact := map[string]string{
-		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
-		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com", "google-gemini": "generativelanguage.googleapis.com",
-		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
-		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz",
-		"tokenbazaar": "zx1.deepwl.net", "xai": "api.x.ai",
-	}
-	if expected := exact[normalizeProvider(providerSlug)]; expected != "" {
-		return host == expected
-	}
-
 	switch normalizeProvider(providerSlug) {
 	case "azure-ai-foundry", "azure-open-ai":
 		return strings.HasSuffix(host, ".openai.azure.com") || strings.HasSuffix(host, ".services.ai.azure.com")
 	case "databricks":
 		return strings.HasSuffix(host, ".cloud.databricks.com") || strings.HasSuffix(host, ".azuredatabricks.net") || strings.HasSuffix(host, ".gcp.databricks.com")
-	case "sambanova":
-		return true // SambaStack is customer-hosted; public HTTPS and local/IP blocks above still apply.
+	case "tokenbazaar":
+		// TokenBazaar is a platform-managed aggregator with a fixed endpoint,
+		// not a tenant-supplied BYOK target, so its host stays pinned.
+		return host == "zx1.deepwl.net"
 	default:
-		return false
+		// Every other provider here is BYOK: the tenant deliberately supplies
+		// both the endpoint and the credential, so we don't force the host
+		// back to the vendor's default domain (e.g. api.deepseek.com) —
+		// only the generic network-safety checks above apply (HTTPS-only,
+		// no literal IPs, no localhost/.local/.internal).
+		return true
 	}
 }
 
