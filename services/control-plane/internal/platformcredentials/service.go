@@ -485,6 +485,12 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		return modelsProbe(base, "", "bearer-api-key"), record.AuthMode == "api_key" && base != ""
 	case "together-ai":
 		return modelsProbe(base, "https://api.together.xyz/v1", "bearer-api-key"), record.AuthMode == "api_key"
+	case "tokenbazaar":
+		if base != "" && !strings.HasSuffix(base, "/v1") {
+			base += "/v1"
+		}
+
+		return modelsProbe(base, "https://zx1.deepwl.net/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "xai":
 		if base == "" {
 			base = "https://api.x.ai/v1"
@@ -519,7 +525,8 @@ func safeProbeURL(providerSlug, raw string) bool {
 		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
 		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com", "google-gemini": "generativelanguage.googleapis.com",
 		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
-		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",
+		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz",
+		"tokenbazaar": "zx1.deepwl.net", "xai": "api.x.ai",
 	}
 	if expected := exact[normalizeProvider(providerSlug)]; expected != "" {
 		return host == expected

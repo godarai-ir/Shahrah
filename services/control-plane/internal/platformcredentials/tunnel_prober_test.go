@@ -234,7 +234,7 @@ func TestTunnelCredentialProberClassifiesZAIRejectedCredential(t *testing.T) {
 	}
 }
 
-func TestTunnelCredentialProberRoutesTokenBazaarBillableProbeThroughSilkRoad(t *testing.T) {
+func TestTunnelCredentialProberRoutesTokenBazaarProbeThroughSilkRoad(t *testing.T) {
 	t.Parallel()
 
 	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: http.StatusOK}}

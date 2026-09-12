@@ -43,37 +43,19 @@ describe("ProviderConnectionTestDialog", () => {
     expect(screen.getByRole("button", { name: /connectionTest.run/ })).not.toBeDisabled();
   });
 
-  it("shows the TokenBazaar billable warning and disables Run until the spend is explicitly approved", () => {
+  it("does not gate TokenBazaar behind an approval checkbox (its credential probe is a free GET /v1/models)", () => {
     render(
       <ProviderConnectionTestDialog open onOpenChange={() => {}} account={account({ provider: "tokenbazaar" })} />,
     );
 
-    expect(screen.getByText("providerAccounts.ux.connectionTest.tokenbazaarBillableWarning")).toBeInTheDocument();
-
-    const runButton = screen.getByRole("button", { name: /connectionTest.run/ });
-    expect(runButton).toBeDisabled();
-
-    const checkbox = screen.getByText(
-      "providerAccounts.ux.connectionTest.tokenbazaarApprovalCheckbox",
-    ).closest("label")?.querySelector("input[type=checkbox]");
-    expect(checkbox).toBeTruthy();
-
-    fireEvent.click(checkbox as Element);
-
-    expect(runButton).not.toBeDisabled();
+    expect(screen.queryByText("providerAccounts.ux.connectionTest.tokenbazaarBillableWarning")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /connectionTest.run/ })).not.toBeDisabled();
   });
 
-  it("never fires the billable test automatically: it only runs after an explicit Run click", () => {
+  it("only fires the test after an explicit Run click", () => {
     render(
       <ProviderConnectionTestDialog open onOpenChange={() => {}} account={account({ provider: "tokenbazaar" })} />,
     );
-
-    expect(testProviderAccountCredentials).not.toHaveBeenCalled();
-
-    const checkbox = screen.getByText(
-      "providerAccounts.ux.connectionTest.tokenbazaarApprovalCheckbox",
-    ).closest("label")?.querySelector("input[type=checkbox]");
-    fireEvent.click(checkbox as Element);
 
     expect(testProviderAccountCredentials).not.toHaveBeenCalled();
 
@@ -81,15 +63,5 @@ describe("ProviderConnectionTestDialog", () => {
 
     expect(testProviderAccountCredentials).toHaveBeenCalledTimes(1);
     expect(testProviderAccountCredentials).toHaveBeenCalledWith("acct-1", "");
-  });
-
-  it("blocks submission (even via form submit) while TokenBazaar spend is not approved", () => {
-    render(
-      <ProviderConnectionTestDialog open onOpenChange={() => {}} account={account({ provider: "tokenbazaar" })} />,
-    );
-
-    fireEvent.submit(document.getElementById("provider-connection-test-form") as HTMLFormElement);
-
-    expect(testProviderAccountCredentials).not.toHaveBeenCalled();
   });
 });
