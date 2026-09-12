@@ -1424,6 +1424,14 @@ None of the above required, and none of the above performs, a live/billable call
 to `https://zx1.deepwl.net` — all adapter tests use recorded/mocked HTTP round
 trippers, per this delivery's own rule against live TokenBazaar calls in CI.
 
+> **Superseded (2026-09-12):** TokenBazaar's technical team confirmed a free
+> `GET /v1/models` endpoint that validates an API key without a billable call.
+> `credential_probe.go`'s `tokenbazaar` case now issues that GET instead of the
+> billable `POST /v1/chat/completions` described above, and the tenant-admin
+> spend-approval checkbox/warning and the `tokenbazaarBillableWarning`/
+> `tokenbazaarApprovalCheckbox` i18n strings described above were removed
+> accordingly. See PR #31.
+
 ### Implemented and tested in the Image Endpoints delivery (this session, 2026-09-10)
 
 This session implemented and tested real dispatch for the 4 in-scope image

@@ -256,8 +256,6 @@
       "infoTitle": "Connection test",
       "credentialHint": "Stored credential",
       "zaiBillableWarning": "Z.ai has no non-billable credential endpoint. This explicit test sends a one-token request to glm-4.7-flashx and may create a small upstream charge.",
-      "tokenbazaarBillableWarning": "TokenBazaar has no non-billable credential endpoint. This explicit test sends a one-token request to the cheapest in-scope model (deepseek-v4-flash) and may create a small upstream charge, capped at roughly $0.001 USD.",
-      "tokenbazaarApprovalCheckbox": "I understand this will send a real, billed request to TokenBazaar (deepseek-v4-flash, max_tokens: 1, capped at roughly $0.001 USD) and I approve it.",
       "wifStatus": "Anthropic workload identity status",
       "wifScopes": "Effective WIF scopes",
       "wifExpiresAt": "Access token expires at",

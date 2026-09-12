@@ -486,6 +486,10 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 	case "together-ai":
 		return modelsProbe(base, "https://api.together.xyz/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "tokenbazaar":
+		if base != "" && !strings.HasSuffix(base, "/v1") {
+			base += "/v1"
+		}
+
 		return modelsProbe(base, "https://zx1.deepwl.net/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "xai":
 		if base == "" {

@@ -27,25 +27,14 @@ export function ProviderConnectionTestDialog(props: {
   const [notice, setNotice] = useState<OperationNoticeValue | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<CredentialTestResult | null>(null);
-  const [tokenBazaarSpendApproved, setTokenBazaarSpendApproved] = useState(false);
 
   if (!props.account) return null;
-
-  const isTokenBazaar = props.account.provider.trim().toLowerCase() === "tokenbazaar";
-  // TokenBazaar's connection test is a real billed request (see
-  // provider-connection-test-dialog.tsx's zai branch for the same pattern on
-  // Z.ai). Unlike the passive zai warning, TokenBazaar additionally requires
-  // an explicit approval checkbox before "Run" is enabled, per this
-  // delivery's requirement that the billable live test never fire without
-  // the user seeing and approving a displayed maximum spend first.
-  const canRunTest = !isTokenBazaar || tokenBazaarSpendApproved;
 
   function resetDialogState() {
     setModelHint("");
     setNotice(null);
     setIsTesting(false);
     setTestResult(null);
-    setTokenBazaarSpendApproved(false);
   }
 
   function handleOpenChange(open: boolean) {
@@ -56,7 +45,6 @@ export function ProviderConnectionTestDialog(props: {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!props.account) return;
-    if (!canRunTest) return;
 
     setIsTesting(true);
     setNotice(null);
@@ -89,7 +77,7 @@ export function ProviderConnectionTestDialog(props: {
         <Button
           type="submit"
           form="provider-connection-test-form"
-          disabled={isTesting || !canRunTest}
+          disabled={isTesting}
           aria-busy={isTesting}
         >
           {isTesting ? <Spinner data-icon="inline-start" /> : <Activity data-icon="inline-start" />}
@@ -108,29 +96,6 @@ export function ProviderConnectionTestDialog(props: {
               info: ux("connectionTest.infoTitle"),
             }}
           />
-        ) : null}
-        {isTokenBazaar ? (
-          <>
-            <OperationNotice
-              notice={{ kind: "warning", message: ux("connectionTest.tokenbazaarBillableWarning") }}
-              labels={{
-                success: ux("connectionTest.successTitle"),
-                error: ux("connectionTest.errorTitle"),
-                warning: ux("connectionTest.warningTitle"),
-                info: ux("connectionTest.infoTitle"),
-              }}
-            />
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={tokenBazaarSpendApproved}
-                onChange={(event) => setTokenBazaarSpendApproved(event.target.checked)}
-                disabled={isTesting}
-                className="mt-1"
-              />
-              <span>{ux("connectionTest.tokenbazaarApprovalCheckbox")}</span>
-            </label>
-          </>
         ) : null}
         <DefinitionList columns={2}>
           <DefinitionListItem surface label={t("fields.provider")} value={props.account.provider} valueDir="ltr" />
