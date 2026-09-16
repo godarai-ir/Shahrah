@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -21,6 +21,8 @@ import {
 
 import { ThemeProvider } from "@/app/components/ThemeProvider";
 import { GodarAILogo } from "@/app/components/GodarAILogo";
+import { BuildGuildGiftNote } from "@/app/components/BuildGuildGiftNote";
+import { parseStoredSurvey, readStoredSurveyRaw } from "@/app/lib/build-guild-survey";
 import { mobileAuthUIEnabled } from "@/app/lib/mobile-auth-ui";
 import { onboardingMessages as t } from "./messages";
 
@@ -57,6 +59,8 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialUser, setSocialUser] = useState<SocialUser | null>(null);
+  const storedSurvey = useSyncExternalStore(subscribeNever, readStoredSurveyRaw, () => null);
+  const buildGuildSurvey = useMemo(() => parseStoredSurvey(storedSurvey), [storedSurvey]);
 
   const isExpired = step === "otp" && remainingSeconds <= 0;
   const formattedRemaining = useMemo(() => formatRemaining(remainingSeconds), [remainingSeconds]);
@@ -259,6 +263,8 @@ export default function OnboardingPage() {
                 </div>
               )}
 
+              {buildGuildSurvey && step !== "done" && <BuildGuildGiftNote className="mb-5" />}
+
               {notice && !isExpired && <StatusMessage variant="info" icon={<Clock />}>{notice}</StatusMessage>}
               {isExpired && (
                 <StatusMessage variant="warning" icon={<AlertCircle />}>
@@ -270,6 +276,7 @@ export default function OnboardingPage() {
 
               {step === "details" && (
                 <form className="flex flex-col gap-6" onSubmit={socialUser ? provisionSocial : requestOTP}>
+                  {buildGuildSurvey && <input type="hidden" name="build_guild_survey" value={JSON.stringify(buildGuildSurvey)} />}
                   {!socialUser ? <SocialAuthButtons /> : (
                     <StatusMessage variant="info" icon={<ShieldCheck />}>
                       ورود امن با حساب <strong dir="ltr">{socialUser.email}</strong> انجام شد. شناسه فضای کاری را انتخاب کنید.
@@ -433,6 +440,10 @@ function StatusMessage({
       <div>{children}</div>
     </div>
   );
+}
+
+function subscribeNever() {
+  return () => undefined;
 }
 
 async function postOnboarding(body: Record<string, unknown>) {

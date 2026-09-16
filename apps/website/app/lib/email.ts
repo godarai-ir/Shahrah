@@ -10,6 +10,7 @@ import {
   type ContactFieldId,
   type Question,
 } from "./on-premise-questionnaire";
+import { describeAnswers, type BuildGuildAnswers } from "./build-guild-survey";
 
 type SendEmailInput = {
   to: string;
@@ -254,6 +255,47 @@ export async function sendOnPremiseRequestEmail(input: {
     ],
   });
 }
+
+export async function sendBuildGuildSurveyEmail(input: {
+  answers: BuildGuildAnswers;
+}) {
+  const { answers } = input;
+  const unanswered = "—";
+  const rows = describeAnswers(answers).map((row) => ({ label: row.label, value: row.value || unanswered }));
+
+  const title = "پرسشنامه BuildGuild";
+  const text = [title, "", ...rows.map((row) => `- ${row.label}: ${row.value}`)].join("\n");
+
+  const html = `
+<div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #111827; max-width: 720px;">
+  <h2 style="margin: 0 0 16px;">${escapeHTML(title)}</h2>
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    ${rows
+      .map(
+        (row) => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; width: 50%; vertical-align: top;">${escapeHTML(row.label)}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top;"><strong>${escapeHTML(row.value)}</strong></td>
+    </tr>`,
+      )
+      .join("")}
+  </table>
+</div>`;
+
+  const who = answers.fullName || answers.mobile || "بدون نام";
+  await sendEmail({
+    to: process.env.BUILD_GUILD_SURVEY_EMAIL_TO?.trim() || defaultBuildGuildSurveyRecipient,
+    subject: `[BuildGuild] پرسشنامه — ${who}`,
+    text,
+    html,
+    tags: [
+      { name: "app", value: "website" },
+      { name: "flow", value: "build-guild-survey" },
+    ],
+  });
+}
+
+const defaultBuildGuildSurveyRecipient = "emailtord@gmail.com";
 
 function escapeHTML(value: string) {
   return value.replace(/[&<>"']/g, (character) => {
