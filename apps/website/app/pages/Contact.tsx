@@ -3,6 +3,8 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
+import { submitForm } from '@/app/lib/submit-form';
+
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 
 export function Contact() {
@@ -18,16 +20,7 @@ export function Contact() {
     setSubmitMessage('');
 
     try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(formData.entries())),
-      });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'ارسال پیام انجام نشد. لطفاً دوباره تلاش کنید.');
-      }
+      await submitForm('/api/contact', Object.fromEntries(formData.entries()), 'ارسال پیام انجام نشد. لطفاً دوباره تلاش کنید.');
 
       form.reset();
       setSubmitState('success');

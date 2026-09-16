@@ -1,14 +1,6 @@
-import { NextResponse } from "next/server";
-
 import { sendContactEmail } from "@/app/lib/email";
-
-type ContactBody = {
-  name?: unknown;
-  email?: unknown;
-  subject?: unknown;
-  message?: unknown;
-  website?: unknown;
-};
+import { deliverFormEmail, formError, formOk, isBotSubmission, normalizeField, readFormBody } from "@/app/lib/form-submission";
+import { isValidEmail } from "@/app/lib/submit-form";
 
 const limits = {
   name: 120,
@@ -18,14 +10,13 @@ const limits = {
 } as const;
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as ContactBody | null;
+  const body = await readFormBody(request);
   if (!body) {
-    return NextResponse.json({ ok: false, error: "درخواست نامعتبر است." }, { status: 400 });
+    return formError("درخواست نامعتبر است.");
   }
 
-  // A hidden field catches basic form bots without revealing whether an email was sent.
-  if (typeof body.website === "string" && body.website.trim()) {
-    return NextResponse.json({ ok: true });
+  if (isBotSubmission(body)) {
+    return formOk();
   }
 
   const name = normalizeField(body.name);
@@ -44,28 +35,12 @@ export async function POST(request: Request) {
     message.length > limits.message ||
     !isValidEmail(email)
   ) {
-    return NextResponse.json(
-      { ok: false, error: "لطفاً همه فیلدها را با اطلاعات معتبر تکمیل کنید." },
-      { status: 400 },
-    );
+    return formError("لطفاً همه فیلدها را با اطلاعات معتبر تکمیل کنید.");
   }
 
-  try {
-    await sendContactEmail({ name, email, subject, message });
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("[website][contact] failed to send contact email", error);
-    return NextResponse.json(
-      { ok: false, error: "ارسال پیام انجام نشد. لطفاً دوباره تلاش کنید." },
-      { status: 502 },
-    );
-  }
-}
-
-function normalizeField(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+  return deliverFormEmail(
+    "contact",
+    () => sendContactEmail({ name, email, subject, message }),
+    "ارسال پیام انجام نشد. لطفاً دوباره تلاش کنید.",
+  );
 }

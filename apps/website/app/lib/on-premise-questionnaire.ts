@@ -344,9 +344,7 @@ export function stepQuestions(step: Step) {
 
 export const allQuestions: Question[] = questionnaireSteps.flatMap(stepQuestions);
 
-export function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
-}
+export { isValidEmail } from './submit-form';
 
 export function isValidPhone(value: string) {
   const digits = value.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[\s\-()+]/g, '');

@@ -31,6 +31,7 @@ import {
   type ContactFieldId,
   type Question,
 } from '@/app/lib/on-premise-questionnaire';
+import { submitForm } from '@/app/lib/submit-form';
 
 const draftStorageKey = 'godarai-on-premise-request-draft-v1';
 
@@ -213,15 +214,11 @@ export function OnPremiseRequest() {
     setSubmitState('submitting');
     setSubmitError('');
     try {
-      const response = await fetch('/api/on-premise-request', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ contact, answers, notes, website: honeypotRef.current?.value ?? '' }),
-      });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) {
-        throw new Error(payload?.error || 'ارسال درخواست انجام نشد. لطفاً دوباره تلاش کنید.');
-      }
+      await submitForm(
+        '/api/on-premise-request',
+        { contact, answers, notes, website: honeypotRef.current?.value ?? '' },
+        'ارسال درخواست انجام نشد. لطفاً دوباره تلاش کنید.',
+      );
       writeDraft(null);
       setSubmitState('success');
     } catch (error) {

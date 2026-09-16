@@ -132,6 +132,29 @@ export async function sendEmail(input: SendEmailInput) {
   });
 }
 
+// Every website form is delivered exactly like the contact form: same inbox, same transport, same tags.
+const websiteFormInbox = "support@toliortri.resend.app";
+
+async function sendWebsiteFormEmail(input: {
+  flow: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+}) {
+  await sendEmail({
+    to: websiteFormInbox,
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    replyTo: input.replyTo,
+    tags: [
+      { name: "app", value: "website" },
+      { name: "flow", value: input.flow },
+    ],
+  });
+}
+
 export async function sendContactEmail(input: {
   name: string;
   email: string;
@@ -155,20 +178,14 @@ export async function sendContactEmail(input: {
   <p style="white-space: pre-wrap;">${escapeHTML(input.message)}</p>
 </div>`;
 
-  await sendEmail({
-    to: "support@toliortri.resend.app",
+  await sendWebsiteFormEmail({
+    flow: "contact",
     subject: `[Website contact] ${input.subject}`,
     text,
     html,
     replyTo: input.email,
-    tags: [
-      { name: "app", value: "website" },
-      { name: "flow", value: "contact" },
-    ],
   });
 }
-
-const defaultOnPremiseRequestRecipient = "support@toliortri.resend.app";
 
 export async function sendOnPremiseRequestEmail(input: {
   contact: Record<ContactFieldId, string>;
@@ -243,16 +260,12 @@ export async function sendOnPremiseRequestEmail(input: {
   <p style="white-space: pre-wrap; margin: 0;">${escapeHTML(notes || unanswered)}</p>
 </div>`;
 
-  await sendEmail({
-    to: process.env.ON_PREMISE_REQUEST_EMAIL_TO?.trim() || defaultOnPremiseRequestRecipient,
+  await sendWebsiteFormEmail({
+    flow: "on-premise-request",
     subject: `[On-Premise] درخواست استقرار — ${contact.organization}`,
     text,
     html,
     replyTo: contact.email,
-    tags: [
-      { name: "app", value: "website" },
-      { name: "flow", value: "on-premise-request" },
-    ],
   });
 }
 
@@ -283,15 +296,11 @@ export async function sendBuildGuildSurveyEmail(input: {
 </div>`;
 
   const who = answers.fullName || answers.mobile || "بدون نام";
-  await sendEmail({
-    to: "support@toliortri.resend.app",
+  await sendWebsiteFormEmail({
+    flow: "build-guild-survey",
     subject: `[BuildGuild] پرسشنامه — ${who}`,
     text,
     html,
-    tags: [
-      { name: "app", value: "website" },
-      { name: "flow", value: "build-guild-survey" },
-    ],
   });
 }
 
