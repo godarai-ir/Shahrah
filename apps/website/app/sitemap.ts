@@ -17,6 +17,7 @@ const staticRoutes = [
   "/features/observability",
   "/features/prompt-engineering",
   "/features/security",
+  "/on-premise",
   "/pricing",
   "/privacy",
   "/signup",

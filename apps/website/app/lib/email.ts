@@ -1,6 +1,16 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
+import {
+  contactFields,
+  detailKey,
+  isQuestionVisible,
+  questionnaireSteps,
+  type Answers,
+  type ContactFieldId,
+  type Question,
+} from "./on-premise-questionnaire";
+
 type SendEmailInput = {
   to: string;
   subject: string;
@@ -153,6 +163,94 @@ export async function sendContactEmail(input: {
     tags: [
       { name: "app", value: "website" },
       { name: "flow", value: "contact" },
+    ],
+  });
+}
+
+const defaultOnPremiseRequestRecipient = "emailtord@gmail.com";
+
+export async function sendOnPremiseRequestEmail(input: {
+  contact: Record<ContactFieldId, string>;
+  answers: Answers;
+  notes: string;
+}) {
+  const { contact, answers, notes } = input;
+  const unanswered = "—";
+
+  const contactRows = (Object.keys(contactFields) as ContactFieldId[]).map((id) => ({
+    label: contactFields[id].label,
+    value: contact[id] || unanswered,
+    detail: "",
+  }));
+
+  const answerRow = (question: Question) => {
+    const selected = question.options.find((option) => option.value === answers[question.id]);
+    const detail = answers[detailKey(question.id)];
+    return {
+      label: question.label,
+      value: selected ? selected.label : unanswered,
+      detail: detail && question.kind === "choice" && question.detail ? `${question.detail.label}: ${detail}` : "",
+    };
+  };
+
+  const sections = [
+    { title: "اطلاعات سازمان و تماس", rows: contactRows },
+    ...questionnaireSteps.flatMap((step) =>
+      step.groups.map((group) => ({
+        title: `${step.title} — ${group.title}`,
+        rows: group.questions.filter((question) => isQuestionVisible(question, answers)).map(answerRow),
+      })),
+    ),
+  ];
+
+  const text = [
+    "درخواست استقرار On-Premise گدارAI",
+    "",
+    ...sections.flatMap((section) => [
+      `## ${section.title}`,
+      ...section.rows.map((row) => `- ${row.label}: ${row.value}${row.detail ? ` (${row.detail})` : ""}`),
+      "",
+    ]),
+    "## توضیحات تکمیلی",
+    notes || unanswered,
+  ].join("\n");
+
+  const html = `
+<div dir="rtl" style="font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #111827; max-width: 720px;">
+  <h2 style="margin: 0 0 4px;">درخواست استقرار On-Premise گدارAI</h2>
+  <p style="margin: 0 0 20px; color: #6b7280;">${escapeHTML(contact.organization)} — ${escapeHTML(contact.contactName)}</p>
+  ${sections
+    .map(
+      (section) => `
+  <h3 style="margin: 24px 0 8px; font-size: 15px; color: #4f46e5;">${escapeHTML(section.title)}</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    ${section.rows
+      .map(
+        (row) => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; width: 55%; vertical-align: top;">${escapeHTML(row.label)}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
+        <strong>${escapeHTML(row.value)}</strong>${row.detail ? `<br /><span style="color: #6b7280;">${escapeHTML(row.detail)}</span>` : ""}
+      </td>
+    </tr>`,
+      )
+      .join("")}
+  </table>`,
+    )
+    .join("")}
+  <h3 style="margin: 24px 0 8px; font-size: 15px; color: #4f46e5;">توضیحات تکمیلی</h3>
+  <p style="white-space: pre-wrap; margin: 0;">${escapeHTML(notes || unanswered)}</p>
+</div>`;
+
+  await sendEmail({
+    to: process.env.ON_PREMISE_REQUEST_EMAIL_TO?.trim() || defaultOnPremiseRequestRecipient,
+    subject: `[On-Premise] درخواست استقرار — ${contact.organization}`,
+    text,
+    html,
+    replyTo: contact.email,
+    tags: [
+      { name: "app", value: "website" },
+      { name: "flow", value: "on-premise-request" },
     ],
   });
 }

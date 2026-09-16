@@ -110,6 +110,7 @@ export function Footer() {
               <li><Link href="/about" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">درباره ما</Link></li>
               <li><Link href="/contact" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">تماس با ما</Link></li>
               <li><Link href="/demo" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">رزرو وقت دمو</Link></li>
+              <li><Link href="/on-premise" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">استقرار درون‌سازمانی</Link></li>
               <li><Link href="/terms" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">قوانین و مقررات</Link></li>
               <li><Link href="/privacy" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">حریم خصوصی</Link></li>
             </ul>
