@@ -23,6 +23,7 @@ const staticRoutes = [
   "/privacy",
   "/signup",
   "/terms",
+  "/vs/litellm",
   ...solutions.map((solution) => solutionHref(solution.slug)),
 ];
 

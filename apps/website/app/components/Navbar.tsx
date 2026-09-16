@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Lock, Database, CalendarDays } from 'lucide-react';
+import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Lock, Database, CalendarDays, Scale } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -17,6 +17,10 @@ const features = [
 ];
 
 const mobileFeatures = features;
+
+const comparisons = [
+  { name: 'گدارAI در برابر LiteLLM', description: 'تفاوت‌ها و زمان مناسب مهاجرت', icon: Scale, href: '/vs/litellm' },
+];
 
 const primaryLinks = [
   { label: 'مستندات', href: '/docs' },
@@ -95,6 +99,22 @@ export function Navbar() {
                         </div>
                       </div>
                     ))}
+                    <div className="relative z-10 col-span-2 mt-3 border-t border-gray-100 pt-3 dark:border-gray-800/60">
+                      <div className="px-3 pb-2 text-xs font-bold text-slate-400 dark:text-slate-500">مقایسه‌ها</div>
+                      <div className="grid grid-cols-2 gap-x-4">
+                        {comparisons.map((item) => (
+                          <Link key={item.href} href={item.href} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group/item">
+                            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl group-hover/item:bg-indigo-500 group-hover/item:text-white transition-colors shadow-sm">
+                              <item.icon className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-slate-900 dark:text-white mb-1.5 transition-colors group-hover/item:text-indigo-600 dark:group-hover/item:text-indigo-400" style={{ fontFamily: 'var(--font-heading)' }}>{item.name}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{item.description}</div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -194,6 +214,23 @@ export function Navbar() {
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-slate-900 dark:text-white">{solution.navName}</span>
                     <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{solution.navDescription}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-3">
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500">مقایسه‌ها</span>
+              {comparisons.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex min-h-11 items-start gap-3 py-2"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <item.icon className="mt-0.5 h-5 w-5 shrink-0 text-indigo-500" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-slate-900 dark:text-white">{item.name}</span>
+                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{item.description}</span>
                   </span>
                 </Link>
               ))}

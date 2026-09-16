@@ -110,6 +110,7 @@ export function Footer() {
               <li><Link href="/docs" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">مستندات</Link></li>
               <li><Link href="/blog" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">وبلاگ</Link></li>
               <li><Link href="/catalog" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">کاتالوگ مدل‌ها</Link></li>
+              <li><Link href="/vs/litellm" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">گدارAI در برابر LiteLLM</Link></li>
               <li><a href={SOCIAL_LINKS.github} target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">گیت‌هاب</a></li>
             </ul>
           </div>
