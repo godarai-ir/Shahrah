@@ -168,7 +168,7 @@ export async function sendContactEmail(input: {
   });
 }
 
-const defaultOnPremiseRequestRecipient = "emailtord@gmail.com";
+const defaultOnPremiseRequestRecipient = "support@toliortri.resend.app";
 
 export async function sendOnPremiseRequestEmail(input: {
   contact: Record<ContactFieldId, string>;
@@ -295,7 +295,7 @@ export async function sendBuildGuildSurveyEmail(input: {
   });
 }
 
-const defaultBuildGuildSurveyRecipient = "emailtord@gmail.com";
+const defaultBuildGuildSurveyRecipient = "support@toliortri.resend.app";
 
 function escapeHTML(value: string) {
   return value.replace(/[&<>"']/g, (character) => {
