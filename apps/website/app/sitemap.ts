@@ -24,6 +24,7 @@ const staticRoutes = [
   "/signup",
   "/terms",
   "/vs/litellm",
+  "/vs/portkey",
   ...solutions.map((solution) => solutionHref(solution.slug)),
 ];
 

@@ -20,6 +20,7 @@ const mobileFeatures = features;
 
 const comparisons = [
   { name: 'گدارAI در برابر LiteLLM', description: 'تفاوت‌ها و زمان مناسب مهاجرت', icon: Scale, href: '/vs/litellm' },
+  { name: 'گدارAI در برابر Portkey', description: 'درگاه مستقل با استقرار کامل داخلی', icon: Scale, href: '/vs/portkey' },
 ];
 
 const primaryLinks = [
