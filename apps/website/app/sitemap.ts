@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/app/lib/seo";
+import { solutionHref, solutions } from "@/app/lib/solutions";
 
 const staticRoutes = [
   "/",
@@ -22,6 +23,7 @@ const staticRoutes = [
   "/privacy",
   "/signup",
   "/terms",
+  ...solutions.map((solution) => solutionHref(solution.slug)),
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

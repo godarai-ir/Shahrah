@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "website",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "apps/website",
+        "dev"
+      ],
+      "port": 3010,
+      "url": "http://127.0.0.1:3010"
+    },
+    {
+      "name": "website-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "apps/website",
+        "exec",
+        "next",
+        "start",
+        "-p",
+        "3011"
+      ],
+      "port": 3011,
+      "url": "http://127.0.0.1:3011"
+    }
+  ]
+}

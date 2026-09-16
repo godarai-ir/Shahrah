@@ -1,0 +1,218 @@
+<title>گدار برای فروشندگان نرم‌افزار سازمانی</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     GODAR — SOLUTION PAGE TEMPLATE (persona 5: software / ERP
+     vendors distributing an AI feature to many downstream corporate
+     customers — پگاه سیستم، فراگستر. Persona label based on
+     research-doc source copy for Pegah ("نرم‌افزار ERP ایرانی") —
+     not independently re-verified against a live site this round.
+     Same token system as previous pages.
+     ============================================================ */
+  :root{
+    --bg:#ffffff; --bg-muted:#f8fafc; --card:#ffffff; --ink:#0f172b; --ink-soft:#45556c; --ink-faint:#94a3b8;
+    --border:#e2e8f0; --indigo-50:#eef2ff; --indigo-200:#c7d2fe; --indigo-600:#4f39f6; --indigo-700:#432dd7;
+    --purple-500:#a855f7; --good:#0f9d63; --good-soft:#e7f7ef; --code-bg:#0b0f19; --code-ink:#d7deee;
+    --code-comment:#6b7690; --code-string:#7dd3a8; --font:'Vazirmatn', Tahoma, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a0a0a; --bg-muted:#111113; --card:#131316; --ink:#ffffff; --ink-soft:#a3adc2; --ink-faint:#6b7690;
+      --border:#242429; --indigo-50:rgba(99,102,241,.12); --indigo-200:rgba(129,140,248,.35); --indigo-600:#6d63f9;
+      --indigo-700:#a5b4fc; --purple-500:#c084fc; --good:#34d399; --good-soft:rgba(52,211,153,.12);
+      --code-bg:#000000; --code-ink:#d7deee; --code-comment:#5b6480; --code-string:#7dd3a8;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a0a0a; --bg-muted:#111113; --card:#131316; --ink:#ffffff; --ink-soft:#a3adc2; --ink-faint:#6b7690;
+    --border:#242429; --indigo-50:rgba(99,102,241,.12); --indigo-200:rgba(129,140,248,.35); --indigo-600:#6d63f9;
+    --indigo-700:#a5b4fc; --purple-500:#c084fc; --good:#34d399; --good-soft:rgba(52,211,153,.12);
+    --code-bg:#000000; --code-ink:#d7deee; --code-comment:#5b6480; --code-string:#7dd3a8;
+  }
+  body{ background:var(--bg); color:var(--ink); font-family:var(--font); direction:rtl; text-align:right; }
+  .wrap{ max-width:880px; margin:0 auto; padding-inline:20px; } * { box-sizing:border-box; }
+  header.site{ border-bottom:1px solid var(--border); }
+  .site-inner{ max-width:880px; margin:0 auto; padding-inline:20px; padding-block:16px; display:flex; align-items:center; justify-content:space-between; }
+  .logo{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink); font-weight:800; font-size:18px; }
+  .logo svg{ width:26px; height:19px; }
+  .crumb{ font-size:12.5px; color:var(--ink-faint); display:flex; align-items:center; gap:6px; }
+  .crumb b{ color:var(--ink-soft); font-weight:600; }
+  .hero{ padding-block:56px 40px; text-align:center; }
+  .badge{ display:inline-flex; align-items:center; gap:8px; border-radius:999px; border:1px solid var(--indigo-200);
+    background:var(--indigo-50); color:var(--indigo-700); font-size:13.5px; font-weight:600; padding:7px 16px; margin-bottom:22px; }
+  h1{ font-size:clamp(26px,4.4vw,38px); line-height:1.35; font-weight:800; letter-spacing:-.01em; max-width:22ch; margin:0 auto 10px; }
+  .gradient-line{ display:block; margin-top:4px; font-size:clamp(22px,3.6vw,30px); font-weight:800;
+    background:linear-gradient(to left, var(--indigo-600), var(--purple-500)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .subtext{ max-width:54ch; margin:18px auto 0; color:var(--ink-soft); font-size:16px; line-height:1.85; }
+  .cta-row{ display:flex; gap:12px; justify-content:center; margin-top:30px; flex-wrap:wrap; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; font-family:var(--font); font-weight:600; font-size:15px;
+    padding:13px 22px; border-radius:10px; text-decoration:none; cursor:pointer; border:1px solid transparent; }
+  .btn-primary{ background:var(--indigo-600); color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  .btn-secondary{ background:var(--bg); color:var(--ink); border-color:var(--border); }
+  .terminal{ background:var(--code-bg); border-radius:14px; overflow:hidden; margin:44px auto 0; max-width:640px;
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.35); text-align:right; direction:ltr; }
+  .terminal .bar{ display:flex; align-items:center; gap:8px; padding:11px 16px; border-bottom:1px solid rgba(255,255,255,.06); }
+  .terminal .dot{ width:10px; height:10px; border-radius:50%; }
+  .terminal .dot.r{ background:#ff5f57; } .terminal .dot.y{ background:#febc2e; } .terminal .dot.g{ background:#28c840; }
+  .terminal .fname{ margin-inline-start:auto; font-size:12px; color:#8b93a7; font-family:ui-monospace, monospace; }
+  .terminal pre{ margin:0; padding:20px; font-family:ui-monospace, 'IBM Plex Mono', monospace; font-size:13px; line-height:1.9; color:var(--code-ink); overflow-x:auto; }
+  .terminal .cm{ color:var(--code-comment); } .terminal .str{ color:var(--code-string); }
+  section{ padding-block:52px; } section.muted{ background:var(--bg-muted); }
+  .section-head{ text-align:center; max-width:46ch; margin:0 auto 30px; }
+  .section-head .eyebrow{ font-size:12.5px; font-weight:700; letter-spacing:.04em; color:var(--indigo-600); margin-bottom:8px; }
+  .section-head h2{ font-size:clamp(20px,3vw,26px); font-weight:800; line-height:1.4; margin:0; }
+  .qual-card{ background:var(--card); border:1px solid var(--border); border-radius:18px; padding:28px 26px; max-width:620px; margin:0 auto; }
+  .qual-item{ display:flex; align-items:flex-start; gap:12px; padding-block:12px; border-bottom:1px solid var(--border); }
+  .qual-item:last-child{ border-bottom:none; }
+  .qual-check{ flex:none; width:24px; height:24px; border-radius:50%; background:var(--good-soft); color:var(--good);
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-top:1px; }
+  .qual-item p{ margin:0; font-size:15px; line-height:1.7; color:var(--ink); }
+  .feature-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .feature-card{ background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
+  .feature-icon{ width:38px; height:38px; border-radius:10px; background:var(--indigo-50); color:var(--indigo-600);
+    display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+  .feature-card h3{ font-size:16px; font-weight:700; margin:0 0 6px; } .feature-card p{ font-size:14px; color:var(--ink-soft); line-height:1.75; margin:0; }
+  .media-slot{ border:1.5px dashed var(--border); border-radius:16px; aspect-ratio:16/9; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; color:var(--ink-faint); background:var(--bg-muted); text-align:center; padding:20px; }
+  .media-slot .icon{ width:40px; height:40px; opacity:.5; } .media-slot b{ color:var(--ink-soft); font-size:14px; } .media-slot span{ font-size:12.5px; max-width:32ch; }
+  .sku-box{ background:linear-gradient(155deg, var(--indigo-600), var(--purple-500)); border-radius:20px; padding:34px 30px; color:#fff; max-width:680px; margin:0 auto; }
+  .sku-box .kicker{ font-size:12.5px; font-weight:700; opacity:.85; margin-bottom:10px; } .sku-box p{ font-size:17px; line-height:1.95; margin:0; font-weight:500; }
+  .faq{ max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  .faq-item{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+  .faq-item summary{ cursor:pointer; font-weight:700; font-size:15px; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .faq-item summary::-webkit-details-marker{ display:none; }
+  .faq-item summary::after{ content:"+"; color:var(--indigo-600); font-size:20px; font-weight:400; flex:none; }
+  .faq-item[open] summary::after{ content:"−"; } .faq-item p{ margin:12px 0 0; font-size:14.5px; line-height:1.8; color:var(--ink-soft); }
+  .trust{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; font-size:14px; color:var(--ink-soft);
+    background:var(--bg-muted); border:1px solid var(--border); border-radius:14px; padding:16px 22px; max-width:620px; margin:0 auto; }
+  .trust a{ color:var(--indigo-600); font-weight:600; text-decoration:none; }
+  .final-cta{ text-align:center; }
+  footer.site{ border-top:1px solid var(--border); padding-block:26px; text-align:center; color:var(--ink-faint); font-size:12.5px; }
+  footer.site a{ color:var(--ink-faint); }
+  @media (max-width:640px){ .feature-grid{ grid-template-columns:1fr; } .site-inner{ flex-direction:column; align-items:flex-start; gap:8px; } }
+</style>
+
+<header class="site">
+  <div class="site-inner">
+    <a class="logo" href="https://godarai.ir">
+      <svg viewBox="140 372 1679 1235" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cyanGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#05D1EE"/><stop offset="0.52" stop-color="#00C9EB"/><stop offset="1" stop-color="#00BCE1"/></linearGradient>
+          <linearGradient id="navyGradient" x1="0.16" y1="0" x2="0.78" y2="1"><stop offset="0" stop-color="#022A57"/><stop offset="0.52" stop-color="#012651"/><stop offset="1" stop-color="#011D40"/></linearGradient>
+        </defs>
+        <path fill="url(#cyanGradient)" d="M 1758 432 L 1059 432 C 993 432 934 439 875 458 C 785 487 711 538 640 608 C 576 672 513 747 450 820 C 430 844 414 862 400 872 C 460 881 528 907 610 970 C 620 952 630 938 642 923 L 805 753 C 859 698 914 670 981 655 C 1007 649 1033 646 1059 646 L 1496 646 C 1534 646 1561 636 1586 614 L 1758 432 Z"/>
+        <path fill="url(#navyGradient)" d="M 1742 870 L 1046 870 C 1040 870 1038 874 1038 881 L 1040 1068 L 1515 1068 C 1490 1134 1446 1197 1388 1242 C 1308 1304 1206 1333 1090 1326 C 976 1319 883 1277 806 1205 C 766 1168 719 1112 669 1050 L 609 968 C 553 907 480 875 392 870 L 208 870 C 202 870 200 874 200 881 L 200 1068 L 325 1068 C 381 1068 422 1088 469 1131 L 606 1299 C 737 1454 900 1536 1088 1546 C 1268 1555 1431 1497 1548 1389 C 1673 1274 1747 1118 1750 1006 L 1750 883 C 1750 875 1747 871 1742 870 Z"/>
+      </svg>
+      گدارAI
+    </a>
+    <div class="crumb">راه‌حل‌ها <span>/</span> <b>برای فروشندگان نرم‌افزار سازمانی</b></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <span class="badge">🧩 راه‌حل گدار برای فروشندگان نرم‌افزار سازمانی و ERP</span>
+      <h1>هوش مصنوعی را به مشتریان‌تان عرضه کنید</h1>
+      <span class="gradient-line">اندازه‌گیری و صورت‌حساب مصرف، به تفکیک هر مشتری نهایی</span>
+      <p class="subtext">اگر یک ویژگی مبتنی بر مدل زبانی را داخل محصول خودتان به مشتریان سازمانی عرضه می‌کنید، گدار به شما امکان می‌دهد مصرف هر مشتری نهایی را جداگانه اندازه‌گیری، محدود و در صورت نیاز صورت‌حساب کنید — بدون ساختن این لایه از صفر.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://godarai.ir/demo">رزرو وقت دمو ←</a>
+        <a class="btn btn-secondary" href="https://godarai.ir/signup">۱۵ روز رایگان شروع کنید</a>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">tenants.py</span></div>
+        <pre><span class="cm"># هر مشتری نهایی، یک شناسه‌ی مصرف مجزا</span>
+tenant_id = <span class="str">"customer-42"</span>
+
+<span class="cm"># مصرف، هزینه و سقف بودجه به تفکیک همین شناسه ثبت می‌شود</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="muted">
+    <div class="wrap">
+      <div class="section-head"><div class="eyebrow">مخاطب این راهکار</div><h2>گدار مناسب شماست، اگر:</h2></div>
+      <div class="qual-card">
+        <div class="qual-item"><span class="qual-check">✓</span><p>محصول شما (مثلاً ERP یا نرم‌افزار سازمانی) یک قابلیت مبتنی بر مدل زبانی را به مشتریان عرضه می‌کند یا قصد این کار را دارد.</p></div>
+        <div class="qual-item"><span class="qual-check">✓</span><p>می‌خواهید مصرف مدل را برای هر مشتری نهایی جداگانه اندازه‌گیری کنید.</p></div>
+        <div class="qual-item"><span class="qual-check">✓</span><p>نمی‌خواهید یک سیستم اندازه‌گیری و صورت‌حساب مصرف مدل را از صفر بسازید.</p></div>
+        <div class="qual-item"><span class="qual-check">✓</span><p>به سقف مصرف قابل‌تنظیم برای هر مشتری نیاز دارید، تا از هزینه‌ی خارج از کنترل جلوگیری کنید.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head"><div class="eyebrow">مکانیزم</div><h2>چطور کار می‌کند</h2></div>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+          <h3>شناسه‌ی مصرف مجزا برای هر مشتری</h3><p>بدون تغییر معماری محصول شما — هر مشتری نهایی یک شناسه‌ی مستقل برای مصرف مدل می‌گیرد.</p></div>
+        <div class="feature-card"><div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <h3>سقف بودجه به تفکیک مشتری</h3><p>سقف مصرف قابل‌تنظیم برای هر مشتری، تا مصرف او هرگز از حد توافق‌شده عبور نکند.</p></div>
+        <div class="feature-card"><div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/><path d="M9 17v4l3-3 3 3v-4"/></svg></div>
+          <h3>گزارش مصرف آماده برای صورت‌حساب</h3><p>خروجی دقیق مصرف هر مشتری، آماده برای مدل قیمت‌گذاری یا صورت‌حساب شما.</p></div>
+        <div class="feature-card"><div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+          <h3>پایداری در پشت‌صحنه</h3><p>Failover خودکار بین چند ارائه‌دهنده، تا قطعی یک provider، تجربه‌ی مشتریان شما را قطع نکند.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="muted">
+    <div class="wrap">
+      <div class="section-head"><div class="eyebrow">در عمل</div><h2>نمای مصرف به تفکیک هر مشتری نهایی</h2></div>
+      <div class="media-slot"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+        <b>جای اسکرین‌شات یا ویدیوی محصول</b><span>پیشنهاد: نمای فهرست مشتریان نهایی با مصرف و سقف بودجه‌ی هرکدام</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="sku-box"><div class="kicker">پیشنهاد ما به فروشندگان نرم‌افزار سازمانی</div>
+        <p>به‌جای ساختن یک سیستم اندازه‌گیری و صورت‌حساب مصرف مدل از صفر، از زیرساخت آماده‌ی گدار استفاده کنید: هر مشتری نهایی یک شناسه‌ی مصرف مجزا می‌گیرد، سقف بودجه دارد و در پایان دوره، گزارش دقیق مصرف او آماده است.</p></div>
+    </div>
+  </section>
+
+  <section class="muted">
+    <div class="wrap">
+      <div class="section-head"><div class="eyebrow">در عمل</div><h2>تعریف سقف بودجه برای یک مشتری نهایی جدید</h2></div>
+      <div class="media-slot"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        <b>جای اسکرین‌شات یا ویدیوی محصول</b><span>پیشنهاد: فرآیند افزودن یک مشتری جدید و تعیین سقف بودجه‌ی او</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head"><div class="eyebrow">سوالات رایج</div><h2>عرضه‌ی هوش مصنوعی به مشتریان‌تان</h2></div>
+      <div class="faq">
+        <details class="faq-item"><summary>آیا باید معماری محصول‌مان را تغییر دهیم؟</summary>
+          <p>معمولاً نه. کافی است برای هر مشتری نهایی یک شناسه‌ی مصرف مجزا تعریف کنید؛ endpoint گدار از فرمت استاندارد OpenAI API پیروی می‌کند و همه‌ی مدل‌های کاتالوگ گدار را پوشش می‌دهد.</p></details>
+        <details class="faq-item"><summary>امنیت داده و کلیدهای هر مشتری چگونه تضمین می‌شود؟</summary>
+          <p>کلید اصلی هر ارائه‌دهنده هرگز در اختیار برنامه یا مشتری نهایی قرار نمی‌گیرد؛ به‌جای آن از توکن‌های دسترسی مجزا (PAT برای افراد، VAT برای سرویس‌ها) استفاده می‌شود و هر workspace به‌طور کامل از سایر workspaceها ایزوله است.</p></details>
+        <details class="faq-item"><summary>دسترسی به ارائه‌دهندگان خارجی از ایران قطع نمی‌شود؟</summary>
+          <p>گدار این مسئله را در زیرساخت خود حل کرده است؛ تیم‌های ایرانی بدون نگرانی از قطعی یا محدودیت دسترسی مستقیم، از طریق گدار به مدل‌های زبانی متصل می‌شوند.</p></details>
+        <details class="faq-item"><summary>آیا می‌توانیم مدل قیمت‌گذاری خودمان را روی مصرف مدل بگذاریم؟</summary>
+          <p>بله. گزارش مصرف به تفکیک هر مشتری نهایی در اختیار شماست و می‌توانید آن را مبنای مدل قیمت‌گذاری یا صورت‌حساب خودتان قرار دهید.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="muted">
+    <div class="wrap"><div class="trust"><span>۹۰ مدل فعال از ۹ ارائه‌دهنده در کاتالوگ گدار — همیشه به‌روز و قابل بررسی در <a href="https://godarai.ir/catalog">کاتالوگ مدل‌ها ↚</a></span></div></div>
+  </section>
+
+  <section class="final-cta">
+    <div class="wrap">
+      <div class="section-head" style="margin-bottom:22px;"><h2>برای محصول خودتان امتحان کنید</h2></div>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://godarai.ir/demo">رزرو وقت دمو ←</a>
+        <a class="btn btn-secondary" href="https://godarai.ir/signup">۱۵ روز رایگان شروع کنید</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site"><div class="wrap">گدارAI — درگاه مدل‌های زبانی برای تیم‌های ایرانی · <a href="https://godarai.ir">godarai.ir</a></div></footer>

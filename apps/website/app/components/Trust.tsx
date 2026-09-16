@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { SOCIAL_LINKS } from '@/app/lib/social-links';
 import { GodarAILogo } from './GodarAILogo';
+import { solutionHref, solutions } from '@/app/lib/solutions';
 
 export function Trust() {
   return (
@@ -49,8 +50,8 @@ export function Footer() {
             <CalendarDays className="w-5 h-5" />
           </Link>
         </div>
-        <div className="mb-6 grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-6">
-          <div className="col-span-3 md:col-span-1">
+        <div className="mb-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 md:gap-6">
+          <div className="col-span-2 sm:col-span-4 md:col-span-1">
             <div className="mb-3 flex items-center gap-2">
               <GodarAILogo
                 decorative
@@ -91,6 +92,15 @@ export function Footer() {
               <li><Link href="/features/prompt-engineering" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">رجیستری پرامپت</Link></li>
               <li><Link href="/features/security" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">امنیت و تطابق</Link></li>
               <li><Link href="/pricing" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">پلن‌های اشتراک</Link></li>
+            </ul>
+          </div>
+
+          <div className="min-w-0">
+            <h4 className="mb-2 text-sm font-bold text-slate-900 dark:text-white md:mb-3 md:text-base">راهکارها</h4>
+            <ul className="space-y-1.5 text-xs md:space-y-2 md:text-sm">
+              {solutions.map((solution) => (
+                <li key={solution.slug}><Link href={solutionHref(solution.slug)} className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">{solution.navName}</Link></li>
+              ))}
             </ul>
           </div>
 

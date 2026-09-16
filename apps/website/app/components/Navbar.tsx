@@ -5,6 +5,7 @@ import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
 import { GodarAILogo } from './GodarAILogo';
+import { solutionGroups, solutionHref, solutions } from '@/app/lib/solutions';
 
 const features = [
   { name: 'پایش و مشاهده‌پذیری', description: 'گزارش رخداد، رد درخواست و سنجه‌های مصرف', icon: Activity, href: '/features/observability' },
@@ -65,6 +66,34 @@ export function Navbar() {
                           <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{feature.description}</div>
                         </div>
                       </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="relative group/solutions h-full flex items-center">
+                <button className="text-sm font-medium text-slate-600 dark:text-gray-300 group-hover/solutions:text-indigo-500 dark:group-hover/solutions:text-indigo-400 transition-colors flex items-center gap-1">
+                  راهکارها
+                  <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover/solutions:rotate-180" />
+                </button>
+                <div className="absolute top-full right-0 w-[760px] opacity-0 invisible group-hover/solutions:opacity-100 group-hover/solutions:visible transition-all duration-300 -translate-y-2 group-hover/solutions:translate-y-0">
+                  <div className="bg-white dark:bg-[#0B0F19] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] border border-gray-100 dark:border-gray-800/60 p-5 grid grid-cols-2 gap-x-4 relative before:absolute before:inset-0 before:bg-gradient-to-b before:from-indigo-500/5 before:to-transparent before:rounded-2xl before:pointer-events-none">
+                    {solutionGroups.map((group) => (
+                      <div key={group.id} className="relative z-10">
+                        <div className="px-3 pb-2 text-xs font-bold text-slate-400 dark:text-slate-500">{group.label}</div>
+                        <div className="flex flex-col gap-1">
+                          {solutions.filter((solution) => solution.group === group.id).map((solution) => (
+                            <Link key={solution.slug} href={solutionHref(solution.slug)} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group/item">
+                              <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl group-hover/item:bg-indigo-500 group-hover/item:text-white transition-colors shadow-sm">
+                                <solution.icon className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-slate-900 dark:text-white mb-1.5 transition-colors group-hover/item:text-indigo-600 dark:group-hover/item:text-indigo-400" style={{ fontFamily: 'var(--font-heading)' }}>{solution.navName}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{solution.navDescription}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -152,6 +181,23 @@ export function Navbar() {
                 </span>
               </Link>
             ))}
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-3">
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500">راهکارها</span>
+              {solutions.map((solution) => (
+                <Link
+                  key={solution.slug}
+                  href={solutionHref(solution.slug)}
+                  className="flex min-h-11 items-start gap-3 py-2"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <solution.icon className="mt-0.5 h-5 w-5 shrink-0 text-indigo-500" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-slate-900 dark:text-white">{solution.navName}</span>
+                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{solution.navDescription}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-3">
               {[
                 { label: 'کاتالوگ مدل‌ها', href: '/catalog' },

@@ -284,7 +284,7 @@ export async function sendBuildGuildSurveyEmail(input: {
 
   const who = answers.fullName || answers.mobile || "بدون نام";
   await sendEmail({
-    to: process.env.BUILD_GUILD_SURVEY_EMAIL_TO?.trim() || defaultBuildGuildSurveyRecipient,
+    to: "support@toliortri.resend.app",
     subject: `[BuildGuild] پرسشنامه — ${who}`,
     text,
     html,
@@ -294,8 +294,6 @@ export async function sendBuildGuildSurveyEmail(input: {
     ],
   });
 }
-
-const defaultBuildGuildSurveyRecipient = "support@toliortri.resend.app";
 
 function escapeHTML(value: string) {
   return value.replace(/[&<>"']/g, (character) => {
