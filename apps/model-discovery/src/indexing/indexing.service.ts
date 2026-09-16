@@ -355,6 +355,19 @@ export class IndexingService {
           ].join(','),
         } as any);
 
+      // Models written outside the queue (e.g. the YAML importer) never reach
+      // Typesense, so its facet counts silently drift from the catalog. Treat a
+      // document-count mismatch as a stale index and let callers use Postgres.
+      const expected = await this.prisma.model.count({
+        where: { enabled: true, provider: { enabled: true } },
+      });
+      if (Number(result.found) !== expected) {
+        this.logger.warn(
+          `Typesense index is stale (found=${result.found}, expected=${expected}); falling back to database facet counts`,
+        );
+        return null;
+      }
+
       const counts = new Map<string, Map<string, number>>();
       for (const facet of result.facet_counts || []) {
         const values = new Map<string, number>();
