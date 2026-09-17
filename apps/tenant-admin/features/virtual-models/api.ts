@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { providersResponseSchema } from "@/lib/contracts/provider-catalog";
 import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
 
 const principalSchema = z.object({
@@ -157,4 +158,8 @@ export async function searchAccessPrincipals(kind: string, query: string): Promi
 export async function listTenantUsers(): Promise<TenantAdminUserLookup[]> {
   const payload = await requestParsedJSON(userLookupListSchema, "/api/gateway/lookups/users");
   return payload.data ?? [];
+}
+
+export function getProviderCatalog() {
+  return requestParsedJSON(providersResponseSchema, "/api/provider-catalog/providers").then((response) => response.data ?? []);
 }
