@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, LogOut, User, WalletCards } from "lucide-react";
+import { BookOpen, LogOut, Search, User, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ import {
   type AdminNavItem,
 } from "@/features/admin-shell/navigation";
 import { SectionTabs } from "@/features/admin-shell/SectionTabs";
+import { CommandPaletteProvider, useCommandPalette } from "@/features/admin-shell/command-palette-context";
 import { logout } from "@/features/admin-shell/api";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
 import { ShellPageHeading } from "@/components/app-ui/ShellPageHeading";
@@ -130,6 +131,7 @@ function AdminShellClientContent({
 
   return (
     <PermissionsProvider permissions={permissions}>
+      <CommandPaletteProvider>
       <SidebarProvider defaultOpen={!pathname.startsWith("/playground")} className="bg-background">
         <SidebarRouteStateSync pathname={pathname} />
         <a href="#main-content" className="skip-link">
@@ -191,6 +193,7 @@ function AdminShellClientContent({
           </div>
         </SidebarInset>
       </SidebarProvider>
+      </CommandPaletteProvider>
     </PermissionsProvider>
   );
 }
@@ -395,6 +398,14 @@ function AdminSidebar({
         role="navigation"
         aria-label={t("nav.title")}
       >
+        <SidebarGroup className="py-1">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <CommandPaletteTrigger tooltipSide={tooltipSide} onOpen={() => setOpenMobile(false)} />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {rootNavItems.length > 0 ? (
           <SidebarGroup className="py-1">
             <SidebarGroupContent>
@@ -479,6 +490,52 @@ function AdminSidebarNavItem({
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
+}
+
+function CommandPaletteTrigger({
+  tooltipSide,
+  onOpen,
+}: {
+  tooltipSide: React.ComponentProps<typeof TooltipContent>["side"];
+  onOpen: () => void;
+}) {
+  const t = useTranslations("shell");
+  const { setOpen } = useCommandPalette();
+  // The platform is unknown on the server; render Ctrl there so hydration matches, then correct on Mac.
+  const isMac = useSyncExternalStore(subscribeToNothing, isApplePlatform, () => false);
+  const label = t("palette.trigger");
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        type="button"
+        tooltip={{ children: label, side: tooltipSide }}
+        aria-keyshortcuts={isMac ? "Meta+K" : t("palette.shortcutHint")}
+        className="border border-sidebar-border bg-sidebar text-sidebar-foreground/70 hover:text-sidebar-foreground"
+        onClick={() => {
+          onOpen();
+          setOpen(true);
+        }}
+      >
+        <Search aria-hidden="true" />
+        <span className="min-w-0 truncate">{label}</span>
+        <kbd
+          dir="ltr"
+          className="ms-auto shrink-0 rounded border border-sidebar-border px-1.5 font-mono text-[0.625rem] text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden"
+        >
+          {isMac ? "⌘K" : "Ctrl K"}
+        </kbd>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+function subscribeToNothing() {
+  return () => {};
+}
+
+function isApplePlatform() {
+  return /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent);
 }
 
 function WalletBalanceLink({

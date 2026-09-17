@@ -5,6 +5,13 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function Command({
   className,
@@ -19,6 +26,36 @@ function Command({
       )}
       {...props}
     />
+  );
+}
+
+function CommandDialog({
+  title,
+  description,
+  children,
+  commandProps,
+  ...props
+}: React.ComponentProps<typeof Dialog> & {
+  title: string;
+  description: string;
+  commandProps?: React.ComponentProps<typeof CommandPrimitive>;
+}) {
+  return (
+    <Dialog {...props}>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-xl" showCloseButton={false}>
+        {/* Visually hidden, but Radix needs a title and description for the dialog's accessible name. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Command
+          {...commandProps}
+          className={cn("[&_[data-slot=command-input-wrapper]]:h-11", commandProps?.className)}
+        >
+          {children}
+        </Command>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -124,6 +161,7 @@ function CommandShortcut({
 
 export {
   Command,
+  CommandDialog,
   CommandInput,
   CommandList,
   CommandEmpty,
