@@ -20,7 +20,10 @@
     "state": {
       "complete": "Completed",
       "inProgress": "In progress"
-    }
+    },
+    "currentStep": "Current step: {step}",
+    "planPath": "{plan} plan path",
+    "estimate": "About {minutes} minutes to your first successful request"
   },
   "actions": {
     "refreshStatus": "Refresh status",
@@ -63,7 +66,8 @@
     "done": "Done",
     "active": "Next step",
     "locked": "Waiting on previous step",
-    "unavailable": "Unavailable for now"
+    "unavailable": "Unavailable for now",
+    "skipped": "Skipped"
   },
   "blocked": {
     "feature": "This step is not enabled in your current tenant entitlements.",
@@ -140,7 +144,11 @@
       "learn": "The gateway's value is not just making the call. It is also what you can observe and control after the call.",
       "action": "Open telemetry",
       "manageAction": "Open telemetry"
-    }
+    },
+    "skip": "Skip for now",
+    "donePrefix": "Manage",
+    "resume": "Back to this step",
+    "learnMore": "Learn more"
   },
   "tokenLabels": {
     "pat": "PAT",
@@ -167,7 +175,6 @@
       "pat": "Create a PAT or paste its secret before running the sample request.",
       "vat": "Paste the VAT secret before running the sample request."
     },
-    "localOnlyHint": "This field is only used to build snippets in your browser and is not sent to the admin server.",
     "generatedTokenTitle": "The newly created token is shown only once",
     "generatedTokenDescription": "If you just created a PAT, you can use it directly in this page's snippets or copy it separately.",
     "modelLabel": "Suggested starter model",
@@ -187,7 +194,8 @@
     "placeholderHint": {
       "pat": "If you still see the placeholder, create a PAT or temporarily paste your secret.",
       "vat": "If you still see the placeholder, temporarily paste the VAT secret you just created."
-    }
+    },
+    "tokenLocalOnly": "Kept in your browser only and never sent to the admin server."
   },
   "patDialog": {
     "title": "Create a PAT for quick start",
@@ -199,8 +207,7 @@
     "submit": "Create token"
   },
   "explore": {
-    "title": "What to do next",
-    "description": "After your first success, these sections are the most helpful for making your tenant operational.",
+    "afterJourney": "After this journey:",
     "cards": {
       "provider_accounts": {
         "title": "Provider accounts",
@@ -240,5 +247,11 @@
       }
     }
   },
-  "samplePrompt": "Write three key benefits of using an LLM gateway."
+  "samplePrompt": "Write three key benefits of using an LLM gateway.",
+  "locked": {
+    "afterStep": "After step {index}",
+    "feature": "Not in your plan",
+    "permission": "You lack access",
+    "skipped": "Skipped for now"
+  }
 }
