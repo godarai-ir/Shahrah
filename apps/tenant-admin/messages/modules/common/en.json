@@ -35,5 +35,17 @@
   },
   "identifierField": {
     "description": "Use letters, digits, hyphens, or underscores, with no spaces."
+  },
+  "table": {
+    "columns": "Columns",
+    "optionalColumns": "Optional columns",
+    "density": "Density",
+    "densityCompact": "Compact",
+    "densityRelaxed": "Relaxed",
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "selectedCount": "{count, plural, one {# item selected} other {# items selected}}",
+    "clearSelection": "Clear selection",
+    "bulkActions": "Bulk actions"
   }
 }

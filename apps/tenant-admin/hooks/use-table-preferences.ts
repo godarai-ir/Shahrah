@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { TableDensity } from "@/components/ui/table";
 
@@ -41,28 +41,48 @@ export function writeTablePreferences(tableId: string, preferences: TablePrefere
   try {
     getStorage()?.setItem(tablePreferencesKey(tableId), JSON.stringify(preferences));
   } catch {
-    // Storage can be full or blocked; preferences then last for this session only.
+    // Storage can be full or blocked; the table then keeps its defaults.
+  }
+}
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function readRaw(tableId: string): string | null {
+  try {
+    return getStorage()?.getItem(tablePreferencesKey(tableId)) ?? null;
+  } catch {
+    return null;
   }
 }
 
 export function useTablePreferences(tableId: string, defaults?: Partial<TablePreferences>) {
   const defaultsKey = JSON.stringify(defaults ?? {});
-  const [preferences, setPreferences] = useState<TablePreferences>(() => ({ ...DEFAULT_PREFERENCES, ...defaults }));
+  // The server snapshot is always null, so the first client render matches SSR before storage is read.
+  const raw = useSyncExternalStore(subscribe, () => readRaw(tableId), () => null);
 
-  // Read after mount so the server render and the first client render agree.
-  useEffect(() => {
-    setPreferences(readTablePreferences(tableId, JSON.parse(defaultsKey) as Partial<TablePreferences>));
-  }, [tableId, defaultsKey]);
+  const preferences = useMemo<TablePreferences>(() => {
+    const parsedDefaults = JSON.parse(defaultsKey) as Partial<TablePreferences>;
+    return raw === null ? { ...DEFAULT_PREFERENCES, ...parsedDefaults } : readTablePreferences(tableId, parsedDefaults);
+  }, [raw, tableId, defaultsKey]);
 
-  const update = useCallback((next: (current: TablePreferences) => TablePreferences) => {
-    setPreferences((current) => {
-      const value = next(current);
-      writeTablePreferences(tableId, value);
-      return value;
-    });
+  const update = useCallback((value: TablePreferences) => {
+    writeTablePreferences(tableId, value);
+    listeners.forEach((listener) => listener());
   }, [tableId]);
 
-  const setDensity = useCallback((density: TableDensity) => update((current) => ({ ...current, density })), [update]);
+  const setDensity = useCallback(
+    (density: TableDensity) => update({ ...preferences, density }),
+    [preferences, update],
+  );
 
   const columnVisibility = useMemo<Record<string, boolean>>(
     () => Object.fromEntries(preferences.hiddenColumns.map((id) => [id, false])),
@@ -70,11 +90,11 @@ export function useTablePreferences(tableId: string, defaults?: Partial<TablePre
   );
 
   const setColumnVisibility = useCallback((visibility: Record<string, boolean>) => {
-    update((current) => ({
-      ...current,
+    update({
+      ...preferences,
       hiddenColumns: Object.entries(visibility).filter(([, visible]) => !visible).map(([id]) => id),
-    }));
-  }, [update]);
+    });
+  }, [preferences, update]);
 
   return { density: preferences.density, setDensity, columnVisibility, setColumnVisibility };
 }

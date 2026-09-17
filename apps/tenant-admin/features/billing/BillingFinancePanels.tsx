@@ -264,7 +264,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
         </form>
       </SettingsCard>
       <SettingsCard title={t("bankTransfer.list.title")} description={t("bankTransfer.list.description")}>
-        <DataTable columns={columns} data={initialItems} emptyLabel={t("bankTransfer.list.empty")} />
+        <DataTable tableId="billing-bank-transfers" columns={columns} data={initialItems} emptyLabel={t("bankTransfer.list.empty")} />
       </SettingsCard>
     </div>
   );
@@ -443,7 +443,7 @@ export function ReportsPanel({ initialSummary, initialMonthly, initialError }: R
           description={t("reports.monthlyDetail.description", { month: format.jalaliMonth(monthKey) })}
           className="min-w-0 max-w-none overflow-hidden"
         >
-          <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel={t("reports.monthlyDetail.empty")} />
+          <DataTable tableId="billing-monthly-providers" columns={columns} data={monthly?.providers ?? []} emptyLabel={t("reports.monthlyDetail.empty")} />
         </SettingsCard>
         <AppCard title={t("reports.providerShare.title")} description={t("reports.providerShare.description")}>
           <div className="h-64">
@@ -825,7 +825,7 @@ function DocumentTableSection<T>({
           </div>
         </div>
       </div>
-      <DataTable columns={columns} data={paginatedRows} emptyLabel={emptyLabel} />
+      <DataTable tableId="billing-report-rows" columns={columns} data={paginatedRows} emptyLabel={emptyLabel} />
       <div className="flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-muted-foreground">
           {t("pagination.range", {
