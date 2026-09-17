@@ -8,7 +8,9 @@
     "virtualAccounts": "Virtual Accounts",
     "orgUnits": "Organization Units",
     "roles": "Roles",
-    "auditLogs": "Audit Logs"
+    "auditLogs": "Audit Logs",
+    "apiKeys": "API keys",
+    "members": "Members"
   },
   "searchPlaceholder": "Search users...",
   "usersPage": {
@@ -25,7 +27,8 @@
       "description": "Your current plan supports up to {limit} users. Upgrade your commercial plan to invite another user.",
       "cancel": "Not now",
       "action": "Upgrade or buy a plan"
-    }
+    },
+    "headerUsage": "{used} of {limit} members"
   },
   "inviteUser": "Invite User",
   "inviteTitle": "Invite User",
@@ -57,7 +60,8 @@
     "member": "MEMBER",
     "status": "STATUS",
     "lastActivity": "LAST ACTIVITY",
-    "neverActive": "Never"
+    "neverActive": "Never",
+    "moreRoles": "+{count}"
   },
   "status": {
     "deactivated": "Deactivated",
@@ -196,7 +200,8 @@
     "settings": "Settings",
     "logs": "Request logs",
     "billing": "Billing",
-    "other": "Other"
+    "other": "Other",
+    "support": "Support"
   },
   "permissionResources": {
     "policy": "policies",
@@ -208,7 +213,8 @@
     "provider_account": "provider accounts",
     "settings": "settings",
     "logs": "request logs",
-    "billing": "billing"
+    "billing": "billing",
+    "support_ticket": "Support ticket"
   },
   "permissionActions": {
     "list": "List",
@@ -223,7 +229,11 @@
     "replay": "Replay",
     "codes_redeem": "Redeem discount codes in",
     "documents_read": "View documents in",
-    "profile_manage": "Manage the profile in"
+    "profile_manage": "Manage the profile in",
+    "read_own": "view own",
+    "read_all": "view all",
+    "reply": "reply to",
+    "rate": "rate"
   },
   "permissionDescription": "{action} {resource}",
   "bulk": {
@@ -231,5 +241,62 @@
     "changeRoleDescription": "{count, plural, one {# user selected} other {# users selected}}",
     "result": "{succeeded, plural, one {# user updated} other {# users updated}}; {failed, plural, =0 {none failed} one {# failed} other {# failed}}.",
     "skipped": "{count, plural, one {# user was skipped (self or no email)} other {# users were skipped (self or no email)}}."
+  },
+  "filters": {
+    "role": "Role",
+    "status": "Status",
+    "allRoles": "All roles",
+    "allStatuses": "All statuses"
+  },
+  "member": {
+    "effectivePerms": "Effective permissions",
+    "permsSource": "Permissions come from the “{role}” role and are not set per member.",
+    "recentActivity": "Recent activity",
+    "noAccess": "No access",
+    "activeKeys": "Active keys",
+    "lastActivity": "Last activity",
+    "lastKeyUse": "Last key use",
+    "keysUnavailable": "You do not have access to view keys.",
+    "editRole": "Edit role",
+    "viewProfile": "Member profile"
+  },
+  "perms": {
+    "ops": {
+      "read": "View",
+      "create": "Create",
+      "manage": "Change",
+      "delete": "Delete"
+    },
+    "grantCount": "{count} active permissions",
+    "systemRoleLocked": "This is a system role and its permissions cannot be changed. Duplicate it to build a custom one."
+  },
+  "keys": {
+    "type": "Type",
+    "owner": "Owner",
+    "name": "Key name",
+    "noExpiry": "No expiry",
+    "expired": "Expired",
+    "expiresAt": "Expires",
+    "lastUsedAt": "Last used",
+    "status": "Status",
+    "typePat": "Personal",
+    "typeVat": "Service",
+    "unknownOwner": "Unknown",
+    "service": "Service",
+    "empty": "No keys have been created yet.",
+    "emptyDescription": "Personal keys and service keys for this workspace are listed here.",
+    "revokeOthersBlocked": "Another member's personal key cannot be revoked from here; only its holder can revoke it.",
+    "searchPlaceholder": "Search key name or owner",
+    "filterType": "Key type",
+    "allTypes": "All keys",
+    "title": "API keys",
+    "description": "Members' personal keys and service keys, in one list.",
+    "state": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "blocked": "Blocked"
+    },
+    "ownDescription": "Your personal keys."
   }
 }

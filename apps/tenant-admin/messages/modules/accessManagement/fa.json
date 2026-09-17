@@ -8,7 +8,9 @@
     "virtualAccounts": "کاربران مجازی",
     "orgUnits": "واحدهای سازمانی",
     "roles": "نقش‌ها",
-    "auditLogs": "گزارش‌های ممیزی"
+    "auditLogs": "گزارش‌های ممیزی",
+    "apiKeys": "کلیدهای API",
+    "members": "اعضا"
   },
   "searchPlaceholder": "جست‌وجوی کاربران...",
   "usersPage": {
@@ -25,7 +27,8 @@
       "description": "پلن فعلی حداکثر {limit} کاربر را پشتیبانی می‌کند. برای دعوت کاربر جدید، پلن تجاری خود را ارتقا دهید.",
       "cancel": "فعلاً نه",
       "action": "ارتقا یا خرید پلن"
-    }
+    },
+    "headerUsage": "{used} از {limit} عضو"
   },
   "inviteUser": "دعوت کاربر",
   "inviteTitle": "دعوت کاربر",
@@ -57,7 +60,8 @@
     "member": "عضو",
     "status": "وضعیت",
     "lastActivity": "آخرین فعالیت",
-    "neverActive": "هرگز"
+    "neverActive": "هرگز",
+    "moreRoles": "+{count}"
   },
   "status": {
     "deactivated": "غیرفعال",
@@ -196,7 +200,8 @@
     "settings": "تنظیمات",
     "logs": "گزارش‌های درخواست",
     "billing": "مالی و صورتحساب",
-    "other": "سایر"
+    "other": "سایر",
+    "support": "پشتیبانی"
   },
   "permissionResources": {
     "policy": "سیاست",
@@ -208,7 +213,8 @@
     "provider_account": "حساب ارائه‌دهنده",
     "settings": "تنظیمات",
     "logs": "گزارش درخواست",
-    "billing": "صورتحساب"
+    "billing": "صورتحساب",
+    "support_ticket": "تیکت پشتیبانی"
   },
   "permissionActions": {
     "list": "مشاهده فهرست",
@@ -223,7 +229,11 @@
     "replay": "بازپخش",
     "codes_redeem": "استفاده از کدهای تخفیف در",
     "documents_read": "مشاهده اسناد",
-    "profile_manage": "مدیریت پروفایل"
+    "profile_manage": "مدیریت پروفایل",
+    "read_own": "مشاهده موارد خود",
+    "read_all": "مشاهده همه",
+    "reply": "پاسخ",
+    "rate": "امتیازدهی"
   },
   "permissionDescription": "اجازه {action} {resource}",
   "bulk": {
@@ -231,5 +241,62 @@
     "changeRoleDescription": "{count, plural, other {# کاربر انتخاب شده}}",
     "result": "{succeeded, plural, other {# کاربر به‌روزرسانی شد}}؛ {failed, plural, =0 {بدون خطا} other {# مورد ناموفق}}.",
     "skipped": "{count, plural, other {# کاربر رد شد (خودتان یا بدون ایمیل)}}."
+  },
+  "filters": {
+    "role": "نقش",
+    "status": "وضعیت",
+    "allRoles": "همه نقش‌ها",
+    "allStatuses": "همه وضعیت‌ها"
+  },
+  "member": {
+    "effectivePerms": "مجوزهای مؤثر",
+    "permsSource": "مجوزها از نقش «{role}» می‌آیند و روی عضو جداگانه تنظیم نمی‌شوند.",
+    "recentActivity": "فعالیت اخیر",
+    "noAccess": "بدون دسترسی",
+    "activeKeys": "کلیدهای فعال",
+    "lastActivity": "آخرین فعالیت",
+    "lastKeyUse": "آخرین استفاده از کلید",
+    "keysUnavailable": "برای دیدن کلیدها دسترسی کافی ندارید.",
+    "editRole": "ویرایش نقش",
+    "viewProfile": "پرونده عضو"
+  },
+  "perms": {
+    "ops": {
+      "read": "مشاهده",
+      "create": "ساخت",
+      "manage": "تغییر",
+      "delete": "حذف"
+    },
+    "grantCount": "{count} مجوز فعال",
+    "systemRoleLocked": "این نقش سیستمی است و مجوزهایش قابل تغییر نیست. برای مجوز دلخواه، آن را تکثیر کنید."
+  },
+  "keys": {
+    "type": "نوع",
+    "owner": "مالک",
+    "name": "نام کلید",
+    "noExpiry": "بدون انقضا",
+    "expired": "منقضی شده",
+    "expiresAt": "انقضا",
+    "lastUsedAt": "آخرین استفاده",
+    "status": "وضعیت",
+    "typePat": "شخصی",
+    "typeVat": "سرویس",
+    "unknownOwner": "نامشخص",
+    "service": "سرویس",
+    "empty": "هنوز کلیدی ساخته نشده است.",
+    "emptyDescription": "کلیدهای شخصی و کلیدهای سرویس این فضای کاری اینجا فهرست می‌شوند.",
+    "revokeOthersBlocked": "ابطال کلید شخصی عضو دیگر از این صفحه ممکن نیست؛ فقط دارنده کلید می‌تواند آن را باطل کند.",
+    "searchPlaceholder": "جست‌وجوی نام کلید یا مالک",
+    "filterType": "نوع کلید",
+    "allTypes": "همه کلیدها",
+    "title": "کلیدهای API",
+    "description": "کلیدهای شخصی اعضا و کلیدهای سرویس، در یک فهرست.",
+    "state": {
+      "active": "فعال",
+      "expired": "منقضی شده",
+      "revoked": "باطل شده",
+      "blocked": "مسدود"
+    },
+    "ownDescription": "کلیدهای شخصی شما."
   }
 }

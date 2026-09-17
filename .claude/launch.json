@@ -26,6 +26,19 @@
       ],
       "port": 3011,
       "url": "http://127.0.0.1:3011"
+    },
+    {
+      "name": "tenant-admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "apps/tenant-admin",
+        "dev",
+        "-p",
+        "3020"
+      ],
+      "port": 3020,
+      "url": "http://127.0.0.1:3020"
     }
   ]
 }

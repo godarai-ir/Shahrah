@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Info, Plus, UsersRound } from "lucide-react";
+import { Plus } from "lucide-react";
 
-import { AppCard } from "@/components/app-ui/AppCard";
 import { AppEmailField } from "@/components/app-ui/AppEmailField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { DataTableBulkBar } from "@/components/app-ui/DataTableBulkBar";
@@ -13,6 +13,7 @@ import { DataTableToolbar } from "@/components/app-ui/DataTableToolbar";
 import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
+import { FilterField } from "@/components/app-ui/FilterField";
 import { FormSheet } from "@/components/app-ui/FormSheet";
 import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
@@ -26,12 +27,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Progress } from "@/components/ui/progress";
 import { DataTable } from "@/components/ui/data-table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCalendarLocale } from "@/hooks/use-locale-format";
+import { listTenantKeys, type TenantKey } from "@/features/access-keys/api";
+import type { PermissionItem } from "@/features/roles/contracts";
+import { hiddenRolesInUI, resolveRoleDisplayName } from "@/features/roles/role-display";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
+
+import { MemberDetailSheet } from "./member-detail-sheet";
+import {
+  filterMembers,
+  guessDisplayName,
+  hasTenantAdminRole,
+  isUserActive,
+  listUserRoleNames,
+  resolveIdentity,
+} from "./member-filters";
+import { parseUsersURLState, patchUsersURL, type MemberStatusFilter } from "./url-state";
 import {
   assignUserRole,
   getUserEntitlements,
@@ -44,8 +57,6 @@ import {
   type TenantAdminUser,
 } from "./api";
 
-const hiddenRolesInUI = new Set(["proxy_admin"]);
-
 type Banner = {
   kind: "success" | "error";
   message: string;
@@ -55,21 +66,31 @@ type UsersAccessManagementProps = {
   initialUsers: TenantAdminUser[];
   initialTotal: number;
   initialError: string | null;
+  initialPermissionCatalog: PermissionItem[];
   currentUserID: string;
   canManageUsers: boolean;
 };
 
 const PAGE_SIZE = 25;
 const USERS_FEATURE_KEY = "users.max";
+/**
+ * The control plane has no role or status filter on the user list, so the whole
+ * roster is fetched once and filtered here. 200 is the server's own page cap.
+ */
+const ROSTER_FETCH_LIMIT = 200;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
   const calendarLocale = useCalendarLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
+  const urlState = useMemo(() => parseUsersURLState(new URLSearchParams(queryString)), [queryString]);
 
   const [users, setUsers] = useState<TenantAdminUser[]>(props.initialUsers);
   const [total, setTotal] = useState(props.initialTotal);
-  const [query, setQuery] = useState("");
-  const [offset, setOffset] = useState(0);
+  const [requestedPage, setRequestedPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -80,6 +101,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>([]);
+  const [keys, setKeys] = useState<TenantKey[]>([]);
+  const [hasKeyData, setHasKeyData] = useState(false);
   const [roleFormOpen, setRoleFormOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState<TenantAdminUser | null>(null);
   const [selectedRoleName, setSelectedRoleName] = useState("");
@@ -91,23 +114,21 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [banner, setBanner] = useState<Banner | null>(
-    props.initialError
-      ? {
-          kind: "error",
-          message: props.initialError,
-        }
-      : null,
+    props.initialError ? { kind: "error", message: props.initialError } : null,
   );
-  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
+
+  const patchURL = useCallback(
+    (patch: Record<string, string | null | undefined>) => {
+      const next = patchUsersURL(new URLSearchParams(queryString), patch);
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    },
+    [pathname, queryString, router],
+  );
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setOffset(0);
-      void loadUsers(0, query.trim());
-    }, 300);
-    return () => clearTimeout(timer);
+    void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -116,6 +137,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       loadRoles(),
       getUserEntitlements().then((response) => {
         if (isMounted) setEntitlements(response);
+      }),
+      // Team admins and above can read the tenant key list; anyone else gets an
+      // error here and the drawer simply hides its key metrics.
+      listTenantKeys().then((response) => {
+        if (!isMounted) return;
+        setKeys(response.data ?? []);
+        setHasKeyData(true);
       }),
     ]).finally(() => {
       if (isMounted) setHasLoadedEntitlements(true);
@@ -126,9 +154,29 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     };
   }, []);
 
-  const roleFormPending = isBulkAssigning || (selectedUserForRole !== null && isAssigningRoleUserID === selectedUserForRole.id);
-  const noticeLabels = { success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") };
+  const roleFormPending =
+    isBulkAssigning || (selectedUserForRole !== null && isAssigningRoleUserID === selectedUserForRole.id);
+  const noticeLabels = {
+    success: t("alerts.success"),
+    error: t("alerts.error"),
+    warning: t("alerts.error"),
+    info: t("alerts.success"),
+  };
   const identityLabel = mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email");
+
+  const filteredUsers = useMemo(() => filterMembers(users, urlState), [users, urlState]);
+  // Clamped rather than reset on filter change, so narrowing the results cannot
+  // strand the table on a page that no longer exists.
+  const lastPage = Math.max(0, Math.ceil(filteredUsers.length / PAGE_SIZE) - 1);
+  const page = Math.min(requestedPage, lastPage);
+  const pageUsers = useMemo(
+    () => filteredUsers.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
+    [filteredUsers, page],
+  );
+  const openMember = useMemo(
+    () => users.find((user) => user.id === urlState.member) ?? null,
+    [users, urlState.member],
+  );
 
   const columns: ColumnDef<TenantAdminUser>[] = [
     {
@@ -138,12 +186,16 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       cell: ({ row }) => {
         const displayName = guessDisplayName(resolveIdentity(row.original));
         return (
-          <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            className="flex min-w-0 items-center gap-2 rounded text-start outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => patchURL({ member: row.original.id })}
+          >
             <Avatar className="size-6">
               <AvatarFallback className="text-xs">{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
             </Avatar>
             <span className="truncate font-medium">{displayName || "-"}</span>
-          </div>
+          </button>
         );
       },
     },
@@ -153,18 +205,40 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       meta: { label: identityLabel, headerClassName: "w-[28%]" },
       cell: ({ row }) => {
         const identity = resolveIdentity(row.original);
-        return <span dir="ltr" className="block truncate font-mono text-xs" title={identity}>{identity}</span>;
+        return (
+          <span dir="ltr" className="block truncate font-mono text-xs" title={identity}>
+            {identity}
+          </span>
+        );
       },
     },
     {
       id: "role",
       header: t("table.role"),
       meta: { label: t("table.role") },
-      cell: ({ row }) => (
-        <Badge variant={isUserActive(row.original) ? "secondary" : "outline"}>
-          {resolveRoleDisplayName(row.original.roles?.[0] ?? row.original.role)}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const roleNames = listUserRoleNames(row.original);
+        if (roleNames.length === 0) {
+          return <Badge variant="outline">{t("member.noAccess")}</Badge>;
+        }
+        const extra = roleNames.length - 1;
+        return (
+          <span className="flex min-w-0 items-center gap-1">
+            <Badge variant={isUserActive(row.original) ? "secondary" : "outline"} className="truncate">
+              {resolveRoleDisplayName(roleNames[0], availableRoles, t)}
+            </Badge>
+            {extra > 0 ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 tabular-nums"
+                title={roleNames.slice(1).map((role) => resolveRoleDisplayName(role, availableRoles, t)).join("، ")}
+              >
+                {t("table.moreRoles", { count: extra })}
+              </Badge>
+            ) : null}
+          </span>
+        );
+      },
     },
     {
       id: "status",
@@ -208,8 +282,18 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             disabled={isSelf || isUpdatingUserID === user.id}
             actions={[
               {
+                label: t("member.viewProfile"),
+                disabled: false,
+                onSelect: () => patchURL({ member: user.id }),
+              },
+              {
                 label: t("actions.changeRole"),
-                disabled: !props.canManageUsers || isSelf || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id,
+                disabled:
+                  !props.canManageUsers ||
+                  isSelf ||
+                  !user.email ||
+                  availableRoles.length === 0 ||
+                  isAssigningRoleUserID === user.id,
                 onSelect: () => openRoleForm(user),
               },
               active
@@ -230,13 +314,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     },
   ];
 
-  const from = total === 0 ? 0 : offset + 1;
-  const to = Math.min(offset + users.length, total);
-  const canPrev = offset > 0;
-  const canNext = offset + users.length < total;
+  const matchCount = filteredUsers.length;
+  const from = matchCount === 0 ? 0 : page * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE + pageUsers.length, matchCount);
+  const canPrev = page > 0;
+  const canNext = (page + 1) * PAGE_SIZE < matchCount;
   const usersLimit = coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]);
   const hasReachedUsersLimit = usersLimit !== null && total >= usersLimit;
-  const usersUsagePercent = usersLimit && usersLimit > 0 ? Math.min(100, (total / usersLimit) * 100) : 0;
 
   function handleOpenInvite() {
     if (hasReachedUsersLimit) {
@@ -252,24 +336,19 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     if (!open) setInviteError(null);
   }
 
-  async function loadUsers(nextOffset: number, q: string) {
+  async function loadUsers() {
     setIsLoading(true);
     try {
       const search = new URLSearchParams();
-      search.set("limit", String(PAGE_SIZE));
-      search.set("offset", String(nextOffset));
-      if (q) search.set("query", q);
+      search.set("limit", String(ROSTER_FETCH_LIMIT));
+      search.set("offset", "0");
 
       const data = await listUsers(search);
       setUsers(data.data ?? []);
       setTotal(data.total ?? 0);
-      setOffset(nextOffset);
       setBanner(null);
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: normalizeError(error, t("messages.loadUsersError")),
-      });
+      setBanner({ kind: "error", message: normalizeError(error, t("messages.loadUsersError")) });
     } finally {
       setIsLoading(false);
     }
@@ -280,11 +359,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       const data = await listUserRoles();
       const nextRoles = (data.data ?? []).filter((role) => !hiddenRolesInUI.has(role.name));
       setAvailableRoles(nextRoles);
-      setInviteRole((currentRole) => (
-        nextRoles.some((role) => role.name === currentRole)
-          ? currentRole
-          : resolveDefaultInviteRole(nextRoles)
-      ));
+      setInviteRole((currentRole) =>
+        nextRoles.some((role) => role.name === currentRole) ? currentRole : resolveDefaultInviteRole(nextRoles),
+      );
     } catch {
       // Ignore role loading failure for users table.
     }
@@ -294,7 +371,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     if (!props.canManageUsers) return;
     event.preventDefault();
     setInviteError(null);
-    setLastInviteLink(null);
 
     const email = inviteEmail.trim();
     if (!email) {
@@ -304,13 +380,16 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
     setIsInviting(true);
     try {
-      const response = await inviteUser({ email, role: inviteRole });
-      setLastInviteLink(response.link ?? null);
-      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.invitationSuccess") });
+      await inviteUser({ email, role: inviteRole });
+      showFeedbackToast({
+        kind: "success",
+        title: t("alerts.success"),
+        description: t("messages.invitationSuccess"),
+      });
       setInviteEmail("");
       setInviteRole(resolveDefaultInviteRole(availableRoles));
       setInviteOpen(false);
-      await loadUsers(0, query.trim());
+      await loadUsers();
     } catch (error) {
       setInviteError(normalizeError(error, t("messages.inviteError")));
     } finally {
@@ -328,9 +407,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         title: t("alerts.success"),
         description: activate ? t("messages.activateSuccess") : t("messages.deactivateSuccess"),
       });
-      await loadUsers(offset, query.trim());
+      await loadUsers();
     } catch (error) {
-      showFeedbackToast({ kind: "error", title: t("alerts.error"), description: normalizeError(error, t("messages.updateStatusError")) });
+      showFeedbackToast({
+        kind: "error",
+        title: t("alerts.error"),
+        description: normalizeError(error, t("messages.updateStatusError")),
+      });
     } finally {
       setIsUpdatingUserID(null);
     }
@@ -347,8 +430,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     setRoleError(null);
     try {
       await assignUserRole(email, roleName);
-      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.roleAssignmentSuccess") });
-      await loadUsers(offset, query.trim());
+      showFeedbackToast({
+        kind: "success",
+        title: t("alerts.success"),
+        description: t("messages.roleAssignmentSuccess"),
+      });
+      await loadUsers();
       return true;
     } catch (error) {
       setRoleError(normalizeError(error, t("messages.roleAssignmentError")));
@@ -360,9 +447,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
   function openRoleForm(user: TenantAdminUser) {
     if (!props.canManageUsers) return;
-    const currentRole = (user.roles?.[0] ?? user.role ?? "").trim();
     setSelectedUserForRole(user);
-    setSelectedRoleName(currentRole);
+    setSelectedRoleName(listUserRoleNames(user)[0] ?? "");
     setRoleError(null);
     setRoleFormOpen(true);
   }
@@ -410,36 +496,44 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     setRoleFormOpen(false);
     setBulkRoleUsers(null);
     bulkClearRef.current();
+    reportBulkResult(succeeded, failed, skipped);
+    await loadUsers();
+  }
+
+  // Same one-at-a-time shape as the role assignment above.
+  async function runBulkStatusChange(selected: TenantAdminUser[], activate: boolean, clearSelection: () => void) {
+    if (!props.canManageUsers || selected.length === 0) return;
+    const eligible = selected.filter(
+      (user) => user.id !== props.currentUserID && (activate || !hasTenantAdminRole(user)),
+    );
+    const skipped = selected.length - eligible.length;
+    setIsBulkAssigning(true);
+    let succeeded = 0;
+    let failed = 0;
+    for (const user of eligible) {
+      try {
+        await setUserActive(user.id, activate);
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setIsBulkAssigning(false);
+    clearSelection();
+    reportBulkResult(succeeded, failed, skipped);
+    await loadUsers();
+  }
+
+  function reportBulkResult(succeeded: number, failed: number, skipped: number) {
     const summary = t("bulk.result", { succeeded, failed });
     setBulkNotice({
       kind: failed === 0 && skipped === 0 ? "success" : succeeded === 0 ? "error" : "warning",
       message: skipped > 0 ? `${summary} ${t("bulk.skipped", { count: skipped })}` : summary,
     });
-    await loadUsers(offset, query.trim());
-  }
-
-  function resolveRoleDisplayName(roleName: string) {
-    const normalized = roleName.trim().toLowerCase();
-    const localizedRoleKey = {
-      billing_manager: "billingManager",
-      member: "member",
-      org_admin: "orgAdmin",
-      readonly_member: "readOnlyMember",
-      team_admin: "teamAdmin",
-      tenant_admin: "tenantAdmin",
-    }[normalized];
-    if (localizedRoleKey) {
-      return t(`roles.${localizedRoleKey}`);
-    }
-    const match = availableRoles.find((item) => item.name.trim().toLowerCase() === normalized);
-    if (match?.display_name?.trim()) {
-      return match.display_name;
-    }
-    return roleName;
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -447,66 +541,82 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         </Alert>
       ) : null}
 
-      {lastInviteLink ? (
-        <Alert className="border-primary/40 bg-primary/5">
-          <AlertTitle>{t("alerts.invitationLink")}</AlertTitle>
-          <AlertDescription>
-            <code className="block overflow-x-auto rounded bg-muted px-3 py-2 text-xs">
-              {lastInviteLink}
-            </code>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <Button
+          type="button"
+          className="w-full sm:w-auto"
+          onClick={handleOpenInvite}
+          disabled={!props.canManageUsers || !hasLoadedEntitlements}
+        >
+          <Plus data-icon="inline-start" />
+          {t("inviteUser")}
+        </Button>
+      </div>
 
-      <AppCard contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <Button type="button" className="w-full sm:w-auto" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
-              <Plus data-icon="inline-start" />
-              {t("inviteUser")}
-            </Button>
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div tabIndex={0} className="flex min-w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <UsersRound className="size-4" aria-hidden="true" />
-                    </span>
-                    <span className="text-sm font-semibold">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</span>
-                    {usersLimit !== null ? <Progress dir="ltr" value={usersUsagePercent} className="w-16" aria-label={t("usersPage.progressLabel", { value: Math.round(usersUsagePercent) })} /> : null}
-                    <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>{usersLimit === null ? t("usersPage.unlimitedTooltip") : t("usersPage.limitTooltip", { limit: usersLimit })}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-        </div>
+      <OperationNotice notice={bulkNotice} labels={noticeLabels} />
 
-        <OperationNotice notice={bulkNotice} labels={noticeLabels} />
-
-        <DataTable
-          tableId="users"
-          columns={columns}
-          data={users}
-          state={isLoading && users.length === 0 ? "loading" : "ready"}
-          skeletonRows={4}
-          emptyLabel={t("table.noUsersFound")}
-          noResultsSlot={<EmptyState variant="table" title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} />}
-          enableRowSelection={props.canManageUsers}
-          getRowId={(user) => user.id}
-          toolbar={(
-            <DataTableToolbar
-              search={(
-                <SearchField
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("searchPlaceholder")}
-                />
-              )}
-            />
-          )}
-          bulkBar={(ids, clear) => (
+      <DataTable
+        tableId="users"
+        columns={columns}
+        data={pageUsers}
+        state={isLoading && users.length === 0 ? "loading" : "ready"}
+        skeletonRows={4}
+        emptyLabel={t("table.noUsersFound")}
+        noResultsSlot={
+          <EmptyState
+            variant="table"
+            title={t("table.noUsersFound")}
+            description={t("usersPage.emptyDescription")}
+          />
+        }
+        enableRowSelection={props.canManageUsers}
+        getRowId={(user) => user.id}
+        toolbar={
+          <DataTableToolbar
+            search={
+              <SearchField
+                value={urlState.q}
+                onChange={(event) => patchURL({ q: event.target.value })}
+                placeholder={t("searchPlaceholder")}
+              />
+            }
+            filters={
+              <>
+                <FilterField label={t("filters.role")} hideLabel>
+                  <AppSelectField
+                    value={urlState.role || "all"}
+                    onValueChange={(value) => patchURL({ role: value === "all" ? null : value })}
+                    ariaLabel={t("filters.role")}
+                    triggerClassName="h-8 w-40 text-xs"
+                    options={[
+                      { value: "all", label: t("filters.allRoles") },
+                      ...availableRoles.map((role) => ({
+                        value: role.name,
+                        label: resolveRoleDisplayName(role.name, availableRoles, t),
+                      })),
+                    ]}
+                  />
+                </FilterField>
+                <FilterField label={t("filters.status")} hideLabel>
+                  <AppSelectField
+                    value={urlState.status}
+                    onValueChange={(value) => patchURL({ status: value as MemberStatusFilter })}
+                    ariaLabel={t("filters.status")}
+                    triggerClassName="h-8 w-36 text-xs"
+                    options={[
+                      { value: "all", label: t("filters.allStatuses") },
+                      { value: "active", label: t("status.active") },
+                      { value: "deactivated", label: t("status.deactivated") },
+                    ]}
+                  />
+                </FilterField>
+              </>
+            }
+          />
+        }
+        bulkBar={(ids, clear) => {
+          const selected = users.filter((user) => ids.includes(user.id));
+          return (
             <DataTableBulkBar
               count={ids.length}
               onClear={clear}
@@ -515,28 +625,62 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                   key: "change-role",
                   label: t("actions.changeRole"),
                   disabled: isBulkAssigning || availableRoles.length === 0,
-                  onSelect: () => openBulkRoleForm(users.filter((user) => ids.includes(user.id)), clear),
+                  onSelect: () => openBulkRoleForm(selected, clear),
+                },
+                {
+                  key: "activate",
+                  label: t("actions.activate"),
+                  disabled: isBulkAssigning,
+                  onSelect: () => void runBulkStatusChange(selected, true, clear),
+                },
+                {
+                  key: "deactivate",
+                  label: t("actions.deactivate"),
+                  destructive: true,
+                  disabled: isBulkAssigning,
+                  onSelect: () => void runBulkStatusChange(selected, false, clear),
                 },
               ]}
             />
-          )}
-        />
+          );
+        }}
+      />
 
-        <TablePagination
-          label={t("usersPage.title")}
-          summary={t("pagination.showingResults", { from, to, total })}
-          pageSizeLabel={t("pagination.rowsPerPage")}
-          pageSize={PAGE_SIZE}
-          page={Math.floor(offset / PAGE_SIZE) + 1}
-          previousLabel={t("pagination.prev")}
-          nextLabel={t("pagination.next")}
-          canPrevious={canPrev}
-          canNext={canNext}
-          disabled={isLoading}
-          onPrevious={() => void loadUsers(Math.max(0, offset - PAGE_SIZE), query.trim())}
-          onNext={() => void loadUsers(offset + PAGE_SIZE, query.trim())}
-        />
-      </AppCard>
+      <TablePagination
+        label={t("usersPage.title")}
+        summary={t("pagination.showingResults", { from, to, total: matchCount })}
+        pageSizeLabel={t("pagination.rowsPerPage")}
+        pageSize={PAGE_SIZE}
+        page={page + 1}
+        previousLabel={t("pagination.prev")}
+        nextLabel={t("pagination.next")}
+        canPrevious={canPrev}
+        canNext={canNext}
+        disabled={isLoading}
+        onPrevious={() => setRequestedPage(Math.max(0, page - 1))}
+        onNext={() => setRequestedPage(Math.min(lastPage, page + 1))}
+      />
+
+      <MemberDetailSheet
+        member={openMember}
+        roles={availableRoles}
+        permissionCatalog={props.initialPermissionCatalog}
+        keys={keys}
+        hasKeyData={hasKeyData}
+        canManageUsers={props.canManageUsers}
+        isSelf={openMember?.id === props.currentUserID}
+        onOpenChange={(open) => {
+          if (!open) patchURL({ member: null });
+        }}
+        onChangeRole={(member) => {
+          patchURL({ member: null });
+          openRoleForm(member);
+        }}
+        onToggleActive={(member, activate) => {
+          patchURL({ member: null });
+          void changeUserStatus(member.id, activate);
+        }}
+      />
 
       <FormSheet
         open={inviteOpen}
@@ -546,43 +690,55 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         size="sm"
         pending={isInviting}
         closeLabel={t("actions.close")}
-        footer={(
+        footer={
           <FormSheetActions
-            secondary={<Button type="button" variant="outline" disabled={isInviting} onClick={() => handleInviteOpenChange(false)}>{t("actions.cancel")}</Button>}
-            primary={<Button type="submit" form="invite-user-form" disabled={isInviting || !inviteRole || availableRoles.length === 0}>{isInviting ? t("button.inviting") : t("button.createInvite")}</Button>}
+            secondary={
+              <Button type="button" variant="outline" disabled={isInviting} onClick={() => handleInviteOpenChange(false)}>
+                {t("actions.cancel")}
+              </Button>
+            }
+            primary={
+              <Button
+                type="submit"
+                form="invite-user-form"
+                disabled={isInviting || !inviteRole || availableRoles.length === 0}
+              >
+                {isInviting ? t("button.inviting") : t("button.createInvite")}
+              </Button>
+            }
           />
-        )}
+        }
       >
-          <form id="invite-user-form" className="flex flex-col gap-4" onSubmit={handleInvite}>
-            {inviteError ? (
-              <Alert variant="destructive">
-                <AlertTitle>{t("alerts.error")}</AlertTitle>
-                <AlertDescription>{inviteError}</AlertDescription>
-              </Alert>
-            ) : null}
-            <AppEmailField
-              id="invite-email"
-              label={t("form.email")}
-              value={inviteEmail}
-              onChange={(event) => setInviteEmail(event.target.value)}
-              placeholder={t("form.emailPlaceholder")}
-              invalidMessage={t("messages.invalidEmail")}
-              requiredMessage={t("messages.provideEmail")}
-              required
-            />
-            <AppSelectField
-              label={t("form.role")}
-              ariaLabel={t("form.role")}
-              value={inviteRole}
-              onValueChange={setInviteRole}
-              triggerClassName="h-10 w-full"
-              options={availableRoles.map((role) => ({
-                value: role.name,
-                label: resolveRoleDisplayName(role.name),
-              }))}
-              disabled={availableRoles.length === 0}
-            />
-          </form>
+        <form id="invite-user-form" className="flex flex-col gap-4" onSubmit={handleInvite}>
+          {inviteError ? (
+            <Alert variant="destructive">
+              <AlertTitle>{t("alerts.error")}</AlertTitle>
+              <AlertDescription>{inviteError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <AppEmailField
+            id="invite-email"
+            label={t("form.email")}
+            value={inviteEmail}
+            onChange={(event) => setInviteEmail(event.target.value)}
+            placeholder={t("form.emailPlaceholder")}
+            invalidMessage={t("messages.invalidEmail")}
+            requiredMessage={t("messages.provideEmail")}
+            required
+          />
+          <AppSelectField
+            label={t("form.role")}
+            ariaLabel={t("form.role")}
+            value={inviteRole}
+            onValueChange={setInviteRole}
+            triggerClassName="h-10 w-full"
+            options={availableRoles.map((role) => ({
+              value: role.name,
+              label: resolveRoleDisplayName(role.name, availableRoles, t),
+            }))}
+            disabled={availableRoles.length === 0}
+          />
+        </form>
       </FormSheet>
 
       <CommercialPlanUpgradeDialog
@@ -596,60 +752,88 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
       <FormSheet
         open={roleFormOpen}
-        onOpenChange={(open) => { setRoleFormOpen(open); if (!open) { setRoleError(null); setBulkRoleUsers(null); } }}
+        onOpenChange={(open) => {
+          setRoleFormOpen(open);
+          if (!open) {
+            setRoleError(null);
+            setBulkRoleUsers(null);
+          }
+        }}
         title={bulkRoleUsers ? t("bulk.changeRoleTitle") : t("roleForm.title")}
-        description={bulkRoleUsers
-          ? t("bulk.changeRoleDescription", { count: bulkRoleUsers.length })
-          : selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""}
+        description={
+          bulkRoleUsers
+            ? t("bulk.changeRoleDescription", { count: bulkRoleUsers.length })
+            : selectedUserForRole?.email ??
+              (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ??
+              selectedUserForRole?.id ??
+              ""
+        }
         size="md"
         pending={roleFormPending}
         closeLabel={t("actions.close")}
-        footer={(
+        footer={
           <FormSheetActions
-            secondary={<Button type="button" variant="outline" disabled={roleFormPending} onClick={() => { setRoleFormOpen(false); setRoleError(null); setBulkRoleUsers(null); }}>{t("actions.cancel")}</Button>}
-            primary={<Button type="submit" form="assign-user-role-form" disabled={!props.canManageUsers || !(selectedUserForRole || bulkRoleUsers) || !selectedRoleName || roleFormPending}>{roleFormPending ? t("roleForm.submitting") : t("roleForm.submit")}</Button>}
+            secondary={
+              <Button
+                type="button"
+                variant="outline"
+                disabled={roleFormPending}
+                onClick={() => {
+                  setRoleFormOpen(false);
+                  setRoleError(null);
+                  setBulkRoleUsers(null);
+                }}
+              >
+                {t("actions.cancel")}
+              </Button>
+            }
+            primary={
+              <Button
+                type="submit"
+                form="assign-user-role-form"
+                disabled={
+                  !props.canManageUsers ||
+                  !(selectedUserForRole || bulkRoleUsers) ||
+                  !selectedRoleName ||
+                  roleFormPending
+                }
+              >
+                {roleFormPending ? t("roleForm.submitting") : t("roleForm.submit")}
+              </Button>
+            }
           />
-        )}
+        }
       >
-          <OperationNotice notice={roleError ? { kind: "error", message: roleError } : null} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
-          <form id="assign-user-role-form" className="flex flex-col gap-4" onSubmit={submitRoleForm}>
-            <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
-              {availableRoles.map((role) => (
-                <Label key={role.id} htmlFor={`user-role-${role.id}`} className="block cursor-pointer rounded-md border p-3 font-normal">
-                  <div className="flex items-start gap-3">
-                    <RadioGroupItem id={`user-role-${role.id}`} value={role.name} className="mt-1" />
-                    <div>
-                      <p className="text-sm font-semibold">{resolveRoleDisplayName(role.name)}</p>
-                      <p className="text-xs text-muted-foreground">{role.name}</p>
-                      {role.description?.trim() ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{role.description}</p>
-                      ) : null}
-                    </div>
+        <OperationNotice notice={roleError ? { kind: "error", message: roleError } : null} labels={noticeLabels} />
+        <form id="assign-user-role-form" className="flex flex-col gap-4" onSubmit={submitRoleForm}>
+          <RadioGroup
+            value={selectedRoleName}
+            onValueChange={setSelectedRoleName}
+            className="flex max-h-96 flex-col gap-3 overflow-auto pe-1"
+          >
+            {availableRoles.map((role) => (
+              <Label
+                key={role.id}
+                htmlFor={`user-role-${role.id}`}
+                className="block cursor-pointer rounded-md border p-3 font-normal"
+              >
+                <div className="flex items-start gap-3">
+                  <RadioGroupItem id={`user-role-${role.id}`} value={role.name} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-semibold">{resolveRoleDisplayName(role.name, availableRoles, t)}</p>
+                    <p className="text-xs text-muted-foreground">{role.name}</p>
+                    {role.description?.trim() ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{role.description}</p>
+                    ) : null}
                   </div>
-                </Label>
-              ))}
-            </RadioGroup>
-          </form>
+                </div>
+              </Label>
+            ))}
+          </RadioGroup>
+        </form>
       </FormSheet>
     </div>
   );
-}
-
-function resolveIdentity(user: TenantAdminUser) {
-  return user.email || (mobileAuthUIEnabled ? user.mobile : "") || user.id;
-}
-
-function isUserActive(user: TenantAdminUser) {
-  return user.active && user.role !== "deactivated";
-}
-
-function guessDisplayName(identity: string) {
-  const value = identity.trim();
-  if (!value) return "";
-  if (value.includes("@")) {
-    return value.split("@")[0];
-  }
-  return value;
 }
 
 function resolveDefaultInviteRole(roles: RoleDefinition[]): string {
@@ -669,11 +853,3 @@ function normalizeError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   return fallback;
 }
-
-function hasTenantAdminRole(user: TenantAdminUser): boolean {
-  if (user.role?.trim().toLowerCase() === "tenant_admin") {
-    return true;
-  }
-  return (user.roles ?? []).some((role) => role.trim().toLowerCase() === "tenant_admin");
-}
-
