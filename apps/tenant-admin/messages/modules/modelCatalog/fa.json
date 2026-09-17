@@ -19,27 +19,25 @@
   },
   "models": {
     "ariaLabel": "کاتالوگ مدل‌های مستأجر",
-    "resultCount": "{count, number} مدل"
+    "resultCount": "{count, number} مدل",
+    "searchPlaceholder": "نام مدل یا قابلیت…",
+    "contextWindow": "پنجره متن",
+    "inputPer1m": "ورودی / ۱M",
+    "outputPer1m": "خروجی / ۱M",
+    "unknownPrice": "نامشخص",
+    "replacedBy": "جایگزین: {model}"
   },
   "explorer": {
     "ariaLabel": "مرور سلسله‌مراتبی مدل‌های فضای کاری",
-    "providers": "ارائه‌دهندگان",
-    "accounts": "حساب‌ها",
+    "accounts": "حساب‌های ارائه‌دهنده",
     "models": "مدل‌های فعال",
-    "profile": "پروفایل مدل",
     "modelCount": "{count, number} مدل فعال",
     "emptyProviders": "ارائه‌دهنده‌ای وجود ندارد",
     "emptyProvidersDescription": "برای مشاهده مدل‌ها ابتدا یک حساب ارائه‌دهنده ایجاد کنید.",
-    "selectProvider": "یک ارائه‌دهنده انتخاب کنید",
-    "selectProviderDescription": "حساب‌های ارائه‌دهنده انتخاب‌شده در این ستون نمایش داده می‌شوند.",
-    "emptyAccounts": "حسابی وجود ندارد",
-    "emptyAccountsDescription": "برای این ارائه‌دهنده هنوز حسابی ساخته نشده است.",
     "selectAccount": "یک حساب انتخاب کنید",
-    "selectAccountDescription": "مدل‌های فعال حساب انتخاب‌شده در این ستون نمایش داده می‌شوند.",
+    "selectAccountDescription": "مدل‌های فعال حساب انتخاب‌شده اینجا نمایش داده می‌شوند.",
     "emptyModels": "مدل فعالی وجود ندارد",
-    "emptyModelsDescription": "هنوز مدلی روی این حساب فعال نشده است.",
-    "selectModel": "یک مدل انتخاب کنید",
-    "selectModelDescription": "پروفایل مدل انتخاب‌شده در این ستون نمایش داده می‌شود."
+    "emptyModelsDescription": "هنوز مدلی روی این حساب فعال نشده است."
   },
   "filters": {
     "search": "جست‌وجو",
@@ -95,10 +93,11 @@
     "needs_models": "نیازمند مدل",
     "needs_credentials": "نیازمند اعتبارنامه",
     "needs_access": "نیازمند دسترسی",
-    "pricing_incomplete": "قیمت‌گذاری ناقص"
-  },
-  "status": {
-    "deprecated": "منسوخ‌شده"
+    "pricing_incomplete": "قیمت‌گذاری ناقص",
+    "pricing": "قیمت ناقص",
+    "limited": "محدود",
+    "deprecated": "منسوخ",
+    "filterLabel": "آمادگی"
   },
   "pricing": {
     "input": "ورودی",
@@ -148,7 +147,6 @@
     "outputPrice": "خروجی",
     "ratesTitle": "نرخ‌های قیمت‌گذاری",
     "ratesDescription": "نرخ‌های عمومی شرط‌دار و مقدار مؤثر مستأجر برای حساب انتخاب‌شده.",
-    "capabilityReadinessTitle": "آمادگی قابلیت‌ها",
     "capabilityReadinessDescription": "پشتیبانی قراردادی به تفکیک endpoint، مدالیتی و transport؛ اعتبارسنجی زنده جداگانه نمایش داده می‌شود.",
     "deprecated": "این مدل منسوخ شده است. بارهای کاری را به یک مدل پشتیبانی‌شده منتقل کنید.",
     "deprecatedWithReplacement": "این مدل منسوخ شده است. جایگزین پیشنهادی: {replacement}.",
@@ -167,10 +165,8 @@
     "overridden": "قیمت خصوصی"
   },
   "capabilityReadiness": {
-    "endpoint": "Endpoint",
     "modality": "مدالیتی",
     "transport": "Transport",
-    "contract": "قرارداد",
     "live": "اعتبارسنجی زنده",
     "yes": "بله",
     "no": "خیر",
@@ -291,5 +287,8 @@
   "values": {
     "na": "ناموجود"
   },
-  "listSeparator": "، "
+  "listSeparator": "، ",
+  "profile": {
+    "capabilityReadiness": "آمادگی قابلیت‌ها"
+  }
 }

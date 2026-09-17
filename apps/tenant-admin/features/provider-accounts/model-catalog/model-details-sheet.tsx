@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
-import { TriangleAlert } from "lucide-react";
+import { BookOpen, FlaskConical, ScrollText, TriangleAlert } from "lucide-react";
 
 import {
   buildBashCurlGuideCommand,
@@ -12,12 +13,16 @@ import {
   getTenantApiBaseURL,
   resolveCurlGuideMode,
 } from "@/features/provider-accounts/utils";
+import { buildModelDiscoveryDetailsHref } from "@/features/provider-accounts/model-editor-utils";
+import { buildPlaygroundHref } from "@/lib/playground-mode";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { CopyAction } from "@/components/app-ui/CopyAction";
 import { ModalityFlow } from "@/components/app-ui/ModalityFlow";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TabbedCodePanel } from "@/components/app-ui/TabbedCodePanel";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -28,53 +33,104 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-import type { CatalogModel } from "./types";
+import type { CapabilityReadiness, CatalogModel } from "./types";
 import { formatCatalogModelDisplayName } from "./formatters";
+import { resolveModelAvailability } from "./readiness-summary";
 import { useCurlGuideSamples } from "@/features/provider-accounts/use-curl-guide-samples";
 
 type ModelDetailsSheetProps = {
   model: CatalogModel | null;
   accountID: string;
-  onAccountChange: (accountID: string) => void;
   onOpenChange: (open: boolean) => void;
 };
 
 export function ModelDetailsSheet({
   model,
   accountID,
-  onAccountChange,
   onOpenChange,
 }: ModelDetailsSheetProps) {
   const t = useTranslations("modelCatalog");
   const locale = useLocale();
+  const availability = model ? resolveModelAvailability(model, accountID) : null;
+  const modelName = model ? formatCatalogModelDisplayName(model.model, model.display_name) : t("drawer.title");
+  const links = useMemo(() => {
+    if (!model || !availability) return null;
+    const mode = resolveCurlGuideMode({
+      provider: model.provider,
+      model: model.model,
+      display_name: model.display_name,
+      mode: model.mode,
+      types: model.types,
+      capabilities: model.capabilities,
+      features: model.features,
+      input_modalities: model.input_modalities,
+      output_modalities: model.output_modalities,
+    });
+    return {
+      playground: buildPlaygroundHref(availability.fqn, mode),
+      logs: `/logs?${new URLSearchParams({ model: availability.fqn, provider: model.provider }).toString()}`,
+      docs: buildModelDiscoveryDetailsHref(model),
+    };
+  }, [availability, model]);
 
   return (
     <Sheet open={Boolean(model)} onOpenChange={onOpenChange}>
       <SheetContent
-        side={locale === "fa" ? "left" : "right"}
+        // inline-start: the right edge in RTL, the left edge in LTR.
+        side={locale === "fa" ? "right" : "left"}
         closeLabel={t("actions.close")}
-        className="flex min-w-0 w-full flex-col overflow-hidden p-0 sm:max-w-2xl"
+        className="flex w-full min-w-0 flex-col overflow-hidden p-0 sm:max-w-[460px]"
       >
-        <SheetHeader className="shrink-0 gap-2 px-6 pt-6 pe-12 text-start">
+        <SheetHeader className="shrink-0 gap-2 border-b border-border px-5 pb-4 pt-5 pe-12 text-start">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <SheetTitle
-              className="min-w-0 truncate"
-              dir="ltr"
-              title={model ? formatCatalogModelDisplayName(model.model, model.display_name) : undefined}
-            >
-              {model ? formatCatalogModelDisplayName(model.model, model.display_name) : t("drawer.title")}
-            </SheetTitle>
-            {model?.is_deprecated ? <StatusBadge status="warning">{t("status.deprecated")}</StatusBadge> : null}
+            <SheetTitle className="min-w-0 truncate" dir="ltr" title={modelName}>{modelName}</SheetTitle>
+            {model?.is_deprecated ? <StatusBadge status="error">{t("readiness.deprecated")}</StatusBadge> : null}
           </div>
-          <SheetDescription>{t("drawer.description")}</SheetDescription>
+          <SheetDescription className="sr-only">{t("drawer.description")}</SheetDescription>
+          {availability ? (
+            <div className="flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/30 ps-2">
+              <span className="sr-only">{t("drawer.fqn")}</span>
+              <code className="min-w-0 flex-1 truncate text-xs" dir="ltr" title={availability.fqn}>{availability.fqn}</code>
+              <CopyAction
+                value={availability.fqn}
+                copyLabel={t("actions.copyFqn")}
+                copyingLabel={t("actions.copying")}
+                copiedLabel={t("actions.copied")}
+              />
+            </div>
+          ) : null}
+          {links ? (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {links.playground ? (
+                <Button asChild size="sm">
+                  <Link href={links.playground}>
+                    <FlaskConical data-icon="inline-start" aria-hidden="true" />
+                    {t("actions.openPlayground")}
+                  </Link>
+                </Button>
+              ) : null}
+              <Button asChild size="sm" variant="outline">
+                <Link href={links.logs}>
+                  <ScrollText data-icon="inline-start" aria-hidden="true" />
+                  {t("actions.viewLogs")}
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={links.docs} target="_blank" rel="noreferrer">
+                  <BookOpen data-icon="inline-start" aria-hidden="true" />
+                  {t("actions.docs")}
+                </a>
+              </Button>
+            </div>
+          ) : null}
         </SheetHeader>
 
         {model ? (
           <ModelProfile
             model={model}
             accountID={accountID}
-            onAccountChange={onAccountChange}
-            className="min-h-0 flex-1 overflow-y-auto px-6 pb-6"
+            showAccountSelector={false}
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
           />
         ) : null}
       </SheetContent>
@@ -99,10 +155,7 @@ export function ModelProfile({
 }: ModelProfileProps) {
   const t = useTranslations("modelCatalog");
   const curlGuideSamples = useCurlGuideSamples();
-  const selectedAvailability = useMemo(
-    () => model.availability.find((item) => item.account_id === accountID) ?? model.availability[0] ?? null,
-    [accountID, model],
-  );
+  const selectedAvailability = useMemo(() => resolveModelAvailability(model, accountID), [accountID, model]);
   const code = useMemo(() => {
     if (!selectedAvailability) return null;
     const mode = resolveCurlGuideMode({
@@ -157,7 +210,7 @@ export function ModelProfile({
         />
       ) : null}
 
-      <DefinitionList columns={4}>
+      <DefinitionList columns={2}>
         <DefinitionListItem
           label={t("columns.context")}
           value={formatContext(model.context_window, t("values.na"))}
@@ -220,8 +273,8 @@ export function ModelProfile({
         ) : null}
       </DefinitionList>
 
+      <CapabilityReadinessList rows={selectedAvailability.capability_readiness ?? model.readiness ?? []} t={t} />
       <PricingRatesTable publicRates={model.public_pricing?.rates ?? []} effectiveRates={selectedAvailability.effective_pricing?.rates ?? []} t={t} />
-      <CapabilityReadinessTable rows={selectedAvailability.capability_readiness ?? model.readiness ?? []} t={t} />
 
       {code ? (
         <TabbedCodePanel
@@ -323,58 +376,69 @@ function PricingRatesTable({
   );
 }
 
-function CapabilityReadinessTable({
+function CapabilityReadinessList({
   rows,
   t,
 }: {
-  rows: NonNullable<CatalogModel["readiness"]>;
+  rows: CapabilityReadiness[];
   t: CatalogTranslator;
 }) {
   if (!rows.length) return null;
   return (
     <section className="space-y-3" aria-labelledby="model-capability-readiness-title">
       <div>
-        <h3 id="model-capability-readiness-title" className="text-sm font-semibold">{t("drawer.capabilityReadinessTitle")}</h3>
+        <h3 id="model-capability-readiness-title" className="text-sm font-semibold">{t("profile.capabilityReadiness")}</h3>
         <p className="text-xs text-muted-foreground">{t("drawer.capabilityReadinessDescription")}</p>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("capabilityReadiness.endpoint")}</TableHead>
-              <TableHead>{t("capabilityReadiness.modality")}</TableHead>
-              <TableHead>{t("capabilityReadiness.transport")}</TableHead>
-              <TableHead>{t("capabilityReadiness.contract")}</TableHead>
-              <TableHead>{t("capabilityReadiness.live")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, index) => (
-              <TableRow key={`${row.method ?? ""}:${row.endpoint}:${row.transport ?? ""}:${index}`}>
-                <TableCell dir="ltr" className="font-mono text-xs">
+      <ul className="divide-y divide-border rounded-lg border border-border">
+        {rows.map((row, index) => {
+          const modality = [row.input_modality, row.output_modality].filter(Boolean).join(" → ");
+          return (
+            <li key={`${row.method ?? ""}:${row.endpoint}:${row.transport ?? ""}:${index}`} className="flex flex-col gap-1.5 px-3 py-2.5">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <code className="min-w-0 truncate text-xs" dir="ltr" title={row.endpoint}>
                   {[row.method, row.endpoint].filter(Boolean).join(" ")}
-                </TableCell>
-                <TableCell>
-                  {[row.input_modality, row.output_modality].filter(Boolean).join(" → ") || t("values.na")}
-                </TableCell>
-                <TableCell dir="ltr">{row.transport ?? "http"}</TableCell>
-                <TableCell>
-                  <StatusBadge status={row.state === "contract_ready" ? "success" : "warning"}>
-                    {t(`capabilityReadiness.states.${row.state}`)}
-                  </StatusBadge>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={row.live_validated ? "success" : "neutral"}>
-                    {row.live_validated ? t("capabilityReadiness.yes") : t("capabilityReadiness.no")}
-                  </StatusBadge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                </code>
+                <StatusBadge status={capabilityStateStatus(row.state)} className="shrink-0">
+                  {t(`capabilityReadiness.states.${row.state}`)}
+                </StatusBadge>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {modality ? <span>{t("capabilityReadiness.modality")}: <bdi>{modality}</bdi></span> : null}
+                <span>{t("capabilityReadiness.transport")}: <bdi dir="ltr">{row.transport ?? "http"}</bdi></span>
+                <span>
+                  {t("capabilityReadiness.live")}: {row.live_validated ? t("capabilityReadiness.yes") : t("capabilityReadiness.no")}
+                </span>
+              </div>
+              {row.reason ? (
+                // Server reasons are not translated; English text must not inherit the RTL page direction.
+                <p className="text-xs leading-5 text-foreground/80" dir={isLatinText(row.reason) ? "ltr" : "auto"}>
+                  {row.reason}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
+}
+
+function capabilityStateStatus(state: CapabilityReadiness["state"]) {
+  switch (state) {
+    case "contract_ready":
+      return "success";
+    case "pricing_incomplete":
+      return "warning";
+    case "unsupported_transport":
+      return "info";
+    default:
+      return "error";
+  }
+}
+
+function isLatinText(value: string): boolean {
+  return !/[\u0590-\u08FF\uFB50-\uFEFF]/.test(value);
 }
 
 function formatPrice(value: number | undefined, fallback: string): string {
@@ -416,37 +480,39 @@ function hasDifferentPrice(effective: number | undefined, publicPrice: number | 
 
 function formatCapabilityList(
   values: string[] | undefined,
-  t: ReturnType<typeof useTranslations>,
+  t: CatalogTranslator,
 ): string {
   if (!values?.length) return t("values.na");
-  return values.map((value) => {
-    switch (value.trim().toLowerCase().replaceAll("-", "_")) {
-      case "chat":
-        return t("capabilities.chat");
-      case "tools":
-      case "tool_calling":
-        return t("capabilities.tools");
-      case "vision":
-        return t("capabilities.vision");
-      case "embeddings":
-      case "embedding":
-        return t("capabilities.embeddings");
-      case "text_to_speech":
-        return t("capabilities.textToSpeech");
-      case "moderation":
-        return t("capabilities.moderation");
-      case "image_generation":
-        return t("capabilities.imageGeneration");
-      case "audio_transcription":
-      case "transcription":
-        return t("capabilities.audioTranscription");
-      case "audio_translation":
-      case "translation":
-        return t("capabilities.audioTranslation");
-      default:
-        return value;
-    }
-  }).join(t("listSeparator"));
+  return values.map((value) => formatCapabilityLabel(value, t)).join(t("listSeparator"));
+}
+
+export function formatCapabilityLabel(value: string, t: CatalogTranslator): string {
+  switch (value.trim().toLowerCase().replaceAll("-", "_")) {
+    case "chat":
+      return t("capabilities.chat");
+    case "tools":
+    case "tool_calling":
+      return t("capabilities.tools");
+    case "vision":
+      return t("capabilities.vision");
+    case "embeddings":
+    case "embedding":
+      return t("capabilities.embeddings");
+    case "text_to_speech":
+      return t("capabilities.textToSpeech");
+    case "moderation":
+      return t("capabilities.moderation");
+    case "image_generation":
+      return t("capabilities.imageGeneration");
+    case "audio_transcription":
+    case "transcription":
+      return t("capabilities.audioTranscription");
+    case "audio_translation":
+    case "translation":
+      return t("capabilities.audioTranslation");
+    default:
+      return value;
+  }
 }
 
 function credentialKey(value: string): "managed" | "byok" {
