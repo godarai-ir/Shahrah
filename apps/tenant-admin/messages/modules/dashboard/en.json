@@ -1,19 +1,47 @@
 {
   "title": "Tenant Dashboard",
-  "subtitle": "Review the current plan, subscription status, and tenant limits",
-  "overviewEyebrow": "Workspace operations overview",
-  "workspaceUsers": "Workspace users",
-  "workspaceUsersHint": "Registered members in this workspace",
+  "subtitle": "Operational status for the last 24 hours",
   "refreshing": "Refreshing...",
+  "alerts": {
+    "errorRateSpike": {
+      "title": "Error rate jumped to {rate}% in the last hour",
+      "detail": "against a {baseline}% average over the previous 23 hours.",
+      "action": "View failed requests"
+    },
+    "loadFailed": {
+      "title": "Dashboard data could not be loaded."
+    },
+    "more": "+{count} more"
+  },
+  "metrics": {
+    "sectionLabel": "Key metrics",
+    "errorRate": {
+      "label": "Error rate · 24h",
+      "delta": "{value} pts"
+    },
+    "latencyP95": {
+      "label": "P95 latency"
+    },
+    "costToday": {
+      "label": "Cost today",
+      "average": "7-day avg"
+    },
+    "quota": {
+      "label": "Period quota used",
+      "daysRemaining": "{days} days left",
+      "progressHint": "{used} of {limit} requests",
+      "forecast": "forecast at period end {value}"
+    }
+  },
+  "onboarding": {
+    "title": "Finish setting up your workspace",
+    "description": "Connect a provider, issue a token, and send your first request to unlock the rest of the dashboard.",
+    "continue": "Continue setup"
+  },
   "keyCreatedTitle": "Newly created key is shown only once",
   "messages": {
     "errorTitle": "Error",
     "successTitle": "Success"
-  },
-  "quickStart": {
-    "title": "Operational quick start",
-    "description": "We prepared an interactive quick start that adapts to your plan, prepares your workspace, and helps you run the first successful request.",
-    "action": "Let's go"
   },
   "analytics": {
     "sectionLabel": "Workspace usage and health charts",
