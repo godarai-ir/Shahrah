@@ -361,7 +361,7 @@
    ======================================== */
 
 :root {
-  --sidebar-width: 280px;
+  --sidebar-width: 248px;
   --sidebar-collapsed-width: 72px;
   --header-height: 64px;
   --max-content-width: 80rem;  /* 1280px */

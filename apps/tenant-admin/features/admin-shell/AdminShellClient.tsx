@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, LogOut, User, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +38,16 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LocaleToggleMenuItem } from "@/components/locale-toggle";
 import { ThemeToggleMenuItem } from "@/components/theme-toggle";
-import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, resolveNavTabs, shouldHandleActiveNavClick, type AdminNavItem } from "@/features/admin-shell/navigation";
+import {
+  ADMIN_NAV_SECTIONS,
+  ROOT_NAV_ITEM_KEYS,
+  buildAdminNavItems,
+  filterVisibleNavItems,
+  resolveNavTabs,
+  resolveSectionEntryHref,
+  shouldHandleActiveNavClick,
+  type AdminNavItem,
+} from "@/features/admin-shell/navigation";
 import { SectionTabs } from "@/features/admin-shell/SectionTabs";
 import { logout } from "@/features/admin-shell/api";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
@@ -79,45 +87,6 @@ type AdminShellClientProps = {
 };
 
 const WHOLE_NUMBER_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 0 };
-const ROOT_NAV_ITEM_KEYS: AdminNavItem["key"][] = ["dashboard", "quickStart"];
-
-const SIDEBAR_NAV_GROUPS: Array<{
-  labelKey: string;
-  itemKeys: AdminNavItem["key"][];
-  icon: React.ComponentType<{ className?: string }>;
-}> = [
-  {
-    labelKey: "navGroups.models",
-    itemKeys: ["providerAccounts", "virtualModels"],
-    icon: Plug,
-  },
-  {
-    labelKey: "navGroups.prompts",
-    itemKeys: ["prompts", "playground"],
-    icon: BookOpen,
-  },
-  {
-    labelKey: "navGroups.observability",
-    itemKeys: ["logs", "traces", "metrics"],
-    icon: Eye,
-  },
-  {
-    labelKey: "navGroups.policies",
-    itemKeys: ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"],
-    icon: ShieldCheck,
-  },
-  {
-    labelKey: "navGroups.access",
-    itemKeys: ACCESS_NAV_ITEM_KEYS,
-    icon: Users,
-  },
-  {
-    labelKey: "navGroups.billing",
-    itemKeys: ["billing", "topup", "bankTransfer", "billingReports", "billingProfile", "billingDocuments"],
-    icon: WalletCards,
-  },
-];
-
 export default function AdminShellClient({
   ...props
 }: AdminShellClientProps) {
@@ -169,8 +138,8 @@ function AdminShellClientContent({
         <AdminSidebar
           tenantSlug={tenantSlug}
           navItems={visibleNavItems}
+          allNavItems={navItems}
           subscriptionSummary={subscriptionSummary}
-          appVersion={appVersion}
           onNavigate={(href) => {
             router.replace(href);
             router.refresh();
@@ -199,7 +168,7 @@ function AdminShellClientContent({
 
               <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
                 <WalletBalanceLink summary={walletSummary} />
-                <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
+                <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} appVersion={appVersion} />
                 {supportNavItem ? <SupportLink item={supportNavItem} /> : null}
                 <div className="hidden sm:block">
                   <DocsLink href={pageHeader?.helpHref ?? docsHref} />
@@ -251,9 +220,10 @@ type UserProfileMenuProps = {
   currentUser: {
     role: string;
   };
+  appVersion: string;
 };
 
-function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
+function UserProfileMenu({ userIdentity, currentUser, appVersion }: UserProfileMenuProps) {
   const router = useRouter();
   const t = useTranslations("shell");
   const userInitials = getUserInitials(userIdentity);
@@ -328,6 +298,9 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
             <span>{t("logout")}</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
+        <p className="px-3 pt-2 pb-1 text-xs text-muted-foreground">
+          {t("appVersion.label")} <span dir="ltr" className="font-mono">{appVersion}</span>
+        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -336,42 +309,43 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
 type SidebarContentProps = {
   tenantSlug: string;
   navItems: AdminNavItem[];
+  allNavItems: AdminNavItem[];
   subscriptionSummary: {
     planName: string | null;
     status: string | null;
     periodEnd: string | null;
   };
-  appVersion: string;
   onNavigate: (href: string) => void;
 };
 
 function AdminSidebar({
   tenantSlug,
   navItems,
+  allNavItems,
   subscriptionSummary,
-  appVersion,
   onNavigate,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
   const common = useTranslations("common");
   const locale = useLocale();
-  const { isMobile, setOpenMobile, state } = useSidebar();
+  const { setOpenMobile } = useSidebar();
   const brandName = common("appMetadata.brand");
   const direction = getLocaleDirection(locale);
   const sidebarSide = direction === "rtl" ? "right" : "left";
   const tooltipSide = direction === "rtl" ? "left" : "right";
-  const showCompactNavigation = !isMobile && state === "collapsed";
   const navItemsByKey = useMemo(() => {
-    return new Map(navItems.map((item) => [item.key, item]));
-  }, [navItems]);
+    return new Map(
+      navItems.map((item) => [item.key, { ...item, href: resolveSectionEntryHref(item, allNavItems, navItems) }]),
+    );
+  }, [navItems, allNavItems]);
 
-  const navGroups = useMemo(() => {
-    return SIDEBAR_NAV_GROUPS.map((group) => ({
-      ...group,
-      items: group.itemKeys
+  const navSections = useMemo(() => {
+    return ADMIN_NAV_SECTIONS.map((section) => ({
+      ...section,
+      items: section.itemKeys
         .map((key) => navItemsByKey.get(key))
         .filter((item): item is AdminNavItem => Boolean(item)),
-    })).filter((group) => group.items.length > 0);
+    })).filter((section) => section.items.length > 0);
   }, [navItemsByKey]);
   const rootNavItems = useMemo(() => {
     return ROOT_NAV_ITEM_KEYS
@@ -439,58 +413,30 @@ function AdminSidebar({
           </SidebarGroup>
         ) : null}
 
-        {showCompactNavigation
-          ? navGroups.map((group) => (
-              <SidebarGroup key={group.labelKey} className="py-1">
-                <SidebarGroupContent>
-                  <SidebarMenu aria-label={t(group.labelKey)}>
-                    {group.items.map((item) => (
-                      <AdminSidebarNavItem
-                        key={item.href}
-                        item={item}
-                        tooltipSide={tooltipSide}
-                        onCloseMobile={() => setOpenMobile(false)}
-                        onNavigate={onNavigate}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))
-          : navGroups.map((group) => (
-              <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
-                <SidebarGroup className="py-1">
-                  <SidebarGroupLabel asChild>
-                    <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <group.icon className="size-4 shrink-0 text-sidebar-foreground/55" aria-hidden="true" />
-                        <span className="truncate">{t(group.labelKey)}</span>
-                      </span>
-                      <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
-                    </CollapsibleTrigger>
-                  </SidebarGroupLabel>
-                  <CollapsibleContent>
-                    <SidebarGroupContent>
-                      <SidebarMenu aria-label={t(group.labelKey)} className="gap-0.5">
-                        {group.items.map((item) => (
-                          <AdminSidebarNavItem
-                            key={item.href}
-                            item={item}
-                            tooltipSide={tooltipSide}
-                            onCloseMobile={() => setOpenMobile(false)}
-                            onNavigate={onNavigate}
-                          />
-                        ))}
-                      </SidebarMenu>
-                    </SidebarGroupContent>
-                  </CollapsibleContent>
-                </SidebarGroup>
-              </Collapsible>
-            ))}
+        {navSections.map((section) => (
+          <SidebarGroup key={section.key} className="py-1">
+            <SidebarGroupLabel className="px-2.5 text-xs font-semibold tracking-wide text-sidebar-foreground/50">
+              {t(section.labelKey)}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu aria-label={t(section.labelKey)} className="gap-0.5">
+                {section.items.map((item) => (
+                  <AdminSidebarNavItem
+                    key={item.key}
+                    item={item}
+                    tooltipSide={tooltipSide}
+                    onCloseMobile={() => setOpenMobile(false)}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border! bg-sidebar-accent/20 p-3 group-data-[collapsible=icon]:hidden">
-        <SidebarPlanSummary summary={subscriptionSummary} appVersion={appVersion} onNavigate={() => setOpenMobile(false)} />
+      <SidebarFooter className="border-t border-sidebar-border! p-2 group-data-[collapsible=icon]:hidden">
+        <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
       </SidebarFooter>
       <SidebarRail aria-label={t("menu.toggle")} title={t("menu.toggle")} />
     </Sidebar>
@@ -632,7 +578,6 @@ function getUserInitials(value: string): string {
 
 function SidebarPlanSummary({
   summary,
-  appVersion,
   onNavigate,
 }: {
   summary: {
@@ -640,12 +585,11 @@ function SidebarPlanSummary({
     status: string | null;
     periodEnd: string | null;
   };
-  appVersion: string;
   onNavigate: () => void;
 }) {
   const t = useTranslations("shell");
   const numberFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
-  const planName = t("plan.label", { name: summary.planName ?? t("plan.unknown") });
+  const planName = summary.planName ?? t("plan.unknown");
   const isExpired = ["expired", "canceled"].includes(summary.status?.trim().toLowerCase() ?? "");
   const periodLabel = isExpired
     ? t("plan.expired")
@@ -656,15 +600,12 @@ function SidebarPlanSummary({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton size="lg" variant="outline" tooltip={t("nav.plan")} className="flex-col gap-1.5" asChild>
-          <Link href="/billing/plan" onClick={onNavigate}>
-            <span className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center">
-              <span className="truncate text-xs font-medium">{planName}</span>
-              <span className="text-sidebar-foreground/35" aria-hidden="true">|</span>
-              <span className={cn("truncate text-xs font-normal", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>{periodLabel}</span>
-            </span>
-            <span className="w-full text-center text-xs leading-none text-sidebar-foreground/45">
-              {t("appVersion.label")} <span dir="ltr" className="font-mono">{appVersion}</span>
+        <SidebarMenuButton tooltip={t("nav.plan")} className="gap-2 text-xs" asChild>
+          <Link href="/billing/plan" onClick={onNavigate} aria-label={`${t("plan.label", { name: planName })} · ${periodLabel}`}>
+            <span className={cn("size-2 shrink-0 rounded-full", isExpired ? "bg-warning" : "bg-success")} aria-hidden="true" />
+            <span className="min-w-0 truncate font-medium">{planName}</span>
+            <span className={cn("ms-auto shrink-0 truncate", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>
+              {periodLabel}
             </span>
           </Link>
         </SidebarMenuButton>
