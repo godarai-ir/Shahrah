@@ -9,7 +9,7 @@ import type {
   TenantProviderAccount,
   TenantProviderAccountSummary,
 } from "@/features/provider-accounts/types";
-import { formatProviderDisplayName, normalizeError } from "@/features/provider-accounts/utils";
+import { normalizeError } from "@/features/provider-accounts/utils";
 import {
   deleteProviderAccount,
   getCatalogModels,
@@ -22,8 +22,11 @@ import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
 
+import { groupAccountsByProvider } from "./account-groups";
 import { ModelCatalogExplorer } from "./model-catalog-explorer";
+import { ModelDetailsSheet } from "./model-details-sheet";
 import { classifyProviderAccountDeleteError } from "./provider-account-delete-error";
+import { isModelReadinessSummary } from "./readiness-summary";
 import type { CatalogModel } from "./types";
 import { parseModelCatalogURLState, patchModelCatalogURL } from "./url-state";
 
@@ -122,22 +125,15 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     () => new Map(providers.map((provider) => [provider.provider, provider])),
     [providers],
   );
-  const accountProviderSlugs = useMemo(
-    () => [...new Set(accounts.map((account) => account.provider))]
-      .sort((a, b) => formatProviderDisplayName(a, providerBySlug.get(a)?.display_name)
-        .localeCompare(formatProviderDisplayName(b, providerBySlug.get(b)?.display_name))),
+  // Default to the first account in the same provider-grouped order the explorer renders.
+  const firstAccount = useMemo(
+    () => groupAccountsByProvider(accounts, providerBySlug)[0]?.accounts[0] ?? null,
     [accounts, providerBySlug],
   );
-  const selectedProvider = accountProviderSlugs.includes(state.modelProvider)
-    ? state.modelProvider
-    : accountProviderSlugs[0] ?? "";
-  const selectedProviderAccounts = useMemo(
-    () => accounts.filter((account) => account.provider === selectedProvider),
-    [accounts, selectedProvider],
-  );
-  const selectedAccountID = selectedProviderAccounts.some((account) => account.id === state.modelAccount)
-    ? state.modelAccount
-    : selectedProviderAccounts[0]?.id ?? "";
+  const selectedAccount = accounts.find((account) => account.id === state.modelAccount) ?? firstAccount;
+  const selectedProvider = selectedAccount?.provider ?? "";
+  const selectedAccountID = selectedAccount?.id ?? "";
+  const readinessFilter = isModelReadinessSummary(state.readiness) ? state.readiness : "";
   const selectedModelScope = selectedProvider && selectedAccountID
     ? `${selectedProvider}:${selectedAccountID}`
     : "";
@@ -151,12 +147,12 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
 
   useEffect(() => {
     if (loadingAccounts) return;
-    if (selectedProvider !== state.modelProvider) {
-      updateURL({ model_provider: selectedProvider || null, model_account: null, model: null });
+    if (selectedAccountID !== state.modelAccount) {
+      updateURL({ model_provider: selectedProvider || null, model_account: selectedAccountID || null, model: null });
       return;
     }
-    if (selectedAccountID !== state.modelAccount) {
-      updateURL({ model_account: selectedAccountID || null, model: null });
+    if (selectedProvider !== state.modelProvider) {
+      updateURL({ model_provider: selectedProvider || null });
     }
   }, [loadingAccounts, selectedAccountID, selectedProvider, state.modelAccount, state.modelProvider, updateURL]);
 
@@ -210,15 +206,15 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     () => modelLoad.models,
     [modelLoad.models],
   );
+  // A model is only selected when the URL names one; the selection is what opens the details sheet.
   const selectedModel = useMemo(
-    () => accountModels.find((model) => model.model === state.model) ?? accountModels[0] ?? null,
+    () => (state.model ? accountModels.find((model) => model.model === state.model) ?? null : null),
     [accountModels, state.model],
   );
 
   useEffect(() => {
-    if (modelsPending) return;
-    const nextModel = selectedModel?.model ?? "";
-    if (nextModel !== state.model) updateURL({ model: nextModel || null });
+    if (modelsPending || !state.model || selectedModel) return;
+    updateURL({ model: null });
   }, [modelsPending, selectedModel, state.model, updateURL]);
 
   async function testConnection(account: TenantProviderAccount) {
@@ -261,19 +257,19 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
         summaries={summaries}
         models={accountModels}
         providerBySlug={providerBySlug}
-        selectedProvider={selectedProvider}
         selectedAccountID={selectedAccountID}
         modelAccountID={modelAccountID}
         selectedModel={selectedModel}
+        query={state.q}
+        readinessFilter={readinessFilter}
         loadingAccounts={loadingAccounts}
         loadingModels={loadingModels}
         refreshingModels={refreshingModels}
         modelLoadError={modelLoad.error}
-        onSelectProvider={(provider) => {
-          updateURL({ model_provider: provider, model_account: null, model: null }, "push");
-        }}
-        onSelectAccount={(accountID) => {
-          updateURL({ model_provider: selectedProvider, model_account: accountID, model: null }, "push");
+        onQueryChange={(q) => updateURL({ q })}
+        onReadinessFilterChange={(readiness) => updateURL({ readiness })}
+        onSelectAccount={(account) => {
+          updateURL({ model_provider: account.provider, model_account: account.id, model: null }, "push");
         }}
         onSelectModel={(model) => updateURL({ model_provider: selectedProvider, model_account: selectedAccountID, model: model.model }, "push")}
         onTestConnection={(account) => void testConnection(account)}
@@ -281,6 +277,14 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
           setNotice(null);
           setDeleteNotice(null);
           setDeleteTarget(account);
+        }}
+      />
+
+      <ModelDetailsSheet
+        model={selectedModel}
+        accountID={modelAccountID}
+        onOpenChange={(open) => {
+          if (!open) updateURL({ model: null }, "push");
         }}
       />
 

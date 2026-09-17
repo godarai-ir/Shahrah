@@ -19,27 +19,25 @@
   },
   "models": {
     "ariaLabel": "Tenant model catalog",
-    "resultCount": "{count, plural, =0 {No models} one {# model} other {# models}}"
+    "resultCount": "{count, plural, =0 {No models} one {# model} other {# models}}",
+    "searchPlaceholder": "Model name or capability…",
+    "contextWindow": "Context window",
+    "inputPer1m": "Input / 1M",
+    "outputPer1m": "Output / 1M",
+    "unknownPrice": "Unknown",
+    "replacedBy": "Replaced by: {model}"
   },
   "explorer": {
     "ariaLabel": "Workspace model hierarchy",
-    "providers": "Providers",
-    "accounts": "Accounts",
+    "accounts": "Provider accounts",
     "models": "Active models",
-    "profile": "Model profile",
     "modelCount": "{count, plural, =0 {No active models} one {# active model} other {# active models}}",
     "emptyProviders": "No providers available",
     "emptyProvidersDescription": "Create a provider account before browsing models.",
-    "selectProvider": "Select a provider",
-    "selectProviderDescription": "Accounts for the selected provider will appear here.",
-    "emptyAccounts": "No accounts available",
-    "emptyAccountsDescription": "No account has been created for this provider yet.",
     "selectAccount": "Select an account",
-    "selectAccountDescription": "Models enabled for the selected account will appear here.",
+    "selectAccountDescription": "Active models for the selected account appear here.",
     "emptyModels": "No active models",
-    "emptyModelsDescription": "No model has been enabled for this account yet.",
-    "selectModel": "Select a model",
-    "selectModelDescription": "The selected model profile will appear here."
+    "emptyModelsDescription": "No model has been enabled for this account yet."
   },
   "filters": {
     "search": "Search",
@@ -95,10 +93,11 @@
     "needs_models": "Needs models",
     "needs_credentials": "Needs credentials",
     "needs_access": "Needs access",
-    "pricing_incomplete": "Pricing incomplete"
-  },
-  "status": {
-    "deprecated": "Deprecated"
+    "pricing_incomplete": "Pricing incomplete",
+    "pricing": "Pricing incomplete",
+    "limited": "Limited",
+    "deprecated": "Deprecated",
+    "filterLabel": "Readiness"
   },
   "pricing": {
     "input": "Input",
@@ -148,7 +147,6 @@
     "outputPrice": "Output",
     "ratesTitle": "Pricing rates",
     "ratesDescription": "Condition-aware public rates and the effective tenant value for the selected account.",
-    "capabilityReadinessTitle": "Capability readiness",
     "capabilityReadinessDescription": "Contract support by endpoint, modality, and transport. Live validation remains separate.",
     "deprecated": "This model is deprecated. Plan to move workloads to a supported model.",
     "deprecatedWithReplacement": "This model is deprecated. Recommended replacement: {replacement}.",
@@ -167,10 +165,8 @@
     "overridden": "Private override"
   },
   "capabilityReadiness": {
-    "endpoint": "Endpoint",
     "modality": "Modality",
     "transport": "Transport",
-    "contract": "Contract",
     "live": "Live validated",
     "yes": "Yes",
     "no": "No",
@@ -291,5 +287,8 @@
   "values": {
     "na": "N/A"
   },
-  "listSeparator": ", "
+  "listSeparator": ", ",
+  "profile": {
+    "capabilityReadiness": "Capability readiness"
+  }
 }
