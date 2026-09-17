@@ -5,6 +5,7 @@ import {
   Building2,
   CircleDollarSign,
   CreditCard,
+  Eye,
   FileSearch2,
   FileText,
   FlaskConical,
@@ -55,7 +56,10 @@ export type AdminNavKey =
   | "budgetLimitPolicies"
   | "guardrails"
   | "supportTickets"
-  | "settings";
+  | "settings"
+  | "observe"
+  | "gatewayPolicies"
+  | "accessAndUsers";
 
 export type AdminNavItem = {
   key: AdminNavKey;
@@ -74,6 +78,79 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "personalAccessTokens",
   "virtualUsers",
 ];
+
+export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
+export const GATEWAY_POLICY_TAB_KEYS: AdminNavKey[] = ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"];
+export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "bankTransfer", "billingReports", "billingDocuments", "billingProfile", "plan"];
+
+export type AdminNavSectionKey = "build" | "operations" | "organization";
+
+export type AdminNavSection = {
+  key: AdminNavSectionKey;
+  labelKey: string;
+  itemKeys: AdminNavKey[];
+};
+
+/** The three always-open sidebar sections. Array order is display order. */
+export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
+  { key: "build", labelKey: "navSections.build", itemKeys: ["providerAccounts", "virtualModels", "prompts", "playground"] },
+  { key: "operations", labelKey: "navSections.operations", itemKeys: ["observe", "gatewayPolicies"] },
+  { key: "organization", labelKey: "navSections.organization", itemKeys: ["accessAndUsers", "billing"] },
+];
+
+/** Items rendered above the sections, outside any group. */
+export const ROOT_NAV_ITEM_KEYS: AdminNavKey[] = ["dashboard"];
+
+export type AdminNavTabGroup = {
+  /** Sidebar entry that owns the tabs. */
+  parentKey: AdminNavKey;
+  /** Landing route of the parent page; it shows the first visible tab. */
+  rootHref: string;
+  tabKeys: AdminNavKey[];
+};
+
+/** Former sidebar entries now reachable as tabs. Each tab keeps its own route as a deep link. */
+export const ADMIN_NAV_TAB_GROUPS: AdminNavTabGroup[] = [
+  { parentKey: "observe", rootHref: "/observe", tabKeys: OBSERVE_TAB_KEYS },
+  { parentKey: "gatewayPolicies", rootHref: "/gateway-policies", tabKeys: GATEWAY_POLICY_TAB_KEYS },
+  { parentKey: "accessAndUsers", rootHref: "/users", tabKeys: ACCESS_NAV_ITEM_KEYS },
+  { parentKey: "billing", rootHref: "/billing", tabKeys: BILLING_TAB_KEYS },
+];
+
+export type ResolvedNavTabs = {
+  group: AdminNavTabGroup;
+  tabs: Array<AdminNavItem & { isCurrent: boolean }>;
+};
+
+/**
+ * Finds the tab strip for a list route. Detail and form routes (e.g. /logs/abc, …/new) get no tabs.
+ * On a group root that is not itself a tab (/observe), the first visible tab is current.
+ */
+export function resolveNavTabs(pathname: string, visibleItems: AdminNavItem[]): ResolvedNavTabs | null {
+  const byKey = new Map(visibleItems.map((item) => [item.key, item]));
+  for (const group of ADMIN_NAV_TAB_GROUPS) {
+    const tabs = group.tabKeys.map((key) => byKey.get(key)).filter((item): item is AdminNavItem => Boolean(item));
+    if (tabs.length === 0) continue;
+    const exact = tabs.find((tab) => tab.href === pathname);
+    if (!exact && pathname !== group.rootHref) continue;
+    const currentHref = exact?.href ?? tabs[0].href;
+    return { group, tabs: tabs.map((tab) => ({ ...tab, isCurrent: tab.href === currentHref })) };
+  }
+  return null;
+}
+
+/**
+ * Points a parent entry at its first visible tab when its landing route is a tab the user cannot open
+ * (e.g. "Users & access" for someone without user:list). Group roots such as /observe pick a tab themselves.
+ */
+export function resolveSectionEntryHref(item: AdminNavItem, allItems: AdminNavItem[], visibleItems: AdminNavItem[]): string {
+  const group = ADMIN_NAV_TAB_GROUPS.find((candidate) => candidate.parentKey === item.key);
+  if (!group) return item.href;
+  const landingTab = allItems.find((candidate) => group.tabKeys.includes(candidate.key) && candidate.href === item.href);
+  if (!landingTab || visibleItems.some((visible) => visible.key === landingTab.key)) return item.href;
+  const firstVisibleTab = group.tabKeys.map((key) => visibleItems.find((visible) => visible.key === key)).find(Boolean);
+  return firstVisibleTab?.href ?? item.href;
+}
 
 export function shouldHandleActiveNavClick(event: Pick<MouseEvent, "button" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -110,7 +187,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/billing",
       title: t("nav.billing"),
       icon: CircleDollarSign,
-      isActive: pathname === "/billing",
+      isActive: pathname.startsWith("/billing"),
       requiredPermissions: ["billing:read", "billing:manage", "billing:documents_read", "settings:list"],
     },
     {
@@ -304,6 +381,31 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: ShieldCheck,
       isActive: pathname.startsWith("/guardrails"),
       requiredPermissions: ["policy:list"],
+    },
+    {
+      key: "observe",
+      href: "/observe",
+      title: t("nav.observe"),
+      icon: Eye,
+      isActive: ["/observe", "/logs", "/traces", "/metrics"].some((prefix) => pathname.startsWith(prefix)),
+      requiredPermissions: ["logs:read_metadata", "logs:read_content", "settings:list"],
+    },
+    {
+      key: "gatewayPolicies",
+      href: "/gateway-policies",
+      title: t("nav.gatewayPolicies"),
+      icon: ShieldCheck,
+      isActive: pathname.startsWith("/gateway-policies") || pathname.startsWith("/guardrails"),
+      requiredPermissions: ["policy:list", "policy:manage"],
+    },
+    {
+      key: "accessAndUsers",
+      href: "/users",
+      title: t("nav.accessAndUsers"),
+      icon: Users,
+      isActive: ["/users", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      // Personal access tokens are open to everyone; the individual tabs gate themselves.
+      requiredPermissions: [],
     },
   ];
 }

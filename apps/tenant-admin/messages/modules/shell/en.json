@@ -40,6 +40,11 @@
   "appVersion": {
     "label": "Version"
   },
+  "navSections": {
+    "build": "Build",
+    "operations": "Operations",
+    "organization": "Organization"
+  },
   "navGroups": {
     "overview": "Overview",
     "workspace": "Workspace",
@@ -84,7 +89,11 @@
     "budgetLimitPolicies": "Request Cost Control",
     "guardrails": "Guardrails",
     "orgUnits": "Org Units",
-    "teams": "Teams"
+    "teams": "Teams",
+    "observe": "Observe",
+    "accessAndUsers": "Users & access",
+    "search": "Search and jump",
+    "sectionTabs": "Subsections"
   },
   "logoAlt": "GodarAI logo"
 }

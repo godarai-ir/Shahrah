@@ -5,8 +5,8 @@
   "logout": "خروج",
   "skipToContent": "رفتن به محتوای اصلی",
   "profile": {
-    "menu": "\u0645\u0646\u0648\u06cc \u067e\u0631\u0648\u0641\u0627\u06cc\u0644",
-    "account": "\u062d\u0633\u0627\u0628 \u06a9\u0627\u0631\u0628\u0631\u06cc"
+    "menu": "منوی پروفایل",
+    "account": "حساب کاربری"
   },
   "menu": {
     "open": "باز کردن منو",
@@ -40,6 +40,11 @@
   "appVersion": {
     "label": "نسخه"
   },
+  "navSections": {
+    "build": "ساخت",
+    "operations": "عملیات",
+    "organization": "سازمان"
+  },
   "navGroups": {
     "overview": "نمای کلی",
     "workspace": "فضای کاری",
@@ -62,7 +67,7 @@
     "billingReports": "گزارش‌های مالی",
     "billingProfile": "هویت مالی",
     "billingDocuments": "تراکنش‌ها و فاکتورها",
-    "plan": "\u067e\u0644\u0646",
+    "plan": "پلن",
     "settings": "تنظیمات حساب",
     "accountSettings": "حساب کاربری",
     "requestLoggingSettings": "تنظیمات لاگ درخواست",
@@ -84,7 +89,11 @@
     "gatewayPolicies": "سیاست‌های گیت‌وی",
     "rateLimitPolicies": "کنترل تعداد درخواست‌ها",
     "budgetLimitPolicies": "کنترل هزینه درخواست‌ها",
-    "guardrails": "گاردریل‌ها"
+    "guardrails": "گاردریل‌ها",
+    "observe": "رصد",
+    "accessAndUsers": "کاربران و دسترسی",
+    "search": "جست‌وجو و پرش سریع",
+    "sectionTabs": "زیربخش‌ها"
   },
   "logoAlt": "لوگوی گدارAI"
 }
