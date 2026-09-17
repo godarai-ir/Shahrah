@@ -53,10 +53,15 @@
     "email": "EMAIL",
     "displayName": "DISPLAY NAME",
     "role": "ROLE",
-    "noUsersFound": "No users found."
+    "noUsersFound": "No users found.",
+    "member": "MEMBER",
+    "status": "STATUS",
+    "lastActivity": "LAST ACTIVITY",
+    "neverActive": "Never"
   },
   "status": {
-    "deactivated": "Deactivated"
+    "deactivated": "Deactivated",
+    "active": "Active"
   },
   "actions": {
     "changeRole": "Change Role",
@@ -220,5 +225,11 @@
     "documents_read": "View documents in",
     "profile_manage": "Manage the profile in"
   },
-  "permissionDescription": "{action} {resource}"
+  "permissionDescription": "{action} {resource}",
+  "bulk": {
+    "changeRoleTitle": "Change role for selected users",
+    "changeRoleDescription": "{count, plural, one {# user selected} other {# users selected}}",
+    "result": "{succeeded, plural, one {# user updated} other {# users updated}}; {failed, plural, =0 {none failed} one {# failed} other {# failed}}.",
+    "skipped": "{count, plural, one {# user was skipped (self or no email)} other {# users were skipped (self or no email)}}."
+  }
 }

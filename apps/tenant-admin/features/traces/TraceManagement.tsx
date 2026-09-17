@@ -835,7 +835,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               </div>
             )
           ) : (
-            <DataTable columns={traceColumns} data={items} emptyLabel={t("list.empty")} />
+            <DataTable tableId="traces" columns={traceColumns} data={items} emptyLabel={t("list.empty")} />
           )}
 
           <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-end">

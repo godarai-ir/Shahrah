@@ -40,16 +40,10 @@
   "appVersion": {
     "label": "Version"
   },
-  "navGroups": {
-    "overview": "Overview",
-    "workspace": "Workspace",
-    "billing": "Billing Dashboard",
-    "models": "Models & Providers",
-    "prompts": "Prompts",
-    "observability": "Event Monitoring",
-    "governance": "Governance",
-    "policies": "Runtime Rules",
-    "access": "Access"
+  "navSections": {
+    "build": "Build",
+    "operations": "Operations",
+    "organization": "Organization"
   },
   "nav": {
     "title": "Primary navigation",
@@ -84,7 +78,11 @@
     "budgetLimitPolicies": "Request Cost Control",
     "guardrails": "Guardrails",
     "orgUnits": "Org Units",
-    "teams": "Teams"
+    "teams": "Teams",
+    "observe": "Observe",
+    "accessAndUsers": "Users & access",
+    "search": "Search and jump",
+    "sectionTabs": "Subsections"
   },
   "logoAlt": "GodarAI logo"
 }

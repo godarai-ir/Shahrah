@@ -449,7 +449,9 @@ Preferred primary navigation:
 | Billing | Wallet, packages, invoices | `WalletCards` |
 | Settings | Environment and account settings | `Settings` |
 
-Sidebar behavior: show icon plus label on desktop, support collapsed icon-only state later, and use active states based on route segment. Use breadcrumbs for detail pages such as a model, provider account, trace, policy, tenant, or invoice. On mobile, use a sheet opened by an icon button with a clear label.
+Sidebar structure: the tenant admin sidebar has at most nine first-level entries: `Dashboard` at the top, then three always-open, text-labelled sections, `Build` (model catalog, virtual models, prompts, playground), `Operations` (observe, gateway policies) and `Organization` (users & access, billing). Sections do not collapse and carry no icon. A new page does not get a new sidebar entry; it becomes a tab of the closest section page (`ADMIN_NAV_TAB_GROUPS` in `features/admin-shell/navigation.ts`). Every tab keeps its own route, so old links such as `/logs` or `/billing/topup` open that tab without a redirect. A parent entry is active on every route of its tabs. Support, quick start, account settings and trace privacy live in the top bar and profile menu, not the sidebar. The sidebar is `248px` wide and its footer is a single plan-status row.
+
+Sidebar behavior: show icon plus label on desktop, support the collapsed icon-only state, and use active states based on route segment. Use breadcrumbs for detail pages such as a model, provider account, trace, policy, tenant, or invoice. On mobile, use a sheet opened by an icon button with a clear label.
 
 In RTL, place navigation according to direction and mirror directional icons. Page titles should use resource nouns: `Models`, `Provider accounts`, `Trace req_...`, `API keys`, `Rate limits`.
 

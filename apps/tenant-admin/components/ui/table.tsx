@@ -2,10 +2,17 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+export type TableDensity = "compact" | "relaxed";
+
+function Table({ className, density = "compact", ...props }: React.ComponentProps<"table"> & { density?: TableDensity }) {
   return (
     <div className="relative w-full overflow-auto">
-      <table data-slot="table" className={cn("w-full caption-bottom text-sm", className)} {...props} />
+      <table
+        data-slot="table"
+        data-density={density}
+        className={cn("group/table w-full caption-bottom text-sm", className)}
+        {...props}
+      />
     </div>
   );
 }
@@ -49,7 +56,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-3 text-start align-middle text-xs font-semibold text-neutral-soft-foreground",
+        "h-8 px-3 text-start align-middle text-xs font-semibold text-neutral-soft-foreground",
         className,
       )}
       {...props}
@@ -58,7 +65,17 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 }
 
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
-  return <td data-slot="table-cell" className={cn("px-3 py-2.5 align-middle", className)} {...props} />;
+  return (
+    <td
+      data-slot="table-cell"
+      className={cn(
+        "px-3 align-middle",
+        "group-data-[density=compact]/table:py-1.5 group-data-[density=relaxed]/table:py-3",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {

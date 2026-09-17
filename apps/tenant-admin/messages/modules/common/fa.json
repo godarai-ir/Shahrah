@@ -35,5 +35,17 @@
   },
   "identifierField": {
     "description": "شناسه را بدون فاصله و با حروف انگلیسی، عدد، خط تیره یا زیرخط وارد کنید."
+  },
+  "table": {
+    "columns": "ستون‌ها",
+    "optionalColumns": "ستون‌های اختیاری",
+    "density": "چگالی",
+    "densityCompact": "فشرده",
+    "densityRelaxed": "معمولی",
+    "selectAll": "انتخاب همه",
+    "selectRow": "انتخاب ردیف",
+    "selectedCount": "{count, plural, other {# مورد انتخاب شده}}",
+    "clearSelection": "لغو انتخاب",
+    "bulkActions": "اقدام‌های گروهی"
   }
 }
