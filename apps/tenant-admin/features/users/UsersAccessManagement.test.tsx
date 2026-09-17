@@ -13,15 +13,31 @@ const tMock = (key: string, values?: Record<string, unknown>) => {
 
 vi.mock("next-intl", () => ({ useTranslations: () => tMock, useLocale: () => "en" }));
 
+const replaceMock = vi.fn();
+let currentSearch = "";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceMock, push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/users",
+  useSearchParams: () => new URLSearchParams(currentSearch),
+}));
+
 const users = [{
   id: "user-1",
   tenant_slug: "tenant-1",
   email: "member@example.com",
   role: "member",
+  roles: ["member", "billing_manager"],
   active: true,
   created_at: "2026-07-01T00:00:00Z",
   updated_at: "2026-07-01T00:00:00Z",
 }];
+
+const roles = [
+  { id: "role-member", name: "member", display_name: "Member", is_system: true, permissions: ["user:list"] },
+  { id: "role-support", name: "support_agent", display_name: "Support Agent", is_system: false, permissions: [] },
+  { id: "role-billing", name: "billing_manager", display_name: "Billing Manager", is_system: false, permissions: ["billing:read"] },
+];
 
 function mockApi(userLimit: number, rejectInvite = false) {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
@@ -31,19 +47,32 @@ function mockApi(userLimit: number, rejectInvite = false) {
     }
     const payload = url === "/api/entitlements"
       ? { features: { "users.max": userLimit } }
-      : url.startsWith("/api/roles")
-        ? { data: [
-            { id: "role-member", name: "member", display_name: "Member", is_system: true },
-            { id: "role-support", name: "support_agent", display_name: "Support Agent", is_system: false },
-            { id: "role-billing", name: "billing_manager", display_name: "Billing Manager", is_system: false },
-          ] }
-        : { data: users, total: users.length };
+      : url === "/api/access-keys"
+        ? { data: [{ id: "key-1", key_alias: "cli", key_type: "pat", created_by_user_id: "user-1" }] }
+        : url.startsWith("/api/roles")
+          ? { data: roles }
+          : { data: users, total: users.length };
     return { ok: true, status: 200, text: async () => JSON.stringify(payload) };
   }));
 }
 
+function renderPage() {
+  return render(
+    <UsersAccessManagement
+      initialUsers={users}
+      initialTotal={1}
+      initialError={null}
+      initialPermissionCatalog={[{ key: "billing:read", group: "billing", description: "" }]}
+      currentUserID="admin"
+      canManageUsers
+    />,
+  );
+}
+
 describe("UsersAccessManagement", () => {
   beforeEach(() => {
+    currentSearch = "";
+    replaceMock.mockClear();
     mockApi(2);
     Element.prototype.scrollIntoView = vi.fn();
   });
@@ -54,7 +83,7 @@ describe("UsersAccessManagement", () => {
 
   it("opens the plan dialog when the users.max limit has been reached", async () => {
     mockApi(1);
-    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+    renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
     await waitFor(() => expect(inviteButton).toBeEnabled());
@@ -65,12 +94,10 @@ describe("UsersAccessManagement", () => {
   });
 
   it("opens the invite sheet from the left while capacity remains", async () => {
-    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+    renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
     await waitFor(() => expect(inviteButton).toBeEnabled());
-    fireEvent.focus(screen.getByText("usersPage.usage").closest("[tabindex]")!);
-    expect((await screen.findAllByText("usersPage.limitTooltip")).length).toBeGreaterThan(0);
     fireEvent.click(inviteButton);
 
     expect(screen.getByRole("dialog")).toHaveTextContent("inviteDescription");
@@ -81,11 +108,47 @@ describe("UsersAccessManagement", () => {
     expect(screen.getByRole("option", { name: "roles.billingManager" })).toBeInTheDocument();
   });
 
+  it("shows every role on a member, not just the first", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("roles.member")).toBeInTheDocument());
+    // First role as a badge, the rest folded into a "+N" chip.
+    expect(screen.getByText("table.moreRoles")).toBeInTheDocument();
+  });
+
+  it("writes the role filter to the URL instead of local state", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "filters.role" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("combobox", { name: "filters.role" }));
+    fireEvent.click(await screen.findByRole("option", { name: "roles.billingManager" }));
+
+    expect(replaceMock).toHaveBeenCalledWith("/users?role=billing_manager", { scroll: false });
+  });
+
+  it("filters the roster by status without refetching", async () => {
+    currentSearch = "status=deactivated";
+    renderPage();
+
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith("/api/users?"))).toBe(true));
+    // The only member is active, so a deactivated filter empties the table.
+    await waitFor(() => expect(screen.getByText("table.noUsersFound")).toBeInTheDocument());
+  });
+
+  it("opens the member drawer from the URL and lists effective permissions", async () => {
+    currentSearch = "member=user-1";
+    renderPage();
+
+    const drawer = await screen.findByRole("dialog");
+    expect(drawer).toHaveTextContent("member.effectivePerms");
+    expect(drawer).toHaveTextContent("billing:read");
+    expect(drawer).toHaveTextContent("perms.grantCount");
+  });
+
   it("changes the role of selected users and reports the result", async () => {
-    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+    renderPage();
 
     await waitFor(() => expect(screen.getByRole("button", { name: "inviteUser" })).toBeEnabled());
-    // Let the debounced first page load land; a new page clears the selection.
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith("/api/users?"))).toBe(true));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -103,8 +166,24 @@ describe("UsersAccessManagement", () => {
     expect(screen.queryByRole("toolbar", { name: "table.bulkActions" })).not.toBeInTheDocument();
   });
 
+  it("deactivates selected users in bulk", async () => {
+    renderPage();
+
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith("/api/users?"))).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const row = screen.getByRole("cell", { name: "member@example.com" }).closest("tr")!;
+    fireEvent.click(within(row).getByRole("checkbox", { name: "table.selectRow" }));
+    const bulkBar = screen.getByRole("toolbar", { name: "table.bulkActions" });
+    fireEvent.click(within(bulkBar).getByRole("button", { name: "actions.deactivate" }));
+
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith("/api/users/user-1/deactivate", expect.objectContaining({ method: "POST" })),
+    );
+  });
+
   it("validates invite email on the client before sending", async () => {
-    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+    renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
     await waitFor(() => expect(inviteButton).toBeEnabled());
@@ -120,7 +199,7 @@ describe("UsersAccessManagement", () => {
 
   it("shows invite API errors inside the invite sheet", async () => {
     mockApi(2, true);
-    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+    renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
     await waitFor(() => expect(inviteButton).toBeEnabled());

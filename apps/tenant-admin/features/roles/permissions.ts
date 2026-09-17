@@ -17,6 +17,7 @@ const PERMISSION_GROUPS = new Set([
   "settings",
   "logs",
   "billing",
+  "support",
   "other",
 ]);
 
@@ -31,6 +32,7 @@ const PERMISSION_RESOURCES = new Set([
   "settings",
   "logs",
   "billing",
+  "support_ticket",
 ]);
 
 const PERMISSION_ACTIONS = new Set([
@@ -47,6 +49,10 @@ const PERMISSION_ACTIONS = new Set([
   "codes_redeem",
   "documents_read",
   "profile_manage",
+  "read_own",
+  "read_all",
+  "reply",
+  "rate",
 ]);
 
 export function filterSupportedPermissions(permissions: PermissionOption[]) {

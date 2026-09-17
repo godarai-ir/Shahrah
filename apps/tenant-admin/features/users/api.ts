@@ -37,6 +37,8 @@ const roleDefinitionSchema = z.object({
   display_name: z.string(),
   description: z.string().optional(),
   is_system: z.boolean(),
+  // Carried so the member drawer can show effective permissions without a second fetch.
+  permissions: z.array(z.string()).optional(),
 });
 
 const roleListSchema = z.object({ data: z.array(roleDefinitionSchema).optional() });
