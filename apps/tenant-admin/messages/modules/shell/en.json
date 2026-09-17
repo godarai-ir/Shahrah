@@ -45,17 +45,6 @@
     "operations": "Operations",
     "organization": "Organization"
   },
-  "navGroups": {
-    "overview": "Overview",
-    "workspace": "Workspace",
-    "billing": "Billing Dashboard",
-    "models": "Models & Providers",
-    "prompts": "Prompts",
-    "observability": "Event Monitoring",
-    "governance": "Governance",
-    "policies": "Runtime Rules",
-    "access": "Access"
-  },
   "nav": {
     "title": "Primary navigation",
     "dashboard": "Dashboard",

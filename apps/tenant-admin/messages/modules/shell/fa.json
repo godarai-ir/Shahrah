@@ -45,17 +45,6 @@
     "operations": "عملیات",
     "organization": "سازمان"
   },
-  "navGroups": {
-    "overview": "نمای کلی",
-    "workspace": "فضای کاری",
-    "models": "مدل‌ها و ارائه‌دهندگان",
-    "prompts": "پرامپت‌ها",
-    "observability": "رصد و مشاهده رخدادها",
-    "governance": "کنترل و سیاست‌ها",
-    "policies": "قوانین زمان‌اجرا",
-    "access": "مجوزها و دسترسی‌ها",
-    "billing": "مدیریت مالی"
-  },
   "nav": {
     "title": "مسیریابی اصلی",
     "dashboard": "داشبورد",
