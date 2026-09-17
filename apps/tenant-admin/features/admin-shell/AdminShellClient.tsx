@@ -39,7 +39,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LocaleToggleMenuItem } from "@/components/locale-toggle";
 import { ThemeToggleMenuItem } from "@/components/theme-toggle";
-import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/features/admin-shell/navigation";
+import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, resolveNavTabs, shouldHandleActiveNavClick, type AdminNavItem } from "@/features/admin-shell/navigation";
+import { SectionTabs } from "@/features/admin-shell/SectionTabs";
 import { logout } from "@/features/admin-shell/api";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
 import { ShellPageHeading } from "@/components/app-ui/ShellPageHeading";
@@ -151,7 +152,11 @@ function AdminShellClientContent({
     return filterVisibleNavItems(navItems, permissions);
   }, [navItems, permissions]);
 
-  const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
+  const sectionTabs = useMemo(() => resolveNavTabs(pathname, visibleNavItems), [pathname, visibleNavItems]);
+  const currentPageLabel =
+    sectionTabs?.tabs.find((tab) => tab.isCurrent)?.title
+    ?? visibleNavItems.find((item) => item.isActive)?.title
+    ?? t("nav.dashboard");
   const supportNavItem = visibleNavItems.find((item) => item.key === "supportTickets");
 
   return (
@@ -209,7 +214,10 @@ function AdminShellClientContent({
             contentPadding === "none" && "overflow-hidden",
           )}>
             <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
-              <div className={cn("w-full", contentPadding === "none" && "h-full")}>{children}</div>
+              <div className={cn("w-full", contentPadding === "none" && "h-full")}>
+                {sectionTabs && contentPadding === "default" ? <SectionTabs tabs={sectionTabs.tabs} /> : null}
+                {children}
+              </div>
             </PageHeaderInShellProvider>
           </div>
         </SidebarInset>
