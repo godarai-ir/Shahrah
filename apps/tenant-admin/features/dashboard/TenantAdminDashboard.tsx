@@ -23,6 +23,7 @@ import { formatCompactNumber } from "@/lib/compact-number";
 import { getDashboardEntitlements, getDashboardSubscription } from "./api";
 import type { EffectiveEntitlements, TenantSubscription } from "./contracts";
 import { useNumberFormatter } from "@/hooks/use-locale-format";
+import { DEFAULT_ANALYTICS_RANGE, type AnalyticsRangeKey } from "./dashboard-metrics";
 
 const DynamicDashboardAnalytics = dynamic(
   () => import("./DashboardAnalytics").then((module) => module.DashboardAnalytics),
@@ -33,10 +34,8 @@ const DynamicDashboardAnalytics = dynamic(
 );
 
 type DashboardAnalyticsProps = {
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  currentUsage: number | null;
-  requestLimit: number | null;
+  range: AnalyticsRangeKey;
+  onRangeChange: (range: AnalyticsRangeKey) => void;
   refreshKey: number;
 };
 
@@ -73,6 +72,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
+  const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRangeKey>(DEFAULT_ANALYTICS_RANGE);
 
   const planStatus = subscription?.status?.trim().toLowerCase() ?? "";
   const planName =
@@ -230,10 +230,8 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       ) : null}
 
       <DeferredDashboardAnalytics
-        currentPeriodStart={subscription?.current_period_start}
-        currentPeriodEnd={subscription?.current_period_end}
-        currentUsage={requestUsageValue}
-        requestLimit={totalPlanRequestLimit}
+        range={analyticsRange}
+        onRangeChange={setAnalyticsRange}
         refreshKey={analyticsRefreshKey}
       />
     </div>

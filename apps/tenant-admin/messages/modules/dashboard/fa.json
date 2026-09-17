@@ -17,23 +17,14 @@
   },
   "analytics": {
     "sectionLabel": "نمودارهای مصرف و سلامت فضای کاری",
-    "currentPeriod": "دوره جاری",
-    "usageTitle": "روند مصرف و پیش‌بینی ظرفیت",
-    "usageDescription": "مصرف تجمعی دوره جاری؛ نمودار پیش‌بینی، پس از ثبت حداقل ۷ روز کامل نمایش داده می‌شود",
-    "usageAriaLabel": "نمودار مصرف تجمعی و پیش‌بینی درخواست‌ها",
-    "capacityBadge": "مصرف سقف: {value}٪",
-    "forecastBadge": "پیش‌بینی پایان: {value}",
-    "forecastUnavailableBadge": "پیش‌بینی: داده کافی نیست",
-    "used": "مصرف‌شده",
-    "forecast": "پیش‌بینی",
     "providerCostTitle": "سهم هزینه ارائه‌دهندگان",
-    "providerCostDescription": "توزیع هزینه دلاری درخواست‌ها میان ارائه‌دهندگان در دوره جاری",
+    "providerCostDescription": "توزیع هزینه دلاری درخواست‌ها میان ارائه‌دهندگان در بازه انتخاب‌شده",
     "providerCostAriaLabel": "نمودار سهم هزینه به تفکیک ارائه‌دهنده",
     "totalCost": "هزینه کل",
     "cost": "هزینه",
     "otherProviders": "سایر ارائه‌دهندگان",
     "reliabilityTitle": "سلامت درخواست‌ها",
-    "reliabilityDescription": "مقایسه درخواست‌های موفق و ناموفق در دوره جاری",
+    "reliabilityDescription": "درخواست‌های موفق و ناموفق در بازه انتخاب‌شده",
     "reliabilityAriaLabel": "نمودار درخواست‌های موفق و ناموفق",
     "successRateBadge": "موفقیت {value}٪",
     "successful": "موفق",
@@ -43,7 +34,8 @@
     "emptyCostTitle": "هنوز هزینه‌ای ثبت نشده است",
     "emptyCostDescription": "پس از ثبت مصرف، سهم هزینه هر ارائه‌دهنده در این بخش نمایش داده می‌شود.",
     "unavailableTitle": "داده‌های تحلیلی در دسترس نیست",
-    "unavailableDescription": "در حال حاضر دریافت داده‌های نمودار ممکن نیست. کمی بعد دوباره تلاش کنید."
+    "unavailableDescription": "در حال حاضر دریافت داده‌های نمودار ممکن نیست. کمی بعد دوباره تلاش کنید.",
+    "rangeTotalCost": "هزینه کل بازه"
   },
   "plan": {
     "currentPlan": "پلن فعلی",
@@ -138,5 +130,14 @@
       "createdAt": "زمان ایجاد"
     },
     "empty": "تراکنشی ثبت نشده است."
+  },
+  "range": {
+    "label": "بازه زمانی",
+    "24h": "۲۴س",
+    "7d": "۷ر",
+    "30d": "۳۰ر"
+  },
+  "charts": {
+    "trafficTitle": "ترافیک و خطا"
   }
 }
