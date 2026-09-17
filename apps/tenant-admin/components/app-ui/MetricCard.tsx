@@ -1,14 +1,23 @@
 import * as React from "react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
 
 import { AppCard } from "@/components/app-ui/AppCard";
 import { cn } from "@/lib/utils";
+
+export type MetricCardDelta = {
+  /** Omit to render the label without an arrow (e.g. "12 days left"). */
+  direction?: "up" | "down" | "flat";
+  label: React.ReactNode;
+  tone: "positive" | "negative" | "muted";
+};
 
 export type MetricCardProps = {
   label: React.ReactNode;
   value: React.ReactNode;
   description?: React.ReactNode;
   trend?: React.ReactNode;
+  delta?: MetricCardDelta;
+  sparkline?: React.ReactNode;
   icon?: LucideIcon;
   className?: string;
   iconClassName?: string;
@@ -31,7 +40,15 @@ const toneBorderClasses = {
   muted: "border-s-border",
 } as const;
 
-export function MetricCard({ label, value, description, trend, icon: Icon, className, iconClassName, valueClassName, density = "default", tone = "default" }: MetricCardProps) {
+const deltaToneClasses = {
+  positive: "border-success-soft-border bg-success-soft text-success-soft-foreground",
+  negative: "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground",
+  muted: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground",
+} as const;
+
+const deltaIcons = { up: ArrowUpRight, down: ArrowDownRight, flat: Minus } as const;
+
+export function MetricCard({ label, value, description, trend, delta, sparkline, icon: Icon, className, iconClassName, valueClassName, density = "default", tone = "default" }: MetricCardProps) {
   const compact = density === "compact";
   return (
     <AppCard
@@ -40,8 +57,12 @@ export function MetricCard({ label, value, description, trend, icon: Icon, class
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            {delta ? <MetricDelta {...delta} /> : null}
+          </div>
           <div className={cn("mt-2 font-semibold tracking-tight text-foreground", compact ? "text-lg" : "text-2xl", valueClassName)}>{value}</div>
+          {sparkline ? <div className="mt-2">{sparkline}</div> : null}
           {description ? <p className="mt-1 text-xs leading-6 text-muted-foreground">{description}</p> : null}
           {trend ? <div className="mt-3 text-xs font-medium">{trend}</div> : null}
         </div>
@@ -52,5 +73,19 @@ export function MetricCard({ label, value, description, trend, icon: Icon, class
         ) : null}
       </div>
     </AppCard>
+  );
+}
+
+function MetricDelta({ direction, label, tone }: MetricCardDelta) {
+  const Icon = direction ? deltaIcons[direction] : null;
+  return (
+    <span
+      data-slot="metric-delta"
+      data-tone={tone}
+      className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium tabular-nums", deltaToneClasses[tone])}
+    >
+      {Icon ? <Icon className="size-3" aria-hidden="true" /> : null}
+      {label}
+    </span>
   );
 }

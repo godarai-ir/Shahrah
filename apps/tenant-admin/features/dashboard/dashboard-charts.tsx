@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/chart";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 
+export { Sparkline } from "./Sparkline";
+
 type UsageChartProps = {
   data: Array<{ label: string; cumulative: number | null; projected: number | null }>;
   config: ChartConfig;
