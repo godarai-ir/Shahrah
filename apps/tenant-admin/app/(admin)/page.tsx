@@ -5,7 +5,6 @@ import { requireAuth } from "@/lib/auth/session";
 import { getTranslations } from "next-intl/server";
 import {
   effectiveEntitlementsSchema,
-  tenantAdminUserListResponseSchema,
   tenantSubscriptionSchema,
 } from "@/features/dashboard/contracts";
 
@@ -16,7 +15,7 @@ export default async function Home() {
   const t = await getTranslations("dashboard");
   const tenantSlug = auth.tenantSlug;
 
-  const [subscriptionResult, entitlementsResult, usersResult] = await Promise.all([
+  const [subscriptionResult, entitlementsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -29,24 +28,15 @@ export default async function Home() {
       path: "/api/v1/entitlements",
       userID: auth.user.id,
     }),
-    fetchControlPlaneJSON({
-      tenantSlug,
-      method: "GET",
-      path: "/api/v1/users?limit=1&offset=0",
-      userID: auth.user.id,
-    }),
   ]);
   const parsedSubscription = tenantSubscriptionSchema.safeParse(subscriptionResult.payload);
   const parsedEntitlements = effectiveEntitlementsSchema.safeParse(entitlementsResult.payload);
-  const parsedUsers = tenantAdminUserListResponseSchema.safeParse(usersResult.payload);
   const initialSubscription = subscriptionResult.ok && parsedSubscription.success ? parsedSubscription.data : null;
   const initialEntitlements = entitlementsResult.ok && parsedEntitlements.success ? parsedEntitlements.data : null;
-  const initialUsersTotal = usersResult.ok && parsedUsers.success ? parsedUsers.data.total ?? 0 : null;
 
   const errorMessage =
     subscriptionResult.errorMessage ??
     entitlementsResult.errorMessage ??
-    usersResult.errorMessage ??
     null;
 
   const currentUser = {
@@ -65,7 +55,6 @@ export default async function Home() {
       <TenantAdminDashboard
         initialSubscription={initialSubscription}
         initialEntitlements={initialEntitlements}
-        initialUsersTotal={initialUsersTotal}
         initialError={errorMessage}
       />
     </AdminShell>

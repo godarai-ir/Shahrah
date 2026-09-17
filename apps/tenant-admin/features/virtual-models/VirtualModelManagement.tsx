@@ -39,10 +39,10 @@ import { ProviderLogo } from "@/components/app-ui/ProviderLogo";
 import { type PrincipalSearchKind } from "@/components/app-ui/PrincipalEntitySelect";
 import { buildPrincipalSelectorLabels } from "@/components/app-ui/buildPrincipalSelectorLabels";
 import { cn } from "@/lib/utils";
-import { getProviderCatalog } from "@/features/provider-accounts/api";
 import {
   deleteVirtualModel,
   getProviderAccountDetails,
+  getProviderCatalog,
   getVirtualModel,
   listProviderAccounts,
   listTenantUsers,

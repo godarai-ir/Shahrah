@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  Area,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
-  Line,
   Pie,
   PieChart,
   XAxis,
@@ -22,53 +19,7 @@ import {
 } from "@/components/ui/chart";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 
-type UsageChartProps = {
-  data: Array<{ label: string; cumulative: number | null; projected: number | null }>;
-  config: ChartConfig;
-  ariaLabel: string;
-};
-
-export function UsageChart({ data, config, ariaLabel }: UsageChartProps) {
-  return (
-    <ChartContainer
-      config={config}
-      className="h-72 min-w-0 w-full overflow-hidden"
-      role="img"
-      aria-label={ariaLabel}
-    >
-      <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="dashboard-usage-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-cumulative)" stopOpacity={0.32} />
-            <stop offset="95%" stopColor="var(--color-cumulative)" stopOpacity={0.03} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={28} />
-        <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={compactNumber} />
-        <ChartTooltip
-          content={<ChartTooltipContent formatter={(value) => compactNumber(Number(value))} />}
-        />
-        <Area
-          type="monotone"
-          dataKey="cumulative"
-          stroke="var(--color-cumulative)"
-          fill="url(#dashboard-usage-fill)"
-          strokeWidth={2.5}
-        />
-        <Line
-          type="monotone"
-          dataKey="projected"
-          stroke="var(--color-projected)"
-          strokeWidth={2}
-          strokeDasharray="6 5"
-          dot={false}
-          connectNulls
-        />
-      </ComposedChart>
-    </ChartContainer>
-  );
-}
+export { Sparkline } from "./Sparkline";
 
 type ProviderCostChartProps = {
   data: Array<{ provider: string; cost: number; fill: string }>;

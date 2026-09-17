@@ -1,39 +1,52 @@
 {
   "title": "داشبورد فضای کاری",
-  "subtitle": "مرور پلن، وضعیت اشتراک و محدودیت‌های فضای کاری",
-  "overviewEyebrow": "نمای عملیاتی فضای کاری",
-  "workspaceUsers": "کاربران فضای کاری",
-  "workspaceUsersHint": "تعداد اعضای ثبت‌شده در این فضای کاری",
+  "subtitle": "وضعیت عملیاتی ۲۴ ساعت گذشته",
   "refreshing": "در حال بازآوری...",
-  "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
-  "messages": {
-    "errorTitle": "خطا",
-    "successTitle": "موفق"
+  "alerts": {
+    "errorRateSpike": {
+      "title": "نرخ خطا در ساعت گذشته به {rate}٪ رسید",
+      "detail": "در برابر میانگین {baseline}٪ در ۲۳ ساعت قبل.",
+      "action": "مشاهده درخواست‌های ناموفق"
+    },
+    "loadFailed": {
+      "title": "بارگذاری داده‌های داشبورد ممکن نشد."
+    },
+    "more": "+{count} مورد دیگر"
   },
-  "quickStart": {
-    "title": "شروع سریع عملیاتی",
-    "description": "یک مسیر تعاملی برای شروع سریع آماده کرده‌ایم که بر اساس پلن شما، فضای کارتان را آماده می‌کند و کمک می‌کند اولین درخواست موفق را اجرا کنید.",
-    "action": "بزن بریم!"
+  "metrics": {
+    "sectionLabel": "سنجه‌های کلیدی",
+    "errorRate": {
+      "label": "نرخ خطا · ۲۴ ساعت",
+      "delta": "{value} واحد"
+    },
+    "latencyP95": {
+      "label": "تأخیر P95"
+    },
+    "costToday": {
+      "label": "هزینه امروز",
+      "average": "میانگین ۷ روز"
+    },
+    "quota": {
+      "label": "مصرف سقف دوره",
+      "daysRemaining": "{days} روز مانده",
+      "progressHint": "{used} از {limit} درخواست",
+      "forecast": "پیش‌بینی پایان {value}"
+    }
+  },
+  "onboarding": {
+    "title": "آماده‌سازی فضای کاری را تمام کنید",
+    "description": "یک ارائه‌دهنده وصل کنید، توکن بسازید و اولین درخواست را بفرستید تا بقیهٔ داشبورد فعال شود.",
+    "continue": "ادامه آماده‌سازی"
   },
   "analytics": {
     "sectionLabel": "نمودارهای مصرف و سلامت فضای کاری",
-    "currentPeriod": "دوره جاری",
-    "usageTitle": "روند مصرف و پیش‌بینی ظرفیت",
-    "usageDescription": "مصرف تجمعی دوره جاری؛ نمودار پیش‌بینی، پس از ثبت حداقل ۷ روز کامل نمایش داده می‌شود",
-    "usageAriaLabel": "نمودار مصرف تجمعی و پیش‌بینی درخواست‌ها",
-    "capacityBadge": "مصرف سقف: {value}٪",
-    "forecastBadge": "پیش‌بینی پایان: {value}",
-    "forecastUnavailableBadge": "پیش‌بینی: داده کافی نیست",
-    "used": "مصرف‌شده",
-    "forecast": "پیش‌بینی",
     "providerCostTitle": "سهم هزینه ارائه‌دهندگان",
-    "providerCostDescription": "توزیع هزینه دلاری درخواست‌ها میان ارائه‌دهندگان در دوره جاری",
+    "providerCostDescription": "توزیع هزینه دلاری درخواست‌ها میان ارائه‌دهندگان در بازه انتخاب‌شده",
     "providerCostAriaLabel": "نمودار سهم هزینه به تفکیک ارائه‌دهنده",
     "totalCost": "هزینه کل",
     "cost": "هزینه",
     "otherProviders": "سایر ارائه‌دهندگان",
-    "reliabilityTitle": "سلامت درخواست‌ها",
-    "reliabilityDescription": "مقایسه درخواست‌های موفق و ناموفق در دوره جاری",
+    "reliabilityDescription": "درخواست‌های موفق و ناموفق در بازه انتخاب‌شده",
     "reliabilityAriaLabel": "نمودار درخواست‌های موفق و ناموفق",
     "successRateBadge": "موفقیت {value}٪",
     "successful": "موفق",
@@ -43,25 +56,11 @@
     "emptyCostTitle": "هنوز هزینه‌ای ثبت نشده است",
     "emptyCostDescription": "پس از ثبت مصرف، سهم هزینه هر ارائه‌دهنده در این بخش نمایش داده می‌شود.",
     "unavailableTitle": "داده‌های تحلیلی در دسترس نیست",
-    "unavailableDescription": "در حال حاضر دریافت داده‌های نمودار ممکن نیست. کمی بعد دوباره تلاش کنید."
+    "unavailableDescription": "در حال حاضر دریافت داده‌های نمودار ممکن نیست. کمی بعد دوباره تلاش کنید.",
+    "rangeTotalCost": "هزینه کل بازه"
   },
   "plan": {
     "currentPlan": "پلن فعلی",
-    "daysRemaining": "روز مانده",
-    "daysRemainingBadge": "{days} روز تا پایان",
-    "daysValue": "{days} روز",
-    "trialSubtitle": "حساب در دوره آزمایشی است",
-    "snapshotTitle": "وضعیت پلن",
-    "snapshotDescription": "خلاصه وضعیت اشتراک و اقدام بعدی",
-    "overviewTitle": "مرور پلن و اعتبار",
-    "overviewDescription": "مصرف فعلی از محدودیت‌های پلن و وضعیت کیف پول",
-    "statusLabel": "وضعیت",
-    "endDateLabel": "تاریخ پایان",
-    "intervalLabel": "بازه صورتحساب",
-    "userLimit": "ظرفیت کاربران",
-    "userLimitHint": "تعداد کاربران فعال نسبت به سقف پلن",
-    "requestLimit": "ظرفیت درخواست‌ها",
-    "requestLimitHint": "سقف کل این دوره از {monthly} درخواست ماهانه × {months} ماه",
     "actions": {
       "manage": "مدیریت پلن",
       "renew": "تمدید پلن",
@@ -72,71 +71,15 @@
       "trialing": "آزمایشی",
       "past_due": "سررسید گذشته",
       "inactive": "نامشخص"
-    },
-    "interval": {
-      "monthly": "ماهانه",
-      "quarterly": "سه‌ماهه",
-      "yearly": "سالانه"
     }
   },
-  "stats": {
-    "balance": "موجودی کیف پول",
-    "balanceHint": "اعتبار قابل مصرف",
-    "pending": "تراکنش‌های در انتظار",
-    "pendingHint": "مبالغ تاییدنشده",
-    "keys": "کلیدهای API",
-    "keysHint": "تعداد کلیدهای فعال"
+  "range": {
+    "label": "بازه زمانی",
+    "24h": "۲۴س",
+    "7d": "۷ر",
+    "30d": "۳۰ر"
   },
-  "keys": {
-    "title": "مدیریت کلیدهای API",
-    "description": "صدور و مدیریت کلیدهای دسترسی مدل",
-    "name": "نام کلید",
-    "namePlaceholder": "tenant-dashboard-key",
-    "models": "مدل‌های مجاز (با ویرگول جدا کنید)",
-    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
-    "create": "ایجاد کلید",
-    "creating": "در حال ایجاد...",
-    "table": {
-      "name": "نام",
-      "role": "نقش",
-      "models": "مدل‌ها",
-      "key": "کلید",
-      "hidden": "پنهان",
-      "empty": "هنوز کلیدی برای این فضای کاری ثبت نشده است."
-    },
-    "messages": {
-      "validation": "وارد کردن نام کلید و حداقل یک مدل الزامی است.",
-      "success": "کلید API با موفقیت ایجاد شد."
-    }
-  },
-  "models": {
-    "title": "مدل‌های فضای کاری",
-    "description": "افزودن و مدیریت مدل‌های قابل مصرف",
-    "displayName": "نام نمایشی مدل",
-    "provider": "ارائه‌دهنده",
-    "providerModel": "شناسه مدل در ارائه‌دهنده",
-    "apiBase": "آدرس پایه API",
-    "apiKey": "API Key",
-    "rpm": "RPM",
-    "tpm": "TPM",
-    "weight": "وزن",
-    "create": "افزودن مدل",
-    "creating": "در حال افزودن...",
-    "messages": {
-      "validation": "تکمیل فیلدهای الزامی مدل ضروری است.",
-      "success": "مدل جدید با موفقیت ثبت شد."
-    }
-  },
-  "transactions": {
-    "title": "تراکنش‌های کیف پول",
-    "description": "۲۰ تراکنش آخر کیف پول این فضای کاری",
-    "columns": {
-      "id": "شناسه",
-      "type": "نوع",
-      "status": "وضعیت",
-      "amount": "مبلغ (ریال)",
-      "createdAt": "زمان ایجاد"
-    },
-    "empty": "تراکنشی ثبت نشده است."
+  "charts": {
+    "trafficTitle": "ترافیک و خطا"
   }
 }

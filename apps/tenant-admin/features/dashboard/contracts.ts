@@ -25,7 +25,6 @@ export const effectiveEntitlementsSchema = z.object({
   usage_counters: z.array(usageCounterSchema).optional(),
 });
 
-export const tenantAdminUserListResponseSchema = z.object({ total: z.number().optional() });
 
 export type TenantSubscription = z.infer<typeof tenantSubscriptionSchema>;
 export type EffectiveEntitlements = z.infer<typeof effectiveEntitlementsSchema>;

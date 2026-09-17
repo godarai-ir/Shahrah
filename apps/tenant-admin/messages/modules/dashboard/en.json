@@ -1,39 +1,52 @@
 {
   "title": "Tenant Dashboard",
-  "subtitle": "Review the current plan, subscription status, and tenant limits",
-  "overviewEyebrow": "Workspace operations overview",
-  "workspaceUsers": "Workspace users",
-  "workspaceUsersHint": "Registered members in this workspace",
+  "subtitle": "Operational status for the last 24 hours",
   "refreshing": "Refreshing...",
-  "keyCreatedTitle": "Newly created key is shown only once",
-  "messages": {
-    "errorTitle": "Error",
-    "successTitle": "Success"
+  "alerts": {
+    "errorRateSpike": {
+      "title": "Error rate jumped to {rate}% in the last hour",
+      "detail": "against a {baseline}% average over the previous 23 hours.",
+      "action": "View failed requests"
+    },
+    "loadFailed": {
+      "title": "Dashboard data could not be loaded."
+    },
+    "more": "+{count} more"
   },
-  "quickStart": {
-    "title": "Operational quick start",
-    "description": "We prepared an interactive quick start that adapts to your plan, prepares your workspace, and helps you run the first successful request.",
-    "action": "Let's go"
+  "metrics": {
+    "sectionLabel": "Key metrics",
+    "errorRate": {
+      "label": "Error rate · 24h",
+      "delta": "{value} pts"
+    },
+    "latencyP95": {
+      "label": "P95 latency"
+    },
+    "costToday": {
+      "label": "Cost today",
+      "average": "7-day avg"
+    },
+    "quota": {
+      "label": "Period quota used",
+      "daysRemaining": "{days} days left",
+      "progressHint": "{used} of {limit} requests",
+      "forecast": "forecast at period end {value}"
+    }
+  },
+  "onboarding": {
+    "title": "Finish setting up your workspace",
+    "description": "Connect a provider, issue a token, and send your first request to unlock the rest of the dashboard.",
+    "continue": "Continue setup"
   },
   "analytics": {
     "sectionLabel": "Workspace usage and health charts",
-    "currentPeriod": "Current period",
-    "usageTitle": "Usage trend and capacity forecast",
-    "usageDescription": "Cumulative usage for the current period; a robust forecast appears after at least 7 complete days",
-    "usageAriaLabel": "Cumulative request usage and forecast chart",
-    "capacityBadge": "{value}% of capacity used",
-    "forecastBadge": "Period-end forecast: {value}",
-    "forecastUnavailableBadge": "Forecast: insufficient data",
-    "used": "Used",
-    "forecast": "Forecast",
     "providerCostTitle": "Provider cost share",
-    "providerCostDescription": "Distribution of request cost in USD across providers for the current period",
+    "providerCostDescription": "Share of request cost in USD by provider for the selected range",
     "providerCostAriaLabel": "Provider cost share chart",
     "totalCost": "Total cost",
     "cost": "Cost",
     "otherProviders": "Other providers",
-    "reliabilityTitle": "Request health",
-    "reliabilityDescription": "Successful and failed requests in the current period",
+    "reliabilityDescription": "Successful and failed requests in the selected range",
     "reliabilityAriaLabel": "Successful and failed requests chart",
     "successRateBadge": "{value}% success",
     "successful": "Successful",
@@ -43,25 +56,11 @@
     "emptyCostTitle": "No cost has been recorded yet",
     "emptyCostDescription": "Provider cost share will appear here after usage is recorded.",
     "unavailableTitle": "Analytics data is unavailable",
-    "unavailableDescription": "Chart data cannot be loaded right now. Try again shortly."
+    "unavailableDescription": "Chart data cannot be loaded right now. Try again shortly.",
+    "rangeTotalCost": "Total cost for this range"
   },
   "plan": {
     "currentPlan": "Current plan",
-    "daysRemaining": "Days remaining",
-    "daysRemainingBadge": "{days} days left",
-    "daysValue": "{days} days",
-    "trialSubtitle": "This account is in a trial period",
-    "snapshotTitle": "Plan status",
-    "snapshotDescription": "Subscription snapshot and next action",
-    "overviewTitle": "Plan and credit overview",
-    "overviewDescription": "Current consumption against plan limits and wallet status",
-    "statusLabel": "Status",
-    "endDateLabel": "End date",
-    "intervalLabel": "Billing interval",
-    "userLimit": "User capacity",
-    "userLimitHint": "Active users compared with the plan cap",
-    "requestLimit": "Request capacity",
-    "requestLimitHint": "Total limit for this period from {monthly} monthly requests × {months} months",
     "actions": {
       "manage": "Manage plan",
       "renew": "Renew plan",
@@ -72,71 +71,15 @@
       "trialing": "Trial",
       "past_due": "Past due",
       "inactive": "Unknown"
-    },
-    "interval": {
-      "monthly": "Monthly",
-      "quarterly": "Quarterly",
-      "yearly": "Yearly"
     }
   },
-  "stats": {
-    "balance": "Wallet balance",
-    "balanceHint": "Available credit",
-    "pending": "Pending transactions",
-    "pendingHint": "Unsettled amounts",
-    "keys": "API keys",
-    "keysHint": "Active keys"
+  "range": {
+    "label": "Time range",
+    "24h": "24h",
+    "7d": "7d",
+    "30d": "30d"
   },
-  "keys": {
-    "title": "API Key Management",
-    "description": "Issue and manage model access keys",
-    "name": "Key name",
-    "namePlaceholder": "tenant-dashboard-key",
-    "models": "Allowed models (comma-separated)",
-    "modelsPlaceholder": "gpt-4o-mini,gpt-4.1-mini",
-    "create": "Create key",
-    "creating": "Creating...",
-    "table": {
-      "name": "Name",
-      "role": "Role",
-      "models": "Models",
-      "key": "Key",
-      "hidden": "Hidden",
-      "empty": "No keys have been registered for this tenant yet."
-    },
-    "messages": {
-      "validation": "Key name and at least one model are required.",
-      "success": "API key created successfully."
-    }
-  },
-  "models": {
-    "title": "Tenant Models",
-    "description": "Register and manage available models",
-    "displayName": "Model display name",
-    "provider": "Provider",
-    "providerModel": "Provider model ID",
-    "apiBase": "API base URL",
-    "apiKey": "API key",
-    "rpm": "RPM",
-    "tpm": "TPM",
-    "weight": "Weight",
-    "create": "Add model",
-    "creating": "Adding...",
-    "messages": {
-      "validation": "All required model fields must be completed.",
-      "success": "New model registered successfully."
-    }
-  },
-  "transactions": {
-    "title": "Wallet Transactions",
-    "description": "Last 20 wallet transactions for this tenant",
-    "columns": {
-      "id": "ID",
-      "type": "Type",
-      "status": "Status",
-      "amount": "Amount (IRR)",
-      "createdAt": "Created at"
-    },
-    "empty": "No transactions recorded."
+  "charts": {
+    "trafficTitle": "Traffic and errors"
   }
 }
