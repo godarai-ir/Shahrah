@@ -96,6 +96,34 @@ export function countQuickStartResources(payload: unknown): number {
   return parsed.data.total ?? parsed.data.data?.length ?? 0;
 }
 
+const resourceLabelSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())).optional(),
+});
+
+const LABEL_FIELDS = ["key_name", "key_alias", "display_name", "name", "title", "email", "slug"] as const;
+
+/**
+ * Reads a human readable label for the first item of a resource list so a completed
+ * quick-start step can name what satisfied it instead of only counting it.
+ */
+export function parseQuickStartResourceLabel(payload: unknown): string | null {
+  const parsed = resourceLabelSchema.safeParse(payload);
+  if (!parsed.success) return null;
+
+  const first = parsed.data.data?.[0];
+  if (!first) return null;
+
+  const name = LABEL_FIELDS.map((field) => readString(first[field])).find(Boolean) ?? null;
+  const provider = readString(first.provider);
+  if (provider && name) return `${provider}:${name}`;
+
+  return name ?? provider ?? readString(first.id);
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 export function parseAllowedModelIDs(payload: unknown): string[] {
   const parsed = allowedModelsSchema.safeParse(payload);
   if (!parsed.success) return [];

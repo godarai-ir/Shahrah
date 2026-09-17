@@ -39,6 +39,87 @@ describe("deriveQuickStartJourney", () => {
     ]);
     expect(journey.recommendedTokenType).toBe("pat");
     expect(journey.testBench.ready).toBe(true);
+    expect(journey.activeStepID).toBe("create_pat");
+  });
+
+  it("keeps unavailable steps out of the progress denominator", () => {
+    const journey = deriveQuickStartJourney({
+      subscription: { plan_slug: "developer" },
+      entitlements: { features: { "auth.pat.enabled": true } },
+      permissions: ["provider_account:create"],
+      resources: makeResources({
+        providerAccountCount: 1,
+        allowedPatModels: ["openai:default:gpt-4o-mini"],
+      }),
+    });
+
+    // inspect_activity is unavailable without telemetry permissions, so the reader
+    // can still reach 3 of 3 instead of being stuck at 3 of 4.
+    expect(journey.steps).toHaveLength(4);
+    expect(journey.totalCount).toBe(3);
+    expect(journey.doneCount).toBe(1);
+    expect(journey.estimatedMinutes).toBe(3);
+  });
+
+  it("lets an unavailable step hand the open slot to the next reachable step", () => {
+    const journey = deriveQuickStartJourney({
+      subscription: { plan_slug: "developer" },
+      entitlements: { features: { "auth.pat.enabled": false } },
+      permissions: ["provider_account:create", "settings:list"],
+      resources: makeResources({
+        providerAccountCount: 1,
+        allowedPatModels: ["openai:default:gpt-4o-mini"],
+      }),
+    });
+
+    expect(journey.steps.map((step) => [step.id, step.status])).toEqual([
+      ["connect_provider", "done"],
+      ["create_pat", "unavailable"],
+      ["send_first_request", "active"],
+      ["inspect_activity", "locked"],
+    ]);
+    expect(journey.steps[3].waitsForIndex).toBe(3);
+  });
+
+  it("moves the open step past a skipped step without changing the denominator", () => {
+    const journey = deriveQuickStartJourney({
+      subscription: { plan_slug: "developer" },
+      entitlements: { features: { "auth.pat.enabled": true } },
+      permissions: ["provider_account:create", "settings:list"],
+      resources: makeResources({
+        providerAccountCount: 1,
+        allowedPatModels: ["openai:default:gpt-4o-mini"],
+      }),
+      skippedStepIDs: ["create_pat"],
+    });
+
+    expect(journey.steps.map((step) => [step.id, step.status])).toEqual([
+      ["connect_provider", "done"],
+      ["create_pat", "skipped"],
+      ["send_first_request", "active"],
+      ["inspect_activity", "locked"],
+    ]);
+    expect(journey.totalCount).toBe(4);
+    expect(journey.activeStepID).toBe("send_first_request");
+  });
+
+  it("names the resource that completed each step", () => {
+    const journey = deriveQuickStartJourney({
+      subscription: { plan_slug: "developer" },
+      entitlements: { features: { "auth.pat.enabled": true } },
+      permissions: ["provider_account:create"],
+      resources: makeResources({
+        providerAccountCount: 1,
+        personalAccessTokenCount: 1,
+        providerAccountLabel: "openai:production",
+        personalAccessTokenLabel: "quick-start",
+        allowedPatModels: ["openai:default:gpt-4o-mini"],
+      }),
+    });
+
+    expect(journey.steps[0].result).toBe("openai:production");
+    expect(journey.steps[1].result).toBe("quick-start");
+    expect(journey.steps[2].result).toBeNull();
   });
 
   it("keeps the team plan focused on service identity and policy setup", () => {
@@ -133,7 +214,9 @@ describe("deriveQuickStartJourney", () => {
       status: "unavailable",
       blockedBy: "permission",
     });
-    expect(journey.steps[2]).toMatchObject({ id: "create_team", status: "locked" });
+    // The unavailable org-unit step no longer blocks the rest of the enterprise path.
+    expect(journey.steps[2]).toMatchObject({ id: "create_team", status: "active" });
+    expect(journey.steps[3]).toMatchObject({ id: "create_service_identity", status: "locked", waitsForIndex: 3 });
   });
 
   it("marks sample request and telemetry steps done from local quick-start progress", () => {

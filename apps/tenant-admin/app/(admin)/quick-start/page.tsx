@@ -6,6 +6,7 @@ import {
 import {
   countQuickStartResources,
   parseAllowedModelIDs,
+  parseQuickStartResourceLabel,
   parseQuickStartEntitlements,
   parseQuickStartSubscription,
 } from "@/features/quick-start/api";
@@ -129,6 +130,14 @@ export default async function QuickStartPage() {
     guardrailCount: countQuickStartResources(guardrailsResult.payload),
     allowedPatModels: parseAllowedModelIDs(allowedPatModelsResult.payload),
     allowedVatModels: parseAllowedModelIDs(allowedVatModelsResult.payload),
+    providerAccountLabel: parseQuickStartResourceLabel(providerAccountsResult.payload),
+    personalAccessTokenLabel: parseQuickStartResourceLabel(patsResult.payload),
+    virtualUserLabel: parseQuickStartResourceLabel(virtualUsersResult.payload),
+    teamLabel: parseQuickStartResourceLabel(teamsResult.payload),
+    orgUnitLabel: parseQuickStartResourceLabel(orgUnitsResult.payload),
+    rateLimitRuleLabel: parseQuickStartResourceLabel(rateRulesResult.payload),
+    budgetLimitRuleLabel: parseQuickStartResourceLabel(budgetRulesResult.payload),
+    guardrailLabel: parseQuickStartResourceLabel(guardrailsResult.payload),
   };
 
   const currentUser = {

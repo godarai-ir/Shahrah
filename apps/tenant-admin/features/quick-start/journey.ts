@@ -24,6 +24,19 @@ export type QuickStartResources = {
   allowedVatModels: string[];
   sampleRequestSucceeded?: boolean;
   telemetryVisited?: boolean;
+  /**
+   * Human readable label of the first resource of each kind. Completed steps render
+   * the label so the reader knows which account or token satisfied the step.
+   */
+  providerAccountLabel?: string | null;
+  personalAccessTokenLabel?: string | null;
+  virtualUserLabel?: string | null;
+  teamLabel?: string | null;
+  orgUnitLabel?: string | null;
+  rateLimitRuleLabel?: string | null;
+  budgetLimitRuleLabel?: string | null;
+  guardrailLabel?: string | null;
+  sampleRequestModel?: string | null;
 };
 
 export type QuickStartStepID =
@@ -38,7 +51,7 @@ export type QuickStartStepID =
   | "send_first_request"
   | "inspect_activity";
 
-export type QuickStartStepStatus = "done" | "active" | "locked" | "unavailable";
+export type QuickStartStepStatus = "done" | "active" | "skipped" | "locked" | "unavailable";
 
 export type QuickStartAction =
   | { type: "link"; href: string }
@@ -61,12 +74,21 @@ export type QuickStartJourneyStep = {
   status: QuickStartStepStatus;
   action: QuickStartAction;
   blockedBy?: "feature" | "permission" | "prerequisite";
+  /** Index (1-based) of the earliest unfinished step this one waits for. */
+  waitsForIndex?: number;
+  /** What actually satisfied the step, shown on the collapsed done row. */
+  result?: string | null;
 };
 
 export type QuickStartJourney = {
   plan: CommercialPlanSlug;
   doneCount: number;
+  /** Steps the tenant can actually reach; unavailable steps stay out of the denominator. */
   totalCount: number;
+  /** The single open step, or null when nothing is left to do. */
+  activeStepID: QuickStartStepID | null;
+  /** Rough remaining effort in minutes, summed over the steps still to do. */
+  estimatedMinutes: number;
   recommendedTokenType: "pat" | "vat";
   steps: QuickStartJourneyStep[];
   exploreCards: QuickStartExploreCardID[];
@@ -86,6 +108,8 @@ type DeriveJourneyInput = {
   permissions: string[];
   resources: QuickStartResources;
   subscription: QuickStartSubscription;
+  /** Steps the reader dismissed for now; they stop holding up the rest of the journey. */
+  skippedStepIDs?: QuickStartStepID[];
 };
 
 const FEATURE_PAT_ENABLED = "auth.pat.enabled";
@@ -270,21 +294,35 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
     ],
   };
 
-  let allPreviousDone = true;
-  const steps = stepConfigs[plan].map((config) => {
+  const skipped = new Set(input.skippedStepIDs ?? []);
+
+  let openStepTaken = false;
+  let firstPendingIndex: number | null = null;
+  const steps = stepConfigs[plan].map((config, index) => {
     const done = config.requirement();
     const available = config.available();
-    const status = done
+    // An unavailable or skipped step never becomes the open one, and it never holds
+    // the rest of the journey back either: the next reachable step opens instead.
+    const isOpenCandidate = !done && available && !skipped.has(config.id);
+    const status: QuickStartStepStatus = done
       ? "done"
       : !available
         ? "unavailable"
-        : allPreviousDone
-          ? "active"
-          : "locked";
-    const step = {
+        : skipped.has(config.id)
+          ? "skipped"
+          : openStepTaken
+            ? "locked"
+            : "active";
+
+    if (status === "active") openStepTaken = true;
+    if (!done && firstPendingIndex === null && isOpenCandidate) firstPendingIndex = index + 1;
+
+    return {
       id: config.id,
       status,
       action: actionForStep(config.id, resources, inspectHref),
+      result: done ? resultForStep(config.id, resources) : null,
+      waitsForIndex: status === "locked" ? firstPendingIndex ?? undefined : undefined,
       blockedBy:
         status === "unavailable"
           ? isFeatureBlocked(config.id, {
@@ -302,8 +340,6 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
             ? "prerequisite"
             : undefined,
     } satisfies QuickStartJourneyStep;
-    allPreviousDone = allPreviousDone && done;
-    return step;
   });
 
   const exploreCards = buildExploreCards({
@@ -317,10 +353,16 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
     canUseTeamsFeature,
   });
 
+  const reachableSteps = steps.filter((step) => step.status !== "unavailable");
+
   return {
     plan,
     doneCount: steps.filter((step) => step.status === "done").length,
-    totalCount: steps.length,
+    totalCount: reachableSteps.length,
+    activeStepID: steps.find((step) => step.status === "active")?.id ?? null,
+    estimatedMinutes: reachableSteps
+      .filter((step) => step.status !== "done")
+      .reduce((total, step) => total + STEP_MINUTES[step.id], 0),
     recommendedTokenType,
     steps,
     exploreCards,
@@ -334,6 +376,44 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
       },
     },
   };
+}
+
+const STEP_MINUTES: Record<QuickStartStepID, number> = {
+  connect_provider: 3,
+  create_pat: 1,
+  create_service_identity: 3,
+  create_rate_limit_rule: 2,
+  create_budget_limit_rule: 2,
+  create_guardrail: 3,
+  create_team: 2,
+  create_org_unit: 2,
+  send_first_request: 2,
+  inspect_activity: 1,
+};
+
+function resultForStep(stepID: QuickStartStepID, resources: QuickStartResources): string | null {
+  switch (stepID) {
+    case "connect_provider":
+      return resources.providerAccountLabel ?? null;
+    case "create_pat":
+      return resources.personalAccessTokenLabel ?? null;
+    case "create_service_identity":
+      return resources.virtualUserLabel ?? null;
+    case "create_rate_limit_rule":
+      return resources.rateLimitRuleLabel ?? null;
+    case "create_budget_limit_rule":
+      return resources.budgetLimitRuleLabel ?? null;
+    case "create_guardrail":
+      return resources.guardrailLabel ?? null;
+    case "create_team":
+      return resources.teamLabel ?? null;
+    case "create_org_unit":
+      return resources.orgUnitLabel ?? null;
+    case "send_first_request":
+      return resources.sampleRequestModel ?? null;
+    case "inspect_activity":
+      return null;
+  }
 }
 
 function normalizePlanSlug(value?: string): CommercialPlanSlug {
