@@ -110,10 +110,11 @@ export function DataTable<TData, TValue>({
   });
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
 
-  // Pages are fetched server-side, so a new page means a new selection.
+  // Pages are fetched server-side, so a different set of rows means a new selection.
+  const rowIdsKey = getRowId ? data.map(getRowId).join(",") : String(data.length);
   React.useEffect(() => {
     setRowSelection((current) => (Object.keys(current).length ? {} : current));
-  }, [data]);
+  }, [rowIdsKey]);
 
   const tableColumns = React.useMemo<ColumnDef<TData, TValue>[]>(() => {
     if (!enableRowSelection) return columns;

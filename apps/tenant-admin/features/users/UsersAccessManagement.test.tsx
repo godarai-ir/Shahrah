@@ -11,7 +11,7 @@ const tMock = (key: string, values?: Record<string, unknown>) => {
   );
 };
 
-vi.mock("next-intl", () => ({ useTranslations: () => tMock }));
+vi.mock("next-intl", () => ({ useTranslations: () => tMock, useLocale: () => "en" }));
 
 const users = [{
   id: "user-1",
@@ -79,6 +79,28 @@ describe("UsersAccessManagement", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "form.role" }));
     expect(await screen.findByRole("option", { name: "Support Agent" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "roles.billingManager" })).toBeInTheDocument();
+  });
+
+  it("changes the role of selected users and reports the result", async () => {
+    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "inviteUser" })).toBeEnabled());
+    // Let the debounced first page load land; a new page clears the selection.
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith("/api/users?"))).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const row = screen.getByRole("cell", { name: "member@example.com" }).closest("tr")!;
+    fireEvent.click(within(row).getByRole("checkbox", { name: "table.selectRow" }));
+    const bulkBar = screen.getByRole("toolbar", { name: "table.bulkActions" });
+    fireEvent.click(within(bulkBar).getByRole("button", { name: "actions.changeRole" }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Support Agent/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "roleForm.submit" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("bulk.result");
+    expect(fetch).toHaveBeenCalledWith("/api/users/roles", expect.objectContaining({ method: "PATCH" }));
+    expect(screen.queryByRole("toolbar", { name: "table.bulkActions" })).not.toBeInTheDocument();
   });
 
   it("validates invite email on the client before sending", async () => {

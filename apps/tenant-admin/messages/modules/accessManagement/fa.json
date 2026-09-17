@@ -53,10 +53,15 @@
     "email": "ایمیل",
     "displayName": "نام نمایشی",
     "role": "نقش",
-    "noUsersFound": "کاربری یافت نشد."
+    "noUsersFound": "کاربری یافت نشد.",
+    "member": "عضو",
+    "status": "وضعیت",
+    "lastActivity": "آخرین فعالیت",
+    "neverActive": "هرگز"
   },
   "status": {
-    "deactivated": "غیرفعال"
+    "deactivated": "غیرفعال",
+    "active": "فعال"
   },
   "actions": {
     "changeRole": "تغییر نقش",
@@ -220,5 +225,11 @@
     "documents_read": "مشاهده اسناد",
     "profile_manage": "مدیریت پروفایل"
   },
-  "permissionDescription": "اجازه {action} {resource}"
+  "permissionDescription": "اجازه {action} {resource}",
+  "bulk": {
+    "changeRoleTitle": "تغییر نقش کاربران انتخاب‌شده",
+    "changeRoleDescription": "{count, plural, other {# کاربر انتخاب شده}}",
+    "result": "{succeeded, plural, other {# کاربر به‌روزرسانی شد}}؛ {failed, plural, =0 {بدون خطا} other {# مورد ناموفق}}.",
+    "skipped": "{count, plural, other {# کاربر رد شد (خودتان یا بدون ایمیل)}}."
+  }
 }

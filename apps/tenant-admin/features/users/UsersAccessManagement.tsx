@@ -1,12 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Info, Plus, UsersRound } from "lucide-react";
 
 import { AppCard } from "@/components/app-ui/AppCard";
 import { AppEmailField } from "@/components/app-ui/AppEmailField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { DataTableBulkBar } from "@/components/app-ui/DataTableBulkBar";
+import { DataTableToolbar } from "@/components/app-ui/DataTableToolbar";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { EmptyState } from "@/components/app-ui/EmptyState";
 import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
 import { FormSheet } from "@/components/app-ui/FormSheet";
 import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
@@ -14,7 +19,6 @@ import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { SearchField } from "@/components/app-ui/SearchField";
 import { TablePagination } from "@/components/app-ui/TablePagination";
-import { TableEmptyRow, TableLoadingRows } from "@/components/app-ui/TableStateRows";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,16 +27,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
+import { DataTable } from "@/components/ui/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useCalendarLocale } from "@/hooks/use-locale-format";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   assignUserRole,
   getUserEntitlements,
@@ -62,15 +61,10 @@ type UsersAccessManagementProps = {
 
 const PAGE_SIZE = 25;
 const USERS_FEATURE_KEY = "users.max";
-const USERS_COLUMN_CLASS = {
-  identity: "w-[44%]",
-  displayName: "hidden w-[28%] @md:table-cell",
-  role: "w-[36%]",
-  actions: "w-14 text-end",
-} as const;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
+  const calendarLocale = useCalendarLocale();
 
   const [users, setUsers] = useState<TenantAdminUser[]>(props.initialUsers);
   const [total, setTotal] = useState(props.initialTotal);
@@ -90,6 +84,10 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [selectedUserForRole, setSelectedUserForRole] = useState<TenantAdminUser | null>(null);
   const [selectedRoleName, setSelectedRoleName] = useState("");
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [bulkRoleUsers, setBulkRoleUsers] = useState<TenantAdminUser[] | null>(null);
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<{ kind: "success" | "warning" | "error"; message: string } | null>(null);
+  const bulkClearRef = useRef<() => void>(() => {});
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [banner, setBanner] = useState<Banner | null>(
@@ -127,6 +125,110 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       isMounted = false;
     };
   }, []);
+
+  const roleFormPending = isBulkAssigning || (selectedUserForRole !== null && isAssigningRoleUserID === selectedUserForRole.id);
+  const noticeLabels = { success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") };
+  const identityLabel = mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email");
+
+  const columns: ColumnDef<TenantAdminUser>[] = [
+    {
+      id: "member",
+      header: t("table.member"),
+      meta: { label: t("table.member"), headerClassName: "w-[28%]" },
+      cell: ({ row }) => {
+        const displayName = guessDisplayName(resolveIdentity(row.original));
+        return (
+          <div className="flex min-w-0 items-center gap-2">
+            <Avatar className="size-6">
+              <AvatarFallback className="text-xs">{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <span className="truncate font-medium">{displayName || "-"}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "identity",
+      header: identityLabel,
+      meta: { label: identityLabel, headerClassName: "w-[28%]" },
+      cell: ({ row }) => {
+        const identity = resolveIdentity(row.original);
+        return <span dir="ltr" className="block truncate font-mono text-xs" title={identity}>{identity}</span>;
+      },
+    },
+    {
+      id: "role",
+      header: t("table.role"),
+      meta: { label: t("table.role") },
+      cell: ({ row }) => (
+        <Badge variant={isUserActive(row.original) ? "secondary" : "outline"}>
+          {resolveRoleDisplayName(row.original.roles?.[0] ?? row.original.role)}
+        </Badge>
+      ),
+    },
+    {
+      id: "status",
+      header: t("table.status"),
+      meta: { label: t("table.status") },
+      cell: ({ row }) => {
+        const active = isUserActive(row.original);
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className={cn("size-2 rounded-full", active ? "bg-success" : "bg-warning")} />
+            {active ? t("status.active") : t("status.deactivated")}
+          </span>
+        );
+      },
+    },
+    {
+      id: "lastActivity",
+      header: t("table.lastActivity"),
+      meta: { optional: true, label: t("table.lastActivity") },
+      cell: ({ row }) => (
+        <DateTimeValue
+          value={row.original.last_login_at}
+          locale={calendarLocale}
+          fallback={t("table.neverActive")}
+          className="text-muted-foreground"
+        />
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">{t("actions.changeRole")}</span>,
+      meta: { headerClassName: "w-14", cellClassName: "w-14 text-end" },
+      cell: ({ row }) => {
+        const user = row.original;
+        const active = isUserActive(user);
+        const isSelf = user.id === props.currentUserID;
+        const canDeactivate = !isSelf && !hasTenantAdminRole(user);
+        return (
+          <RowActionsMenu
+            label={t("actions.changeRole")}
+            disabled={isSelf || isUpdatingUserID === user.id}
+            actions={[
+              {
+                label: t("actions.changeRole"),
+                disabled: !props.canManageUsers || isSelf || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id,
+                onSelect: () => openRoleForm(user),
+              },
+              active
+                ? {
+                    label: t("actions.deactivate"),
+                    disabled: !props.canManageUsers || !canDeactivate,
+                    onSelect: () => void changeUserStatus(user.id, false),
+                  }
+                : {
+                    label: t("actions.activate"),
+                    disabled: !props.canManageUsers,
+                    onSelect: () => void changeUserStatus(user.id, true),
+                  },
+            ]}
+          />
+        );
+      },
+    },
+  ];
 
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + users.length, total);
@@ -267,11 +369,53 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
   async function submitRoleForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (bulkRoleUsers) {
+      await submitBulkRoleForm();
+      return;
+    }
     if (!selectedUserForRole || !selectedRoleName) return;
     const succeeded = await assignRole(selectedUserForRole, selectedRoleName);
     if (!succeeded) return;
     setRoleFormOpen(false);
     setSelectedUserForRole(null);
+  }
+
+  function openBulkRoleForm(selected: TenantAdminUser[], clearSelection: () => void) {
+    if (!props.canManageUsers || selected.length === 0) return;
+    bulkClearRef.current = clearSelection;
+    setBulkRoleUsers(selected);
+    setSelectedUserForRole(null);
+    setSelectedRoleName("");
+    setRoleError(null);
+    setRoleFormOpen(true);
+  }
+
+  // No bulk endpoint yet: assign one user at a time and report the totals.
+  async function submitBulkRoleForm() {
+    if (!props.canManageUsers || !bulkRoleUsers || !selectedRoleName) return;
+    const eligible = bulkRoleUsers.filter((user) => user.id !== props.currentUserID && (user.email ?? "").trim());
+    const skipped = bulkRoleUsers.length - eligible.length;
+    setIsBulkAssigning(true);
+    let succeeded = 0;
+    let failed = 0;
+    for (const user of eligible) {
+      try {
+        await assignUserRole((user.email ?? "").trim(), selectedRoleName);
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setIsBulkAssigning(false);
+    setRoleFormOpen(false);
+    setBulkRoleUsers(null);
+    bulkClearRef.current();
+    const summary = t("bulk.result", { succeeded, failed });
+    setBulkNotice({
+      kind: failed === 0 && skipped === 0 ? "success" : succeeded === 0 ? "error" : "warning",
+      message: skipped > 0 ? `${summary} ${t("bulk.skipped", { count: skipped })}` : summary,
+    });
+    await loadUsers(offset, query.trim());
   }
 
   function resolveRoleDisplayName(roleName: string) {
@@ -315,14 +459,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       ) : null}
 
       <AppCard contentClassName="flex min-w-0 flex-col gap-4" className="min-w-0 shadow-none">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <SearchField
-              containerClassName="w-full sm:max-w-md"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("searchPlaceholder")}
-          />
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <Button type="button" className="w-full sm:w-auto" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
               <Plus data-icon="inline-start" />
               {t("inviteUser")}
@@ -344,84 +481,48 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
         </div>
 
-        <div className="@container/users overflow-hidden rounded-lg border border-border"><Table className="table-fixed text-xs lg:text-sm">
-          <TableHeader>
-            <TableRow>
-              <TableHead className={USERS_COLUMN_CLASS.identity}>{mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email")}</TableHead>
-              <TableHead className={USERS_COLUMN_CLASS.displayName}>{t("table.displayName")}</TableHead>
-              <TableHead className={USERS_COLUMN_CLASS.role}>{t("table.role")}</TableHead>
-              <TableHead className={USERS_COLUMN_CLASS.actions}> </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && users.length === 0 ? <TableLoadingRows colSpan={4} label={t("table.loading")} /> : users.length === 0 ? (
-              <TableEmptyRow colSpan={4} title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} />
-            ) : (
-              users.map((user) => {
-                const identity = user.email || (mobileAuthUIEnabled ? user.mobile : "") || user.id;
-                const displayName = guessDisplayName(identity);
-                const active = user.active && user.role !== "deactivated";
-                const effectiveRole = user.roles?.[0] ?? user.role;
-                const effectiveRoleLabel = resolveRoleDisplayName(effectiveRole);
-                const isSelf = user.id === props.currentUserID;
-                const isTenantAdminRole = hasTenantAdminRole(user);
-                const canDeactivate = !isSelf && !isTenantAdminRole;
-                const canChangeRole = !isSelf;
+        <OperationNotice notice={bulkNotice} labels={noticeLabels} />
 
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell className={`${USERS_COLUMN_CLASS.identity} min-w-0 font-medium`}>
-                      <span className="block truncate" title={identity}>{identity}</span>
-                    </TableCell>
-                    <TableCell className={USERS_COLUMN_CLASS.displayName}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="size-8">
-                          <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">{displayName || "-"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className={USERS_COLUMN_CLASS.role}>
-                      <Badge variant={active ? "secondary" : "outline"}>
-                        {active ? effectiveRoleLabel : t("status.deactivated")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className={USERS_COLUMN_CLASS.actions}>
-                      <RowActionsMenu
-                        label={t("actions.changeRole")}
-                        disabled={isSelf || isUpdatingUserID === user.id}
-                        actions={[
-                          {
-                            label: t("actions.changeRole"),
-                            disabled: !props.canManageUsers || !canChangeRole || !user.email || availableRoles.length === 0 || isAssigningRoleUserID === user.id,
-                            onSelect: () => openRoleForm(user),
-                          },
-                          active
-                            ? {
-                                label: t("actions.deactivate"),
-                                disabled: !props.canManageUsers || !canDeactivate,
-                                onSelect: () => void changeUserStatus(user.id, false),
-                              }
-                            : {
-                                label: t("actions.activate"),
-                                disabled: !props.canManageUsers,
-                                onSelect: () => void changeUserStatus(user.id, true),
-                              },
-                        ]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table></div>
+        <DataTable
+          tableId="users"
+          columns={columns}
+          data={users}
+          state={isLoading && users.length === 0 ? "loading" : "ready"}
+          skeletonRows={4}
+          emptyLabel={t("table.noUsersFound")}
+          noResultsSlot={<EmptyState variant="table" title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} />}
+          enableRowSelection={props.canManageUsers}
+          getRowId={(user) => user.id}
+          toolbar={(
+            <DataTableToolbar
+              search={(
+                <SearchField
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                />
+              )}
+            />
+          )}
+          bulkBar={(ids, clear) => (
+            <DataTableBulkBar
+              count={ids.length}
+              onClear={clear}
+              actions={[
+                {
+                  key: "change-role",
+                  label: t("actions.changeRole"),
+                  disabled: isBulkAssigning || availableRoles.length === 0,
+                  onSelect: () => openBulkRoleForm(users.filter((user) => ids.includes(user.id)), clear),
+                },
+              ]}
+            />
+          )}
+        />
 
         <TablePagination
-          className="mt-4"
           label={t("usersPage.title")}
           summary={t("pagination.showingResults", { from, to, total })}
           pageSizeLabel={t("pagination.rowsPerPage")}
@@ -495,16 +596,18 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
       <FormSheet
         open={roleFormOpen}
-        onOpenChange={(open) => { setRoleFormOpen(open); if (!open) setRoleError(null); }}
-        title={t("roleForm.title")}
-        description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""}
+        onOpenChange={(open) => { setRoleFormOpen(open); if (!open) { setRoleError(null); setBulkRoleUsers(null); } }}
+        title={bulkRoleUsers ? t("bulk.changeRoleTitle") : t("roleForm.title")}
+        description={bulkRoleUsers
+          ? t("bulk.changeRoleDescription", { count: bulkRoleUsers.length })
+          : selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""}
         size="md"
-        pending={isAssigningRoleUserID === selectedUserForRole?.id}
+        pending={roleFormPending}
         closeLabel={t("actions.close")}
         footer={(
           <FormSheetActions
-            secondary={<Button type="button" variant="outline" disabled={isAssigningRoleUserID === selectedUserForRole?.id} onClick={() => { setRoleFormOpen(false); setRoleError(null); }}>{t("actions.cancel")}</Button>}
-            primary={<Button type="submit" form="assign-user-role-form" disabled={!props.canManageUsers || !selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}>{isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}</Button>}
+            secondary={<Button type="button" variant="outline" disabled={roleFormPending} onClick={() => { setRoleFormOpen(false); setRoleError(null); setBulkRoleUsers(null); }}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="assign-user-role-form" disabled={!props.canManageUsers || !(selectedUserForRole || bulkRoleUsers) || !selectedRoleName || roleFormPending}>{roleFormPending ? t("roleForm.submitting") : t("roleForm.submit")}</Button>}
           />
         )}
       >
@@ -530,6 +633,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       </FormSheet>
     </div>
   );
+}
+
+function resolveIdentity(user: TenantAdminUser) {
+  return user.email || (mobileAuthUIEnabled ? user.mobile : "") || user.id;
+}
+
+function isUserActive(user: TenantAdminUser) {
+  return user.active && user.role !== "deactivated";
 }
 
 function guessDisplayName(identity: string) {
