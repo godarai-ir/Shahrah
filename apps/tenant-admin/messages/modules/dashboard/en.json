@@ -39,10 +39,6 @@
     "continue": "Continue setup"
   },
   "keyCreatedTitle": "Newly created key is shown only once",
-  "messages": {
-    "errorTitle": "Error",
-    "successTitle": "Success"
-  },
   "analytics": {
     "sectionLabel": "Workspace usage and health charts",
     "providerCostTitle": "Provider cost share",
@@ -51,7 +47,6 @@
     "totalCost": "Total cost",
     "cost": "Cost",
     "otherProviders": "Other providers",
-    "reliabilityTitle": "Request health",
     "reliabilityDescription": "Successful and failed requests in the selected range",
     "reliabilityAriaLabel": "Successful and failed requests chart",
     "successRateBadge": "{value}% success",
@@ -67,21 +62,6 @@
   },
   "plan": {
     "currentPlan": "Current plan",
-    "daysRemaining": "Days remaining",
-    "daysRemainingBadge": "{days} days left",
-    "daysValue": "{days} days",
-    "trialSubtitle": "This account is in a trial period",
-    "snapshotTitle": "Plan status",
-    "snapshotDescription": "Subscription snapshot and next action",
-    "overviewTitle": "Plan and credit overview",
-    "overviewDescription": "Current consumption against plan limits and wallet status",
-    "statusLabel": "Status",
-    "endDateLabel": "End date",
-    "intervalLabel": "Billing interval",
-    "userLimit": "User capacity",
-    "userLimitHint": "Active users compared with the plan cap",
-    "requestLimit": "Request capacity",
-    "requestLimitHint": "Total limit for this period from {monthly} monthly requests × {months} months",
     "actions": {
       "manage": "Manage plan",
       "renew": "Renew plan",
@@ -92,11 +72,6 @@
       "trialing": "Trial",
       "past_due": "Past due",
       "inactive": "Unknown"
-    },
-    "interval": {
-      "monthly": "Monthly",
-      "quarterly": "Quarterly",
-      "yearly": "Yearly"
     }
   },
   "stats": {

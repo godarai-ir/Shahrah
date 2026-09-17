@@ -614,6 +614,14 @@ Avoid vague messages like `Something went wrong`, `Invalid input`, and `Failed`.
 
 Structure: page title, system alerts, summary metrics, charts, recent activity, and operational links. Put urgent configuration issues above charts.
 
+The tenant dashboard (`features/dashboard`) orders its blocks by urgency, and new blocks must slot into this order rather than being appended:
+
+1. `PageHeader` with page-level actions (refresh, plan action). No plan summary card.
+2. Alerts row: `DashboardAlertList` of `DashboardAlertItem`s, sorted `error` → `warning` → `info`, at most three visible with a "+n more" link. Only alerts computable from real data and each with at most one action link. Thresholds are named constants (`ERROR_RATE_ALERT_THRESHOLD`, `ERROR_RATE_SPIKE_FACTOR`).
+3. KPI row: `grid gap-4 sm:grid-cols-2 xl:grid-cols-4` (`xl:grid-cols-3` while a card is hidden). Each `MetricCard` uses `delta` beside the label and a 36px `Sparkline` (inline SVG, not recharts) below the value. Direction and tone are independent: a rising error rate is `up` + `negative`. A metric without data is not rendered; never show a card with `-`.
+4. Onboarding strip (`bg-info-soft/35`, `border-info-soft-border`), removed entirely once setup is complete.
+5. Charts: `xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]`, traffic and errors on the wide side with the 24h/7d/30d range toggle, provider cost on the narrow side. The range is owned by the dashboard and persisted in `localStorage` (`dashboard.range`).
+
 ### List Page
 
 Structure: page header, primary action, search, filters, table, pagination, empty state, loading skeleton, and error state. Preserve filters/sort in URL when server-backed.

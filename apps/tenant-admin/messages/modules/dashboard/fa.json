@@ -39,10 +39,6 @@
     "continue": "ادامه آماده‌سازی"
   },
   "keyCreatedTitle": "کلید تازه ایجادشده فقط یک‌بار نمایش داده می‌شود",
-  "messages": {
-    "errorTitle": "خطا",
-    "successTitle": "موفق"
-  },
   "analytics": {
     "sectionLabel": "نمودارهای مصرف و سلامت فضای کاری",
     "providerCostTitle": "سهم هزینه ارائه‌دهندگان",
@@ -51,7 +47,6 @@
     "totalCost": "هزینه کل",
     "cost": "هزینه",
     "otherProviders": "سایر ارائه‌دهندگان",
-    "reliabilityTitle": "سلامت درخواست‌ها",
     "reliabilityDescription": "درخواست‌های موفق و ناموفق در بازه انتخاب‌شده",
     "reliabilityAriaLabel": "نمودار درخواست‌های موفق و ناموفق",
     "successRateBadge": "موفقیت {value}٪",
@@ -67,21 +62,6 @@
   },
   "plan": {
     "currentPlan": "پلن فعلی",
-    "daysRemaining": "روز مانده",
-    "daysRemainingBadge": "{days} روز تا پایان",
-    "daysValue": "{days} روز",
-    "trialSubtitle": "حساب در دوره آزمایشی است",
-    "snapshotTitle": "وضعیت پلن",
-    "snapshotDescription": "خلاصه وضعیت اشتراک و اقدام بعدی",
-    "overviewTitle": "مرور پلن و اعتبار",
-    "overviewDescription": "مصرف فعلی از محدودیت‌های پلن و وضعیت کیف پول",
-    "statusLabel": "وضعیت",
-    "endDateLabel": "تاریخ پایان",
-    "intervalLabel": "بازه صورتحساب",
-    "userLimit": "ظرفیت کاربران",
-    "userLimitHint": "تعداد کاربران فعال نسبت به سقف پلن",
-    "requestLimit": "ظرفیت درخواست‌ها",
-    "requestLimitHint": "سقف کل این دوره از {monthly} درخواست ماهانه × {months} ماه",
     "actions": {
       "manage": "مدیریت پلن",
       "renew": "تمدید پلن",
@@ -92,11 +72,6 @@
       "trialing": "آزمایشی",
       "past_due": "سررسید گذشته",
       "inactive": "نامشخص"
-    },
-    "interval": {
-      "monthly": "ماهانه",
-      "quarterly": "سه‌ماهه",
-      "yearly": "سالانه"
     }
   },
   "stats": {
