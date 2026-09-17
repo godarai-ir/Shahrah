@@ -34,7 +34,7 @@ function renderPalette(permissions: string[]) {
   );
 }
 
-function pressShortcut(target: EventTarget = window) {
+function pressShortcut(target: Element | Window = window) {
   fireEvent.keyDown(target, { key: "k", ctrlKey: true });
 }
 

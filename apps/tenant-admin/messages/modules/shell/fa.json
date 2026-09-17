@@ -81,8 +81,28 @@
     "guardrails": "گاردریل‌ها",
     "observe": "رصد",
     "accessAndUsers": "کاربران و دسترسی",
-    "search": "جست‌وجو و پرش سریع",
     "sectionTabs": "زیربخش‌ها"
   },
-  "logoAlt": "لوگوی گدارAI"
+  "logoAlt": "لوگوی گدارAI",
+  "palette": {
+    "trigger": "جست‌وجو و پرش سریع",
+    "placeholder": "نام صفحه یا اقدام…",
+    "groups": {
+      "recent": "اخیر",
+      "navigate": "پرش",
+      "action": "اقدام"
+    },
+    "empty": "چیزی پیدا نشد",
+    "emptyHint": "نام صفحه را فارسی یا انگلیسی بنویسید.",
+    "shortcutHint": "Control+K",
+    "dialogTitle": "پالت فرمان",
+    "dialogDescription": "صفحه یا اقدامی را جست‌وجو کنید و با Enter به آن بروید.",
+    "actions": {
+      "createProviderAccount": "ساخت حساب ارائه‌دهنده",
+      "createRateLimitRule": "ساخت قانون کنترل نرخ",
+      "createBudgetLimitRule": "ساخت قانون سقف هزینه",
+      "createSupportTicket": "ثبت تیکت پشتیبانی",
+      "topup": "افزایش اعتبار"
+    }
+  }
 }

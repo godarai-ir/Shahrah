@@ -81,8 +81,28 @@
     "teams": "Teams",
     "observe": "Observe",
     "accessAndUsers": "Users & access",
-    "search": "Search and jump",
     "sectionTabs": "Subsections"
   },
-  "logoAlt": "GodarAI logo"
+  "logoAlt": "GodarAI logo",
+  "palette": {
+    "trigger": "Search and jump",
+    "placeholder": "Page or action name…",
+    "groups": {
+      "recent": "Recent",
+      "navigate": "Go to",
+      "action": "Actions"
+    },
+    "empty": "Nothing found",
+    "emptyHint": "Type a page name in English or Persian.",
+    "shortcutHint": "Control+K",
+    "dialogTitle": "Command palette",
+    "dialogDescription": "Search for a page or action and press Enter to go there.",
+    "actions": {
+      "createProviderAccount": "Create provider account",
+      "createRateLimitRule": "Create rate limit rule",
+      "createBudgetLimitRule": "Create budget limit rule",
+      "createSupportTicket": "Open support ticket",
+      "topup": "Top up credit"
+    }
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -34,18 +34,21 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const permissions = usePermissions();
   const [search, setSearch] = useState("");
   const [recentIDs, setRecentIDs] = useState<string[]>([]);
+  const [wasOpen, setWasOpen] = useState(open);
 
   const commands = useMemo(
     () => buildPaletteCommands(pathname, t, permissions ?? []),
     [pathname, t, permissions],
   );
 
-  // Read storage after mount, on each open, so server and client render identical markup.
-  useEffect(() => {
-    if (!open) return;
-    setSearch("");
-    setRecentIDs(readRecentCommandIDs());
-  }, [open]);
+  // Reset on each open. The dialog is closed during SSR, so storage is only read on the client.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setSearch("");
+      setRecentIDs(readRecentCommandIDs());
+    }
+  }
 
   const recentCommands = useMemo(() => resolveRecentCommands(recentIDs, commands.byId), [recentIDs, commands]);
   const showRecent = search.trim() === "" && recentCommands.length > 0;
