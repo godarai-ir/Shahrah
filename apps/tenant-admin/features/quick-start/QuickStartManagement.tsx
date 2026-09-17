@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpRight,
@@ -14,7 +14,7 @@ import {
   Gauge,
   KeyRound,
   Layers3,
-  Lightbulb,
+  Lock,
   Network,
   Play,
   ShieldCheck,
@@ -30,6 +30,7 @@ import {
   type QuickStartAction,
   type QuickStartEntitlements,
   type QuickStartExploreCardID,
+  type QuickStartJourneyStep,
   type QuickStartResources,
   type QuickStartStepID,
   type QuickStartStepStatus,
@@ -46,7 +47,6 @@ import { buildBashCurlGuideCommand } from "@/lib/api-guides";
 import { getAPIErrorMessage } from "@/lib/http/api-client";
 import { getTenantApiBaseURL } from "@/lib/tenant-api-origin";
 import { AppCard } from "@/components/app-ui/AppCard";
-import { EmptyState } from "@/components/app-ui/EmptyState";
 import { HelpLink } from "@/components/app-ui/HelpLink";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -54,6 +54,7 @@ import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
@@ -65,7 +66,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useNumberFormatter } from "@/hooks/use-locale-format";
@@ -97,12 +97,27 @@ type SampleRunResult = {
 const featuredProviderOrder = ["openai", "anthropic", "google", "azure", "mistral", "groq"] as const;
 type FeaturedProvider = (typeof featuredProviderOrder)[number];
 
+/** Chips are capped so the journey itself keeps the reader's attention. */
+const exploreChipPriority: QuickStartExploreCardID[] = [
+  "teams",
+  "guardrails",
+  "prompts",
+  "billing_plan",
+  "virtual_users",
+  "org_units",
+  "provider_accounts",
+  "metrics",
+  "logs",
+];
+const exploreChipLimit = 4;
+
 export default function QuickStartManagement(props: QuickStartManagementProps) {
   const t = useTranslations("quickStart");
   const common = useTranslations("common");
   const numberFormatter = useNumberFormatter();
   const samplePrompt = t("samplePrompt");
   const [resources, setResources] = useState(props.initialResources);
+  const [skippedStepIDs, setSkippedStepIDs] = useState<QuickStartStepID[]>([]);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [patDialogNotice, setPatDialogNotice] = useState<Banner | null>(null);
   const [copiedKey, setCopiedKey] = useState("");
@@ -116,9 +131,10 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   const [isCreatingPat, setIsCreatingPat] = useState(false);
   const [isRunningSample, setIsRunningSample] = useState(false);
   const [sampleRunResult, setSampleRunResult] = useState<SampleRunResult | null>(null);
-  const [isTestBenchOpen, setIsTestBenchOpen] = useState(false);
   const [labBanner, setLabBanner] = useState<Banner | null>(null);
   const [providerChoices, setProviderChoices] = useState<ProviderCatalogProvider[]>([]);
+  const testBenchRef = useRef<HTMLElement | null>(null);
+  const tokenInputRef = useRef<HTMLInputElement | null>(null);
 
   const journey = useMemo(
     () =>
@@ -127,9 +143,11 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         entitlements: props.initialEntitlements,
         permissions: props.initialPermissions,
         resources,
+        skippedStepIDs,
       }),
-    [props.initialEntitlements, props.initialPermissions, props.initialSubscription, resources],
+    [props.initialEntitlements, props.initialPermissions, props.initialSubscription, resources, skippedStepIDs],
   );
+  const isProviderStepOpen = journey.activeStepID === "connect_provider";
   const featuredProviders = useMemo(() => {
     const ranked = new Map(featuredProviderOrder.map((slug, index) => [slug, index]));
     return providerChoices
@@ -138,7 +156,12 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       .sort((a, b) => (ranked.get(a.featuredProvider) ?? Number.MAX_SAFE_INTEGER) - (ranked.get(b.featuredProvider) ?? Number.MAX_SAFE_INTEGER))
       .map((entry) => entry.item);
   }, [providerChoices]);
-  const completedStepCount = journey.steps.filter((step) => step.status === "done").length;
+  const exploreChips = useMemo(
+    () => exploreChipPriority.filter((cardID) => journey.exploreCards.includes(cardID)).slice(0, exploreChipLimit),
+    [journey.exploreCards],
+  );
+  const progressPercent =
+    journey.totalCount > 0 ? Math.min(100, Math.round((journey.doneCount / journey.totalCount) * 100)) : 100;
 
   const effectiveSelectedTokenType =
     journey.testBench.availableTokenTypes.includes(selectedTokenType)
@@ -216,6 +239,10 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   ].join("\n");
 
   useEffect(() => {
+    // The provider shortcuts only render inside the open first step, so nothing is
+    // fetched once that step is done.
+    if (!isProviderStepOpen) return;
+
     let isCancelled = false;
     void listQuickStartProviders()
       .then((payload) => {
@@ -229,7 +256,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [isProviderStepOpen]);
 
   async function createPat() {
     if (isCreatingPat) return;
@@ -249,13 +276,10 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       setResources((current) => ({
         ...current,
         personalAccessTokenCount: current.personalAccessTokenCount + 1,
+        personalAccessTokenLabel: current.personalAccessTokenLabel ?? patName.trim(),
       }));
       setIsPatDialogOpen(false);
-      if (isTestBenchOpen) {
-        setLabBanner({ kind: "success", message: t("messages.patCreated") });
-      } else {
-        showFeedbackToast({ kind: "success", title: t("messages.patCreated") });
-      }
+      showFeedbackToast({ kind: "success", title: t("messages.patCreated") });
     } catch (error) {
       const message = getAPIErrorMessage(error, t("messages.patCreateFailed"));
       setPatDialogNotice({ kind: "error", message });
@@ -264,18 +288,39 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
     }
   }
 
+  function focusTestBench() {
+    const section = testBenchRef.current;
+    if (!section) return;
+
+    // scrollIntoView fights the sticky column on wide screens, so the page is moved
+    // to the column's own offset instead.
+    window.scrollTo({ top: Math.max(section.offsetTop - 24, 0), behavior: "smooth" });
+    tokenInputRef.current?.focus({ preventScroll: true });
+  }
+
   function handleAction(action: QuickStartAction) {
     if (action.type === "dialog") {
       setIsPatDialogOpen(true);
       return;
     }
-    if (action.type === "anchor") {
-      if (action.anchor === "test_bench") {
-        setIsTestBenchOpen(true);
-        return;
-      }
-      return;
+    if (action.type === "anchor" && action.anchor === "test_bench") {
+      focusTestBench();
     }
+  }
+
+  function skipStep(stepID: QuickStartStepID) {
+    setSkippedStepIDs((current) => (current.includes(stepID) ? current : [...current, stepID]));
+  }
+
+  function resumeStep(stepID: QuickStartStepID) {
+    setSkippedStepIDs((current) => current.filter((item) => item !== stepID));
+  }
+
+  function handleStepAction(step: QuickStartJourneyStep) {
+    if (step.id === "inspect_activity") {
+      setResources((current) => ({ ...current, telemetryVisited: true }));
+    }
+    handleAction(step.action);
   }
 
   async function copyText(key: string, value: string) {
@@ -312,6 +357,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       setResources((current) => ({
         ...current,
         sampleRequestSucceeded: true,
+        sampleRequestModel: suggestedModel,
       }));
       setSampleRunResult({
         content: extractSampleContent(payload),
@@ -335,6 +381,12 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         description={<HeaderDescription t={t} docsBaseHref={props.docsBaseHref} />}
       />
 
+      {journey.estimatedMinutes > 0 ? (
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t("progress.estimate", { minutes: journey.estimatedMinutes })}
+        </p>
+      ) : null}
+
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -342,198 +394,86 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         </Alert>
       ) : null}
 
-      <section className="mx-auto w-full max-w-5xl">
-        <AppCard
-          title={t("journey.title")}
-          description={t("journey.description") || undefined}
-          actions={
-            <StatusBadge status={completedStepCount === journey.steps.length ? "success" : "pending"}>
-              {t("progress.value", { done: completedStepCount, total: journey.steps.length })}
-            </StatusBadge>
-          }
-        >
-          <ol className="flex flex-col gap-3 sm:gap-4">
-            {journey.steps.map((step, index) => (
-              <Fragment key={step.id}>
-                <li className="relative ps-12 sm:ps-16">
-                    {index < journey.steps.length - 1 ? (
-                      <span
-                        className="absolute bottom-0 start-5 top-12 w-px bg-border sm:start-6 sm:top-14"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                    <span
-                      className={cn(
-                        "absolute start-0 top-1 flex size-10 items-center justify-center rounded-lg border text-sm font-semibold sm:size-12",
-                        step.status === "done"
-                          ? "border-success/30 bg-success-muted text-success"
-                          : step.status === "active"
-                            ? "border-info/30 bg-info/10 text-info"
-                            : step.status === "unavailable"
-                              ? "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground"
-                              : "border-border bg-muted/40 text-muted-foreground",
-                      )}
-                    >
-                      {step.status === "done" ? <CheckCircle2 className="size-5" /> : numberFormatter.format(index + 1)}
-                    </span>
-                    <div className="bg-card py-1 sm:p-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-semibold">{t(`steps.${step.id}.title`)}</h3>
-                              <StatusBadge status={statusBadgeForStepStatus(step.status)}>
-                                {t(`statuses.${step.status}`)}
-                              </StatusBadge>
-                            </div>
-                          </div>
-                          <StepActionButton
-                            stepID={step.id}
-                            status={step.status}
-                            action={step.action}
-                            t={t}
-                            onAction={() => {
-                              if (step.id === "inspect_activity") {
-                                setResources((current) => ({
-                                  ...current,
-                                  telemetryVisited: true,
-                                }));
-                              }
-                              handleAction(step.action);
-                            }}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm leading-7 text-muted-foreground">
-                            {t(`steps.${step.id}.description`)}
-                          </p>
-                          {step.id === "connect_provider" && featuredProviders.length > 0 ? (
-                            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                              {featuredProviders.map((providerItem) => (
-                                <Link
-                                  key={providerItem.provider}
-                                  href={`/provider-accounts/new?provider=${encodeURIComponent(providerItem.provider)}`}
-                                  className="group flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent"
-                                >
-                                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-                                    <ProviderLogo
-                                      provider={providerItem.provider}
-                                      displayName={providerItem.display_name}
-                                      logoURL={providerItem.logo_url}
-                                      size={24}
-                                    />
-                                  </span>
-                                  <span className="min-w-0 flex-1 text-sm font-medium leading-6">
-                                    {providerItem.display_name}
-                                  </span>
-                                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
-                                </Link>
-                              ))}
-                            </div>
-                          ) : null}
-                          <div className="mt-3 flex w-full items-start gap-3 rounded-lg border border-warning/20 bg-warning-muted px-3 py-3 text-xs leading-6 text-foreground">
-                            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-warning/15 text-warning">
-                              <Lightbulb className="size-4" aria-hidden="true" />
-                            </span>
-                            <p className="min-w-0 flex-1">{renderStepLearn(step.id, t, props.docsBaseHref)}</p>
-                          </div>
-                          {step.status === "unavailable" && step.blockedBy ? (
-                            <p className="mt-3 text-xs leading-6 text-destructive">
-                              {t(`blocked.${step.blockedBy}`)}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                {index < journey.steps.length - 1 ? <StepSeparator /> : null}
-              </Fragment>
-            ))}
-          </ol>
-        </AppCard>
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <AppCard>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-sm font-semibold">
+                  {t("progress.value", { done: journey.doneCount, total: journey.totalCount })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t("progress.planPath", { plan: t(`planNames.${journey.plan}`) })}
+                </p>
+              </div>
+              <Progress
+                value={progressPercent}
+                className="bg-success/15 [&_[data-slot=progress-indicator]]:bg-success"
+              />
+              <div>
+                <StatusBadge status={journey.activeStepID ? "info" : "success"}>
+                  {journey.activeStepID
+                    ? t("progress.currentStep", { step: t(`steps.${journey.activeStepID}.title`) })
+                    : t("progress.state.complete")}
+                </StatusBadge>
+              </div>
+            </div>
+          </AppCard>
 
-      <section>
-        <AppCard
-          title={
-            <span className="flex items-center gap-2">
-              <Sparkles className="text-info" aria-hidden="true" />
-              <span>{t("explore.title")}</span>
-            </span>
-          }
-          description={t("explore.description")}
-          contentClassName="@container"
-        >
-          {journey.exploreCards.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4">
-              {journey.exploreCards.map((cardID, index) => (
-                <ExploreCard
-                  key={cardID}
-                  cardID={cardID}
-                  t={t}
-                  className={
-                    journey.exploreCards.length % 2 === 1 && index === journey.exploreCards.length - 1
-                      ? "col-span-2 @[48rem]:col-span-1"
-                      : undefined
-                  }
-                />
+          <AppCard title={t("journey.title")} description={t("journey.description") || undefined}>
+            <ol className="flex flex-col gap-2">
+              {journey.steps.map((step, index) => (
+                <li key={step.id} className="relative ps-12 sm:ps-14">
+                  {index < journey.steps.length - 1 ? (
+                    <span className="absolute bottom-0 start-5 top-12 w-px bg-border sm:start-6" aria-hidden="true" />
+                  ) : null}
+                  <StepMarker status={step.status} label={numberFormatter.format(index + 1)} />
+                  {step.status === "active" ? (
+                    <QuickStartStepActive
+                      step={step}
+                      t={t}
+                      docsBaseHref={props.docsBaseHref}
+                      featuredProviders={step.id === "connect_provider" ? featuredProviders : []}
+                      onAction={() => handleStepAction(step)}
+                      onSkip={() => skipStep(step.id)}
+                    />
+                  ) : step.status === "done" ? (
+                    <QuickStartStepDone step={step} t={t} onAction={() => handleStepAction(step)} />
+                  ) : (
+                    <QuickStartStepPending step={step} t={t} onResume={() => resumeStep(step.id)} />
+                  )}
+                </li>
               ))}
-            </div>
-          ) : (
-            <EmptyState icon={Sparkles} title={t("explore.title")} description={t("explore.description")} />
-          )}
-        </AppCard>
-      </section>
+            </ol>
+          </AppCard>
 
-      <Dialog open={isPatDialogOpen} onOpenChange={(open) => { setIsPatDialogOpen(open); if (!open) setPatDialogNotice(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("patDialog.title")}</DialogTitle>
-            <DialogDescription>{t("patDialog.description")}</DialogDescription>
-          </DialogHeader>
-          <OperationNotice notice={patDialogNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="quick-start-pat-name">{t("patDialog.nameLabel")}</Label>
-              <Input
-                id="quick-start-pat-name"
-                value={patName}
-                onChange={(event) => setPatName(event.target.value)}
-                placeholder="quick-start"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="quick-start-pat-expiry">{t("patDialog.expiryLabel")}</Label>
-              <Input
-                id="quick-start-pat-expiry"
-                value={patExpiresIn}
-                onChange={(event) => setPatExpiresIn(event.target.value)}
-                placeholder="7d"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsPatDialogOpen(false)} disabled={isCreatingPat}>
-              {common("cancel")}
-            </Button>
-            <Button type="button" onClick={() => void createPat()} disabled={isCreatingPat}>
-              {isCreatingPat ? <Spinner data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
-              {isCreatingPat ? t("patDialog.creating") : t("patDialog.submit")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {exploreChips.length > 0 ? (
+            <section className="rounded-lg border border-dashed border-border p-4">
+              <p className="text-xs font-medium text-muted-foreground">{t("explore.afterJourney")}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {exploreChips.map((cardID) => (
+                  <ExploreChip key={cardID} cardID={cardID} t={t} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
 
-      <Sheet open={isTestBenchOpen} onOpenChange={setIsTestBenchOpen}>
-        <SheetContent side="left" className="flex h-full w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-2xl">
-          <SheetHeader className="border-b border-border px-6 py-5 text-start">
-            <SheetTitle className="flex items-center gap-2">
-              <TerminalSquare className="text-info" aria-hidden="true" />
-              {t("lab.title")}
-            </SheetTitle>
-            <SheetDescription className="leading-7">{t("lab.description")}</SheetDescription>
-          </SheetHeader>
-          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
+        <section
+          id="test_bench"
+          ref={testBenchRef}
+          className="min-w-0 lg:sticky lg:top-24"
+          aria-label={t("lab.title")}
+        >
+          <AppCard
+            title={
+              <span className="flex items-center gap-2">
+                <TerminalSquare className="text-info" aria-hidden="true" />
+                <span>{t("lab.title")}</span>
+              </span>
+            }
+            description={t("lab.description")}
+          >
             <div className="flex flex-col gap-4">
               {labBanner ? (
                 <Alert variant={labBanner.kind === "error" ? "destructive" : "default"}>
@@ -551,25 +491,11 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                 </Alert>
               ) : null}
 
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 text-start">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-sm font-semibold">{t("lab.keyTypeTitle")}</p>
-                      <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="gap-0">
-                        <TabsList className="h-auto rounded-none bg-transparent p-0">
-                          {journey.testBench.availableTokenTypes.map((tokenType) => (
-                            <TabsTrigger key={tokenType} value={tokenType} className="h-7 flex-none rounded-md px-3 text-xs">
-                              {t(`tokenLabels.${tokenType}`)}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      </Tabs>
-                    </div>
-                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                      {journey.recommendedTokenType === "vat" ? t("lab.recommendedVat") : t("lab.recommendedPat")}
-                    </p>
-                  </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="quick-start-token" className="text-sm font-semibold">
+                    {t("lab.keyTypeTitle")}
+                  </Label>
                   {journey.testBench.availableTokenTypes.includes("pat") ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsPatDialogOpen(true)}>
                       <KeyRound data-icon="inline-start" />
@@ -578,34 +504,48 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                   ) : null}
                 </div>
 
-                <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="mt-4 gap-3">
-                  {journey.testBench.availableTokenTypes.map((tokenType) => (
-                    <TabsContent key={tokenType} value={tokenType} className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-2 text-start">
-                        <Label htmlFor={`quick-start-token-${tokenType}`} className="text-start">
-                          {t(`lab.tokenInputLabel.${tokenType}`)}
-                        </Label>
-                        <Input
-                          id={`quick-start-token-${tokenType}`}
-                          className="text-start"
-                          value={tokenType === "pat" ? manualTokens.pat : manualTokens.vat}
-                          onChange={(event) =>
-                            setManualTokens((current) => ({
-                              ...current,
-                              [tokenType]: event.target.value,
-                            }))
-                          }
-                          placeholder={t(`lab.tokenInputPlaceholder.${tokenType}`)}
-                        />
-                      </div>
-                    </TabsContent>
-                  ))}
+                <Tabs
+                  value={effectiveSelectedTokenType}
+                  onValueChange={(value) => setSelectedTokenType(value as TokenType)}
+                  className="gap-3"
+                >
+                  <TabsList className="h-9 w-full rounded-md border border-border bg-muted p-1">
+                    {journey.testBench.availableTokenTypes.map((tokenType) => (
+                      <TabsTrigger key={tokenType} value={tokenType} className="h-7 flex-1 rounded-md px-3 text-xs">
+                        {t(`tokenLabels.${tokenType}`)}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
                 </Tabs>
+
+                <p className="text-xs leading-6 text-muted-foreground">
+                  {journey.recommendedTokenType === "vat" ? t("lab.recommendedVat") : t("lab.recommendedPat")}
+                </p>
+
+                <div className="flex flex-col gap-2 text-start">
+                  <Label htmlFor="quick-start-token" className="text-start">
+                    {t(`lab.tokenInputLabel.${effectiveSelectedTokenType}`)}
+                  </Label>
+                  <Input
+                    id="quick-start-token"
+                    ref={tokenInputRef}
+                    className="text-start"
+                    value={manualTokens[effectiveSelectedTokenType]}
+                    onChange={(event) =>
+                      setManualTokens((current) => ({
+                        ...current,
+                        [effectiveSelectedTokenType]: event.target.value,
+                      }))
+                    }
+                    placeholder={t(`lab.tokenInputPlaceholder.${effectiveSelectedTokenType}`)}
+                  />
+                  <p className="text-xs leading-6 text-muted-foreground">{t("lab.tokenLocalOnly")}</p>
+                </div>
               </div>
 
               {generatedPatSecret ? (
                 <div className="rounded-lg border border-success/30 bg-success-muted p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-success">{t("lab.generatedTokenTitle")}</p>
                       <p className="mt-1 text-xs leading-6 text-foreground">{t("lab.generatedTokenDescription")}</p>
@@ -613,25 +553,29 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                         {generatedPatSecret}
                       </code>
                     </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void copyText("generated-token", generatedPatSecret)}>
-                      <Copy data-icon="inline-start" />
-                      {copiedKey === "generated-token" ? t("actions.copied") : t("actions.copyToken")}
-                    </Button>
+                    <div>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void copyText("generated-token", generatedPatSecret)}>
+                        <Copy data-icon="inline-start" />
+                        {copiedKey === "generated-token" ? t("actions.copied") : t("actions.copyToken")}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2 text-start">
                   <Label htmlFor="quick-start-model">{t("lab.modelLabel")}</Label>
                   <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} className="text-start font-mono" />
                 </div>
-                <div className="flex gap-2">
-                  <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>
-                    {isRunningSample ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" />}
-                    {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => void runSampleRequest()}
+                  disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}
+                >
+                  {isRunningSample ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+                  {isRunningSample ? t("lab.runningAction") : t("lab.runAction")}
+                </Button>
               </div>
 
               <Tabs value={selectedSnippetTab} onValueChange={(value) => setSelectedSnippetTab(value as SnippetTab)}>
@@ -704,16 +648,14 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
 
               {sampleRunResult ? (
                 <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success-muted p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-success">{t("lab.responseTitle")}</p>
-                      <p className="mt-1 text-xs leading-6 text-foreground">
-                        {t("lab.responseDescription", {
-                          status: sampleRunResult.status,
-                          tokenType: t(`tokenLabels.${sampleRunResult.tokenType}`),
-                        })}
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-semibold text-success">{t("lab.responseTitle")}</p>
+                    <p className="mt-1 text-xs leading-6 text-foreground">
+                      {t("lab.responseDescription", {
+                        status: sampleRunResult.status,
+                        tokenType: t(`tokenLabels.${sampleRunResult.tokenType}`),
+                      })}
+                    </p>
                   </div>
 
                   {sampleRunResult.content ? (
@@ -733,9 +675,48 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                 </div>
               ) : null}
             </div>
+          </AppCard>
+        </section>
+      </div>
+
+      <Dialog open={isPatDialogOpen} onOpenChange={(open) => { setIsPatDialogOpen(open); if (!open) setPatDialogNotice(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("patDialog.title")}</DialogTitle>
+            <DialogDescription>{t("patDialog.description")}</DialogDescription>
+          </DialogHeader>
+          <OperationNotice notice={patDialogNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="quick-start-pat-name">{t("patDialog.nameLabel")}</Label>
+              <Input
+                id="quick-start-pat-name"
+                value={patName}
+                onChange={(event) => setPatName(event.target.value)}
+                placeholder="quick-start"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="quick-start-pat-expiry">{t("patDialog.expiryLabel")}</Label>
+              <Input
+                id="quick-start-pat-expiry"
+                value={patExpiresIn}
+                onChange={(event) => setPatExpiresIn(event.target.value)}
+                placeholder="7d"
+              />
+            </div>
           </div>
-        </SheetContent>
-      </Sheet>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsPatDialogOpen(false)} disabled={isCreatingPat}>
+              {common("cancel")}
+            </Button>
+            <Button type="button" onClick={() => void createPat()} disabled={isCreatingPat}>
+              {isCreatingPat ? <Spinner data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
+              {isCreatingPat ? t("patDialog.creating") : t("patDialog.submit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -752,17 +733,170 @@ function HeaderDescription(props: {
   );
 }
 
-function StepSeparator() {
+function StepMarker(props: { label: string; status: QuickStartStepStatus }) {
   return (
-    <li className="hidden justify-center ps-16 sm:flex" aria-hidden="true">
-      <div className="flex w-2/3 max-w-sm items-center gap-3 text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-info">
-          <Sparkles className="size-3.5" />
-        </span>
-        <span className="h-px flex-1 bg-border" />
+    <span
+      className={cn(
+        "absolute start-0 top-1 flex size-10 items-center justify-center rounded-lg border text-sm font-semibold",
+        props.status === "done"
+          ? "border-success/30 bg-success-muted text-success"
+          : props.status === "active"
+            ? "border-primary/30 bg-primary/10 text-primary"
+            : "border-border bg-muted/40 text-muted-foreground",
+      )}
+    >
+      {props.status === "done" ? <CheckCircle2 className="size-5" /> : props.label}
+    </span>
+  );
+}
+
+function QuickStartStepActive(props: {
+  docsBaseHref: string;
+  featuredProviders: ProviderCatalogProvider[];
+  onAction: () => void;
+  onSkip: () => void;
+  step: QuickStartJourneyStep;
+  t: TranslateFn;
+}) {
+  const { step, t } = props;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-card-border bg-card">
+      <span className="block h-0.5 bg-primary" aria-hidden="true" />
+      <div className="flex flex-col gap-3 p-4">
+        <h3 className="text-base font-semibold md:text-lg">{t(`steps.${step.id}.title`)}</h3>
+        <p className="text-sm leading-7 text-muted-foreground">{t(`steps.${step.id}.description`)}</p>
+
+        {props.featuredProviders.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {props.featuredProviders.map((providerItem) => (
+              <Link
+                key={providerItem.provider}
+                href={`/provider-accounts/new?provider=${encodeURIComponent(providerItem.provider)}`}
+                className="group flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <ProviderLogo
+                    provider={providerItem.provider}
+                    displayName={providerItem.display_name}
+                    logoURL={providerItem.logo_url}
+                    size={24}
+                  />
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-medium leading-6">{providerItem.display_name}</span>
+                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <StepActionButton stepID={step.id} status={step.status} action={step.action} t={t} onAction={props.onAction} />
+          <Button type="button" variant="ghost" size="sm" onClick={props.onSkip}>
+            {t("steps.skip")}
+          </Button>
+          <StepLearnLink stepID={step.id} t={t} docsBaseHref={props.docsBaseHref} />
+        </div>
+
+        <p className="text-xs leading-6 text-muted-foreground">{t(`steps.${step.id}.learn`)}</p>
       </div>
-    </li>
+    </div>
+  );
+}
+
+function QuickStartStepDone(props: { onAction: () => void; step: QuickStartJourneyStep; t: TranslateFn }) {
+  const { step, t } = props;
+
+  return (
+    <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+      <span className="text-sm font-medium">{t(`steps.${step.id}.title`)}</span>
+      {step.result ? (
+        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground" dir="ltr" title={step.result}>
+          {step.result}
+        </span>
+      ) : null}
+      <StepManageLink action={step.action} stepID={step.id} t={t} onAction={props.onAction} />
+    </div>
+  );
+}
+
+function QuickStartStepPending(props: { onResume: () => void; step: QuickStartJourneyStep; t: TranslateFn }) {
+  const { step, t } = props;
+  const reason =
+    step.status === "skipped"
+      ? t("locked.skipped")
+      : step.status === "locked"
+        ? t("locked.afterStep", { index: step.waitsForIndex ?? 1 })
+        : step.blockedBy === "feature"
+          ? t("locked.feature")
+          : t("locked.permission");
+  const reasonTitle = step.blockedBy ? t(`blocked.${step.blockedBy}`) : undefined;
+
+  return (
+    <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-3 py-2">
+      <span className="text-sm text-muted-foreground">{t(`steps.${step.id}.title`)}</span>
+      <span className="ms-auto flex items-center gap-1.5 text-xs text-muted-foreground" title={reasonTitle}>
+        <Lock className="size-3.5" aria-hidden="true" />
+        {reason}
+      </span>
+      {step.status === "skipped" ? (
+        <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={props.onResume}>
+          {t("steps.resume")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function StepLearnLink(props: { docsBaseHref: string; stepID: QuickStartStepID; t: TranslateFn }) {
+  const docsSlug = docsSlugByStep[props.stepID];
+  if (!docsSlug) return null;
+
+  return (
+    <HelpLink href={`${props.docsBaseHref}${docsSlug}`} className="border-transparent bg-transparent px-0">
+      {props.t("steps.learnMore")}
+    </HelpLink>
+  );
+}
+
+const docsSlugByStep: Partial<Record<QuickStartStepID, string>> = {
+  connect_provider: "/quick-start",
+  create_pat: "/guides/api-keys",
+  inspect_activity: "/observability-logs",
+};
+
+function StepManageLink(props: {
+  action: QuickStartAction;
+  onAction: () => void;
+  stepID: QuickStartStepID;
+  t: TranslateFn;
+}) {
+  const label = props.t("steps.donePrefix");
+  // The step-specific wording stays as the accessible name so "Manage" is never ambiguous.
+  const title = props.t(`steps.${props.stepID}.manageAction`);
+
+  if (props.action.type === "link") {
+    return (
+      <Button type="button" asChild variant="link" size="sm" className="ms-auto h-auto p-0 text-xs">
+        <Link href={props.action.href} title={title} aria-label={title} onClick={props.onAction}>
+          {label}
+        </Link>
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="ms-auto h-auto p-0 text-xs"
+      title={title}
+      aria-label={title}
+      onClick={props.onAction}
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -773,31 +907,13 @@ function StepActionButton(props: {
   stepID: QuickStartStepID;
   t: TranslateFn;
 }) {
-  const isDisabled = props.status === "unavailable" || props.status === "locked";
-  const label = props.t(`steps.${props.stepID}.${props.status === "done" ? "manageAction" : "action"}`);
-  const icon = props.action.type === "anchor" ? <TerminalSquare data-icon="inline-end" /> : <KeyRound data-icon="inline-end" />;
-  const buttonClassName = "w-full max-w-full shrink-0 px-2.5 sm:w-auto sm:px-3";
-  const textClassName = "inline text-xs sm:text-sm";
+  const label = props.t(`steps.${props.stepID}.action`);
 
   if (props.action.type === "link") {
-    if (isDisabled) {
-      return (
-        <Button type="button" variant={props.status === "done" ? "outline" : "default"} className={buttonClassName} size="sm" disabled>
-          <span className={textClassName}>{label}</span>
-          <ArrowUpRight className="shrink-0 rtl:-rotate-90" data-icon="inline-end" />
-        </Button>
-      );
-    }
     return (
-      <Button
-        type="button"
-        asChild
-        variant={props.status === "done" ? "outline" : "default"}
-        className={buttonClassName}
-        size="sm"
-      >
+      <Button type="button" asChild size="sm">
         <Link href={props.action.href} onClick={props.onAction}>
-          <span className={textClassName}>{label}</span>
+          <span>{label}</span>
           <ArrowUpRight className="shrink-0 rtl:-rotate-90" data-icon="inline-end" />
         </Link>
       </Button>
@@ -805,94 +921,55 @@ function StepActionButton(props: {
   }
 
   return (
-    <Button
-      type="button"
-      variant={props.status === "done" ? "outline" : "default"}
-      className={buttonClassName}
-      size="sm"
-      onClick={props.onAction}
-      disabled={isDisabled}
-    >
-      <span className={textClassName}>{label}</span>
-      <span className="inline-flex shrink-0">{icon}</span>
+    <Button type="button" size="sm" onClick={props.onAction}>
+      <span>{label}</span>
+      {props.action.type === "anchor" ? (
+        <TerminalSquare data-icon="inline-end" />
+      ) : (
+        <KeyRound data-icon="inline-end" />
+      )}
     </Button>
   );
 }
 
-function ExploreCard(props: {
-  cardID: QuickStartExploreCardID;
-  className?: string;
-  t: TranslateFn;
-}) {
-  const hrefMap: Record<QuickStartExploreCardID, string> = {
-    provider_accounts: "/provider-accounts",
-    virtual_users: "/virtual-users",
-    teams: "/teams",
-    org_units: "/org-units",
-    guardrails: "/guardrails",
-    prompts: "/prompts",
-    metrics: "/metrics",
-    logs: "/logs",
-    billing_plan: "/billing/plan",
-  };
-
-  const iconMap: Record<QuickStartExploreCardID, typeof Network> = {
-    provider_accounts: Network,
-    virtual_users: KeyRound,
-    teams: Users,
-    org_units: Building2,
-    guardrails: ShieldCheck,
-    prompts: Sparkles,
-    metrics: Gauge,
-    logs: Layers3,
-    billing_plan: CircleDollarSign,
-  };
-
-  const Icon = iconMap[props.cardID];
+function ExploreChip(props: { cardID: QuickStartExploreCardID; t: TranslateFn }) {
+  const Icon = exploreIconMap[props.cardID];
 
   return (
     <Link
-      href={hrefMap[props.cardID]}
-      className={cn(
-        "group flex h-full min-h-36 flex-col rounded-lg border border-card-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-accent sm:p-4",
-        props.className,
-      )}
+      href={exploreHrefMap[props.cardID]}
+      className="group inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:border-primary/30 hover:bg-accent"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon aria-hidden="true" />
-        </span>
-        <ArrowUpRight className="mt-0.5 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
-      </div>
-      <p className="mt-3 min-w-0 text-sm font-semibold leading-6">
-        {props.t(`explore.cards.${props.cardID}.title`)}
-      </p>
-      <p className="mt-2 text-xs leading-6 text-muted-foreground">
-        {props.t(`explore.cards.${props.cardID}.description`)}
-      </p>
+      <Icon className="size-3.5 text-primary" aria-hidden="true" />
+      <span>{props.t(`explore.cards.${props.cardID}.title`)}</span>
+      <ArrowUpRight className="size-3.5 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
     </Link>
   );
 }
 
-function renderStepLearn(stepID: QuickStartStepID, t: TranslateFn, docsBaseHref: string): ReactNode {
-  const docsSlugByStep: Partial<Record<QuickStartStepID, string>> = {
-    connect_provider: "/quick-start",
-    create_pat: "/guides/api-keys",
-    inspect_activity: "/observability-logs",
-  };
+const exploreHrefMap: Record<QuickStartExploreCardID, string> = {
+  provider_accounts: "/provider-accounts",
+  virtual_users: "/virtual-users",
+  teams: "/teams",
+  org_units: "/org-units",
+  guardrails: "/guardrails",
+  prompts: "/prompts",
+  metrics: "/metrics",
+  logs: "/logs",
+  billing_plan: "/billing/plan",
+};
 
-  const docsSlug = docsSlugByStep[stepID];
-  if (!docsSlug) {
-    return t(`steps.${stepID}.learn`);
-  }
-
-  return (
-    <>
-      {t(`steps.${stepID}.learn`)}{" "}
-      <HelpLink href={`${docsBaseHref}${docsSlug}`} />
-    </>
-  );
-}
+const exploreIconMap: Record<QuickStartExploreCardID, typeof Network> = {
+  provider_accounts: Network,
+  virtual_users: KeyRound,
+  teams: Users,
+  org_units: Building2,
+  guardrails: ShieldCheck,
+  prompts: Sparkles,
+  metrics: Gauge,
+  logs: Layers3,
+  billing_plan: CircleDollarSign,
+};
 
 function normalizeFeaturedProvider(provider: string): string {
   const normalized = provider.trim().toLowerCase();
@@ -904,13 +981,6 @@ function normalizeFeaturedProvider(provider: string): string {
 function getFeaturedProvider(provider: string): FeaturedProvider | null {
   const normalized = normalizeFeaturedProvider(provider);
   return (featuredProviderOrder as readonly string[]).includes(normalized) ? (normalized as FeaturedProvider) : null;
-}
-
-function statusBadgeForStepStatus(status: QuickStartStepStatus): "success" | "pending" | "error" | "neutral" {
-  if (status === "done") return "success";
-  if (status === "active") return "pending";
-  if (status === "unavailable") return "error";
-  return "neutral";
 }
 
 function extractSampleContent(payload: unknown): string | null {
