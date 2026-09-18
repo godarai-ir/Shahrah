@@ -363,6 +363,7 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
 
 function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; plan?: PublicCommercialPlan; interval: BillingInterval }) {
   const price = plan?.prices?.find((item) => item.billing_interval === interval);
+  const isDeveloper = definition.slug === 'developer';
   const isGrowth = definition.slug === 'growth';
   const isEnterprise = definition.slug === 'enterprise';
 
@@ -377,7 +378,15 @@ function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; 
       </div>
 
       <div className="mt-5 min-h-24 border-b border-slate-200 pb-5 dark:border-slate-700">
-        {price?.amount_minor != null ? (
+        {isDeveloper ? (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">{formatAmount(0)}</span>
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">رایگان</span>
+            </div>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">بدون نیاز به پرداخت</p>
+          </>
+        ) : price?.amount_minor != null ? (
           <>
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">{formatAmount(price.amount_minor)}</span>

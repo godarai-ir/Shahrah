@@ -24,7 +24,7 @@ export default async function BillingDocumentsPage() {
   ]);
 
   return (
-    <AdminShell
+    <AdminShell messageNamespaces={["billing"]}
       tenantSlug={tenantSlug}
       currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
       pageHeader={{ title: t("documents.title"), description: t("documents.description") }}
