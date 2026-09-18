@@ -21,7 +21,7 @@ export default async function BillingProfilePage() {
   const initialError = response.ok || response.status === 404 ? null : response.errorMessage ?? t("profile.loadError");
 
   return (
-    <AdminShell
+    <AdminShell messageNamespaces={["billing"]}
       tenantSlug={tenantSlug}
       currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
       pageHeader={{ title: t("profile.title"), description: t("profile.description") }}
