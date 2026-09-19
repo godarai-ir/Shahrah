@@ -814,7 +814,7 @@ const LogsFilters = memo(function LogsFilters({
         <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={t("filters.title")}>
           <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
           <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
-          <FilterField label={t("filters.range")} hideLabel className="w-36">
+          <FilterField label={t("filters.range")} hideLabel className="w-40">
             <AppSelectField
               value={filters.range}
               onValueChange={setRange}
@@ -1098,10 +1098,10 @@ const RangeFilter = memo(function RangeFilter({
   );
 });
 
-const FacetSelect = memo(function FacetSelect({ label, value, onChange, items, empty }: { label: string; value: string; onChange: (value: string) => void; items?: Array<{ value: string; count: number }>; empty: string }) {
+const FacetSelect = memo(function FacetSelect({ label, value, onChange, items, empty, hideLabel, className }: { label: string; value: string; onChange: (value: string) => void; items?: Array<{ value: string; count: number }>; empty: string; hideLabel?: boolean; className?: string }) {
   const options = [{ value: "", label: label }, ...(items ?? []).filter((item) => item.value).map((item) => ({ value: item.value, label: `${item.value} (${item.count})` }))];
   return (
-    <FilterField label={label}>
+    <FilterField label={label} hideLabel={hideLabel} className={className}>
       <FilterCombobox id={`logs-${label}`} value={value} onValueChange={onChange} options={options} placeholder={label} emptyText={empty} />
     </FilterField>
   );
