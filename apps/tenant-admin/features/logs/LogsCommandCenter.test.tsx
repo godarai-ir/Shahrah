@@ -121,7 +121,7 @@ describe("LogsCommandCenter layout", () => {
   it("counts active filters on the filters button and hides the badge when there are none", () => {
     const empty = renderCenter();
 
-    const toolbar = screen.getByRole("toolbar", { name: "Analysis Filters" });
+    const toolbar = screen.getByRole("toolbar", { name: "Observe filters" });
     const toggle = within(toolbar).getByRole("button", { name: /^Filters/ });
     expect(within(toolbar).getByRole("button", { name: "Refresh" })).toBeInTheDocument();
     expect(within(toggle).queryByLabelText(/active filter/)).not.toBeInTheDocument();

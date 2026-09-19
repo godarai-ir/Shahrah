@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { canAnyPermission } from "../../lib/authz";
+import { observeFiltersFromSearchParams, observeHref, type ObserveTab } from "../../lib/observe-filters";
 import type { Permission } from "../../lib/permissions";
 
 export type AdminNavKey =
@@ -125,8 +126,13 @@ export type ResolvedNavTabs = {
 /**
  * Finds the tab strip for a list route. Detail and form routes (e.g. /logs/abc, …/new) get no tabs.
  * On a group root that is not itself a tab (/observe), the first visible tab is current.
+ * Observe tabs share one filter state, so their links carry the shared part of `searchParams`.
  */
-export function resolveNavTabs(pathname: string, visibleItems: AdminNavItem[]): ResolvedNavTabs | null {
+export function resolveNavTabs(
+  pathname: string,
+  visibleItems: AdminNavItem[],
+  searchParams?: Pick<URLSearchParams, "get">,
+): ResolvedNavTabs | null {
   const byKey = new Map(visibleItems.map((item) => [item.key, item]));
   for (const group of ADMIN_NAV_TAB_GROUPS) {
     const tabs = group.tabKeys.map((key) => byKey.get(key)).filter((item): item is AdminNavItem => Boolean(item));
@@ -134,10 +140,20 @@ export function resolveNavTabs(pathname: string, visibleItems: AdminNavItem[]): 
     const exact = tabs.find((tab) => tab.href === pathname);
     if (!exact && pathname !== group.rootHref) continue;
     const currentHref = exact?.href ?? tabs[0].href;
-    return { group, tabs: tabs.map((tab) => ({ ...tab, isCurrent: tab.href === currentHref })) };
+    const observeFilters = group.parentKey === "observe" && searchParams ? observeFiltersFromSearchParams(searchParams) : null;
+    return {
+      group,
+      tabs: tabs.map((tab) => ({
+        ...tab,
+        href: observeFilters ? observeHref(OBSERVE_TAB_BY_KEY[tab.key] ?? "logs", observeFilters) : tab.href,
+        isCurrent: tab.href === currentHref,
+      })),
+    };
   }
   return null;
 }
+
+const OBSERVE_TAB_BY_KEY: Partial<Record<AdminNavKey, ObserveTab>> = { logs: "logs", traces: "traces", metrics: "metrics" };
 
 /**
  * Points a parent entry at its first visible tab when its landing route is a tab the user cannot open

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, LogOut, Search, User, WalletCards } from "lucide-react";
 
@@ -109,6 +109,7 @@ function AdminShellClientContent({
   appVersion,
 }: AdminShellClientProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const t = useTranslations("shell");
   const { pageHeader, contentPadding } = useAdminShellPage();
@@ -122,7 +123,7 @@ function AdminShellClientContent({
     return filterVisibleNavItems(navItems, permissions);
   }, [navItems, permissions]);
 
-  const sectionTabs = useMemo(() => resolveNavTabs(pathname, visibleNavItems), [pathname, visibleNavItems]);
+  const sectionTabs = useMemo(() => resolveNavTabs(pathname, visibleNavItems, searchParams), [pathname, visibleNavItems, searchParams]);
   const currentPageLabel =
     sectionTabs?.tabs.find((tab) => tab.isCurrent)?.title
     ?? visibleNavItems.find((item) => item.isActive)?.title

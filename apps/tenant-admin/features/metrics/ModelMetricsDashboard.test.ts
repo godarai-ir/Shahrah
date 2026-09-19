@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCacheBreakdown, buildChartData, buildSavingsChartData, normalizeStringList } from "./utils";
+import { EMPTY_OBSERVE_FILTERS } from "@/lib/observe-filters";
+
+import { buildBreakdownRows, buildCacheBreakdown, buildChartData, buildMetricsFilters, buildSavingsChartData, normalizeStringList } from "./utils";
 
 describe("buildChartData", () => {
   it("uses raw request counts for the request chart", () => {
@@ -71,6 +73,43 @@ describe("metrics filter option helpers", () => {
     expect(normalizeStringList(["openai:gpt-4o", " anthropic/claude-3-5 ", "openai:gpt-4o", 42, ""])).toEqual([
       "anthropic/claude-3-5",
       "openai:gpt-4o",
+    ]);
+  });
+});
+
+describe("metrics breakdown table", () => {
+  const rows = [
+    { modelName: "fast", count_model_name: 30, sum_cost_usd: 1, p90_latency_ms: 200 },
+    { modelName: "slow", count_model_name: 10, sum_cost_usd: 3, p90_latency_ms: 900 },
+  ];
+
+  it("gives additive metrics a share of the total", () => {
+    const breakdown = buildBreakdownRows(rows, "modelName", "requests", "p90", 0, "Unknown");
+    expect(breakdown).toEqual([
+      { label: "fast", value: 30, share: 0.75 },
+      { label: "slow", value: 10, share: 0.25 },
+    ]);
+    expect(buildBreakdownRows(rows, "modelName", "cost", "p90", 0, "Unknown")[0]).toMatchObject({ label: "slow", share: 0.75 });
+  });
+
+  it("compares latency with the overall percentile instead of producing a share", () => {
+    const breakdown = buildBreakdownRows(rows, "modelName", "latency", "p90", 450, "Unknown");
+    expect(breakdown.map((row) => row.share)).toEqual([undefined, undefined]);
+    expect(breakdown[0]).toMatchObject({ label: "slow", value: 900, ratio: 2 });
+    expect(breakdown[1].ratio).toBeCloseTo(200 / 450);
+  });
+
+  it("leaves the latency ratio empty when the overall percentile is unknown", () => {
+    expect(buildBreakdownRows(rows, "modelName", "latency", "p90", 0, "Unknown").map((row) => row.ratio)).toEqual([undefined, undefined]);
+  });
+});
+
+describe("shared observe filters on metrics", () => {
+  it("maps request ID and status onto metrics fields and leaves the trace error code out", () => {
+    expect(buildMetricsFilters({ ...EMPTY_OBSERVE_FILTERS, q: "req_1", status: "503", provider: "openai", errorCode: "timeout" })).toEqual([
+      { fieldName: "providerName", operator: "EQUAL", value: "openai" },
+      { fieldName: "requestID", operator: "EQUAL", value: "req_1" },
+      { fieldName: "statusCode", operator: "EQUAL", value: 503 },
     ]);
   });
 });

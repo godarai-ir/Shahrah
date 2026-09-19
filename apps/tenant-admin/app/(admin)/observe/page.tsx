@@ -1,5 +1,3 @@
-import type { ComponentProps } from "react";
-
 import { resolveSectionLandingTab } from "@/features/admin-shell/section-landing";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
@@ -21,7 +19,7 @@ export default async function ObservePage({ searchParams }: ObservePageProps) {
 
   if (tab === "logs") return <LogsPage searchParams={searchParams} />;
   if (tab === "traces") return <TracesPage searchParams={searchParams} />;
-  if (tab === "metrics") return <MetricsPage searchParams={searchParams as ComponentProps<typeof MetricsPage>["searchParams"]} />;
+  if (tab === "metrics") return <MetricsPage />;
 
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["logs:read_metadata", "logs:read_content", "settings:list"]);
   return null;

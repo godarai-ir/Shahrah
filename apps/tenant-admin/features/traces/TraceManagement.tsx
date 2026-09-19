@@ -1,73 +1,56 @@
 "use client";
 
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { ChevronDown, Filter, RefreshCw, RotateCcw, Settings2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Settings2, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ActiveFilterChips } from "@/components/app-ui/ActiveFilterChips";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CatalogFilterCombobox } from "@/components/app-ui/CatalogFilterCombobox";
 import { CompactValue } from "@/components/app-ui/CompactValue";
-import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
-import { FilterField } from "@/components/app-ui/FilterField";
-import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { DebouncedTextFilter, FilterField } from "@/components/app-ui/FilterField";
+import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { MetricCard } from "@/components/app-ui/MetricCard";
+import { ObserveQueryBar, type ObserveExtraChip } from "@/components/app-ui/ObserveQueryBar";
 import { PageContainer } from "@/components/app-ui/PageContainer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { DataTable } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatCompactNumber } from "@/lib/compact-number";
+import {
+  mergeObserveSearchParams,
+  observeFiltersFromSearchParams,
+  resolveObserveRange,
+  type ObserveFilters,
+} from "@/lib/observe-filters";
 import { cn } from "@/lib/utils";
+import { BreakdownCard, TraceListItem } from "@/features/traces/trace-components";
+import { TraceDetailPanel } from "@/features/traces/TraceDetailPanel";
 import {
-  BreakdownCard,
-  CompactTraceCard,
-  DurationMeter,
-  SortButton,
-  TraceColumnVisibilityMenu,
-} from "@/features/traces/trace-components";
-import {
-  ALL_MODELS_VALUE,
-  ALL_PROVIDERS_VALUE,
-  DEFAULT_RANGE_PRESET,
   PAGE_SIZE,
-  RANGE_PRESETS,
-  TRACE_COLUMN_KEYS,
-  type RangePreset,
   type RequestTrace,
-  type TraceColumnKey,
   type TraceFacets,
-  type TraceFilters,
+  type TraceLocalFilters,
   type TraceManagementProps,
 } from "@/features/traces/trace-types";
 import { loadTraces } from "@/features/traces/api";
 import {
   aggregateStatusBuckets,
+  buildTraceFiltersQuery,
   compactID,
-  createDefaultColumnVisibility,
-  createDefaultFilters,
-  createEmptyFilters,
-  formatIsoDateTime,
-  formatLocalDateTime,
+  createDefaultLocalFilters,
   formatPercent,
   normalizeComboboxOptions,
   normalizeError,
   normalizeFacetBuckets,
-  normalizeFilters,
-  rangeForPreset,
-  resolveSelectedRange,
   sortBuckets,
-  statusBadgeVariant,
+  traceFiltersFromObserve,
 } from "@/features/traces/trace-utils";
 
 const TracePrivacySettingsPanel = dynamic(
@@ -75,6 +58,9 @@ const TracePrivacySettingsPanel = dynamic(
   { ssr: false },
 );
 
+/** URL parameter holding the trace open in the detail panel. */
+const SELECTED_TRACE_PARAM = "trace";
+const ANY_VALUE = "__any__";
 
 export default function TraceManagement(props: TraceManagementProps) {
   const locale = useLocale();
@@ -82,6 +68,9 @@ export default function TraceManagement(props: TraceManagementProps) {
   const tracePrivacyT = useTranslations("settings.tracePrivacy");
   const common = useTranslations("common");
   const isCompactLayout = useIsMobile();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [items, setItems] = useState<RequestTrace[]>(props.initialData);
   const [total, setTotal] = useState(props.initialTotal);
@@ -90,84 +79,20 @@ export default function TraceManagement(props: TraceManagementProps) {
   const [loading, setLoading] = useState(false);
   const [facets, setFacets] = useState<TraceFacets>({});
 
-  const [draft, setDraft] = useState<TraceFilters>(() => createDefaultFilters());
-  const [applied, setApplied] = useState<TraceFilters>(() => createDefaultFilters());
-  const [draftRangePreset, setDraftRangePreset] = useState<RangePreset>(DEFAULT_RANGE_PRESET);
-  const [appliedRangePreset, setAppliedRangePreset] = useState<RangePreset>(DEFAULT_RANGE_PRESET);
+  const [observe, setObserve] = useState<ObserveFilters>(() => observeFiltersFromSearchParams(searchParams));
+  const [local, setLocal] = useState<TraceLocalFilters>(() => createDefaultLocalFilters());
+  const [selectedID, setSelectedID] = useState(() => searchParams.get(SELECTED_TRACE_PARAM)?.trim() ?? "");
+  // Relative ranges are re-anchored to "now" on every refresh.
+  const [rangeAnchor, setRangeAnchor] = useState(() => Date.now());
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [advancedSheetOpen, setAdvancedSheetOpen] = useState(false);
   const [tracePrivacyOpen, setTracePrivacyOpen] = useState(props.initialTracePrivacyOpen ?? false);
-  const [visibleColumns, setVisibleColumns] = useState<Record<TraceColumnKey, boolean>>(() => createDefaultColumnVisibility());
+  const loadRequestRef = useRef(0);
 
-  const canPrev = offset > 0;
-  const canNext = offset + items.length < total;
-  const showingFrom = total === 0 ? 0 : offset + 1;
-  const showingTo = Math.min(offset + items.length, total);
-
-  const statusBuckets = useMemo(() => {
-    const source = facets.status_codes?.length
-      ? facets.status_codes
-      : aggregateStatusBuckets(items);
-    return source
-      .map((item) => ({
-        value: String(item.status_code),
-        label: String(item.status_code),
-        count: item.count,
-      }))
-      .sort(sortBuckets);
-  }, [facets.status_codes, items]);
-
-  const breakdowns = useMemo(
-    () => ({
-      providers: normalizeFacetBuckets(facets.providers, t("facets.empty")),
-      models: normalizeFacetBuckets(facets.models, t("facets.empty")),
-      routes: normalizeFacetBuckets(facets.routes, t("facets.empty")),
-      errorCodes: normalizeFacetBuckets(facets.error_codes, t("facets.empty")),
-      statusCodes: statusBuckets,
-    }),
-    [facets.error_codes, facets.models, facets.providers, facets.routes, statusBuckets, t],
+  const applied = useMemo(
+    () => traceFiltersFromObserve(local, observe, resolveObserveRange(observe, new Date(rangeAnchor))),
+    [local, observe, rangeAnchor],
   );
-
-  const rangeOptions = useMemo(() => RANGE_PRESETS.map((value) => ({ value, label: t(`filters.rangePresets.${value}`) })), [t]);
-  const modelComboboxOptions = useMemo(
-    () => [
-      { value: ALL_MODELS_VALUE, label: t("filters.placeholders.allModels") },
-      ...normalizeComboboxOptions(facets.models),
-    ],
-    [facets.models, t],
-  );
-  const providerComboboxOptions = useMemo(
-    () => [
-      { value: ALL_PROVIDERS_VALUE, label: t("filters.placeholders.allProviders") },
-      ...normalizeComboboxOptions(facets.providers),
-    ],
-    [facets.providers, t],
-  );
-
-  const statusTotal = statusBuckets.reduce((sum, item) => sum + item.count, 0);
-  const errorCount = statusBuckets.reduce((sum, item) => {
-    const code = Number(item.value);
-    return code >= 400 ? sum + item.count : sum;
-  }, 0);
-  const errorRate = statusTotal > 0 ? errorCount / statusTotal : 0;
-  const maxDuration = Math.max(0, ...items.map((item) => item.duration_ms));
-
-  const filtersQueryString = useMemo(() => {
-    const params = new URLSearchParams();
-    if (applied.traceID) params.set("trace_id", applied.traceID);
-    if (applied.requestID) params.set("request_id", applied.requestID);
-    if (applied.model) params.set("model", applied.model);
-    if (applied.provider) params.set("provider", applied.provider);
-    if (applied.route) params.set("route", applied.route);
-    if (applied.statusCode) params.set("status_code", applied.statusCode);
-    if (applied.errorCode) params.set("error_code", applied.errorCode);
-    if (applied.from) params.set("from", applied.from);
-    if (applied.to) params.set("to", applied.to);
-    if (applied.sortBy) params.set("sort_by", applied.sortBy);
-    if (applied.sortOrder) params.set("sort_order", applied.sortOrder);
-    return params.toString();
-  }, [applied]);
-
+  const filtersQueryString = useMemo(() => buildTraceFiltersQuery(applied), [applied]);
   const listQueryString = useMemo(() => {
     const params = new URLSearchParams(filtersQueryString);
     params.set("limit", String(PAGE_SIZE));
@@ -175,548 +100,182 @@ export default function TraceManagement(props: TraceManagementProps) {
     return params.toString();
   }, [filtersQueryString, offset]);
 
-  const activeFilters = useMemo(() => {
-    const out: Array<{ key: keyof TraceFilters | "timeRange"; label: string; value: string }> = [];
-    if (applied.traceID) out.push({ key: "traceID", label: t("activeFilters.traceId"), value: compactID(applied.traceID) });
-    if (applied.requestID) out.push({ key: "requestID", label: t("activeFilters.requestId"), value: compactID(applied.requestID) });
-    if (applied.model) out.push({ key: "model", label: t("activeFilters.model"), value: applied.model });
-    if (applied.provider) out.push({ key: "provider", label: t("activeFilters.provider"), value: applied.provider });
-    if (applied.route) out.push({ key: "route", label: t("activeFilters.route"), value: applied.route });
-    if (applied.statusCode) out.push({ key: "statusCode", label: t("activeFilters.status"), value: applied.statusCode });
-    if (applied.errorCode) out.push({ key: "errorCode", label: t("activeFilters.errorCode"), value: applied.errorCode });
-    if (appliedRangePreset === "custom") {
-      if (applied.from) out.push({ key: "from", label: t("activeFilters.from"), value: formatLocalDateTime(applied.from, locale) });
-      if (applied.to) out.push({ key: "to", label: t("activeFilters.to"), value: formatLocalDateTime(applied.to, locale) });
-    } else {
-      out.push({ key: "timeRange", label: t("activeFilters.timeRange"), value: t(`filters.rangePresets.${appliedRangePreset}`) });
-    }
-    return out;
-  }, [applied, appliedRangePreset, locale, t]);
-
-  const advancedFilterLabel = advancedOpen ? t("filters.advanced.hide") : t("filters.advanced.show");
+  useEffect(() => {
+    const params = mergeObserveSearchParams(searchParams, observe);
+    if (selectedID) params.set(SELECTED_TRACE_PARAM, selectedID);
+    else params.delete(SELECTED_TRACE_PARAM);
+    const nextQuery = params.toString();
+    if (nextQuery === searchParams.toString()) return;
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [observe, pathname, router, searchParams, selectedID]);
 
   useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listQueryString]);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const { list, facets } = await loadTraces(listQueryString, filtersQueryString);
-      setItems(list.data ?? []);
-      setTotal(list.total ?? 0);
-      setFacets(facets.data ?? {});
-      setError(null);
-    } catch (err) {
-      setError(normalizeError(err, common("requestError")));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function applyFilters() {
-    const resolvedRange = resolveSelectedRange(draftRangePreset, draft.from, draft.to);
-    const next = normalizeFilters({
-      ...draft,
-      from: resolvedRange.from,
-      to: resolvedRange.to,
+    const requestID = ++loadRequestRef.current;
+    const isCurrent = () => loadRequestRef.current === requestID;
+    queueMicrotask(() => {
+      if (!isCurrent()) return;
+      setLoading(true);
+      loadTraces(listQueryString, filtersQueryString)
+        .then(({ list, facets: nextFacets }) => {
+          if (!isCurrent()) return;
+          setItems(list.data ?? []);
+          setTotal(list.total ?? 0);
+          setFacets(nextFacets.data ?? {});
+          setError(null);
+        })
+        .catch((err: unknown) => {
+          if (isCurrent()) setError(normalizeError(err, common("requestError")));
+        })
+        .finally(() => {
+          if (isCurrent()) setLoading(false);
+        });
     });
-    setDraft(next);
-    setApplied(next);
-    setAppliedRangePreset(draftRangePreset);
+  }, [common, filtersQueryString, listQueryString]);
+
+  // A filter change re-anchors relative ranges to now; paging keeps the anchor so pages stay consistent.
+  const updateObserve = useCallback((next: ObserveFilters) => {
+    setObserve(next);
     setOffset(0);
-  }
-
-  function clearFilters() {
-    const next = createDefaultFilters();
-    setDraft(next);
-    setApplied(next);
-    setDraftRangePreset(DEFAULT_RANGE_PRESET);
-    setAppliedRangePreset(DEFAULT_RANGE_PRESET);
+    setRangeAnchor(Date.now());
+  }, []);
+  const updateLocal = useCallback((patch: Partial<TraceLocalFilters>) => {
+    setLocal((current) => ({ ...current, ...patch }));
     setOffset(0);
-  }
+    setRangeAnchor(Date.now());
+  }, []);
+  const refresh = useCallback(() => setRangeAnchor(Date.now()), []);
 
-  function removeFilter(key: keyof TraceFilters | "timeRange") {
-    const emptyFilters = createEmptyFilters();
-    if (key === "timeRange") {
-      const nextDraft = { ...draft, from: "", to: "" };
-      const nextApplied = { ...applied, from: "", to: "" };
-      setDraft(nextDraft);
-      setApplied(nextApplied);
-      setDraftRangePreset("custom");
-      setAppliedRangePreset("custom");
-      setOffset(0);
-      return;
-    }
-    const nextDraft = { ...draft, [key]: emptyFilters[key] };
-    const nextApplied = { ...applied, [key]: emptyFilters[key] };
-    if (key === "from" || key === "to") {
-      setDraftRangePreset("custom");
-      setAppliedRangePreset("custom");
-    }
-    setDraft(nextDraft);
-    setApplied(nextApplied);
-    setOffset(0);
-  }
+  const statusBuckets = useMemo(() => {
+    const source = facets.status_codes?.length ? facets.status_codes : aggregateStatusBuckets(items);
+    return source
+      .map((item) => ({ value: String(item.status_code), label: String(item.status_code), count: item.count }))
+      .sort(sortBuckets);
+  }, [facets.status_codes, items]);
 
-  function selectFacet(update: Partial<TraceFilters>) {
-    const nextDraft = normalizeFilters({ ...draft, ...update });
-    const nextApplied = normalizeFilters({ ...applied, ...update });
-    setDraft(nextDraft);
-    setApplied(nextApplied);
-    setOffset(0);
-  }
+  const statusTotal = statusBuckets.reduce((sum, item) => sum + item.count, 0);
+  const errorCount = statusBuckets.reduce((sum, item) => (Number(item.value) >= 400 ? sum + item.count : sum), 0);
+  const errorRate = statusTotal > 0 ? errorCount / statusTotal : 0;
+  const maxDuration = Math.max(0, ...items.map((item) => item.duration_ms));
+  const showingFrom = total === 0 ? 0 : offset + 1;
+  const showingTo = Math.min(offset + items.length, total);
+  const selectedItem = items.find((item) => item.trace_id === selectedID) ?? null;
+  const capturePolicy = props.initialTracePrivacySettings?.capture_policy ?? null;
 
-  function handleRangePresetChange(nextPreset: RangePreset) {
-    setDraftRangePreset(nextPreset);
-    if (nextPreset === "custom") return;
-    const nextRange = rangeForPreset(nextPreset);
-    setDraft((prev) => ({ ...prev, from: nextRange.from, to: nextRange.to }));
-  }
+  const extraChips = useMemo<ObserveExtraChip[]>(() => {
+    const out: ObserveExtraChip[] = [];
+    if (local.traceID) out.push({ key: "traceID", label: `${t("activeFilters.traceId")}: ${compactID(local.traceID)}` });
+    if (local.route) out.push({ key: "route", label: `${t("activeFilters.route")}: ${local.route}` });
+    return out;
+  }, [local.route, local.traceID, t]);
 
-  const setSort = useCallback((sortBy: string, forcedOrder?: "asc" | "desc") => {
-    const nextOrder: "asc" | "desc" =
-      forcedOrder ?? (applied.sortBy === sortBy && applied.sortOrder === "desc" ? "asc" : "desc");
-    const next = normalizeFilters({ ...applied, sortBy, sortOrder: nextOrder });
-    setDraft(next);
-    setApplied(next);
-    setOffset(0);
-  }, [applied]);
-
-  const traceColumnLabels = useMemo<Record<TraceColumnKey, string>>(
-    () => ({
-      startedAt: t("list.columns.startedAt"),
-      status: t("list.columns.status"),
-      duration: t("list.columns.duration"),
-      trace: t("list.columns.trace"),
-      context: t("list.columns.context"),
-      endpoint: t("list.columns.route"),
-      error: t("list.columns.error"),
-    }),
-    [t],
-  );
-  const visibleColumnCount = TRACE_COLUMN_KEYS.filter((key) => visibleColumns[key]).length;
-  const compactSortOptions = useMemo(
-    () => [
-      { value: "started_at", label: t("list.columns.startedAt") },
-      { value: "status_code", label: t("list.columns.status") },
-      { value: "duration_ms", label: t("list.columns.duration") },
-    ],
-    [t],
-  );
   const breakdownCards = [
-    {
-      key: "statusCodes",
-      title: t("breakdown.statusCodes"),
-      buckets: breakdowns.statusCodes,
-      activeValue: applied.statusCode,
-      onSelect: (value: string) => selectFacet({ statusCode: value }),
-      mono: true,
-    },
-    {
-      key: "providers",
-      title: t("breakdown.providers"),
-      buckets: breakdowns.providers,
-      activeValue: applied.provider,
-      onSelect: (value: string) => selectFacet({ provider: value }),
-      mono: false,
-    },
-    {
-      key: "models",
-      title: t("breakdown.models"),
-      buckets: breakdowns.models,
-      activeValue: applied.model,
-      onSelect: (value: string) => selectFacet({ model: value }),
-      mono: true,
-    },
-    {
-      key: "routes",
-      title: t("breakdown.routes"),
-      buckets: breakdowns.routes,
-      activeValue: applied.route,
-      onSelect: (value: string) => selectFacet({ route: value }),
-      mono: true,
-    },
-    {
-      key: "errorCodes",
-      title: t("breakdown.errorCodes"),
-      buckets: breakdowns.errorCodes,
-      activeValue: applied.errorCode,
-      onSelect: (value: string) => selectFacet({ errorCode: value }),
-      mono: true,
-    },
+    { key: "statusCodes", title: t("breakdown.statusCodes"), buckets: statusBuckets, activeValue: observe.status, onSelect: (value: string) => updateObserve({ ...observe, status: value }), mono: true },
+    { key: "providers", title: t("breakdown.providers"), buckets: normalizeFacetBuckets(facets.providers, t("facets.empty")), activeValue: observe.provider, onSelect: (value: string) => updateObserve({ ...observe, provider: value }), mono: false },
+    { key: "models", title: t("breakdown.models"), buckets: normalizeFacetBuckets(facets.models, t("facets.empty")), activeValue: observe.model, onSelect: (value: string) => updateObserve({ ...observe, model: value }), mono: true },
+    { key: "routes", title: t("breakdown.routes"), buckets: normalizeFacetBuckets(facets.routes, t("facets.empty")), activeValue: local.route, onSelect: (value: string) => updateLocal({ route: value }), mono: true },
+    { key: "errorCodes", title: t("breakdown.errorCodes"), buckets: normalizeFacetBuckets(facets.error_codes, t("facets.empty")), activeValue: observe.errorCode, onSelect: (value: string) => updateObserve({ ...observe, errorCode: value }), mono: true },
   ];
-  const advancedFiltersFields = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FilterField htmlFor="status-filter" label={t("filters.statusCode")}>
-        <Input
-          id="status-filter"
-          value={draft.statusCode}
-          onChange={(event) => setDraft((prev) => ({ ...prev, statusCode: event.target.value }))}
-          placeholder={t("filters.placeholders.statusCode")}
-          dir="ltr"
-          className="h-9 font-mono"
-        />
-      </FilterField>
-      <FilterField htmlFor="error-filter" label={t("filters.errorCode")}>
-        <Input
-          id="error-filter"
-          value={draft.errorCode}
-          onChange={(event) => setDraft((prev) => ({ ...prev, errorCode: event.target.value }))}
-          placeholder={t("filters.placeholders.errorCode")}
-          dir="ltr"
-          className="h-9 font-mono"
-        />
-      </FilterField>
-      <FilterField htmlFor="route-filter" label={t("filters.route")}>
-        <Input
-          id="route-filter"
-          value={draft.route}
-          onChange={(event) => setDraft((prev) => ({ ...prev, route: event.target.value }))}
-          placeholder={t("filters.placeholders.route")}
-          dir="ltr"
-          className="h-9 font-mono"
-        />
-      </FilterField>
-      <FilterField htmlFor="trace-id-filter" label={t("filters.traceId")}>
-        <Input
-          id="trace-id-filter"
-          value={draft.traceID}
-          onChange={(event) => setDraft((prev) => ({ ...prev, traceID: event.target.value }))}
-          placeholder={t("filters.placeholders.traceId")}
-          dir="ltr"
-          className="h-9 font-mono"
-        />
-      </FilterField>
-      <FilterField htmlFor="request-id-filter" label={t("filters.requestId")}>
-        <Input
-          id="request-id-filter"
-          value={draft.requestID}
-          onChange={(event) => setDraft((prev) => ({ ...prev, requestID: event.target.value }))}
-          placeholder={t("filters.placeholders.requestId")}
-          dir="ltr"
-          className="h-9 font-mono"
-        />
-      </FilterField>
-    </div>
+
+  const renderBreakdown = (item: (typeof breakdownCards)[number], compact: boolean) => (
+    <BreakdownCard
+      title={item.title}
+      buckets={item.buckets}
+      activeValue={item.activeValue}
+      noDataLabel={t("facets.noData")}
+      selectLabel={(value, count) => t("breakdown.select", { label: item.title, value, count })}
+      onSelect={item.onSelect}
+      mono={item.mono}
+      compact={compact}
+    />
   );
 
-  function toggleColumnVisibility(key: TraceColumnKey, checked: boolean) {
-    setVisibleColumns((prev) => {
-      if (!checked && Object.values(prev).filter(Boolean).length <= 1) return prev;
-      return { ...prev, [key]: checked };
-    });
-  }
+  const sortOptions = [
+    { value: "started_at", label: t("list.columns.startedAt") },
+    { value: "status_code", label: t("list.columns.status") },
+    { value: "duration_ms", label: t("list.columns.duration") },
+  ];
 
-  const traceColumnConfigs = useMemo<Array<{ key: TraceColumnKey; column: ColumnDef<RequestTrace> }>>(
-    () => [
-      {
-        key: "startedAt",
-        column: {
-          accessorKey: "started_at",
-          size: 160,
-          header: () => (
-            <SortButton
-              label={t("list.columns.startedAt")}
-              isActive={applied.sortBy === "started_at"}
-              sortOrder={applied.sortOrder}
-              onClick={() => setSort("started_at")}
-              sortLabel={t("list.sort.label", { column: t("list.columns.startedAt") })}
-            />
-          ),
-          cell: ({ row }) => (
-            <span className="whitespace-nowrap" title={formatIsoDateTime(row.original.started_at)}>
-              {formatLocalDateTime(row.original.started_at, locale)}
-            </span>
-          ),
-        },
-      },
-      {
-        key: "status",
-        column: {
-          accessorKey: "status_code",
-          size: 96,
-          header: () => (
-            <SortButton
-              label={t("list.columns.status")}
-              isActive={applied.sortBy === "status_code"}
-              sortOrder={applied.sortOrder}
-              onClick={() => setSort("status_code")}
-              sortLabel={t("list.sort.label", { column: t("list.columns.status") })}
-            />
-          ),
-          cell: ({ row }) => {
-            const item = row.original;
-            return (
-              <div className="flex flex-wrap items-center gap-1">
-                <Badge variant={statusBadgeVariant(item.status_code)}>{item.status_code}</Badge>
-                {item.attempts && item.attempts > 1 ? (
-                  <Badge variant="outline" title={t("list.meta.attempts", { count: item.attempts })}>
-                    {t("list.meta.attemptsShort", { count: item.attempts })}
-                  </Badge>
-                ) : null}
-              </div>
-            );
-          },
-        },
-      },
-      {
-        key: "duration",
-        column: {
-          accessorKey: "duration_ms",
-          size: 160,
-          header: () => (
-            <SortButton
-              label={t("list.columns.duration")}
-              isActive={applied.sortBy === "duration_ms"}
-              sortOrder={applied.sortOrder}
-              onClick={() => setSort("duration_ms")}
-              sortLabel={t("list.sort.label", { column: t("list.columns.duration") })}
-            />
-          ),
-          cell: ({ row }) => (
-            <div className="min-w-40">
-              <DurationMeter
-                value={row.original.duration_ms}
-                max={maxDuration}
-                msLabel={t("list.units.ms")}
-                sLabel={t("list.units.s")}
-                locale={locale}
-              />
-            </div>
-          ),
-        },
-      },
-      {
-        key: "trace",
-        column: {
-          id: "trace",
-          size: 224,
-          header: () => <span className="block min-w-56">{t("list.columns.trace")}</span>,
-          cell: ({ row }) => {
-            const item = row.original;
-            return (
-              <div className="flex min-w-0 max-w-72 flex-col gap-0.5">
-                <Link
-                  className="truncate font-mono text-xs text-primary underline-offset-2 hover:underline"
-                  href={`/traces/${encodeURIComponent(item.trace_id)}`}
-                  title={item.trace_id}
-                  aria-label={t("list.actions.openTrace", { traceId: item.trace_id })}
-                >
-                  {compactID(item.trace_id)}
-                </Link>
-                {item.request_id ? (
-                  <span className="truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
-                    {t("list.meta.requestId", { id: compactID(item.request_id) })}
-                  </span>
-                ) : null}
-              </div>
-            );
-          },
-        },
-      },
-      {
-        key: "context",
-        column: {
-          id: "context",
-          size: 224,
-          header: () => <span className="block min-w-56">{t("list.columns.context")}</span>,
-          cell: ({ row }) => {
-            const item = row.original;
-            return (
-              <div className="flex min-w-0 max-w-72 flex-col gap-0.5">
-                <span className="truncate" dir="auto" title={item.provider || common("notSet")}>
-                  {item.provider || common("notSet")}
-                </span>
-                <span className="truncate text-muted-foreground" dir="auto" title={item.model || common("notSet")}>
-                  {item.model || common("notSet")}
-                </span>
-              </div>
-            );
-          },
-        },
-      },
-      {
-        key: "endpoint",
-        column: {
-          accessorKey: "route",
-          size: 192,
-          header: () => <span className="block min-w-48">{t("list.columns.route")}</span>,
-          cell: ({ row }) => (
-            <span className="block max-w-64 truncate font-mono text-xs" dir="ltr" title={row.original.route}>
-              {row.original.route}
-            </span>
-          ),
-        },
-      },
-      {
-        key: "error",
-        column: {
-          accessorKey: "error_code",
-          size: 144,
-          header: () => <span className="block min-w-36">{t("list.columns.error")}</span>,
-          cell: ({ row }) =>
-            row.original.error_code ? (
-              <Badge variant="outline" className="max-w-48">
-                <span className="truncate font-mono text-xs" dir="auto" title={row.original.error_code}>
-                  {row.original.error_code}
-                </span>
-              </Badge>
-            ) : (
-              <span className="text-muted-foreground">{common("none")}</span>
-            ),
-        },
-      },
-    ],
-    [applied.sortBy, applied.sortOrder, common, locale, maxDuration, setSort, t],
-  );
-  const traceColumns = useMemo(
-    () => traceColumnConfigs.filter((item) => visibleColumns[item.key]).map((item) => item.column),
-    [traceColumnConfigs, visibleColumns],
+  const detailPanel = selectedID ? (
+    <TraceDetailPanel
+      key={selectedID}
+      traceID={selectedID}
+      item={selectedItem}
+      capturePolicy={capturePolicy}
+      onClose={() => setSelectedID("")}
+    />
+  ) : (
+    <EmptyState title={t("panel.placeholderTitle")} description={t("panel.placeholderDescription")} density="compact" />
   );
 
   return (
     <PageContainer spacing="compact" padding="none" className="md:gap-6">
-      <div className="flex justify-end gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="outline" size="icon" onClick={() => void load()} disabled={loading} aria-label={loading ? common("loading") : common("refresh")}>
-                  <RefreshCw aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{loading ? common("loading") : common("refresh")}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="outline" size="icon" onClick={() => setTracePrivacyOpen(true)} aria-label={t("privacySettings")}>
-                  <Settings2 aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("privacySettings")}</TooltipContent>
-            </Tooltip>
-      </div>
-
-      <Card className="rounded-lg">
-        <CardContent className="flex flex-col gap-3 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">
-          <div className="grid gap-3 md:grid-cols-3">
-            <AppSelectField
-              label={t("filters.timeRange")}
-              value={draftRangePreset}
-              onValueChange={(value) => handleRangePresetChange(value as RangePreset)}
-              options={rangeOptions}
-              ariaLabel={t("filters.timeRange")}
-              className="gap-1 [&_[data-slot=field-label]]:text-xs [&_[data-slot=field-label]]:text-muted-foreground"
-              triggerClassName="h-9"
-            />
-            <FilterField htmlFor="provider-filter" label={t("filters.provider")}>
-              <CatalogFilterCombobox
-                id="provider-filter"
-                options={providerComboboxOptions}
-                value={draft.provider || ALL_PROVIDERS_VALUE}
-                onValueChange={(value) => setDraft((prev) => ({ ...prev, provider: value === ALL_PROVIDERS_VALUE ? "" : value }))}
-                placeholder={t("filters.search")}
-                emptyText={t("filters.emptyOptions")}
-              />
-            </FilterField>
-            <FilterField htmlFor="model-filter" label={t("filters.model")}>
-              <CatalogFilterCombobox
-                id="model-filter"
-                options={modelComboboxOptions}
-                value={draft.model || ALL_MODELS_VALUE}
-                onValueChange={(value) => setDraft((prev) => ({ ...prev, model: value === ALL_MODELS_VALUE ? "" : value }))}
-                placeholder={t("filters.search")}
-                emptyText={t("filters.emptyOptions")}
-              />
-            </FilterField>
-          </div>
-
-          {draftRangePreset === "custom" ? (
-            <DateTimeRangeField
-              fromID="from-filter"
-              toID="to-filter"
-              from={draft.from}
-              to={draft.to}
-              fromLabel={t("filters.from")}
-              toLabel={t("filters.to")}
-              onFromChange={(from) => setDraft((prev) => ({ ...prev, from }))}
-              onToChange={(to) => setDraft((prev) => ({ ...prev, to }))}
-              className="[&_[data-slot=field]]:gap-1 [&_[data-slot=field-label]]:text-xs [&_[data-slot=field-label]]:text-muted-foreground"
-            />
-          ) : null}
-
-          {isCompactLayout ? (
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <ObserveQueryBar
+          tab="traces"
+          filters={observe}
+          onFiltersChange={updateObserve}
+          modelOptions={normalizeComboboxOptions(facets.models).map((option) => option.value)}
+          providerOptions={normalizeComboboxOptions(facets.providers).map((option) => option.value)}
+          onRefresh={refresh}
+          loading={loading}
+          extraChips={extraChips}
+          onRemoveExtraChip={(key) => updateLocal({ [key]: "" })}
+          onClearAll={() => updateLocal(createDefaultLocalFilters())}
+          actions={
             <>
-              <div className="grid gap-2 border-t border-card-border/70 pt-3 sm:grid-cols-2 md:grid-cols-3">
-                <Button type="button" variant="outline" size="sm" className="h-9 text-sm sm:col-span-2 md:col-span-1" onClick={() => setAdvancedSheetOpen(true)}>
-                  <ChevronDown data-icon="inline-start" aria-hidden="true" />
-                  {advancedFilterLabel}
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="outline" size="sm" aria-expanded={advancedOpen}>
+                  <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
+                  {advancedOpen ? t("filters.advanced.hide") : t("filters.advanced.show")}
+                  <ChevronDown data-icon="inline-end" className={cn("transition-transform", advancedOpen && "rotate-180")} aria-hidden="true" />
                 </Button>
-                <Button type="button" size="sm" className="h-9 text-sm" onClick={applyFilters} disabled={loading}>
-                  <Filter data-icon="inline-start" aria-hidden="true" />
-                  {t("actions.apply")}
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-9 text-sm" onClick={clearFilters} disabled={loading}>
-                  <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                  {t("actions.clear")}
-                </Button>
-              </div>
-
-              <Sheet open={advancedSheetOpen} onOpenChange={setAdvancedSheetOpen}>
-                <SheetContent side="bottom" closeLabel={common("cancel")} className="flex max-h-svh flex-col rounded-t-2xl px-4 py-5 sm:max-w-none">
-                  <SheetHeader>
-                    <SheetTitle>{advancedFilterLabel}</SheetTitle>
-                    <SheetDescription>{t("description")}</SheetDescription>
-                  </SheetHeader>
-                  <ScrollArea className="mt-4 flex-1">
-                    <div className="pb-4">
-                      {advancedFiltersFields}
-                    </div>
-                  </ScrollArea>
-                  <SheetFooter className="border-t border-border px-6 py-4">
-                    <FormSheetActions
-                      secondary={<Button type="button" variant="outline" onClick={clearFilters} disabled={loading}>
-                        <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                        {t("actions.clear")}
-                      </Button>}
-                      primary={<Button type="button" onClick={() => { applyFilters(); setAdvancedSheetOpen(false); }} disabled={loading}>
-                      <Filter data-icon="inline-start" aria-hidden="true" />
-                      {t("actions.apply")}
-                      </Button>}
-                    />
-                  </SheetFooter>
-                </SheetContent>
-              </Sheet>
+              </CollapsibleTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="outline" size="icon-sm" onClick={() => setTracePrivacyOpen(true)} aria-label={t("privacySettings")}>
+                    <Settings2 aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("privacySettings")}</TooltipContent>
+              </Tooltip>
             </>
-          ) : (
-            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-card-border/70 pt-3">
-                <CollapsibleTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" className="h-9 text-sm" aria-expanded={advancedOpen}>
-                    <ChevronDown data-icon="inline-start" className={cn("transition-transform", advancedOpen && "rotate-180")} aria-hidden="true" />
-                    {advancedFilterLabel}
-                  </Button>
-                </CollapsibleTrigger>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" size="sm" className="h-9 text-sm" onClick={applyFilters} disabled={loading}>
-                    <Filter data-icon="inline-start" aria-hidden="true" />
-                    {t("actions.apply")}
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-9 text-sm" onClick={clearFilters} disabled={loading}>
-                    <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                    {t("actions.clear")}
-                  </Button>
-                </div>
-              </div>
-              <CollapsibleContent>
-                {advancedFiltersFields}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          <ActiveFilterChips items={activeFilters} onRemove={(key) => removeFilter(key as keyof TraceFilters | "timeRange")} getRemoveLabel={(item) => t("activeFilters.removeLabel", { label: item.label, value: item.value ?? "" })} className="pt-1" />
-        </CardContent>
-      </Card>
+          }
+        >
+          <CollapsibleContent className="grid gap-3 border-t border-border pt-3 md:grid-cols-2 xl:grid-cols-4">
+            <FacetFilter
+              id="trace-status-filter"
+              label={t("filters.statusCode")}
+              value={observe.status}
+              options={statusBuckets.map((bucket) => bucket.value)}
+              onChange={(status) => updateObserve({ ...observe, status })}
+              emptyText={t("filters.emptyOptions")}
+            />
+            <FacetFilter
+              id="trace-error-filter"
+              label={t("filters.errorCode")}
+              value={observe.errorCode}
+              options={normalizeComboboxOptions(facets.error_codes).map((option) => option.value)}
+              onChange={(errorCode) => updateObserve({ ...observe, errorCode })}
+              emptyText={t("filters.emptyOptions")}
+            />
+            <FacetFilter
+              id="trace-route-filter"
+              label={t("filters.route")}
+              value={local.route}
+              options={normalizeComboboxOptions(facets.routes).map((option) => option.value)}
+              onChange={(route) => updateLocal({ route })}
+              emptyText={t("filters.emptyOptions")}
+            />
+            <DebouncedTextFilter
+              label={t("filters.traceId")}
+              value={local.traceID}
+              onValueChange={(traceID) => updateLocal({ traceID: traceID.trim() })}
+              placeholder={t("filters.placeholders.traceId")}
+              mono
+            />
+          </CollapsibleContent>
+        </ObserveQueryBar>
+      </Collapsible>
 
       {error ? (
         <Alert variant="destructive">
@@ -740,116 +299,92 @@ export default function TraceManagement(props: TraceManagementProps) {
         />
       </section>
 
-      <section aria-label={t("breakdown.title")} className="flex flex-col gap-2">
+      <section aria-label={t("breakdown.title")}>
         {isCompactLayout ? (
           <ScrollArea className="w-full">
             <div className="flex items-start gap-2 pb-3">
               {breakdownCards.map((item) => (
                 <div key={item.key} className="min-w-72 max-w-72 shrink-0">
-                  <BreakdownCard
-                    title={item.title}
-                    buckets={item.buckets}
-                    activeValue={item.activeValue}
-                    noDataLabel={t("facets.noData")}
-                    selectLabel={(value, count) => t("breakdown.select", { label: item.title, value, count })}
-                    onSelect={item.onSelect}
-                    mono={item.mono}
-                    compact
-                  />
+                  {renderBreakdown(item, true)}
                 </div>
               ))}
             </div>
           </ScrollArea>
         ) : (
           <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-5">
-            {breakdownCards.map((item) => (
-              <BreakdownCard
-                key={item.key}
-                title={item.title}
-                buckets={item.buckets}
-                activeValue={item.activeValue}
-                noDataLabel={t("facets.noData")}
-                selectLabel={(value, count) => t("breakdown.select", { label: item.title, value, count })}
-                onSelect={item.onSelect}
-                mono={item.mono}
-              />
-            ))}
+            {breakdownCards.map((item) => <div key={item.key}>{renderBreakdown(item, false)}</div>)}
           </div>
         )}
       </section>
 
-      <Card className="rounded-lg">
-        <CardHeader className="flex flex-col gap-2 p-3 md:flex-row md:items-end md:justify-between md:p-3 lg:items-start">
-          <div className="min-w-0">
-            <CardTitle className="text-sm md:text-base">{t("list.title")}</CardTitle>
-            <CardDescription className="mt-1 text-xs">
-              {t("pagination.showing", { from: showingFrom, to: showingTo, total })}
-            </CardDescription>
-          </div>
-          {isCompactLayout ? (
-            <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] md:w-auto md:min-w-80 lg:w-auto">
+      <div className="grid items-start gap-3 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <Card className="rounded-lg">
+          <CardHeader className="flex flex-col gap-2 p-3 md:p-3">
+            <div className="min-w-0">
+              <CardTitle className="text-sm">{t("list.title")}</CardTitle>
+              <CardDescription className="mt-1 text-xs">{t("pagination.showing", { from: showingFrom, to: showingTo, total })}</CardDescription>
+            </div>
+            <div className="flex items-end gap-2">
               <AppSelectField
-                value={applied.sortBy}
-                onValueChange={(value) => setSort(value, value === applied.sortBy ? applied.sortOrder : "desc")}
-                options={compactSortOptions}
+                value={local.sortBy}
+                onValueChange={(sortBy) => updateLocal({ sortBy, sortOrder: sortBy === local.sortBy ? local.sortOrder : "desc" })}
+                options={sortOptions}
                 ariaLabel={t("list.sort.field")}
-                triggerClassName="h-9 min-w-0 w-full"
-                className="min-w-0"
+                triggerClassName="h-8 w-full min-w-0 text-xs"
+                className="min-w-0 flex-1"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 text-sm sm:self-end"
-                aria-label={t("list.sort.directionLabel", {
-                  direction: applied.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc"),
-                })}
-                onClick={() => setSort(applied.sortBy, applied.sortOrder === "desc" ? "asc" : "desc")}
+                aria-label={t("list.sort.directionLabel", { direction: local.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc") })}
+                onClick={() => updateLocal({ sortOrder: local.sortOrder === "desc" ? "asc" : "desc" })}
               >
-                <span aria-hidden="true">{applied.sortOrder === "asc" ? "↑" : "↓"}</span>
-                {applied.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc")}
+                <span aria-hidden="true">{local.sortOrder === "asc" ? "↑" : "↓"}</span>
+                {local.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc")}
               </Button>
             </div>
-          ) : (
-            <TraceColumnVisibilityMenu
-              labels={traceColumnLabels}
-              visibleColumns={visibleColumns}
-              visibleColumnCount={visibleColumnCount}
-              columnsLabel={t("list.actions.columns")}
-              menuLabel={t("list.actions.columnsMenu")}
-              onToggle={toggleColumnVisibility}
-            />
-          )}
-        </CardHeader>
-        <CardContent className="px-3 pb-3 md:px-3 md:pb-3">
-          {isCompactLayout ? (
-            items.length > 0 ? (
-              <div className="grid gap-2 md:grid-cols-2">
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 px-3 pb-3 md:px-3 md:pb-3">
+            {items.length > 0 ? (
+              <ul className="flex flex-col gap-1.5">
                 {items.map((item) => (
-                  <CompactTraceCard key={item.trace_id} item={item} locale={locale} maxDuration={maxDuration} t={t} common={common} />
+                  <li key={item.trace_id}>
+                    <TraceListItem item={item} selected={item.trace_id === selectedID} maxDuration={maxDuration} onSelect={setSelectedID} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
-              <div className="rounded-lg border border-dashed border-card-border px-4 py-10 text-center text-sm text-muted-foreground">
-                {t("list.empty")}
-              </div>
-            )
-          ) : (
-            <DataTable tableId="traces" columns={traceColumns} data={items} emptyLabel={t("list.empty")} />
-          )}
-
-          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={!canPrev || loading} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
+              <p className="rounded-lg border border-dashed border-card-border px-4 py-10 text-center text-sm text-muted-foreground">{t("list.empty")}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
                 {t("pagination.prev")}
               </Button>
-              <Button size="sm" variant="outline" disabled={!canNext || loading} onClick={() => setOffset(offset + PAGE_SIZE)}>
+              <Button size="sm" variant="outline" disabled={offset + items.length >= total || loading} onClick={() => setOffset(offset + PAGE_SIZE)}>
                 {t("pagination.next")}
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {isCompactLayout ? null : (
+          <Card className="rounded-lg lg:sticky lg:top-20">
+            <CardContent className="p-4 md:p-4">{detailPanel}</CardContent>
+          </Card>
+        )}
+      </div>
+
+      {isCompactLayout ? (
+        <Sheet open={Boolean(selectedID)} onOpenChange={(open) => { if (!open) setSelectedID(""); }}>
+          <SheetContent side="bottom" closeLabel={common("cancel")} className="max-h-svh overflow-y-auto rounded-t-2xl px-4 py-5 sm:max-w-none">
+            <SheetHeader className="sr-only">
+              <SheetTitle>{t("panel.title")}</SheetTitle>
+            </SheetHeader>
+            {selectedID ? detailPanel : null}
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       <Sheet open={tracePrivacyOpen} onOpenChange={setTracePrivacyOpen}>
         <SheetContent side="left" closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
@@ -869,5 +404,14 @@ export default function TraceManagement(props: TraceManagementProps) {
         </SheetContent>
       </Sheet>
     </PageContainer>
+  );
+}
+
+function FacetFilter({ id, label, value, options, onChange, emptyText }: { id: string; label: string; value: string; options: string[]; onChange: (value: string) => void; emptyText: string }) {
+  const items = [{ value: ANY_VALUE, label }, ...Array.from(new Set([...options, ...(value ? [value] : [])])).map((option) => ({ value: option, label: option }))];
+  return (
+    <FilterField label={label} htmlFor={id}>
+      <FilterCombobox id={id} options={items} value={value || ANY_VALUE} onValueChange={(next) => onChange(next === ANY_VALUE ? "" : next)} placeholder={label} emptyText={emptyText} mono />
+    </FilterField>
   );
 }

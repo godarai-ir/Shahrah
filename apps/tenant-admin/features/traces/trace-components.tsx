@@ -1,71 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { type ReactNode } from "react";
-import { Columns3 } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCompactNumber } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
-import { MAX_BREAKDOWN_ITEMS, TRACE_COLUMN_KEYS, type BreakdownBucket, type RequestTrace, type TraceColumnKey } from "./trace-types";
+import { MAX_BREAKDOWN_ITEMS, type BreakdownBucket, type RequestTrace } from "./trace-types";
 import { compactID, durationColor, formatDuration, formatLocalDateTime, statusBadgeVariant } from "./trace-utils";
-
-export function TraceColumnVisibilityMenu({
-  labels,
-  visibleColumns,
-  visibleColumnCount,
-  columnsLabel,
-  menuLabel,
-  onToggle,
-}: {
-  labels: Record<TraceColumnKey, string>;
-  visibleColumns: Record<TraceColumnKey, boolean>;
-  visibleColumnCount: number;
-  columnsLabel: string;
-  menuLabel: string;
-  onToggle: (key: TraceColumnKey, checked: boolean) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          <Columns3 data-icon="inline-start" aria-hidden="true" />
-          {columnsLabel}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>{menuLabel}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {TRACE_COLUMN_KEYS.map((key) => {
-          const checked = visibleColumns[key];
-          return (
-            <DropdownMenuCheckboxItem
-              key={key}
-              checked={checked}
-              disabled={checked && visibleColumnCount <= 1}
-              onCheckedChange={(nextChecked) => onToggle(key, Boolean(nextChecked))}
-            >
-              {labels[key]}
-            </DropdownMenuCheckboxItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export function BreakdownCard({
   title,
@@ -139,159 +83,50 @@ export function BreakdownCard({
   );
 }
 
-export function CompactTraceCard({
+/**
+ * One row of the /traces master list. Span counts are not part of the list payload, so the row shows
+ * attempts and model instead; the span count lives in the detail panel header.
+ */
+export function TraceListItem({
   item,
-  locale,
+  selected,
   maxDuration,
-  t,
-  common,
+  onSelect,
 }: {
   item: RequestTrace;
-  locale: string;
+  selected: boolean;
   maxDuration: number;
-  t: (key: string, values?: Record<string, string | number>) => string;
-  common: (key: string, values?: Record<string, string | number>) => string;
+  onSelect: (traceID: string) => void;
 }) {
-  return (
-    <Card className="rounded-lg">
-      <CardHeader className="gap-1 p-3 pb-2 md:p-3 md:pb-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardDescription className="text-xs leading-5">{formatLocalDateTime(item.started_at, locale)}</CardDescription>
-            <CardTitle className="mt-1 min-w-0 text-sm md:text-sm">
-              <Link
-                className="block truncate font-mono text-primary underline-offset-2 hover:underline"
-                href={`/traces/${encodeURIComponent(item.trace_id)}`}
-                title={item.trace_id}
-                aria-label={t("list.actions.openTrace", { traceId: item.trace_id })}
-              >
-                {compactID(item.trace_id)}
-              </Link>
-            </CardTitle>
-            {item.request_id ? (
-              <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
-                {t("list.meta.requestId", { id: compactID(item.request_id) })}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-            <Badge variant={statusBadgeVariant(item.status_code)}>{item.status_code}</Badge>
-            {item.attempts && item.attempts > 1 ? (
-              <Badge variant="outline">{t("list.meta.attemptsShort", { count: item.attempts })}</Badge>
-            ) : null}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-1.5 px-3 pb-3 pt-0 md:px-3 md:pb-3 md:pt-0">
-        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
-          <CompactListField
-            label={t("list.columns.model")}
-            value={
-              <span className="truncate" dir="auto" title={item.model || common("notSet")}>
-                {item.model || common("notSet")}
-              </span>
-            }
-          />
-          <CompactListField
-            label={t("list.columns.provider")}
-            value={
-              <span className="truncate" dir="auto" title={item.provider || common("notSet")}>
-                {item.provider || common("notSet")}
-              </span>
-            }
-          />
-          <CompactListField
-            label={t("list.columns.duration")}
-            value={<DurationMeter value={item.duration_ms} max={Math.max(maxDuration, 1)} msLabel={t("list.units.ms")} sLabel={t("list.units.s")} locale={locale} compact />}
-            inline
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-          <CompactListField
-            label={t("list.columns.route")}
-            inline
-            value={
-              <span className="truncate font-mono text-xs" dir="ltr" title={item.route}>
-                {item.route}
-              </span>
-            }
-          />
-          <CompactListField
-            label={t("list.columns.error")}
-            inline
-            value={item.error_code ? (
-              <Badge variant="outline" className="max-w-full">
-                <span className="truncate font-mono text-xs" dir="auto" title={item.error_code}>
-                  {item.error_code}
-                </span>
-              </Badge>
-            ) : (
-              <span className="text-muted-foreground">{common("none")}</span>
-            )}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+  const t = useTranslations("traces");
+  const common = useTranslations("common");
+  const locale = useLocale();
+  const attempts = item.attempts ?? 0;
 
-function CompactListField({
-  label,
-  value,
-  secondary,
-  secondaryLabel,
-  className,
-  inline = false,
-}: {
-  label: string;
-  value: ReactNode;
-  secondary?: ReactNode;
-  secondaryLabel?: string;
-  className?: string;
-  inline?: boolean;
-}) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-0.5", inline && "justify-between gap-1", className)}>
-      {inline ? (
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-          <div className="min-w-0 text-sm font-medium text-end">{value}</div>
-        </div>
-      ) : (
-        <>
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <div className="min-w-0 text-sm font-medium">{value}</div>
-        </>
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={t("list.actions.select", { traceId: item.trace_id })}
+      onClick={() => onSelect(item.trace_id)}
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-1.5 rounded-md border px-3 py-2 text-start transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring",
+        selected ? "border-primary bg-muted/50" : "border-border",
       )}
-      {secondary ? (
-        <div className="flex min-w-0 flex-col gap-0.5">
-          {secondaryLabel ? <span className="text-xs text-muted-foreground">{secondaryLabel}</span> : null}
-          <div className="min-w-0 text-xs">{secondary}</div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-export function SortButton({
-  label,
-  isActive,
-  sortOrder,
-  sortLabel,
-  onClick,
-}: {
-  label: string;
-  isActive: boolean;
-  sortOrder: "asc" | "desc";
-  sortLabel: string;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className="inline-flex items-center gap-1 text-start hover:underline" aria-label={sortLabel} onClick={onClick}>
-      {label}
-      <span className="font-mono text-xs text-muted-foreground" aria-hidden="true">
-        {isActive ? (sortOrder === "asc" ? "^" : "v") : ""}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <Badge variant={statusBadgeVariant(item.status_code)}>{item.status_code}</Badge>
+        <span className="min-w-0 truncate font-mono text-xs" dir="ltr" title={item.trace_id}>{compactID(item.trace_id)}</span>
+        <span className="ms-auto shrink-0 text-xs text-muted-foreground">{formatLocalDateTime(item.started_at, locale)}</span>
       </span>
+      <span className="flex min-w-0 items-center gap-2 text-xs">
+        <span className="min-w-0 truncate" dir="auto" title={item.model || common("notSet")}>{item.model || common("notSet")}</span>
+        {attempts > 1 ? <Badge variant="outline" className="shrink-0">{t("list.meta.attempts", { count: attempts })}</Badge> : null}
+        {item.error_code ? (
+          <span className="min-w-0 truncate font-mono text-destructive" dir="auto" title={item.error_code}>{item.error_code}</span>
+        ) : null}
+      </span>
+      <DurationMeter value={item.duration_ms} max={maxDuration} msLabel={t("list.units.ms")} sLabel={t("list.units.s")} locale={locale} />
     </button>
   );
 }

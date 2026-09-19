@@ -120,7 +120,8 @@
     "actions": {
       "openTrace": "باز کردن ردیابی درخواست {traceId}",
       "columns": "ستون‌ها",
-      "columnsMenu": "ستون‌های قابل نمایش"
+      "columnsMenu": "ستون‌های قابل نمایش",
+      "select": "نمایش ردیابی {traceId}"
     },
     "meta": {
       "requestId": "Request {id}",
@@ -253,5 +254,19 @@
         "span": "اسپن {name}"
       }
     }
+  },
+  "panel": {
+    "title": "آبشار اسپن‌ها",
+    "placeholderTitle": "یک ردیابی را انتخاب کنید",
+    "placeholderDescription": "با انتخاب یک ردیف، آبشار اسپن‌ها و تلاش‌های آن درخواست اینجا نمایش داده می‌شود.",
+    "notSampledTitle": "این درخواست نمونه‌برداری نشده — فقط خلاصه در دسترس است.",
+    "notSampledPolicy": "سیاست ثبت فعلی: {policy}",
+    "policyUnavailable": "سیاست ثبت در دسترس نیست",
+    "loadFailed": "بارگیری این ردیابی ناموفق بود.",
+    "openFull": "صفحه کامل ردیابی",
+    "close": "بستن",
+    "attemptsTitle": "تلاش‌ها",
+    "retry": "تلاش مجدد: {reason}",
+    "fallback": "جایگزین: {reason}"
   }
 }

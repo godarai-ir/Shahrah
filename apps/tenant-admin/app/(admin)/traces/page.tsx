@@ -4,10 +4,12 @@ import { headers } from "next/headers";
 import TraceManagement from "@/features/traces/TraceManagement";
 import { loadTracePrivacySettings } from "@/features/settings/server";
 import { parseTraceListPayload, parseTracePrivacySettings } from "@/features/traces/api";
+import { buildTraceFiltersQuery, createDefaultLocalFilters, traceFiltersFromObserve } from "@/features/traces/trace-utils";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { observeFiltersFromSearchParams, resolveObserveRange } from "@/lib/observe-filters";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +25,19 @@ export default async function TracesPage({
   const docsHref = `${buildDocsHref(requestHeaders, tenantSlug)}observability-traces`;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
+  const params = (await searchParams) ?? {};
+  const observe = observeFiltersFromSearchParams(toURLSearchParams(params));
+  const filtersQuery = buildTraceFiltersQuery(traceFiltersFromObserve(createDefaultLocalFilters(), observe, resolveObserveRange(observe)));
+
   const tracesResult = await fetchControlPlaneJSON({
     tenantSlug,
     method: "GET",
-    path: "/api/v2/traces?limit=25&offset=0",
+    path: `/api/v2/traces?limit=25&offset=0${filtersQuery ? `&${filtersQuery}` : ""}`,
     userID: auth.user.id,
   });
 
   const tracePrivacyResult = await loadTracePrivacySettings(tenantSlug, auth.user.id);
   const payload = parseTraceListPayload(tracesResult.payload);
-  const params = (await searchParams) ?? {};
   const currentUser = {
     id: auth.user.id,
     email: auth.user.email,
@@ -58,4 +63,13 @@ export default async function TracesPage({
       />
     </AdminShell>
   );
+}
+
+function toURLSearchParams(params: Record<string, string | string[] | undefined>) {
+  const out = new URLSearchParams();
+  for (const [key, raw] of Object.entries(params)) {
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (value !== undefined) out.set(key, value);
+  }
+  return out;
 }

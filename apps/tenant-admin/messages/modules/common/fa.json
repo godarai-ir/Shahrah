@@ -47,5 +47,44 @@
     "selectedCount": "{count, plural, other {# مورد انتخاب شده}}",
     "clearSelection": "لغو انتخاب",
     "bulkActions": "اقدام‌های گروهی"
+  },
+  "observe": {
+    "toolbar": "فیلترهای رصد",
+    "sharedNote": "جست‌وجو، بازه و فیلترها بین هر سه نما مشترک‌اند.",
+    "search": "شناسه درخواست",
+    "searchPlaceholder": "جست‌وجوی شناسه درخواست (req_...)",
+    "range": "بازه",
+    "model": "مدل",
+    "provider": "ارائه‌دهنده",
+    "allModels": "همه مدل‌ها",
+    "allProviders": "همه ارائه‌دهندگان",
+    "noOptions": "گزینه‌ای یافت نشد",
+    "from": "از",
+    "to": "تا",
+    "refresh": "بازآوری",
+    "clearAll": "پاک کردن همه",
+    "removeFilter": "حذف فیلتر {label}",
+    "notApplied": "در این نما اعمال نمی‌شود",
+    "notAppliedHint": "{label} در این نما پشتیبانی نمی‌شود و روی نتایج اثری ندارد؛ در نماهای دیگر همچنان اعمال می‌شود.",
+    "chips": {
+      "q": "شناسه درخواست",
+      "model": "مدل",
+      "provider": "ارائه‌دهنده",
+      "status": "وضعیت",
+      "errorCode": "کد خطا",
+      "range": "بازه"
+    },
+    "ranges": {
+      "last15m": "۱۵ دقیقه اخیر",
+      "last1h": "یک ساعت اخیر",
+      "last6h": "۶ ساعت اخیر",
+      "last24h": "۲۴ ساعت اخیر",
+      "yesterday": "دیروز",
+      "last3d": "۳ روز اخیر",
+      "last7d": "۷ روز اخیر",
+      "last14d": "۱۴ روز اخیر",
+      "last30d": "۳۰ روز اخیر",
+      "custom": "سفارشی"
+    }
   }
 }

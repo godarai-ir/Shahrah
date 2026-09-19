@@ -27,6 +27,7 @@ export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptySta
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";
 export { ExpirationDurationField, type ExpirationDurationExample, type ExpirationDurationFieldProps } from "./ExpirationDurationField";
 export { FilterCombobox } from "./FilterCombobox";
+export { ObserveQueryBar, type ObserveExtraChip, type ObserveQueryBarProps } from "./ObserveQueryBar";
 export { DebouncedTextFilter, FilterField, RangeFilterField, type DebouncedTextFilterProps, type FilterFieldProps, type RangeFilterFieldProps } from "./FilterField";
 export { FormSection } from "./FormSection";
 export { FormDialog, type FormDialogProps, type FormDialogSize } from "./FormDialog";

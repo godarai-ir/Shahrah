@@ -116,6 +116,25 @@ describe("admin sidebar sections", () => {
     expect(resolveNavTabs("/logs/abc", visible)).toBeNull();
   });
 
+  it("carries the shared observe query on observe tab links and nothing else", () => {
+    const visible = filterVisibleNavItems(buildAdminNavItems("/logs", t), ["logs:read_metadata", "settings:list"]);
+    const params = new URLSearchParams("range=last7d&model=gpt-5&status=500&sort_by=duration_ms&trace=tr_1");
+    const tabs = resolveNavTabs("/logs", visible, params)?.tabs ?? [];
+
+    expect(tabs.map((tab) => tab.href)).toEqual([
+      "/logs?range=last7d&model=gpt-5&status=500",
+      "/traces?range=last7d&model=gpt-5&status=500",
+      "/metrics?range=last7d&model=gpt-5&status=500",
+    ]);
+    expect(tabs.find((tab) => tab.isCurrent)?.key).toBe("logs");
+  });
+
+  it("keeps plain hrefs on observe tabs without a query and on other tab groups", () => {
+    const visible = filterVisibleNavItems(buildAdminNavItems("/logs", t), ["logs:read_metadata", "settings:list", "policy:list"]);
+    expect(resolveNavTabs("/logs", visible, new URLSearchParams())?.tabs.map((tab) => tab.href)).toEqual(["/logs", "/traces", "/metrics"]);
+    expect(resolveNavTabs("/guardrails", visible, new URLSearchParams("model=m1"))?.tabs.map((tab) => tab.href)).toEqual(["/gateway-policies", "/guardrails"]);
+  });
+
   it("sends users without user:list to their first permitted access tab", () => {
     const all = buildAdminNavItems("/", t);
     const visible = filterVisibleNavItems(all, ["team:read"]);
