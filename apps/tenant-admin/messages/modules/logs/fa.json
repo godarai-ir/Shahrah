@@ -15,7 +15,6 @@
     "refresh": "بازخوانی",
     "export": "خروجی",
     "settings": "تنظیمات لاگ",
-    "reset": "پاک‌سازی",
     "removeFilter": "حذف فیلتر",
     "columns": "ستون‌ها",
     "inspect": "بررسی",
@@ -25,13 +24,12 @@
     "openTrace": "مشاهده ردیابی",
     "copyLink": "کپی لینک",
     "saveView": "ذخیره نمای سفارشی",
-    "savedViews": "نماهای ذخیره‌شده",
     "expandChart": "بزرگ‌نمایی {chart}",
-    "load": "بارگذاری",
     "delete": "حذف",
     "cancel": "انصراف",
     "previous": "قبلی",
-    "next": "بعدی"
+    "next": "بعدی",
+    "clearAll": "پاک‌سازی همه"
   },
   "filters": {
     "title": "فیلترهای تحلیل",
@@ -54,8 +52,6 @@
     "principals": "اجرا کننده",
     "addPrincipal": "افزودن",
     "removePrincipal": "حذف بازیگر",
-    "showAdvanced": "فیلترهای پیشرفته‌تر",
-    "hideAdvanced": "پنهان کردن فیلترهای پیشرفته",
     "duration": "تأخیر",
     "tokens": "توکن",
     "cost_usd": "هزینه USD",
@@ -89,7 +85,9 @@
     "cost_usd_min": "حداقل USD",
     "cost_usd_max": "حداکثر USD",
     "cost_irr_min": "حداقل ریال",
-    "cost_irr_max": "حداکثر ریال"
+    "cost_irr_max": "حداکثر ریال",
+    "toggle": "فیلترها",
+    "activeCount": "{count} فیلتر فعال"
   },
   "ranges": {
     "1h": "۱ ساعت",
@@ -106,6 +104,14 @@
     "cost": "هزینه",
     "cache": "Cache hit",
     "retries": "Retry"
+  },
+  "rangeSummary": {
+    "title": "خلاصه بازه",
+    "requests": "درخواست",
+    "errorRate": "خطا",
+    "p95": "P95",
+    "cost": "هزینه",
+    "cache": "کش"
   },
   "charts": {
     "traffic": "ترافیک و خطا",
@@ -161,15 +167,16 @@
     "title": "نماهای ذخیره‌شده",
     "saveTitle": "ذخیره نمای سفارشی",
     "saveDescription": "فیلترها، بازه زمانی و ستون‌های فعلی به عنوان یک نما ذخیره می‌شوند.",
-    "manageTitle": "نماهای ذخیره‌شده",
-    "manageDescription": "یک نمای ذخیره‌شده را بارگذاری یا حذف کنید.",
     "nameLabel": "نام نما",
     "namePlaceholder": "نام این نما را وارد کنید",
-    "emptyTitle": "نمای ذخیره‌شده‌ای وجود ندارد",
-    "emptyDescription": "فیلترها و ستون‌های فعلی را برای تیم ذخیره کنید.",
     "saveError": "ذخیره نما ناموفق بود.",
     "deleteError": "حذف نما ناموفق بود.",
-    "deleting": "در حال حذف"
+    "deleting": "در حال حذف",
+    "rowLabel": "نماها:",
+    "saveCurrent": "ذخیره نمای فعلی",
+    "deleteView": "حذف نمای {name}",
+    "deleteTitle": "نمای ذخیره‌شده حذف شود؟",
+    "deleteDescription": "«{name}» برای همهٔ اعضای سازمان حذف می‌شود. فیلترهایی که الان اعمال شده‌اند تغییری نمی‌کنند."
   },
   "export": {
     "includeContent": "همراه payload",
@@ -193,7 +200,8 @@
     "fallbackStatus": "جایگزین",
     "loadBalanceStatus": "توازن بار",
     "payload": "محتوا",
-    "pageSize": "تعداد ردیف"
+    "pageSize": "تعداد ردیف",
+    "signals": "نشانه‌ها"
   },
   "columns": {
     "status": "وضعیت",
@@ -210,7 +218,8 @@
     "fallback_status": "جایگزین",
     "load_balance_status": "توازن بار",
     "payload": "محتوا",
-    "actions": "عملیات"
+    "actions": "عملیات",
+    "signals": "نشانه‌ها"
   },
   "routing": {
     "cache": "کش",
@@ -247,5 +256,10 @@
     "retry": "retry",
     "noFallback": "no fallback",
     "noLoadBalance": "no load balance"
+  },
+  "signals": {
+    "retry": "تلاش مجدد ×{count}",
+    "cache": "کش",
+    "fallback": "جایگزین"
   }
 }

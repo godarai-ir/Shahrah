@@ -233,13 +233,13 @@ export const DEFAULT_FILTERS: Filters = {
 };
 
 export const DEFAULT_COLUMNS = [
-  "status", "started_at", "provider", "model", "route", "latency", "tokens", "cost", "payload", "actions",
+  "status", "started_at", "provider", "model", "route", "latency", "tokens", "cost", "signals", "payload", "actions",
 ];
 
 export const OPTIONAL_COLUMNS = ["cache_status", "retry_count", "fallback_status", "load_balance_status"];
 
 export const COLUMN_CHOICES = [
-  "status", "started_at", "provider", "model", "route", "latency", "tokens", "cost", "payload",
+  "status", "started_at", "provider", "model", "route", "latency", "tokens", "cost", "signals", "payload",
   "cache_status", "retry_count", "fallback_status", "load_balance_status", "actions",
 ];
 

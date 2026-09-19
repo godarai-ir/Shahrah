@@ -2,21 +2,17 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type SetStateAction } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
-  BarChart3,
   ChevronDown,
   Download,
   Eye,
-  FolderOpen,
   RefreshCw,
   RotateCcw,
   Save,
   Settings2,
-  ShieldCheck,
-  Trash2,
-  type LucideIcon,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -26,7 +22,6 @@ import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
-import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { DebouncedTextFilter, FilterField, RangeFilterField } from "@/components/app-ui/FilterField";
 import { FormDialog } from "@/components/app-ui/FormDialog";
@@ -76,6 +71,8 @@ import {
   traceExists,
 } from "@/features/logs/api";
 import { LogsTable } from "@/features/logs/logs-table";
+import { RangeSummary } from "@/features/logs/RangeSummary";
+import { SavedViewsRow } from "@/features/logs/SavedViewsRow";
 import {
   DEFAULT_COLUMNS,
   DEFAULT_FILTERS,
@@ -98,17 +95,20 @@ import {
   buildQuery,
   buildRangeStatsQuery,
   createLogFormatters,
+  filtersFromSavedView,
   filtersFromSearchParams,
   formatCacheTimeseries,
   formatFilterNumber,
   formatTimeseries,
   isAbortError,
+  isSameFilterSet,
   limitChartPoints,
   normalizeRange,
   normalizeRangeValue,
   normalizeVisibleColumns,
   payloadStatus,
   rangeStep,
+  savedViewFilters,
   serializeFilters,
 } from "@/features/logs/logs-utils";
 
@@ -176,10 +176,9 @@ export default function LogsCommandCenter({
   const [traceAvailable, setTraceAvailable] = useState(false);
   const [viewName, setViewName] = useState("");
   const [saveViewOpen, setSaveViewOpen] = useState(false);
-  const [savedViewsOpen, setSavedViewsOpen] = useState(false);
   const [expandedChart, setExpandedChart] = useState<ExpandedChartKey | null>(null);
   const [requestLoggingOpen, setRequestLoggingOpen] = useState(false);
-  const [deletingViewID, setDeletingViewID] = useState("");
+  const [deletingViewID, setDeletingViewID] = useState<string | null>(null);
   const [includeContentExport, setIncludeContentExport] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(false);
@@ -427,6 +426,11 @@ export default function LogsCommandCenter({
         ),
       },
       {
+        id: "signals",
+        header: t("table.signals"),
+        cell: ({ row }) => <RequestSignals log={row.original} formatters={formatters} t={t} />,
+      },
+      {
         id: "cache_status",
         header: t("table.cacheStatus"),
         cell: ({ row }) => <RoutingValue value={row.original.cache_status || t("values.noCache")} description={t("routing.cacheHelp")} />,
@@ -521,15 +525,17 @@ export default function LogsCommandCenter({
   }, [limit, logs.next_offset]);
 
   const openSaveViewDialog = useCallback(() => setSaveViewOpen(true), []);
-  const openSavedViewsDialog = useCallback(() => setSavedViewsOpen(true), []);
 
   const activeChips = useMemo(() => activeFilterChips(filters, t), [filters, t]);
+  const activeViewID = useMemo(
+    () => savedViews.find((view) => isSameFilterSet(filters, view.filters))?.saved_view_id ?? null,
+    [filters, savedViews],
+  );
 
   const applySavedView = useCallback((view: SavedView) => {
-    setFilters({ ...DEFAULT_FILTERS, ...view.filters } as Filters);
+    setFilters(filtersFromSavedView(view));
     setVisibleColumns(normalizeVisibleColumns(view.visible_columns));
     setOffset(0);
-    setSavedViewsOpen(false);
   }, []);
 
   const saveCurrentView = useCallback(async () => {
@@ -537,7 +543,7 @@ export default function LogsCommandCenter({
     try {
       const created = await createSavedView({
         name: viewName.trim(),
-        filters: serializeFilters(filters),
+        filters: savedViewFilters(filters),
         visible_columns: visibleColumns,
         shared_scope: "tenant",
       });
@@ -557,7 +563,7 @@ export default function LogsCommandCenter({
     } catch (err) {
       setError(err instanceof Error ? err.message : t("savedViews.deleteError"));
     } finally {
-      setDeletingViewID("");
+      setDeletingViewID(null);
     }
   }, [t]);
 
@@ -585,23 +591,6 @@ export default function LogsCommandCenter({
         description={t("subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  onClick={() => void refreshReport()}
-                  disabled={loading}
-                  aria-busy={loading}
-                  aria-label={t("actions.refresh")}
-                  title={t("actions.refresh")}
-                >
-                  {loading ? <Spinner /> : <RefreshCw />}
-                  <span className="sr-only">{t("actions.refresh")}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("actions.refresh")}</TooltipContent>
-            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -663,17 +652,29 @@ export default function LogsCommandCenter({
         onSearchPrincipal={searchLogPrincipals}
         principalSelectorLabels={principalSelectorLabels}
         onReset={resetFilters}
+        onRefresh={refreshReport}
+        loading={loading}
         formatters={formatters}
         t={t}
       />
-      <LogsMetrics summary={summary} summaryUnavailable={summaryUnavailable} formatters={formatters} t={t} />
-      <DeferredLogsCharts
-        timeseriesUnavailable={timeseriesUnavailable}
-        breakdownUnavailable={breakdownUnavailable}
-        timeseriesChartData={timeseriesChartData}
-        cacheTimeseriesChartData={cacheTimeseriesChartData}
-        providerBreakdownData={providerBreakdownData}
-        onExpandChart={setExpandedChart}
+      <RangeSummary summary={summary} summaryUnavailable={summaryUnavailable} formatters={formatters} t={t}>
+        <DeferredLogsCharts
+          timeseriesUnavailable={timeseriesUnavailable}
+          breakdownUnavailable={breakdownUnavailable}
+          timeseriesChartData={timeseriesChartData}
+          cacheTimeseriesChartData={cacheTimeseriesChartData}
+          providerBreakdownData={providerBreakdownData}
+          onExpandChart={setExpandedChart}
+          t={t}
+        />
+      </RangeSummary>
+      <SavedViewsRow
+        views={savedViews}
+        activeViewID={activeViewID}
+        onApply={applySavedView}
+        onDelete={deleteSavedView}
+        onSaveCurrent={openSaveViewDialog}
+        deletingViewID={deletingViewID}
         t={t}
       />
       <LogsTable
@@ -687,8 +688,6 @@ export default function LogsCommandCenter({
         loading={loading}
         visibleColumns={visibleColumns}
         setVisibleColumns={setVisibleColumns}
-        onOpenSaveView={openSaveViewDialog}
-        onOpenSavedViews={openSavedViewsDialog}
         onPreviousPage={previousPage}
         onNextPage={nextPage}
         hasNextPage={hasNextPage}
@@ -708,18 +707,12 @@ export default function LogsCommandCenter({
         formatters={formatters}
         t={t}
       />
-      <SavedViewsDialogs
-        saveViewOpen={saveViewOpen}
-        savedViewsOpen={savedViewsOpen}
+      <SaveViewDialog
+        open={saveViewOpen}
         viewName={viewName}
-        savedViews={savedViews}
-        deletingViewID={deletingViewID}
-        setSaveViewOpen={setSaveViewOpen}
-        setSavedViewsOpen={setSavedViewsOpen}
+        setOpen={setSaveViewOpen}
         setViewName={setViewName}
         onSaveCurrentView={saveCurrentView}
-        onApplySavedView={applySavedView}
-        onDeleteSavedView={deleteSavedView}
         t={t}
       />
       {canManageRequestLogging ? (
@@ -763,6 +756,8 @@ const LogsFilters = memo(function LogsFilters({
   onSearchPrincipal,
   principalSelectorLabels,
   onReset,
+  onRefresh,
+  loading,
   formatters,
   t,
 }: {
@@ -774,6 +769,8 @@ const LogsFilters = memo(function LogsFilters({
   onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<PrincipalSearchOption[]>;
   principalSelectorLabels: ReturnType<typeof buildPrincipalSelectorLabels>;
   onReset: () => void;
+  onRefresh: () => Promise<void>;
+  loading: boolean;
   formatters: LogsFormatter;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -783,8 +780,7 @@ const LogsFilters = memo(function LogsFilters({
     () => principalsFromFilters(filters, principalNamesByKey),
     [filters, principalNamesByKey],
   );
-  const showAdvancedLabel = t("filters.showAdvanced");
-  const hideAdvancedLabel = t("filters.hideAdvanced");
+  const activeCount = activeChips.length;
   const setRange = useCallback((value: string) => {
     onSetFilter("range", value);
     if (value === "custom") {
@@ -813,10 +809,12 @@ const LogsFilters = memo(function LogsFilters({
   }, [onSetFilter]);
 
   return (
-    <AppCard>
+    <AppCard contentClassName="flex flex-col gap-3 p-3">
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <FilterField label={t("filters.range")}>
+        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={t("filters.title")}>
+          <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
+          <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
+          <FilterField label={t("filters.range")} hideLabel className="w-40">
             <AppSelectField
               value={filters.range}
               onValueChange={setRange}
@@ -831,100 +829,118 @@ const LogsFilters = memo(function LogsFilters({
               triggerClassName="h-8 text-xs"
             />
           </FilterField>
-          <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} />
-          <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} />
-          {filters.range === "custom" ? (
-            <DateTimeRangeField
-              from={filters.from}
-              to={filters.to}
-              fromLabel={t("filters.from")}
-              toLabel={t("filters.to")}
-              onFromChange={(value) => onSetFilter("from", value)}
-              onToChange={(value) => onSetFilter("to", value)}
-              className="md:col-span-2 xl:col-span-3"
-            />
-          ) : null}
-        </div>
-        <PrincipalPicker
-          id="logs-principal-filter"
-          title={t("filters.principals")}
-          selected={selectedPrincipals}
-          setSelected={setSelectedPrincipals}
-          onSearchPrincipal={onSearchPrincipal}
-          principalSelectorLabels={principalSelectorLabels}
-          allowEveryone={false}
-          addLabel={t("filters.addPrincipal")}
-          removeLabel={t("filters.removePrincipal")}
-          kinds={["user", "virtual_account", "team", "org_unit"]}
-          variant="filter"
-        />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <RangeFilter
-            label={t("filters.duration")}
-            minLabel={t("filters.duration_min")}
-            maxLabel={t("filters.duration_max")}
-            range={rangeStats.duration_ms}
-            minValue={filters.duration_min}
-            maxValue={filters.duration_max}
-            onChange={(min, max) => {
-              onSetFilter("duration_min", min);
-              onSetFilter("duration_max", max);
-            }}
-            formatValue={formatters.ms}
-          />
-          <RangeFilter
-            label={t("filters.tokens")}
-            minLabel={t("filters.tokens_min")}
-            maxLabel={t("filters.tokens_max")}
-            range={rangeStats.total_tokens}
-            minValue={filters.tokens_min}
-            maxValue={filters.tokens_max}
-            onChange={(min, max) => {
-              onSetFilter("tokens_min", min);
-              onSetFilter("tokens_max", max);
-            }}
-            formatValue={formatters.number}
-          />
-          <RangeFilter
-            label={t("filters.cost_usd")}
-            minLabel={t("filters.cost_usd_min")}
-            maxLabel={t("filters.cost_usd_max")}
-            range={rangeStats.cost_usd}
-            minValue={filters.cost_usd_min}
-            maxValue={filters.cost_usd_max}
-            onChange={(min, max) => {
-              onSetFilter("cost_usd_min", min);
-              onSetFilter("cost_usd_max", max);
-            }}
-            formatValue={formatters.usd}
-          />
-          <RangeFilter
-            label={t("filters.cost_irr")}
-            minLabel={t("filters.cost_irr_min")}
-            maxLabel={t("filters.cost_irr_max")}
-            range={rangeStats.cost_irr}
-            minValue={filters.cost_irr_min}
-            maxValue={filters.cost_irr_max}
-            onChange={(min, max) => {
-              onSetFilter("cost_irr_min", min);
-              onSetFilter("cost_irr_max", max);
-            }}
-            formatValue={formatters.irr}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <CollapsibleTrigger asChild>
-            <Button type="button" variant="outline" size="sm" aria-expanded={advancedOpen}>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", advancedOpen && "rotate-180")} />
-              {advancedOpen ? hideAdvancedLabel : showAdvancedLabel}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={advancedOpen}
+              className={cn(activeCount > 0 && "border-primary-subtle-border bg-primary-soft text-primary-soft-foreground hover:bg-primary-soft-hover")}
+            >
+              <SlidersHorizontal data-icon="inline-start" />
+              {t("filters.toggle")}
+              {activeCount > 0 ? (
+                <Badge className="h-5 min-w-5 rounded-full px-1.5 tabular-nums" aria-label={t("filters.activeCount", { count: activeCount })}>{activeCount}</Badge>
+              ) : null}
+              <ChevronDown data-icon="inline-end" className={cn("transition-transform", advancedOpen && "rotate-180")} />
             </Button>
           </CollapsibleTrigger>
-          <Button type="button" variant="outline" size="sm" onClick={onReset}>
-            <RotateCcw className="h-4 w-4" />
-            {t("actions.reset")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() => void onRefresh()}
+                disabled={loading}
+                aria-busy={loading}
+                aria-label={t("actions.refresh")}
+                title={t("actions.refresh")}
+              >
+                {loading ? <Spinner /> : <RefreshCw />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.refresh")}</TooltipContent>
+          </Tooltip>
         </div>
-        <CollapsibleContent>
+        {filters.range === "custom" ? (
+          <DateTimeRangeField
+            from={filters.from}
+            to={filters.to}
+            fromLabel={t("filters.from")}
+            toLabel={t("filters.to")}
+            onFromChange={(value) => onSetFilter("from", value)}
+            onToChange={(value) => onSetFilter("to", value)}
+          />
+        ) : null}
+        <CollapsibleContent className="flex flex-col gap-3 border-t border-border pt-3">
+          <PrincipalPicker
+            id="logs-principal-filter"
+            title={t("filters.principals")}
+            selected={selectedPrincipals}
+            setSelected={setSelectedPrincipals}
+            onSearchPrincipal={onSearchPrincipal}
+            principalSelectorLabels={principalSelectorLabels}
+            allowEveryone={false}
+            addLabel={t("filters.addPrincipal")}
+            removeLabel={t("filters.removePrincipal")}
+            kinds={["user", "virtual_account", "team", "org_unit"]}
+            variant="filter"
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <RangeFilter
+              label={t("filters.duration")}
+              minLabel={t("filters.duration_min")}
+              maxLabel={t("filters.duration_max")}
+              range={rangeStats.duration_ms}
+              minValue={filters.duration_min}
+              maxValue={filters.duration_max}
+              onChange={(min, max) => {
+                onSetFilter("duration_min", min);
+                onSetFilter("duration_max", max);
+              }}
+              formatValue={formatters.ms}
+            />
+            <RangeFilter
+              label={t("filters.tokens")}
+              minLabel={t("filters.tokens_min")}
+              maxLabel={t("filters.tokens_max")}
+              range={rangeStats.total_tokens}
+              minValue={filters.tokens_min}
+              maxValue={filters.tokens_max}
+              onChange={(min, max) => {
+                onSetFilter("tokens_min", min);
+                onSetFilter("tokens_max", max);
+              }}
+              formatValue={formatters.number}
+            />
+            <RangeFilter
+              label={t("filters.cost_usd")}
+              minLabel={t("filters.cost_usd_min")}
+              maxLabel={t("filters.cost_usd_max")}
+              range={rangeStats.cost_usd}
+              minValue={filters.cost_usd_min}
+              maxValue={filters.cost_usd_max}
+              onChange={(min, max) => {
+                onSetFilter("cost_usd_min", min);
+                onSetFilter("cost_usd_max", max);
+              }}
+              formatValue={formatters.usd}
+            />
+            <RangeFilter
+              label={t("filters.cost_irr")}
+              minLabel={t("filters.cost_irr_min")}
+              maxLabel={t("filters.cost_irr_max")}
+              range={rangeStats.cost_irr}
+              minValue={filters.cost_irr_min}
+              maxValue={filters.cost_irr_max}
+              onChange={(min, max) => {
+                onSetFilter("cost_irr_min", min);
+                onSetFilter("cost_irr_max", max);
+              }}
+              formatValue={formatters.irr}
+            />
+          </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <FacetSelect label={t("filters.route")} value={filters.route} onChange={(value) => onSetFilter("route", value)} items={facets.routes} empty={t("filters.noOptions")} />
             <TextFilter label={t("filters.log_id")} value={filters.log_id} onChange={(value) => onSetFilter("log_id", value)} mono />
@@ -945,7 +961,15 @@ const LogsFilters = memo(function LogsFilters({
           </div>
         </CollapsibleContent>
       </Collapsible>
-      <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} className="pt-4" />
+      {activeCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} />
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
+            <RotateCcw data-icon="inline-start" />
+            {t("actions.clearAll")}
+          </Button>
+        </div>
+      ) : null}
     </AppCard>
   );
 });
@@ -991,106 +1015,37 @@ function DeferredLogsCharts(props: ComponentProps<typeof LogsCharts>) {
   );
 }
 
-const LogsMetrics = memo(function LogsMetrics({
-  summary,
-  summaryUnavailable,
-  formatters,
-  t,
-}: {
-  summary: Summary;
-  summaryUnavailable: boolean;
-  formatters: LogsFormatter;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.requests")} value={<CompactValue display={formatters.numberDisplay(summary.request_count ?? 0)} />} icon={BarChart3} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.errorRate")} value={formatters.percent(summary.error_rate ?? 0)} description={<CompactValue display={formatters.numberDisplay(summary.error_count ?? 0)} />} icon={ShieldCheck} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.p95")} value={formatters.ms(summary.latency_p95_ms ?? 0)} description={`${t("cards.p99")} ${formatters.ms(summary.latency_p99_ms ?? 0)}`} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cost")} value={<CompactValue display={formatters.usdDisplay(summary.cost_usd ?? 0)} />} description={<CompactValue display={formatters.irrDisplay(summary.cost_irr ?? 0)} />} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cache")} value={formatters.percent(summary.cache_hit_rate ?? 0)} description={<span>{t("cards.retries")} <CompactValue display={formatters.numberDisplay(summary.retry_count ?? 0)} /></span>} t={t} />
-    </div>
-  );
-});
-
-
-
-
-
-
-const SavedViewsDialogs = memo(function SavedViewsDialogs({
-  saveViewOpen,
-  savedViewsOpen,
+const SaveViewDialog = memo(function SaveViewDialog({
+  open,
   viewName,
-  savedViews,
-  deletingViewID,
-  setSaveViewOpen,
-  setSavedViewsOpen,
+  setOpen,
   setViewName,
   onSaveCurrentView,
-  onApplySavedView,
-  onDeleteSavedView,
   t,
 }: {
-  saveViewOpen: boolean;
-  savedViewsOpen: boolean;
+  open: boolean;
   viewName: string;
-  savedViews: SavedView[];
-  deletingViewID: string;
-  setSaveViewOpen: Dispatch<SetStateAction<boolean>>;
-  setSavedViewsOpen: Dispatch<SetStateAction<boolean>>;
+  setOpen: Dispatch<SetStateAction<boolean>>;
   setViewName: Dispatch<SetStateAction<string>>;
   onSaveCurrentView: () => Promise<void>;
-  onApplySavedView: (view: SavedView) => void;
-  onDeleteSavedView: (viewID: string) => Promise<void>;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <>
-      <FormDialog open={saveViewOpen} onOpenChange={setSaveViewOpen} title={t("savedViews.saveTitle")} description={t("savedViews.saveDescription")} footer={(
-          <>
-            <Button type="button" variant="outline" onClick={() => setSaveViewOpen(false)}>
-              {t("actions.cancel")}
-            </Button>
-            <Button type="button" onClick={() => void onSaveCurrentView()} disabled={!viewName.trim()}>
-              <Save data-icon="inline-start" />
-              {t("actions.saveView")}
-            </Button>
-          </>
-      )}>
-        <AppTextField id="logs-save-view-name" label={t("savedViews.nameLabel")} value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
-      </FormDialog>
-
-      <FormDialog open={savedViewsOpen} onOpenChange={setSavedViewsOpen} title={t("savedViews.manageTitle")} description={t("savedViews.manageDescription")} size="md">
-          {savedViews.length ? (
-            <div className="grid gap-2">
-              {savedViews.map((view) => (
-                <div key={view.saved_view_id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{view.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{view.shared_scope}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => onApplySavedView(view)}>
-                      <FolderOpen className="h-4 w-4" />
-                      {t("actions.load")}
-                    </Button>
-                    <Button type="button" size="sm" variant="destructive" onClick={() => void onDeleteSavedView(view.saved_view_id)} disabled={deletingViewID === view.saved_view_id}>
-                      <Trash2 className="h-4 w-4" />
-                      {deletingViewID === view.saved_view_id ? t("savedViews.deleting") : t("actions.delete")}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title={t("savedViews.emptyTitle")} description={t("savedViews.emptyDescription")} />
-          )}
-      </FormDialog>
-    </>
+    <FormDialog open={open} onOpenChange={setOpen} title={t("savedViews.saveTitle")} description={t("savedViews.saveDescription")} footer={(
+        <>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            {t("actions.cancel")}
+          </Button>
+          <Button type="button" onClick={() => void onSaveCurrentView()} disabled={!viewName.trim()}>
+            <Save data-icon="inline-start" />
+            {t("actions.saveView")}
+          </Button>
+        </>
+    )}>
+      <AppTextField id="logs-save-view-name" label={t("savedViews.nameLabel")} value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
+    </FormDialog>
   );
 });
-
 
 const TextFilter = memo(function TextFilter({ label, value, onChange, mono }: { label: string; value: string; onChange: (value: string) => void; mono?: boolean }) {
   return <DebouncedTextFilter label={label} value={value} onValueChange={onChange} mono={mono} />;
@@ -1143,10 +1098,10 @@ const RangeFilter = memo(function RangeFilter({
   );
 });
 
-const FacetSelect = memo(function FacetSelect({ label, value, onChange, items, empty }: { label: string; value: string; onChange: (value: string) => void; items?: Array<{ value: string; count: number }>; empty: string }) {
+const FacetSelect = memo(function FacetSelect({ label, value, onChange, items, empty, hideLabel, className }: { label: string; value: string; onChange: (value: string) => void; items?: Array<{ value: string; count: number }>; empty: string; hideLabel?: boolean; className?: string }) {
   const options = [{ value: "", label: label }, ...(items ?? []).filter((item) => item.value).map((item) => ({ value: item.value, label: `${item.value} (${item.count})` }))];
   return (
-    <FilterField label={label}>
+    <FilterField label={label} hideLabel={hideLabel} className={className}>
       <FilterCombobox id={`logs-${label}`} value={value} onValueChange={onChange} options={options} placeholder={label} emptyText={empty} />
     </FilterField>
   );
@@ -1176,56 +1131,23 @@ function RoutingValue({ value, description }: { value: string; description: stri
 }
 
 
-function AnalyticsMetric({
-  unavailable,
-  label,
-  value,
-  description,
-  icon,
-  t,
-}: {
-  unavailable: boolean;
-  label: string;
-  value: ReactNode;
-  description?: ReactNode;
-  icon?: LucideIcon;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  if (!unavailable) {
-    const Icon = icon;
-    return (
-      <AppCard contentClassName="p-3 sm:p-4 xl:pt-6">
-        <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
-            <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:mt-2 sm:text-2xl xl:text-3xl">{value}</p>
-            {description ? <p className="mt-0.5 truncate text-xs leading-5 text-muted-foreground sm:mt-1">{description}</p> : null}
-          </div>
-          {Icon ? (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:size-10 sm:rounded-xl">
-              <Icon aria-hidden="true" className="h-4 w-4 sm:h-5 sm:w-5" />
-            </div>
-          ) : null}
-        </div>
-      </AppCard>
-    );
-  }
-
+function RequestSignals({ log, formatters, t }: { log: RequestLog; formatters: LogsFormatter; t: ReturnType<typeof useTranslations> }) {
+  const retries = log.retry_count ?? 0;
+  const cacheHit = (log.cache_status ?? "").toLowerCase().includes("hit");
+  const fallback = (log.fallback_count ?? 0) > 0 || log.fallback_status === "active";
+  if (!retries && !cacheHit && !fallback) return <span className="text-muted-foreground">-</span>;
   return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 opacity-70 sm:p-4">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="pt-1 text-base font-semibold text-muted-foreground sm:pt-2 sm:text-lg">{t("analyticsUnavailableShort")}</div>
-      <div className="pt-1 text-xs text-muted-foreground">{t("analyticsUnavailable")}</div>
+    <div className="flex flex-wrap gap-1">
+      {retries ? <StatusBadge status="warning" className="h-5 px-1.5 text-xs">{t("signals.retry", { count: formatters.number(retries) })}</StatusBadge> : null}
+      {cacheHit ? <StatusBadge status="info" className="h-5 px-1.5 text-xs">{t("signals.cache")}</StatusBadge> : null}
+      {fallback ? <StatusBadge status="warning" className="h-5 px-1.5 text-xs">{t("signals.fallback")}</StatusBadge> : null}
     </div>
   );
 }
 
-
 function MonoText({ value }: { value?: string }) {
   return <span className="block max-w-40 truncate font-mono text-xs" dir="auto">{value || "-"}</span>;
 }
-
-
 
 function activeFilterChips(filters: Filters, t: ReturnType<typeof useTranslations>) {
   const labels: Partial<Record<keyof Filters, string>> = {

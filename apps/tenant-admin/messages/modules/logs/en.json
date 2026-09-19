@@ -15,7 +15,6 @@
     "refresh": "Refresh",
     "export": "Export",
     "settings": "Logging settings",
-    "reset": "Reset",
     "removeFilter": "Remove filter",
     "columns": "Columns",
     "inspect": "Inspect",
@@ -25,13 +24,12 @@
     "openTrace": "Trace",
     "copyLink": "Copy link",
     "saveView": "Save custom view",
-    "savedViews": "Saved views",
     "expandChart": "Expand {chart}",
-    "load": "Load",
     "delete": "Delete",
     "cancel": "Cancel",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "clearAll": "Clear all"
   },
   "filters": {
     "title": "Analysis Filters",
@@ -54,8 +52,6 @@
     "principals": "Executor",
     "addPrincipal": "Add",
     "removePrincipal": "Remove principal",
-    "showAdvanced": "Advanced filters",
-    "hideAdvanced": "Hide advanced filters",
     "duration": "Latency",
     "tokens": "Tokens",
     "cost_usd": "USD cost",
@@ -89,7 +85,9 @@
     "cost_usd_min": "USD min",
     "cost_usd_max": "USD max",
     "cost_irr_min": "IRR min",
-    "cost_irr_max": "IRR max"
+    "cost_irr_max": "IRR max",
+    "toggle": "Filters",
+    "activeCount": "{count, plural, one {# active filter} other {# active filters}}"
   },
   "ranges": {
     "1h": "1 hour",
@@ -106,6 +104,14 @@
     "cost": "Cost",
     "cache": "Cache hit",
     "retries": "Retry"
+  },
+  "rangeSummary": {
+    "title": "Range summary",
+    "requests": "Requests",
+    "errorRate": "Errors",
+    "p95": "P95",
+    "cost": "Cost",
+    "cache": "Cache"
   },
   "charts": {
     "traffic": "Traffic and Errors",
@@ -161,15 +167,16 @@
     "title": "Saved views",
     "saveTitle": "Save custom view",
     "saveDescription": "The current filters, time range, and visible columns will be saved as a view.",
-    "manageTitle": "Saved views",
-    "manageDescription": "Load or delete a saved view.",
     "nameLabel": "View name",
     "namePlaceholder": "Enter a name for this view",
-    "emptyTitle": "No saved views",
-    "emptyDescription": "Save the current filters and columns for the team.",
     "saveError": "Failed to save view.",
     "deleteError": "Failed to delete view.",
-    "deleting": "Deleting"
+    "deleting": "Deleting",
+    "rowLabel": "Views:",
+    "saveCurrent": "Save current view",
+    "deleteView": "Delete view {name}",
+    "deleteTitle": "Delete saved view?",
+    "deleteDescription": "“{name}” will be removed for everyone in the organization. Filters currently applied stay as they are."
   },
   "export": {
     "includeContent": "Include payload",
@@ -193,7 +200,8 @@
     "fallbackStatus": "Fallback",
     "loadBalanceStatus": "Load balance",
     "payload": "Payload",
-    "pageSize": "Page size"
+    "pageSize": "Page size",
+    "signals": "Signals"
   },
   "columns": {
     "status": "Status",
@@ -210,7 +218,8 @@
     "fallback_status": "Fallback",
     "load_balance_status": "Load balance",
     "payload": "Payload",
-    "actions": "Actions"
+    "actions": "Actions",
+    "signals": "Signals"
   },
   "routing": {
     "cache": "Cache",
@@ -247,5 +256,10 @@
     "retry": "retry",
     "noFallback": "no fallback",
     "noLoadBalance": "no load balance"
+  },
+  "signals": {
+    "retry": "Retry ×{count}",
+    "cache": "Cache",
+    "fallback": "Fallback"
   }
 }
