@@ -125,5 +125,39 @@
   "table": {
     "title": "متریک‌های تجمیعی",
     "empty": "برای فیلترهای فعلی متریکی پیدا نشد."
+  },
+  "controls": {
+    "metric": "سنجه",
+    "groupBy": "گروه‌بندی",
+    "metricKinds": {
+      "requests": "درخواست‌ها",
+      "latency": "تأخیر",
+      "tokens": "توکن",
+      "cost": "هزینه"
+    }
+  },
+  "focus": {
+    "title": "{metric} به تفکیک {dimension}",
+    "latencyTitle": "تأخیر ({percentile}) به تفکیک {dimension}"
+  },
+  "breakdown": {
+    "title": "تفکیک بر اساس {dimension}",
+    "group": "گروه",
+    "value": "مقدار",
+    "share": "٪ از کل",
+    "ratio": "نسبت به کل",
+    "ratioValue": "×{value}",
+    "latencyNote": "صدک‌های تأخیر جمع‌پذیر نیستند؛ هر گروه با {percentile} کل مقایسه می‌شود، نه با سهم.",
+    "empty": "برای این بازه داده‌ای نیست."
+  },
+  "rangeSummary": {
+    "title": "خلاصه بازه",
+    "requests": "درخواست",
+    "cost": "هزینه",
+    "cacheHitRate": "نرخ کش",
+    "avoidedCost": "صرفه‌جویی"
+  },
+  "units": {
+    "ms": "میلی‌ثانیه"
   }
 }

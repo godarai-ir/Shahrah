@@ -125,5 +125,39 @@
   "table": {
     "title": "Aggregated metrics",
     "empty": "No metrics found for the current filters."
+  },
+  "controls": {
+    "metric": "Metric",
+    "groupBy": "Group by",
+    "metricKinds": {
+      "requests": "Requests",
+      "latency": "Latency",
+      "tokens": "Tokens",
+      "cost": "Cost"
+    }
+  },
+  "focus": {
+    "title": "{metric} by {dimension}",
+    "latencyTitle": "Latency ({percentile}) by {dimension}"
+  },
+  "breakdown": {
+    "title": "Breakdown by {dimension}",
+    "group": "Group",
+    "value": "Value",
+    "share": "% of total",
+    "ratio": "vs. overall",
+    "ratioValue": "×{value}",
+    "latencyNote": "Latency percentiles do not add up, so each group is compared with the overall {percentile} instead of a share.",
+    "empty": "No data for this range."
+  },
+  "rangeSummary": {
+    "title": "Range summary",
+    "requests": "Requests",
+    "cost": "Cost",
+    "cacheHitRate": "Cache hit rate",
+    "avoidedCost": "Saved"
+  },
+  "units": {
+    "ms": "ms"
   }
 }

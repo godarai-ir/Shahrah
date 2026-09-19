@@ -1,7 +1,24 @@
+import type { ObserveFilters } from "@/lib/observe-filters";
+
 export type MetricsRow = Record<string, unknown>;
 
-type MetricsViewBy = "modelName" | "virtualModelName" | "userEmail" | "virtualAccount" | "team";
-type MetricsPercentile = "p50" | "p75" | "p90" | "p99";
+export const METRICS_VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
+export const METRICS_PERCENTILES = ["p50", "p75", "p90", "p99"] as const;
+/** What the focus chart and the breakdown table measure. */
+export const METRIC_KINDS = ["requests", "latency", "tokens", "cost"] as const;
+
+export type MetricsViewBy = (typeof METRICS_VIEW_BY)[number];
+export type MetricsPercentile = (typeof METRICS_PERCENTILES)[number];
+export type MetricKind = (typeof METRIC_KINDS)[number];
+
+export type BreakdownRow = {
+  label: string;
+  value: number;
+  /** Fraction of the total. Only for additive metrics. */
+  share?: number;
+  /** Multiple of the overall value. Only for latency, whose percentiles do not add up. */
+  ratio?: number;
+};
 
 type CacheBreakdownItem = {
   mode: string;
@@ -79,6 +96,21 @@ export function buildChartData(
     return point;
   });
 
+  const seriesPoints = (valueOf: (item: MetricsRow | undefined) => number): SeriesPoint[] => x.map((timestamp) => {
+    const point: SeriesPoint = {
+      timestamp,
+      label: formatAxisLabel(timestamp, labelMode, locale),
+      tooltipLabel: formatLocalDateTime(timestamp, locale),
+    };
+    series.forEach((seriesItem) => {
+      const item = grouped.get(seriesItem.label)?.find((row) => metricString(row, "timestamp") === timestamp);
+      point[seriesItem.key] = valueOf(item);
+    });
+    return point;
+  });
+  const tokenPoints = seriesPoints((item) => metricNumber(item, "sumInputTokens") + metricNumber(item, "sumOutputTokens"));
+  const costPoints = seriesPoints((item) => Number(metricNumber(item, "sumCostInUSD", "sumCostUsd").toFixed(6)));
+
   const tokenCostPoints = x.map((timestamp) => {
     let inputTokens = 0;
     let outputTokens = 0;
@@ -101,7 +133,50 @@ export function buildChartData(
     };
   });
 
-  return { points, latencyPoints, tokenCostPoints, series };
+  return { points, latencyPoints, tokenPoints, costPoints, tokenCostPoints, series };
+}
+
+/**
+ * Breakdown table rows from the grouped distribution query. Requests, tokens and cost are additive
+ * and get a share of the total; latency percentiles are not, so each group is compared with the
+ * overall percentile instead.
+ */
+export function buildBreakdownRows(
+  rows: MetricsRow[],
+  viewBy: MetricsViewBy,
+  metric: MetricKind,
+  pct: MetricsPercentile,
+  overallLatencyMs: number,
+  unknownLabel: string,
+): BreakdownRow[] {
+  const values = rows.map((row) => ({ label: metricString(row, viewBy) || unknownLabel, value: breakdownValue(row, metric, pct) }));
+  values.sort((a, b) => b.value - a.value);
+  if (metric === "latency") {
+    return values.map((item) => ({ ...item, ratio: overallLatencyMs > 0 ? item.value / overallLatencyMs : undefined }));
+  }
+  const total = values.reduce((sum, item) => sum + item.value, 0);
+  return values.map((item) => ({ ...item, share: total > 0 ? item.value / total : 0 }));
+}
+
+export function latencyValue(row: MetricsRow | undefined, pct: MetricsPercentile) {
+  return metricNumber(row, `${pct}LatencyMs`, `${pct}LatencyMS`);
+}
+
+function breakdownValue(row: MetricsRow, metric: MetricKind, pct: MetricsPercentile) {
+  if (metric === "latency") return latencyValue(row, pct);
+  if (metric === "tokens") return metricNumber(row, "sumInputTokens") + metricNumber(row, "sumOutputTokens");
+  if (metric === "cost") return metricNumber(row, "sumCostInUSD", "sumCostUsd");
+  return metricNumber(row, "countModelName", "countAll");
+}
+
+/** Maps the shared observe filters onto the metrics query. The trace error code has no metrics field. */
+export function buildMetricsFilters(observe: ObserveFilters): Array<Record<string, unknown>> {
+  const filters: Array<Record<string, unknown>> = [];
+  if (observe.model) filters.push({ fieldName: "modelName", operator: "STRING_CONTAINS", value: observe.model });
+  if (observe.provider) filters.push({ fieldName: "providerName", operator: "EQUAL", value: observe.provider });
+  if (observe.q) filters.push({ fieldName: "requestID", operator: "EQUAL", value: observe.q });
+  if (observe.status) filters.push({ fieldName: "statusCode", operator: "EQUAL", value: Number(observe.status) });
+  return filters;
 }
 
 export function buildCacheBreakdown(rows: MetricsRow[]): CacheBreakdownItem[] {

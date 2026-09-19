@@ -45,6 +45,7 @@ import {
 } from "@/features/traces/detail-contracts";
 import { TraceWaterfall } from "@/features/traces/TraceWaterfall";
 import { sortSpans, textStatusBadgeVariant, type BadgeVariant } from "@/features/traces/trace-waterfall";
+import { EMPTY_OBSERVE_FILTERS, observeHref } from "@/lib/observe-filters";
 
 type Params = { params: Promise<{ traceID: string }> };
 type MetadataSource = "span" | "usage";
@@ -607,15 +608,16 @@ function EmptyText({ children }: { children: ReactNode }) {
   return <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{children}</p>;
 }
 
+/** Opens metrics on a 30-minute window around the request, filtered to it. */
 function buildMetricsLink(trace: RequestTraceV2) {
   const started = new Date(trace.started_at);
-  const from = new Date(started.getTime() - 15 * 60 * 1000).toISOString();
-  const to = new Date(started.getTime() + 15 * 60 * 1000).toISOString();
-  const params = new URLSearchParams();
-  params.set("from", from);
-  params.set("to", to);
-  if (trace.model) params.set("model", trace.model);
-  if (trace.provider) params.set("provider", trace.provider);
-  if (trace.request_id) params.set("request_id", trace.request_id);
-  return `/metrics?${params.toString()}`;
+  return observeHref("metrics", {
+    ...EMPTY_OBSERVE_FILTERS,
+    range: "custom",
+    from: new Date(started.getTime() - 15 * 60 * 1000).toISOString(),
+    to: new Date(started.getTime() + 15 * 60 * 1000).toISOString(),
+    q: trace.request_id ?? "",
+    model: trace.model ?? "",
+    provider: trace.provider ?? "",
+  });
 }
