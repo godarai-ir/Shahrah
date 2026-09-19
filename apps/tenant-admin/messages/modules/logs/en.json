@@ -107,6 +107,14 @@
     "cache": "Cache hit",
     "retries": "Retry"
   },
+  "rangeSummary": {
+    "title": "Range summary",
+    "requests": "Requests",
+    "errorRate": "Errors",
+    "p95": "P95",
+    "cost": "Cost",
+    "cache": "Cache"
+  },
   "charts": {
     "traffic": "Traffic and Errors",
     "trafficDescription": "Request volume and errors across the selected range.",

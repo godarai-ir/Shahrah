@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type SetStateAction } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
-  BarChart3,
   ChevronDown,
   Download,
   Eye,
@@ -14,9 +13,7 @@ import {
   RotateCcw,
   Save,
   Settings2,
-  ShieldCheck,
   Trash2,
-  type LucideIcon,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -76,6 +73,7 @@ import {
   traceExists,
 } from "@/features/logs/api";
 import { LogsTable } from "@/features/logs/logs-table";
+import { RangeSummary } from "@/features/logs/RangeSummary";
 import {
   DEFAULT_COLUMNS,
   DEFAULT_FILTERS,
@@ -666,16 +664,17 @@ export default function LogsCommandCenter({
         formatters={formatters}
         t={t}
       />
-      <LogsMetrics summary={summary} summaryUnavailable={summaryUnavailable} formatters={formatters} t={t} />
-      <DeferredLogsCharts
-        timeseriesUnavailable={timeseriesUnavailable}
-        breakdownUnavailable={breakdownUnavailable}
-        timeseriesChartData={timeseriesChartData}
-        cacheTimeseriesChartData={cacheTimeseriesChartData}
-        providerBreakdownData={providerBreakdownData}
-        onExpandChart={setExpandedChart}
-        t={t}
-      />
+      <RangeSummary summary={summary} summaryUnavailable={summaryUnavailable} formatters={formatters} t={t}>
+        <DeferredLogsCharts
+          timeseriesUnavailable={timeseriesUnavailable}
+          breakdownUnavailable={breakdownUnavailable}
+          timeseriesChartData={timeseriesChartData}
+          cacheTimeseriesChartData={cacheTimeseriesChartData}
+          providerBreakdownData={providerBreakdownData}
+          onExpandChart={setExpandedChart}
+          t={t}
+        />
+      </RangeSummary>
       <LogsTable
         rows={rows}
         columns={columns}
@@ -991,33 +990,6 @@ function DeferredLogsCharts(props: ComponentProps<typeof LogsCharts>) {
   );
 }
 
-const LogsMetrics = memo(function LogsMetrics({
-  summary,
-  summaryUnavailable,
-  formatters,
-  t,
-}: {
-  summary: Summary;
-  summaryUnavailable: boolean;
-  formatters: LogsFormatter;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.requests")} value={<CompactValue display={formatters.numberDisplay(summary.request_count ?? 0)} />} icon={BarChart3} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.errorRate")} value={formatters.percent(summary.error_rate ?? 0)} description={<CompactValue display={formatters.numberDisplay(summary.error_count ?? 0)} />} icon={ShieldCheck} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.p95")} value={formatters.ms(summary.latency_p95_ms ?? 0)} description={`${t("cards.p99")} ${formatters.ms(summary.latency_p99_ms ?? 0)}`} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cost")} value={<CompactValue display={formatters.usdDisplay(summary.cost_usd ?? 0)} />} description={<CompactValue display={formatters.irrDisplay(summary.cost_irr ?? 0)} />} t={t} />
-      <AnalyticsMetric unavailable={summaryUnavailable} label={t("cards.cache")} value={formatters.percent(summary.cache_hit_rate ?? 0)} description={<span>{t("cards.retries")} <CompactValue display={formatters.numberDisplay(summary.retry_count ?? 0)} /></span>} t={t} />
-    </div>
-  );
-});
-
-
-
-
-
-
 const SavedViewsDialogs = memo(function SavedViewsDialogs({
   saveViewOpen,
   savedViewsOpen,
@@ -1176,56 +1148,9 @@ function RoutingValue({ value, description }: { value: string; description: stri
 }
 
 
-function AnalyticsMetric({
-  unavailable,
-  label,
-  value,
-  description,
-  icon,
-  t,
-}: {
-  unavailable: boolean;
-  label: string;
-  value: ReactNode;
-  description?: ReactNode;
-  icon?: LucideIcon;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  if (!unavailable) {
-    const Icon = icon;
-    return (
-      <AppCard contentClassName="p-3 sm:p-4 xl:pt-6">
-        <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
-            <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:mt-2 sm:text-2xl xl:text-3xl">{value}</p>
-            {description ? <p className="mt-0.5 truncate text-xs leading-5 text-muted-foreground sm:mt-1">{description}</p> : null}
-          </div>
-          {Icon ? (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:size-10 sm:rounded-xl">
-              <Icon aria-hidden="true" className="h-4 w-4 sm:h-5 sm:w-5" />
-            </div>
-          ) : null}
-        </div>
-      </AppCard>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 opacity-70 sm:p-4">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="pt-1 text-base font-semibold text-muted-foreground sm:pt-2 sm:text-lg">{t("analyticsUnavailableShort")}</div>
-      <div className="pt-1 text-xs text-muted-foreground">{t("analyticsUnavailable")}</div>
-    </div>
-  );
-}
-
-
 function MonoText({ value }: { value?: string }) {
   return <span className="block max-w-40 truncate font-mono text-xs" dir="auto">{value || "-"}</span>;
 }
-
-
 
 function activeFilterChips(filters: Filters, t: ReturnType<typeof useTranslations>) {
   const labels: Partial<Record<keyof Filters, string>> = {

@@ -107,6 +107,14 @@
     "cache": "Cache hit",
     "retries": "Retry"
   },
+  "rangeSummary": {
+    "title": "خلاصه بازه",
+    "requests": "درخواست",
+    "errorRate": "خطا",
+    "p95": "P95",
+    "cost": "هزینه",
+    "cache": "کش"
+  },
   "charts": {
     "traffic": "ترافیک و خطا",
     "trafficDescription": "حجم درخواست‌ها و خطاها در بازه انتخاب‌شده.",
