@@ -1,4 +1,5 @@
 import type { CompactDisplayValue } from "@/lib/compact-number";
+import type { ObserveRangePreset } from "@/lib/observe-filters";
 
 export type RequestLog = {
   log_id: string;
@@ -139,7 +140,8 @@ export type LogDetail = {
 };
 
 export type Filters = {
-  range: "1h" | "6h" | "24h" | "7d" | "custom";
+  /** Shared with traces and metrics; see lib/observe-filters. */
+  range: ObserveRangePreset;
   from: string;
   to: string;
   log_id: string;
@@ -199,7 +201,7 @@ export type LogsFormatter = {
 };
 
 export const DEFAULT_FILTERS: Filters = {
-  range: "24h",
+  range: "last24h",
   from: "",
   to: "",
   log_id: "",
@@ -242,13 +244,5 @@ export const COLUMN_CHOICES = [
   "status", "started_at", "provider", "model", "route", "latency", "tokens", "cost", "signals", "payload",
   "cache_status", "retry_count", "fallback_status", "load_balance_status", "actions",
 ];
-
-export const rangeMs: Record<Filters["range"], number> = {
-  "1h": 60 * 60 * 1000,
-  "6h": 6 * 60 * 60 * 1000,
-  "24h": 24 * 60 * 60 * 1000,
-  "7d": 7 * 24 * 60 * 60 * 1000,
-  custom: 0,
-};
 
 export const MAX_CHART_POINTS = 360;

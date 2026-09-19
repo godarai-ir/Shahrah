@@ -1,4 +1,11 @@
 import { formatCompactCurrency, formatCompactIrr, formatCompactNumber, formatExactIrr } from "@/lib/compact-number";
+import {
+  DEFAULT_OBSERVE_RANGE,
+  observeFiltersFromSearchParams,
+  parseObserveRangePreset,
+  resolveObserveRange,
+  type ObserveFilters,
+} from "@/lib/observe-filters";
 
 import {
   COLUMN_CHOICES,
@@ -6,7 +13,6 @@ import {
   DEFAULT_FILTERS,
   MAX_CHART_POINTS,
   OPTIONAL_COLUMNS,
-  rangeMs,
   type AnalyticsPoint,
   type Filters,
   type LogRange,
@@ -46,17 +52,46 @@ export function serializeFilters(filters: Filters): Record<string, string> {
     if (key !== "range" && value) output[key] = String(value);
   }
   if (filters.range !== "custom") {
-    output.from = new Date(Date.now() - rangeMs[filters.range]).toISOString();
-    output.to = new Date().toISOString();
+    const range = resolveObserveRange(filters);
+    output.from = range.from;
+    output.to = range.to;
   }
   return output;
 }
 
 export function filtersFromSearchParams(searchParams: Pick<URLSearchParams, "get">): Filters {
+  return logsFiltersFromObserve(DEFAULT_FILTERS, observeFiltersFromSearchParams(searchParams));
+}
+
+/** Writes the shared observe filters onto a logs filter set. The request ID lookup is the logs `request_id` filter. */
+export function logsFiltersFromObserve(base: Filters, observe: ObserveFilters): Filters {
   return {
-    ...DEFAULT_FILTERS,
-    provider: searchParams.get("provider")?.trim() ?? "",
-    model: searchParams.get("model")?.trim() ?? "",
+    ...base,
+    request_id: observe.q,
+    range: observe.range,
+    from: observe.range === "custom" ? observe.from : "",
+    to: observe.range === "custom" ? observe.to : "",
+    model: observe.model,
+    provider: observe.provider,
+    status_code: observe.status,
+  };
+}
+
+/**
+ * Reads the shared part of a logs filter set. Logs have no trace error code, so the shared one is
+ * passed through untouched to survive a round trip through this view.
+ */
+export function observeFromLogsFilters(filters: Filters, errorCode: string): ObserveFilters {
+  const custom = filters.range === "custom";
+  return {
+    q: filters.request_id.trim(),
+    range: filters.range,
+    from: custom ? filters.from : "",
+    to: custom ? filters.to : "",
+    model: filters.model.trim(),
+    provider: filters.provider.trim(),
+    status: filters.status_code.trim(),
+    errorCode,
   };
 }
 
@@ -73,11 +108,12 @@ export function normalizeFilterSet(filters: FilterSetInput): Record<string, stri
     const trimmed = value === undefined || value === null ? "" : String(value).trim();
     return trimmed || String(DEFAULT_FILTERS[key]);
   };
-  const range = text("range");
+  // Older saved views stored "24h"-style ranges; compare them by the preset they stand for.
+  const range = parseObserveRangePreset(text("range")) ?? DEFAULT_OBSERVE_RANGE;
   const output: Record<string, string> = {};
   for (const key of keys) {
     if ((key === "from" || key === "to") && range !== "custom") continue;
-    const value = text(key);
+    const value = key === "range" ? range : text(key);
     if (value) output[key] = value;
   }
   return output;
@@ -98,7 +134,7 @@ export function savedViewFilters(filters: Filters): Record<string, string> {
 /** Restores a saved view's filters. Older views stored derived from/to without a range; those fall back to the default range. */
 export function filtersFromSavedView(view: Pick<SavedView, "filters">): Filters {
   const normalized = normalizeFilterSet(view.filters);
-  const range = normalized.range in rangeMs ? normalized.range as Filters["range"] : DEFAULT_FILTERS.range;
+  const range = parseObserveRangePreset(normalized.range) ?? DEFAULT_FILTERS.range;
   const sortOrder = normalized.sort_order === "asc" ? "asc" : "desc";
   return { ...DEFAULT_FILTERS, ...normalized, range, sort_order: sortOrder };
 }

@@ -2,35 +2,28 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type SetStateAction } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   ChevronDown,
   Download,
   Eye,
-  RefreshCw,
-  RotateCcw,
   Save,
   Settings2,
   SlidersHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { ActiveFilterChips } from "@/components/app-ui/ActiveFilterChips";
-import { AppCard } from "@/components/app-ui/AppCard";
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { CompactValue } from "@/components/app-ui/CompactValue";
-import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { DebouncedTextFilter, FilterField, RangeFilterField } from "@/components/app-ui/FilterField";
 import { FormDialog } from "@/components/app-ui/FormDialog";
-import { PageHeader } from "@/components/app-ui/PageHeader";
+import { ObserveQueryBar, type ObserveExtraChip } from "@/components/app-ui/ObserveQueryBar";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -48,6 +41,7 @@ import { buildPrincipalSelectorLabels } from "@/components/app-ui/buildPrincipal
 import RequestLoggingSettingsPanel from "@/features/logs/RequestLoggingSettingsPanel";
 import { usePermissions } from "@/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
+import { mergeObserveSearchParams, observeFiltersFromSearchParams, type ObserveFilters } from "@/lib/observe-filters";
 import { cn } from "@/lib/utils";
 import {
   createLogExport,
@@ -76,7 +70,6 @@ import { SavedViewsRow } from "@/features/logs/SavedViewsRow";
 import {
   DEFAULT_COLUMNS,
   DEFAULT_FILTERS,
-  rangeMs,
   type AnalyticsPoint,
   type ExpandedChartKey,
   type Filters,
@@ -103,9 +96,11 @@ import {
   isAbortError,
   isSameFilterSet,
   limitChartPoints,
+  logsFiltersFromObserve,
   normalizeRange,
   normalizeRangeValue,
   normalizeVisibleColumns,
+  observeFromLogsFilters,
   payloadStatus,
   rangeStep,
   savedViewFilters,
@@ -150,21 +145,18 @@ export default function LogsCommandCenter({
   const searchParams = useSearchParams();
   const permissions = usePermissions();
   const [filters, setFilters] = useState<Filters>(() => filtersFromSearchParams(searchParams));
+  // The shared trace error code does not apply to logs; it is kept only so switching tabs preserves it.
+  const [sharedErrorCode, setSharedErrorCode] = useState(() => observeFiltersFromSearchParams(searchParams).errorCode);
   const [limit, setLimit] = useState(25);
   const [offset, setOffset] = useState(0);
   const [logs, setLogs] = useState<LogsResponse>(() => parseInitialLogs(initialLogs));
+  const observeFilters = useMemo(() => observeFromLogsFilters(filters, sharedErrorCode), [filters, sharedErrorCode]);
 
   useEffect(() => {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    for (const key of ["provider", "model"] as const) {
-      const value = filters[key].trim();
-      if (value) nextParams.set(key, value);
-      else nextParams.delete(key);
-    }
-    const nextQuery = nextParams.toString();
+    const nextQuery = mergeObserveSearchParams(searchParams, observeFilters).toString();
     if (nextQuery === searchParams.toString()) return;
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  }, [filters, pathname, router, searchParams]);
+  }, [observeFilters, pathname, router, searchParams]);
   const [summary, setSummary] = useState<Summary>(() => parseInitialSummary(initialSummary));
   const [facets, setFacets] = useState<LogFacets>(() => parseInitialFacets(initialFacets));
   const [rangeStats, setRangeStats] = useState<LogRangeStats>(() => parseInitialRangeStats(initialRangeStats));
@@ -503,7 +495,14 @@ export default function LogsCommandCenter({
 
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
+    setSharedErrorCode("");
     setOffset(0);
+  }, []);
+
+  const applyObserveFilters = useCallback((next: ObserveFilters) => {
+    setOffset(0);
+    setFilters((current) => logsFiltersFromObserve(current, next));
+    setSharedErrorCode(next.errorCode);
   }, []);
 
   const setPageLimit = useCallback((value: number) => {
@@ -527,6 +526,7 @@ export default function LogsCommandCenter({
   const openSaveViewDialog = useCallback(() => setSaveViewOpen(true), []);
 
   const activeChips = useMemo(() => activeFilterChips(filters, t), [filters, t]);
+  const activeFilterCount = activeChips.length + (sharedErrorCode ? 1 : 0);
   const activeViewID = useMemo(
     () => savedViews.find((view) => isSameFilterSet(filters, view.filters))?.saved_view_id ?? null,
     [filters, savedViews],
@@ -585,12 +585,24 @@ export default function LogsCommandCenter({
   return (
     <TooltipProvider delayDuration={120}>
     <div className="flex flex-col gap-4">
-      <PageHeader
-        eyebrow={t("eyebrow")}
-        title={t("title")}
-        description={t("subtitle")}
+      <LogsFilters
+        filters={filters}
+        observeFilters={observeFilters}
+        onObserveChange={applyObserveFilters}
+        facets={facets}
+        rangeStats={rangeStats}
+        activeChips={activeChips}
+        activeCount={activeFilterCount}
+        onSetFilter={setStringFilter}
+        onSearchPrincipal={searchLogPrincipals}
+        principalSelectorLabels={principalSelectorLabels}
+        onReset={resetFilters}
+        onRefresh={refreshReport}
+        loading={loading}
+        formatters={formatters}
+        t={t}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -633,30 +645,15 @@ export default function LogsCommandCenter({
                 <TooltipContent>{t("actions.settings")}</TooltipContent>
               </Tooltip>
             ) : null}
-          </div>
+          </>
         }
       />
-
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>{t("loadError")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <LogsFilters
-        filters={filters}
-        facets={facets}
-        rangeStats={rangeStats}
-        activeChips={activeChips}
-        onSetFilter={setStringFilter}
-        onSearchPrincipal={searchLogPrincipals}
-        principalSelectorLabels={principalSelectorLabels}
-        onReset={resetFilters}
-        onRefresh={refreshReport}
-        loading={loading}
-        formatters={formatters}
-        t={t}
-      />
       <RangeSummary summary={summary} summaryUnavailable={summaryUnavailable} formatters={formatters} t={t}>
         <DeferredLogsCharts
           timeseriesUnavailable={timeseriesUnavailable}
@@ -747,11 +744,17 @@ export default function LogsCommandCenter({
   );
 }
 
+/** Logs filters that belong to the shared observe filter and are shown by the query bar itself. */
+const SHARED_LOG_FILTER_KEYS = new Set<string>(["request_id", "provider", "model", "status_code", "from", "to"]);
+
 const LogsFilters = memo(function LogsFilters({
   filters,
+  observeFilters,
+  onObserveChange,
   facets,
   rangeStats,
   activeChips,
+  activeCount,
   onSetFilter,
   onSearchPrincipal,
   principalSelectorLabels,
@@ -759,12 +762,16 @@ const LogsFilters = memo(function LogsFilters({
   onRefresh,
   loading,
   formatters,
+  actions,
   t,
 }: {
   filters: Filters;
+  observeFilters: ObserveFilters;
+  onObserveChange: (next: ObserveFilters) => void;
   facets: LogFacets;
   rangeStats: LogRangeStats;
   activeChips: Array<{ key: string; label: string }>;
+  activeCount: number;
   onSetFilter: (key: keyof Filters, value: string) => void;
   onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<PrincipalSearchOption[]>;
   principalSelectorLabels: ReturnType<typeof buildPrincipalSelectorLabels>;
@@ -772,6 +779,7 @@ const LogsFilters = memo(function LogsFilters({
   onRefresh: () => Promise<void>;
   loading: boolean;
   formatters: LogsFormatter;
+  actions: ReactNode;
   t: ReturnType<typeof useTranslations>;
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -780,18 +788,12 @@ const LogsFilters = memo(function LogsFilters({
     () => principalsFromFilters(filters, principalNamesByKey),
     [filters, principalNamesByKey],
   );
-  const activeCount = activeChips.length;
-  const setRange = useCallback((value: string) => {
-    onSetFilter("range", value);
-    if (value === "custom") {
-      const now = new Date();
-      if (!filters.from) onSetFilter("from", new Date(now.getTime() - rangeMs["24h"]).toISOString());
-      if (!filters.to) onSetFilter("to", now.toISOString());
-      return;
-    }
-    onSetFilter("from", "");
-    onSetFilter("to", "");
-  }, [filters.from, filters.to, onSetFilter]);
+  const extraChips = useMemo<ObserveExtraChip[]>(
+    () => activeChips.filter((chip) => !SHARED_LOG_FILTER_KEYS.has(chip.key)),
+    [activeChips],
+  );
+  const modelOptions = useMemo(() => facetValues(facets.models), [facets.models]);
+  const providerOptions = useMemo(() => facetValues(facets.providers), [facets.providers]);
   const setSelectedPrincipals = useCallback((items: PrincipalPickerItem[]) => {
     setPrincipalNamesByKey((current) => {
       const next = { ...current };
@@ -809,70 +811,40 @@ const LogsFilters = memo(function LogsFilters({
   }, [onSetFilter]);
 
   return (
-    <AppCard contentClassName="flex flex-col gap-3 p-3">
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={t("filters.title")}>
-          <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
-          <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
-          <FilterField label={t("filters.range")} hideLabel className="w-40">
-            <AppSelectField
-              value={filters.range}
-              onValueChange={setRange}
-              options={[
-                { value: "1h", label: t("ranges.1h") },
-                { value: "6h", label: t("ranges.6h") },
-                { value: "24h", label: t("ranges.24h") },
-                { value: "7d", label: t("ranges.7d") },
-                { value: "custom", label: t("ranges.custom") },
-              ]}
-              ariaLabel={t("filters.range")}
-              triggerClassName="h-8 text-xs"
-            />
-          </FilterField>
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-expanded={advancedOpen}
-              className={cn(activeCount > 0 && "border-primary-subtle-border bg-primary-soft text-primary-soft-foreground hover:bg-primary-soft-hover")}
-            >
-              <SlidersHorizontal data-icon="inline-start" />
-              {t("filters.toggle")}
-              {activeCount > 0 ? (
-                <Badge className="h-5 min-w-5 rounded-full px-1.5 tabular-nums" aria-label={t("filters.activeCount", { count: activeCount })}>{activeCount}</Badge>
-              ) : null}
-              <ChevronDown data-icon="inline-end" className={cn("transition-transform", advancedOpen && "rotate-180")} />
-            </Button>
-          </CollapsibleTrigger>
-          <Tooltip>
-            <TooltipTrigger asChild>
+    <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+      <ObserveQueryBar
+        tab="logs"
+        filters={observeFilters}
+        onFiltersChange={onObserveChange}
+        modelOptions={modelOptions}
+        providerOptions={providerOptions}
+        onRefresh={() => void onRefresh()}
+        loading={loading}
+        extraChips={extraChips}
+        onRemoveExtraChip={(key) => onSetFilter(key as keyof Filters, "")}
+        onClearAll={onReset}
+        actions={
+          <>
+            <CollapsibleTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
-                size="icon-sm"
-                onClick={() => void onRefresh()}
-                disabled={loading}
-                aria-busy={loading}
-                aria-label={t("actions.refresh")}
-                title={t("actions.refresh")}
+                size="sm"
+                aria-expanded={advancedOpen}
+                className={cn(activeCount > 0 && "border-primary-subtle-border bg-primary-soft text-primary-soft-foreground hover:bg-primary-soft-hover")}
               >
-                {loading ? <Spinner /> : <RefreshCw />}
+                <SlidersHorizontal data-icon="inline-start" />
+                {t("filters.toggle")}
+                {activeCount > 0 ? (
+                  <Badge className="h-5 min-w-5 rounded-full px-1.5 tabular-nums" aria-label={t("filters.activeCount", { count: activeCount })}>{activeCount}</Badge>
+                ) : null}
+                <ChevronDown data-icon="inline-end" className={cn("transition-transform", advancedOpen && "rotate-180")} />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("actions.refresh")}</TooltipContent>
-          </Tooltip>
-        </div>
-        {filters.range === "custom" ? (
-          <DateTimeRangeField
-            from={filters.from}
-            to={filters.to}
-            fromLabel={t("filters.from")}
-            toLabel={t("filters.to")}
-            onFromChange={(value) => onSetFilter("from", value)}
-            onToChange={(value) => onSetFilter("to", value)}
-          />
-        ) : null}
+            </CollapsibleTrigger>
+            {actions}
+          </>
+        }
+      >
         <CollapsibleContent className="flex flex-col gap-3 border-t border-border pt-3">
           <PrincipalPicker
             id="logs-principal-filter"
@@ -944,7 +916,6 @@ const LogsFilters = memo(function LogsFilters({
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <FacetSelect label={t("filters.route")} value={filters.route} onChange={(value) => onSetFilter("route", value)} items={facets.routes} empty={t("filters.noOptions")} />
             <TextFilter label={t("filters.log_id")} value={filters.log_id} onChange={(value) => onSetFilter("log_id", value)} mono />
-            <TextFilter label={t("filters.request_id")} value={filters.request_id} onChange={(value) => onSetFilter("request_id", value)} mono />
             <TextFilter label={t("filters.trace_id")} value={filters.trace_id} onChange={(value) => onSetFilter("trace_id", value)} mono />
             <FacetSelect
               label={t("filters.status_code")}
@@ -960,19 +931,14 @@ const LogsFilters = memo(function LogsFilters({
             <FacetSelect label={t("filters.payload_mode")} value={filters.payload_mode} onChange={(value) => onSetFilter("payload_mode", value)} items={facets.payload_modes} empty={t("filters.noOptions")} />
           </div>
         </CollapsibleContent>
-      </Collapsible>
-      {activeCount > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} />
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
-            <RotateCcw data-icon="inline-start" />
-            {t("actions.clearAll")}
-          </Button>
-        </div>
-      ) : null}
-    </AppCard>
+      </ObserveQueryBar>
+    </Collapsible>
   );
 });
+
+function facetValues(items?: Array<{ value: string }>) {
+  return (items ?? []).map((item) => item.value).filter(Boolean);
+}
 
 function DeferredLogsCharts(props: ComponentProps<typeof LogsCharts>) {
   const containerRef = useRef<HTMLDivElement | null>(null);

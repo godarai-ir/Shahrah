@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import LogsCommandCenter from "@/features/logs/LogsCommandCenter";
+import { buildQuery, filtersFromSearchParams } from "@/features/logs/logs-utils";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -92,12 +93,17 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   );
 }
 
+/** The shared observe filters from the URL, so the first render matches what the client starts with. */
 function buildInitialLogQuery(searchParams: Record<string, string | string[] | undefined>): string {
   const params = new URLSearchParams();
-  for (const key of ["provider", "model"] as const) {
-    const raw = searchParams[key];
-    const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
-    if (value) params.set(key, value);
+  for (const [key, raw] of Object.entries(searchParams)) {
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (value !== undefined) params.set(key, value);
   }
-  return params.toString();
+  const filters = filtersFromSearchParams(params);
+  const query = new URLSearchParams(buildQuery(filters));
+  // The list request sets its own sort and page.
+  query.delete("sort_by");
+  query.delete("sort_order");
+  return query.toString();
 }
