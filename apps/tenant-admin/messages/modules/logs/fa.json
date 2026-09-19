@@ -29,7 +29,9 @@
     "cancel": "انصراف",
     "previous": "قبلی",
     "next": "بعدی",
-    "clearAll": "پاک‌سازی همه"
+    "clearAll": "پاک‌سازی همه",
+    "filterModel": "فیلتر روی همین مدل",
+    "viewTrace": "دیدن ردیابی"
   },
   "filters": {
     "title": "فیلترهای تحلیل",
@@ -261,5 +263,20 @@
     "retry": "تلاش مجدد ×{count}",
     "cache": "کش",
     "fallback": "جایگزین"
+  },
+  "detail": {
+    "error": {
+      "label": "خطا",
+      "clientError": "درخواست با کد HTTP {status} رد شد.",
+      "serverError": "گیت‌وی یا ارائه‌دهنده با کد HTTP {status} شکست خورد."
+    },
+    "timing": {
+      "title": "تفکیک زمان پاسخ",
+      "total": "کل {duration}",
+      "source": "از اسپن‌های ردیابی همین درخواست."
+    },
+    "signals": "نشانه‌ها",
+    "payloadMode": "ثبت‌شده با حالت «{mode}»",
+    "payloadModeUnknown": "حالت ثبت: {mode}"
   }
 }

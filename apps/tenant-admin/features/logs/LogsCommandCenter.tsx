@@ -41,7 +41,7 @@ import { buildPrincipalSelectorLabels } from "@/components/app-ui/buildPrincipal
 import RequestLoggingSettingsPanel from "@/features/logs/RequestLoggingSettingsPanel";
 import { usePermissions } from "@/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
-import { mergeObserveSearchParams, observeFiltersFromSearchParams, type ObserveFilters } from "@/lib/observe-filters";
+import { mergeObserveSearchParams, observeFiltersFromSearchParams, observeHref, type ObserveFilters } from "@/lib/observe-filters";
 import { cn } from "@/lib/utils";
 import {
   createLogExport,
@@ -61,8 +61,10 @@ import {
   parseInitialRangeStats,
   parseInitialSavedViews,
   parseInitialSummary,
+  getLinkedTrace,
+  getLinkedTraceTiming,
   searchAccessPrincipals,
-  traceExists,
+  type TimingSpan,
 } from "@/features/logs/api";
 import { LogsTable } from "@/features/logs/logs-table";
 import { RangeSummary } from "@/features/logs/RangeSummary";
@@ -103,6 +105,7 @@ import {
   observeFromLogsFilters,
   payloadStatus,
   rangeStep,
+  requestSignals,
   savedViewFilters,
   serializeFilters,
 } from "@/features/logs/logs-utils";
@@ -166,6 +169,7 @@ export default function LogsCommandCenter({
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
   const [detail, setDetail] = useState<LogDetail | null>(null);
   const [traceAvailable, setTraceAvailable] = useState(false);
+  const [timingSpans, setTimingSpans] = useState<TimingSpan[] | null>(null);
   const [viewName, setViewName] = useState("");
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [expandedChart, setExpandedChart] = useState<ExpandedChartKey | null>(null);
@@ -327,6 +331,7 @@ export default function LogsCommandCenter({
     setSelectedLog(item);
     setDetail(null);
     setTraceAvailable(false);
+    setTimingSpans(null);
     try {
       const payload = await getLogDetail(item.log_id, controller.signal);
       if (!isCurrentRequest()) return;
@@ -335,10 +340,17 @@ export default function LogsCommandCenter({
       const traceID = payload.log.trace_id?.trim();
       if (traceID) {
         try {
-          await traceExists(traceID, controller.signal);
-          if (isCurrentRequest()) setTraceAvailable(true);
+          const trace = await getLinkedTrace(traceID, controller.signal);
+          if (!isCurrentRequest()) return;
+          setTraceAvailable(true);
+          // Only a sampled trace has spans; without them the sheet shows no timing breakdown at all.
+          if (trace.trace.sampled) {
+            const spans = await getLinkedTraceTiming(traceID, controller.signal);
+            if (isCurrentRequest()) setTimingSpans(spans);
+          }
         } catch (traceErr) {
-          if (!isAbortError(traceErr) && isCurrentRequest()) setTraceAvailable(false);
+          if (isAbortError(traceErr) || !isCurrentRequest()) return;
+          setTimingSpans(null);
         }
       }
     } catch (err) {
@@ -357,6 +369,7 @@ export default function LogsCommandCenter({
     setSelectedLog(null);
     setDetail(null);
     setTraceAvailable(false);
+    setTimingSpans(null);
   }, []);
 
   const rows = logs.data ?? [];
@@ -504,6 +517,14 @@ export default function LogsCommandCenter({
     setFilters((current) => logsFiltersFromObserve(current, next));
     setSharedErrorCode(next.errorCode);
   }, []);
+
+  const filterOnModel = useCallback((model: string) => {
+    closeDetail();
+    applyObserveFilters({ ...observeFilters, model });
+  }, [applyObserveFilters, closeDetail, observeFilters]);
+
+  const detailTraceID = detail?.log.trace_id?.trim() ?? "";
+  const traceHref = traceAvailable && detailTraceID ? observeHref("traces", observeFilters, { trace: detailTraceID }) : null;
 
   const setPageLimit = useCallback((value: number) => {
     setLimit(value);
@@ -733,7 +754,9 @@ export default function LogsCommandCenter({
       <LogDetailSheet
         selectedLog={selectedLog}
         detail={detail}
-        traceAvailable={traceAvailable}
+        timingSpans={timingSpans}
+        traceHref={traceHref}
+        onFilterModel={filterOnModel}
         onClose={closeDetail}
         formatters={formatters}
         closeLabel={common("cancel")}
@@ -1098,9 +1121,7 @@ function RoutingValue({ value, description }: { value: string; description: stri
 
 
 function RequestSignals({ log, formatters, t }: { log: RequestLog; formatters: LogsFormatter; t: ReturnType<typeof useTranslations> }) {
-  const retries = log.retry_count ?? 0;
-  const cacheHit = (log.cache_status ?? "").toLowerCase().includes("hit");
-  const fallback = (log.fallback_count ?? 0) > 0 || log.fallback_status === "active";
+  const { retries, cacheHit, fallback } = requestSignals(log);
   if (!retries && !cacheHit && !fallback) return <span className="text-muted-foreground">-</span>;
   return (
     <div className="flex flex-wrap gap-1">

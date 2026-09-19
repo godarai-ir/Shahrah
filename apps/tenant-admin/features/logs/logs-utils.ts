@@ -17,8 +17,10 @@ import {
   type Filters,
   type LogRange,
   type LogsFormatter,
+  type RequestLog,
   type SavedView,
 } from "./logs-types";
+import type { TimingSpan } from "./api";
 
 export function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
@@ -249,4 +251,49 @@ function formatExactCurrencyValue(value: number, locale: string) {
     compactThreshold: Number.POSITIVE_INFINITY,
     maximumFractionDigits: 4,
   }).fullValue;
+}
+
+export type TimingSegment = { spanID: string; name: string; durationMs: number; share: number };
+export type TimingBreakdown = {
+  totalMs: number;
+  segments: TimingSegment[];
+  /** False when child spans overlap, so their shares cannot be stacked into one bar. */
+  stackable: boolean;
+};
+
+/**
+ * Splits a request's response time by the real spans of its trace: the children of the root span,
+ * each as a share of the root's duration. Returns null when there is nothing to show; it never
+ * estimates a split from the log's own duration.
+ */
+export function buildTimingBreakdown(spans: Array<Pick<TimingSpan, "span_id" | "parent_span_id" | "name" | "started_at" | "duration_ms">>): TimingBreakdown | null {
+  const valid = spans.filter((span) => Number.isFinite(Date.parse(span.started_at)) && Number.isFinite(span.duration_ms) && span.duration_ms >= 0);
+  if (valid.length === 0) return null;
+  const root = valid.find((span) => !span.parent_span_id) ?? null;
+  const startOf = (span: (typeof valid)[number]) => Date.parse(span.started_at);
+  const totalMs = root
+    ? root.duration_ms
+    : Math.max(...valid.map((span) => startOf(span) + span.duration_ms)) - Math.min(...valid.map(startOf));
+  if (!(totalMs > 0)) return null;
+
+  const children = valid.filter((span) => span !== root).sort((a, b) => startOf(a) - startOf(b));
+  const parts = children.length > 0 ? children : root ? [root] : [];
+  const segments = parts.map((span) => ({
+    spanID: span.span_id,
+    name: span.name,
+    durationMs: span.duration_ms,
+    share: Math.min(1, span.duration_ms / totalMs),
+  }));
+  const stackable = parts.every((span, index) => index === 0 || startOf(span) >= startOf(parts[index - 1]) + parts[index - 1].duration_ms)
+    && segments.reduce((sum, segment) => sum + segment.share, 0) <= 1;
+  return { totalMs, segments, stackable };
+}
+
+/** Request signals shown in the table and the detail sheet. */
+export function requestSignals(log: Pick<RequestLog, "retry_count" | "cache_status" | "fallback_count" | "fallback_status">) {
+  return {
+    retries: log.retry_count ?? 0,
+    cacheHit: (log.cache_status ?? "").toLowerCase().includes("hit"),
+    fallback: (log.fallback_count ?? 0) > 0 || log.fallback_status === "active",
+  };
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EMPTY_OBSERVE_FILTERS } from "@/lib/observe-filters";
 
 import { DEFAULT_FILTERS, type Filters } from "./logs-types";
-import { filtersFromSearchParams, isSameFilterSet, logsFiltersFromObserve, normalizeFilterSet, observeFromLogsFilters } from "./logs-utils";
+import { buildTimingBreakdown, filtersFromSearchParams, isSameFilterSet, logsFiltersFromObserve, normalizeFilterSet, observeFromLogsFilters } from "./logs-utils";
 
 function filters(overrides: Partial<Filters> = {}): Filters {
   return { ...DEFAULT_FILTERS, ...overrides };
@@ -70,5 +70,33 @@ describe("shared observe filters on logs", () => {
   it("keeps logs-only filters when the shared ones change", () => {
     const next = logsFiltersFromObserve(filters({ route: "/v1/chat", model: "old" }), { ...EMPTY_OBSERVE_FILTERS, model: "new" });
     expect(next).toMatchObject({ route: "/v1/chat", model: "new" });
+  });
+});
+
+describe("buildTimingBreakdown", () => {
+  const root = { span_id: "root", name: "gateway.request", started_at: "2026-09-19T10:00:00.000Z", duration_ms: 400 };
+
+  it("returns null for no spans rather than inventing a split", () => {
+    expect(buildTimingBreakdown([])).toBeNull();
+  });
+
+  it("splits the root span's duration by its children", () => {
+    const breakdown = buildTimingBreakdown([
+      root,
+      { span_id: "b", parent_span_id: "root", name: "provider.call", started_at: "2026-09-19T10:00:00.100Z", duration_ms: 300 },
+      { span_id: "a", parent_span_id: "root", name: "policy.evaluate", started_at: "2026-09-19T10:00:00.000Z", duration_ms: 100 },
+    ]);
+
+    expect(breakdown).toMatchObject({ totalMs: 400, stackable: true });
+    expect(breakdown?.segments.map((segment) => [segment.name, segment.share])).toEqual([["policy.evaluate", 0.25], ["provider.call", 0.75]]);
+  });
+
+  it("does not stack overlapping children", () => {
+    const breakdown = buildTimingBreakdown([
+      root,
+      { span_id: "a", parent_span_id: "root", name: "a", started_at: "2026-09-19T10:00:00.000Z", duration_ms: 300 },
+      { span_id: "b", parent_span_id: "root", name: "b", started_at: "2026-09-19T10:00:00.100Z", duration_ms: 300 },
+    ]);
+    expect(breakdown?.stackable).toBe(false);
   });
 });

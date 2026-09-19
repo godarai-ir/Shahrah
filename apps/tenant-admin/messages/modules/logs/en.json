@@ -29,7 +29,9 @@
     "cancel": "Cancel",
     "previous": "Previous",
     "next": "Next",
-    "clearAll": "Clear all"
+    "clearAll": "Clear all",
+    "filterModel": "Filter on this model",
+    "viewTrace": "View trace"
   },
   "filters": {
     "title": "Analysis Filters",
@@ -261,5 +263,20 @@
     "retry": "Retry ×{count}",
     "cache": "Cache",
     "fallback": "Fallback"
+  },
+  "detail": {
+    "error": {
+      "label": "Error",
+      "clientError": "The request was rejected with HTTP {status}.",
+      "serverError": "The gateway or an upstream provider failed with HTTP {status}."
+    },
+    "timing": {
+      "title": "Response time breakdown",
+      "total": "Total {duration}",
+      "source": "From the spans of this request's trace."
+    },
+    "signals": "Signals",
+    "payloadMode": "Recorded in \"{mode}\" mode",
+    "payloadModeUnknown": "Logging mode: {mode}"
   }
 }

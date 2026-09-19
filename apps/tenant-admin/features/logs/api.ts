@@ -188,8 +188,27 @@ export function getLogDetail(logID: string, signal?: AbortSignal) {
   return requestParsedJSON(logDetailSchema, `/api/logs/${encodeURIComponent(logID)}`, { signal });
 }
 
-export async function traceExists(traceID: string, signal?: AbortSignal) {
-  await requestJSON(`/api/traces/${encodeURIComponent(traceID)}`, { signal });
+const linkedTraceSchema = z.object({ trace: z.object({ sampled: z.boolean() }) });
+const timingSpanSchema = z.object({
+  span_id: z.string(),
+  parent_span_id: z.string().optional(),
+  name: z.string(),
+  started_at: z.string(),
+  duration_ms: z.number(),
+});
+const timingSpansEnvelopeSchema = z.object({ data: z.array(timingSpanSchema).optional() });
+
+export type TimingSpan = z.infer<typeof timingSpanSchema>;
+
+/** Confirms a log's trace exists and says whether its span timeline was sampled. Fails when it does not exist. */
+export function getLinkedTrace(traceID: string, signal?: AbortSignal) {
+  return requestParsedJSON(linkedTraceSchema, `/api/traces/${encodeURIComponent(traceID)}`, { signal });
+}
+
+/** The span timing of a log's sampled trace; the only real source for a response time breakdown. */
+export async function getLinkedTraceTiming(traceID: string, signal?: AbortSignal): Promise<TimingSpan[]> {
+  const payload = await requestParsedJSON(timingSpansEnvelopeSchema, `/api/traces/${encodeURIComponent(traceID)}/spans`, { signal });
+  return payload.data ?? [];
 }
 
 export function searchAccessPrincipals(kind: "user" | "team", query: string) {
