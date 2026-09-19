@@ -68,6 +68,7 @@
     "active": "Active"
   },
   "actions": {
+    "openMenu": "Open member actions",
     "changeRole": "Change Role",
     "activate": "Activate",
     "deactivate": "Deactivate",
