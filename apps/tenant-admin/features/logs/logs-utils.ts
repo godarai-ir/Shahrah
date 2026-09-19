@@ -59,6 +59,36 @@ export function filtersFromSearchParams(searchParams: Pick<URLSearchParams, "get
   };
 }
 
+type FilterSetInput = Partial<Record<keyof Filters, unknown>>;
+
+/**
+ * Reduces a filter set to the values that change the query: defaults fill blanks, unknown keys
+ * are dropped, and `from`/`to` only count for a custom range because relative ranges derive them.
+ */
+export function normalizeFilterSet(filters: FilterSetInput): Record<string, string> {
+  const keys = Object.keys(DEFAULT_FILTERS) as Array<keyof Filters>;
+  const text = (key: keyof Filters) => {
+    const value = filters[key];
+    const trimmed = value === undefined || value === null ? "" : String(value).trim();
+    return trimmed || String(DEFAULT_FILTERS[key]);
+  };
+  const range = text("range");
+  const output: Record<string, string> = {};
+  for (const key of keys) {
+    if ((key === "from" || key === "to") && range !== "custom") continue;
+    const value = text(key);
+    if (value) output[key] = value;
+  }
+  return output;
+}
+
+export function isSameFilterSet(a: FilterSetInput, b: FilterSetInput): boolean {
+  const left = normalizeFilterSet(a);
+  const right = normalizeFilterSet(b);
+  const leftKeys = Object.keys(left);
+  return leftKeys.length === Object.keys(right).length && leftKeys.every((key) => left[key] === right[key]);
+}
+
 export function normalizeVisibleColumns(columns?: string[]) {
   if (!columns?.length) return DEFAULT_COLUMNS;
   const expanded = columns.flatMap((column) => (column === "routing" ? OPTIONAL_COLUMNS : [column]));
