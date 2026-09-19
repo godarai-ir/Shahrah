@@ -132,13 +132,16 @@ export default function TraceManagement(props: TraceManagementProps) {
     });
   }, [common, filtersQueryString, listQueryString]);
 
+  // A filter change re-anchors relative ranges to now; paging keeps the anchor so pages stay consistent.
   const updateObserve = useCallback((next: ObserveFilters) => {
     setObserve(next);
     setOffset(0);
+    setRangeAnchor(Date.now());
   }, []);
   const updateLocal = useCallback((patch: Partial<TraceLocalFilters>) => {
     setLocal((current) => ({ ...current, ...patch }));
     setOffset(0);
+    setRangeAnchor(Date.now());
   }, []);
   const refresh = useCallback(() => setRangeAnchor(Date.now()), []);
 

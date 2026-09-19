@@ -44,3 +44,12 @@ describe("buildWaterfallRows", () => {
     expect(rows.find((row) => row.span.span_id === "bad")).toMatchObject({ offsetMS: 0, leftPct: 0 });
   });
 });
+
+describe("buildWaterfallRows at the end of the window", () => {
+  it("keeps a zero-length span at the end visible", () => {
+    const rows = buildWaterfallRows([span("root", "2026-09-19T10:00:00.000Z", 400), span("end", "2026-09-19T10:00:00.400Z", 0)]);
+    const end = rows.find((row) => row.span.span_id === "end")!;
+    expect(end.widthPct).toBeGreaterThanOrEqual(1.5);
+    expect(end.leftPct + end.widthPct).toBeLessThanOrEqual(100);
+  });
+});

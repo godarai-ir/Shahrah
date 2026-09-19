@@ -276,7 +276,8 @@ export function buildTimingBreakdown(spans: Array<Pick<TimingSpan, "span_id" | "
     : Math.max(...valid.map((span) => startOf(span) + span.duration_ms)) - Math.min(...valid.map(startOf));
   if (!(totalMs > 0)) return null;
 
-  const children = valid.filter((span) => span !== root).sort((a, b) => startOf(a) - startOf(b));
+  // Direct children only: nested spans are already inside their parent's time.
+  const children = valid.filter((span) => (root ? span.parent_span_id === root.span_id : true)).sort((a, b) => startOf(a) - startOf(b));
   const parts = children.length > 0 ? children : root ? [root] : [];
   const segments = parts.map((span) => ({
     spanID: span.span_id,

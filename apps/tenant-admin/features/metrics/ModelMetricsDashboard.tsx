@@ -256,7 +256,10 @@ export default function ModelMetricsDashboard() {
       <ObserveQueryBar
         tab="metrics"
         filters={observe}
-        onFiltersChange={setObserve}
+        onFiltersChange={(next) => {
+          setObserve(next);
+          setRangeAnchor(Date.now());
+        }}
         modelOptions={historicalModels}
         providerOptions={historicalProviders}
         onRefresh={() => setRangeAnchor(Date.now())}
@@ -305,7 +308,10 @@ export default function ModelMetricsDashboard() {
           label={t("controls.groupBy")}
           value={viewBy}
           options={METRICS_VIEW_BY.map((value) => ({ value, label: t(`filters.viewByOptions.${value}`) }))}
-          onChange={setViewBy}
+          onChange={(next) => {
+            setViewBy(next);
+            setRangeAnchor(Date.now());
+          }}
         />
       </div>
 

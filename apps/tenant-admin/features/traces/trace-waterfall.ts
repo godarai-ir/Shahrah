@@ -29,7 +29,8 @@ export function buildWaterfallRows(spans: TraceSpan[]): WaterfallRow[] {
   return spans.map((span) => {
     const spanStart = spanStartMS(span);
     const offsetMS = Number.isFinite(spanStart) ? Math.max(0, spanStart - startMS) : 0;
-    const leftPct = (offsetMS / totalMS) * 100;
+    // Keep room for the minimum bar so a span at the end of the window stays visible.
+    const leftPct = Math.min(100 - MIN_WIDTH_PCT, (offsetMS / totalMS) * 100);
     const widthPct = Math.min(100 - leftPct, Math.max(MIN_WIDTH_PCT, (Math.max(spanDurationMS(span), 1) / totalMS) * 100));
     return { span, offsetMS, leftPct, widthPct, totalMS };
   });

@@ -100,3 +100,14 @@ describe("buildTimingBreakdown", () => {
     expect(breakdown?.stackable).toBe(false);
   });
 });
+
+describe("buildTimingBreakdown nesting", () => {
+  it("counts only the root's direct children", () => {
+    const breakdown = buildTimingBreakdown([
+      { span_id: "root", name: "gateway.request", started_at: "2026-09-19T10:00:00.000Z", duration_ms: 400 },
+      { span_id: "call", parent_span_id: "root", name: "provider.call", started_at: "2026-09-19T10:00:00.050Z", duration_ms: 300 },
+      { span_id: "http", parent_span_id: "call", name: "provider.http", started_at: "2026-09-19T10:00:00.055Z", duration_ms: 290 },
+    ]);
+    expect(breakdown?.segments.map((segment) => segment.name)).toEqual(["provider.call"]);
+  });
+});
