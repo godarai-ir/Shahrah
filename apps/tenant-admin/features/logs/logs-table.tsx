@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import { COLUMN_CHOICES, type RequestLog } from "./logs-types";
 
@@ -125,7 +126,7 @@ function LogsDataTable({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className={cn(row.original.status_code >= 400 && "bg-destructive/4")}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className={logsColumnClassName(cell.column.id)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -162,6 +163,8 @@ function logsColumnClassName(columnID: string): string {
       return "hidden w-20 @3xl:table-cell";
     case "cost":
       return "hidden w-28 @4xl:table-cell";
+    case "signals":
+      return "hidden w-32 @4xl:table-cell";
     case "route":
     case "payload":
       return "hidden @5xl:table-cell";

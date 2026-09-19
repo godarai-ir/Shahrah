@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Save,
   Settings2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -425,6 +426,11 @@ export default function LogsCommandCenter({
         ),
       },
       {
+        id: "signals",
+        header: t("table.signals"),
+        cell: ({ row }) => <RequestSignals log={row.original} formatters={formatters} t={t} />,
+      },
+      {
         id: "cache_status",
         header: t("table.cacheStatus"),
         cell: ({ row }) => <RoutingValue value={row.original.cache_status || t("values.noCache")} description={t("routing.cacheHelp")} />,
@@ -585,23 +591,6 @@ export default function LogsCommandCenter({
         description={t("subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  onClick={() => void refreshReport()}
-                  disabled={loading}
-                  aria-busy={loading}
-                  aria-label={t("actions.refresh")}
-                  title={t("actions.refresh")}
-                >
-                  {loading ? <Spinner /> : <RefreshCw />}
-                  <span className="sr-only">{t("actions.refresh")}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("actions.refresh")}</TooltipContent>
-            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -663,6 +652,8 @@ export default function LogsCommandCenter({
         onSearchPrincipal={searchLogPrincipals}
         principalSelectorLabels={principalSelectorLabels}
         onReset={resetFilters}
+        onRefresh={refreshReport}
+        loading={loading}
         formatters={formatters}
         t={t}
       />
@@ -765,6 +756,8 @@ const LogsFilters = memo(function LogsFilters({
   onSearchPrincipal,
   principalSelectorLabels,
   onReset,
+  onRefresh,
+  loading,
   formatters,
   t,
 }: {
@@ -776,6 +769,8 @@ const LogsFilters = memo(function LogsFilters({
   onSearchPrincipal: (kind: PrincipalSearchKind, query: string) => Promise<PrincipalSearchOption[]>;
   principalSelectorLabels: ReturnType<typeof buildPrincipalSelectorLabels>;
   onReset: () => void;
+  onRefresh: () => Promise<void>;
+  loading: boolean;
   formatters: LogsFormatter;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -785,8 +780,7 @@ const LogsFilters = memo(function LogsFilters({
     () => principalsFromFilters(filters, principalNamesByKey),
     [filters, principalNamesByKey],
   );
-  const showAdvancedLabel = t("filters.showAdvanced");
-  const hideAdvancedLabel = t("filters.hideAdvanced");
+  const activeCount = activeChips.length;
   const setRange = useCallback((value: string) => {
     onSetFilter("range", value);
     if (value === "custom") {
@@ -815,10 +809,12 @@ const LogsFilters = memo(function LogsFilters({
   }, [onSetFilter]);
 
   return (
-    <AppCard>
+    <AppCard contentClassName="flex flex-col gap-3 p-3">
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <FilterField label={t("filters.range")}>
+        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={t("filters.title")}>
+          <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
+          <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} hideLabel className="min-w-40 flex-1" />
+          <FilterField label={t("filters.range")} hideLabel className="w-36">
             <AppSelectField
               value={filters.range}
               onValueChange={setRange}
@@ -833,100 +829,118 @@ const LogsFilters = memo(function LogsFilters({
               triggerClassName="h-8 text-xs"
             />
           </FilterField>
-          <FacetSelect label={t("filters.provider")} value={filters.provider} onChange={(value) => onSetFilter("provider", value)} items={facets.providers} empty={t("filters.noOptions")} />
-          <FacetSelect label={t("filters.model")} value={filters.model} onChange={(value) => onSetFilter("model", value)} items={facets.models} empty={t("filters.noOptions")} />
-          {filters.range === "custom" ? (
-            <DateTimeRangeField
-              from={filters.from}
-              to={filters.to}
-              fromLabel={t("filters.from")}
-              toLabel={t("filters.to")}
-              onFromChange={(value) => onSetFilter("from", value)}
-              onToChange={(value) => onSetFilter("to", value)}
-              className="md:col-span-2 xl:col-span-3"
-            />
-          ) : null}
-        </div>
-        <PrincipalPicker
-          id="logs-principal-filter"
-          title={t("filters.principals")}
-          selected={selectedPrincipals}
-          setSelected={setSelectedPrincipals}
-          onSearchPrincipal={onSearchPrincipal}
-          principalSelectorLabels={principalSelectorLabels}
-          allowEveryone={false}
-          addLabel={t("filters.addPrincipal")}
-          removeLabel={t("filters.removePrincipal")}
-          kinds={["user", "virtual_account", "team", "org_unit"]}
-          variant="filter"
-        />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <RangeFilter
-            label={t("filters.duration")}
-            minLabel={t("filters.duration_min")}
-            maxLabel={t("filters.duration_max")}
-            range={rangeStats.duration_ms}
-            minValue={filters.duration_min}
-            maxValue={filters.duration_max}
-            onChange={(min, max) => {
-              onSetFilter("duration_min", min);
-              onSetFilter("duration_max", max);
-            }}
-            formatValue={formatters.ms}
-          />
-          <RangeFilter
-            label={t("filters.tokens")}
-            minLabel={t("filters.tokens_min")}
-            maxLabel={t("filters.tokens_max")}
-            range={rangeStats.total_tokens}
-            minValue={filters.tokens_min}
-            maxValue={filters.tokens_max}
-            onChange={(min, max) => {
-              onSetFilter("tokens_min", min);
-              onSetFilter("tokens_max", max);
-            }}
-            formatValue={formatters.number}
-          />
-          <RangeFilter
-            label={t("filters.cost_usd")}
-            minLabel={t("filters.cost_usd_min")}
-            maxLabel={t("filters.cost_usd_max")}
-            range={rangeStats.cost_usd}
-            minValue={filters.cost_usd_min}
-            maxValue={filters.cost_usd_max}
-            onChange={(min, max) => {
-              onSetFilter("cost_usd_min", min);
-              onSetFilter("cost_usd_max", max);
-            }}
-            formatValue={formatters.usd}
-          />
-          <RangeFilter
-            label={t("filters.cost_irr")}
-            minLabel={t("filters.cost_irr_min")}
-            maxLabel={t("filters.cost_irr_max")}
-            range={rangeStats.cost_irr}
-            minValue={filters.cost_irr_min}
-            maxValue={filters.cost_irr_max}
-            onChange={(min, max) => {
-              onSetFilter("cost_irr_min", min);
-              onSetFilter("cost_irr_max", max);
-            }}
-            formatValue={formatters.irr}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <CollapsibleTrigger asChild>
-            <Button type="button" variant="outline" size="sm" aria-expanded={advancedOpen}>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", advancedOpen && "rotate-180")} />
-              {advancedOpen ? hideAdvancedLabel : showAdvancedLabel}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={advancedOpen}
+              className={cn(activeCount > 0 && "border-primary-subtle-border bg-primary-soft text-primary-soft-foreground hover:bg-primary-soft-hover")}
+            >
+              <SlidersHorizontal data-icon="inline-start" />
+              {t("filters.toggle")}
+              {activeCount > 0 ? (
+                <Badge className="h-5 min-w-5 rounded-full px-1.5 tabular-nums" aria-label={t("filters.activeCount", { count: activeCount })}>{activeCount}</Badge>
+              ) : null}
+              <ChevronDown data-icon="inline-end" className={cn("transition-transform", advancedOpen && "rotate-180")} />
             </Button>
           </CollapsibleTrigger>
-          <Button type="button" variant="outline" size="sm" onClick={onReset}>
-            <RotateCcw className="h-4 w-4" />
-            {t("actions.reset")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() => void onRefresh()}
+                disabled={loading}
+                aria-busy={loading}
+                aria-label={t("actions.refresh")}
+                title={t("actions.refresh")}
+              >
+                {loading ? <Spinner /> : <RefreshCw />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.refresh")}</TooltipContent>
+          </Tooltip>
         </div>
-        <CollapsibleContent>
+        {filters.range === "custom" ? (
+          <DateTimeRangeField
+            from={filters.from}
+            to={filters.to}
+            fromLabel={t("filters.from")}
+            toLabel={t("filters.to")}
+            onFromChange={(value) => onSetFilter("from", value)}
+            onToChange={(value) => onSetFilter("to", value)}
+          />
+        ) : null}
+        <CollapsibleContent className="flex flex-col gap-3 border-t border-border pt-3">
+          <PrincipalPicker
+            id="logs-principal-filter"
+            title={t("filters.principals")}
+            selected={selectedPrincipals}
+            setSelected={setSelectedPrincipals}
+            onSearchPrincipal={onSearchPrincipal}
+            principalSelectorLabels={principalSelectorLabels}
+            allowEveryone={false}
+            addLabel={t("filters.addPrincipal")}
+            removeLabel={t("filters.removePrincipal")}
+            kinds={["user", "virtual_account", "team", "org_unit"]}
+            variant="filter"
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <RangeFilter
+              label={t("filters.duration")}
+              minLabel={t("filters.duration_min")}
+              maxLabel={t("filters.duration_max")}
+              range={rangeStats.duration_ms}
+              minValue={filters.duration_min}
+              maxValue={filters.duration_max}
+              onChange={(min, max) => {
+                onSetFilter("duration_min", min);
+                onSetFilter("duration_max", max);
+              }}
+              formatValue={formatters.ms}
+            />
+            <RangeFilter
+              label={t("filters.tokens")}
+              minLabel={t("filters.tokens_min")}
+              maxLabel={t("filters.tokens_max")}
+              range={rangeStats.total_tokens}
+              minValue={filters.tokens_min}
+              maxValue={filters.tokens_max}
+              onChange={(min, max) => {
+                onSetFilter("tokens_min", min);
+                onSetFilter("tokens_max", max);
+              }}
+              formatValue={formatters.number}
+            />
+            <RangeFilter
+              label={t("filters.cost_usd")}
+              minLabel={t("filters.cost_usd_min")}
+              maxLabel={t("filters.cost_usd_max")}
+              range={rangeStats.cost_usd}
+              minValue={filters.cost_usd_min}
+              maxValue={filters.cost_usd_max}
+              onChange={(min, max) => {
+                onSetFilter("cost_usd_min", min);
+                onSetFilter("cost_usd_max", max);
+              }}
+              formatValue={formatters.usd}
+            />
+            <RangeFilter
+              label={t("filters.cost_irr")}
+              minLabel={t("filters.cost_irr_min")}
+              maxLabel={t("filters.cost_irr_max")}
+              range={rangeStats.cost_irr}
+              minValue={filters.cost_irr_min}
+              maxValue={filters.cost_irr_max}
+              onChange={(min, max) => {
+                onSetFilter("cost_irr_min", min);
+                onSetFilter("cost_irr_max", max);
+              }}
+              formatValue={formatters.irr}
+            />
+          </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <FacetSelect label={t("filters.route")} value={filters.route} onChange={(value) => onSetFilter("route", value)} items={facets.routes} empty={t("filters.noOptions")} />
             <TextFilter label={t("filters.log_id")} value={filters.log_id} onChange={(value) => onSetFilter("log_id", value)} mono />
@@ -947,7 +961,15 @@ const LogsFilters = memo(function LogsFilters({
           </div>
         </CollapsibleContent>
       </Collapsible>
-      <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} className="pt-4" />
+      {activeCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilterChips items={activeChips} onRemove={(key) => onSetFilter(key as keyof Filters, "")} getRemoveLabel={(item) => `${t("actions.removeFilter")}: ${item.label}`} />
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
+            <RotateCcw data-icon="inline-start" />
+            {t("actions.clearAll")}
+          </Button>
+        </div>
+      ) : null}
     </AppCard>
   );
 });
@@ -1108,6 +1130,20 @@ function RoutingValue({ value, description }: { value: string; description: stri
   );
 }
 
+
+function RequestSignals({ log, formatters, t }: { log: RequestLog; formatters: LogsFormatter; t: ReturnType<typeof useTranslations> }) {
+  const retries = log.retry_count ?? 0;
+  const cacheHit = (log.cache_status ?? "").toLowerCase().includes("hit");
+  const fallback = (log.fallback_count ?? 0) > 0 || log.fallback_status === "active";
+  if (!retries && !cacheHit && !fallback) return <span className="text-muted-foreground">-</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {retries ? <StatusBadge status="warning" className="h-5 px-1.5 text-xs">{t("signals.retry", { count: formatters.number(retries) })}</StatusBadge> : null}
+      {cacheHit ? <StatusBadge status="info" className="h-5 px-1.5 text-xs">{t("signals.cache")}</StatusBadge> : null}
+      {fallback ? <StatusBadge status="warning" className="h-5 px-1.5 text-xs">{t("signals.fallback")}</StatusBadge> : null}
+    </div>
+  );
+}
 
 function MonoText({ value }: { value?: string }) {
   return <span className="block max-w-40 truncate font-mono text-xs" dir="auto">{value || "-"}</span>;

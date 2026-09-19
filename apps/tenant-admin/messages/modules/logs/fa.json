@@ -15,7 +15,6 @@
     "refresh": "بازخوانی",
     "export": "خروجی",
     "settings": "تنظیمات لاگ",
-    "reset": "پاک‌سازی",
     "removeFilter": "حذف فیلتر",
     "columns": "ستون‌ها",
     "inspect": "بررسی",
@@ -29,7 +28,8 @@
     "delete": "حذف",
     "cancel": "انصراف",
     "previous": "قبلی",
-    "next": "بعدی"
+    "next": "بعدی",
+    "clearAll": "پاک‌سازی همه"
   },
   "filters": {
     "title": "فیلترهای تحلیل",
@@ -52,8 +52,6 @@
     "principals": "اجرا کننده",
     "addPrincipal": "افزودن",
     "removePrincipal": "حذف بازیگر",
-    "showAdvanced": "فیلترهای پیشرفته‌تر",
-    "hideAdvanced": "پنهان کردن فیلترهای پیشرفته",
     "duration": "تأخیر",
     "tokens": "توکن",
     "cost_usd": "هزینه USD",
@@ -87,7 +85,9 @@
     "cost_usd_min": "حداقل USD",
     "cost_usd_max": "حداکثر USD",
     "cost_irr_min": "حداقل ریال",
-    "cost_irr_max": "حداکثر ریال"
+    "cost_irr_max": "حداکثر ریال",
+    "toggle": "فیلترها",
+    "activeCount": "{count} فیلتر فعال"
   },
   "ranges": {
     "1h": "۱ ساعت",
@@ -200,7 +200,8 @@
     "fallbackStatus": "جایگزین",
     "loadBalanceStatus": "توازن بار",
     "payload": "محتوا",
-    "pageSize": "تعداد ردیف"
+    "pageSize": "تعداد ردیف",
+    "signals": "نشانه‌ها"
   },
   "columns": {
     "status": "وضعیت",
@@ -217,7 +218,8 @@
     "fallback_status": "جایگزین",
     "load_balance_status": "توازن بار",
     "payload": "محتوا",
-    "actions": "عملیات"
+    "actions": "عملیات",
+    "signals": "نشانه‌ها"
   },
   "routing": {
     "cache": "کش",
@@ -254,5 +256,10 @@
     "retry": "retry",
     "noFallback": "no fallback",
     "noLoadBalance": "no load balance"
+  },
+  "signals": {
+    "retry": "تلاش مجدد ×{count}",
+    "cache": "کش",
+    "fallback": "جایگزین"
   }
 }

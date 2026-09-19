@@ -15,7 +15,6 @@
     "refresh": "Refresh",
     "export": "Export",
     "settings": "Logging settings",
-    "reset": "Reset",
     "removeFilter": "Remove filter",
     "columns": "Columns",
     "inspect": "Inspect",
@@ -29,7 +28,8 @@
     "delete": "Delete",
     "cancel": "Cancel",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "clearAll": "Clear all"
   },
   "filters": {
     "title": "Analysis Filters",
@@ -52,8 +52,6 @@
     "principals": "Executor",
     "addPrincipal": "Add",
     "removePrincipal": "Remove principal",
-    "showAdvanced": "Advanced filters",
-    "hideAdvanced": "Hide advanced filters",
     "duration": "Latency",
     "tokens": "Tokens",
     "cost_usd": "USD cost",
@@ -87,7 +85,9 @@
     "cost_usd_min": "USD min",
     "cost_usd_max": "USD max",
     "cost_irr_min": "IRR min",
-    "cost_irr_max": "IRR max"
+    "cost_irr_max": "IRR max",
+    "toggle": "Filters",
+    "activeCount": "{count, plural, one {# active filter} other {# active filters}}"
   },
   "ranges": {
     "1h": "1 hour",
@@ -200,7 +200,8 @@
     "fallbackStatus": "Fallback",
     "loadBalanceStatus": "Load balance",
     "payload": "Payload",
-    "pageSize": "Page size"
+    "pageSize": "Page size",
+    "signals": "Signals"
   },
   "columns": {
     "status": "Status",
@@ -217,7 +218,8 @@
     "fallback_status": "Fallback",
     "load_balance_status": "Load balance",
     "payload": "Payload",
-    "actions": "Actions"
+    "actions": "Actions",
+    "signals": "Signals"
   },
   "routing": {
     "cache": "Cache",
@@ -254,5 +256,10 @@
     "retry": "retry",
     "noFallback": "no fallback",
     "noLoadBalance": "no load balance"
+  },
+  "signals": {
+    "retry": "Retry ×{count}",
+    "cache": "Cache",
+    "fallback": "Fallback"
   }
 }

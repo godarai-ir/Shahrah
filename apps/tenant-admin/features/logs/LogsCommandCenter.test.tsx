@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -116,6 +116,48 @@ describe("LogsCommandCenter layout", () => {
     expect(legacy).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: /From:/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Saved views" })).not.toBeInTheDocument();
+  });
+
+  it("counts active filters on the filters button and hides the badge when there are none", () => {
+    const empty = renderCenter();
+
+    const toolbar = screen.getByRole("toolbar", { name: "Analysis Filters" });
+    const toggle = within(toolbar).getByRole("button", { name: /^Filters/ });
+    expect(within(toolbar).getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(within(toggle).queryByLabelText(/active filter/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
+    empty.unmount();
+
+    renderCenter({
+      initialSavedViews: {
+        data: [{ saved_view_id: "v1", name: "Scoped", filters: { provider: "openai", status_code: "500" }, visible_columns: [], shared_scope: "tenant" }],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Scoped" }));
+
+    expect(screen.getByLabelText("2 active filters")).toHaveTextContent("2");
+    expect(screen.getByRole("button", { name: "Clear all" })).toBeInTheDocument();
+  });
+
+  it("tints error rows and shows request signals", () => {
+    renderCenter({
+      initialLogs: {
+        data: [
+          { ...log, log_id: "ok", status_code: 200, cache_status: "hit" },
+          { ...log, log_id: "failed", status_code: 502, retry_count: 2, fallback_count: 1 },
+        ],
+        total: 2,
+        limit: 25,
+        offset: 0,
+      },
+    });
+
+    const [, okRow, failedRow] = screen.getAllByRole("row");
+    expect(okRow).not.toHaveClass("bg-destructive/4");
+    expect(failedRow).toHaveClass("bg-destructive/4");
+    expect(within(okRow).getByText("Cache")).toBeInTheDocument();
+    expect(within(failedRow).getByText("Retry ×2")).toBeInTheDocument();
+    expect(within(failedRow).getByText("Fallback")).toBeInTheDocument();
   });
 
   it("keeps metric cards and charts out of the page until the summary is opened", () => {
