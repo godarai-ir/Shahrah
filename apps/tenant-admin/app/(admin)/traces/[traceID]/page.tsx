@@ -43,11 +43,12 @@ import {
   type TraceSpan,
   type RequestTraceV2,
 } from "@/features/traces/detail-contracts";
+import { TraceWaterfall } from "@/features/traces/TraceWaterfall";
+import { sortSpans, textStatusBadgeVariant, type BadgeVariant } from "@/features/traces/trace-waterfall";
 
 type Params = { params: Promise<{ traceID: string }> };
 type MetadataSource = "span" | "usage";
 type MetadataRow = { source: MetadataSource; key: string; value: string };
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info";
 
 export const dynamic = "force-dynamic";
 
@@ -85,9 +86,6 @@ export default async function TraceDetailPage({ params }: Params) {
   const spans = timelineResult.ok ? parseTraceSpans(timelineResult.payload) : [];
   const attempts = attemptsResult.ok ? parseTraceAttempts(attemptsResult.payload) : [];
   const sortedSpans = sortSpans(spans);
-  const waterfallRows = buildWaterfallRows(sortedSpans);
-  const hasNonZeroSpanOffset = waterfallRows.some((row) => row.offsetMS > 0);
-  const timelineTotalMS = waterfallRows[0]?.totalMS ?? 0;
   const rootSpan = sortedSpans.find((span) => span.name === "gateway.request" && span.kind === "server");
   const providerSpan = sortedSpans.find((span) => span.name === "provider.call");
 
@@ -374,58 +372,7 @@ export default async function TraceDetailPage({ params }: Params) {
                   description={timelineResult.ok ? undefined : timelineResult.errorMessage ?? t("detail.timeline.loadFailed")}
                 /></CardHeader>
                 <CardContent className="px-4 pb-4 md:px-4 md:pb-4">
-                  {waterfallRows.length === 0 ? (
-                    <EmptyText>{t("detail.timeline.empty")}</EmptyText>
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      <div className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-                        {hasNonZeroSpanOffset ? t("detail.timeline.waterfallHint") : t("detail.timeline.durationHint")}
-                      </div>
-                      <div className="grid gap-2 px-2 md:grid-cols-[minmax(14rem,18rem)_1fr]">
-                        <div dir="ltr" className="flex items-center justify-between text-xs text-muted-foreground md:hidden">
-                          <span>{formatDuration(0, msLabel, locale)}</span>
-                          <span>{formatDuration(timelineTotalMS, msLabel, locale)}</span>
-                        </div>
-                        <div className="hidden md:block" />
-                        <TimelineAxis totalMS={timelineTotalMS} msLabel={msLabel} locale={locale} />
-                      </div>
-                      {waterfallRows.map((row, idx) => (
-                        <div key={row.span.span_id} className="grid gap-2 px-2 py-1 md:grid-cols-[minmax(14rem,18rem)_1fr] md:items-center">
-                          <div className="min-w-0">
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              <TimelineStepMarker index={idx} kind={row.span.kind} total={waterfallRows.length} locale={locale} />
-                              <Badge variant={textStatusBadgeVariant(row.span.status)}>{row.span.status}</Badge>
-                              <p className="truncate text-sm font-medium">{row.span.name}</p>
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 pe-4 text-xs text-muted-foreground md:pe-9">
-                              <span>{formatDuration(row.span.duration_ms, msLabel, locale)}</span>
-                              {row.offsetMS > 0 ? <span dir="ltr">+{formatDuration(row.offsetMS, msLabel, locale)}</span> : null}
-                            </div>
-                          </div>
-                          <div dir="ltr">
-                            <div className="relative h-8 rounded-md bg-muted">
-                              <TimelineGridLines />
-                              <div
-                                className="absolute top-1 h-6 rounded-md bg-primary/70"
-                                style={{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }}
-                              />
-                              {row.widthPct >= 12 ? (
-                                <span
-                                  className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-xs font-medium text-primary-foreground"
-                                  style={{
-                                    left: `${row.leftPct}%`,
-                                    width: `${row.widthPct}%`,
-                                  }}
-                                >
-                                  {formatDuration(row.span.duration_ms, msLabel, locale)}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <TraceWaterfall spans={spans} />
                 </CardContent>
               </Card>
             </div>
@@ -494,28 +441,6 @@ export default async function TraceDetailPage({ params }: Params) {
       </PageContainer>
     </AdminShell>
   );
-}
-
-function sortSpans(spans: TraceSpan[]) {
-  return [...spans].sort((a, b) => {
-    const aMS = new Date(a.started_at).getTime();
-    const bMS = new Date(b.started_at).getTime();
-    return aMS - bMS;
-  });
-}
-
-function buildWaterfallRows(spans: TraceSpan[]) {
-  if (spans.length === 0) return [];
-  const startMS = Math.min(...spans.map((s) => new Date(s.started_at).getTime()));
-  const endMS = Math.max(...spans.map((s) => new Date(s.started_at).getTime() + s.duration_ms));
-  const totalMS = Math.max(1, endMS - startMS);
-  return spans.map((span) => {
-    const spanStart = new Date(span.started_at).getTime();
-    const offsetMS = Math.max(0, spanStart - startMS);
-    const leftPct = (offsetMS / totalMS) * 100;
-    const widthPct = Math.max(1.5, (Math.max(span.duration_ms, 1) / totalMS) * 100);
-    return { span, offsetMS, leftPct, widthPct, totalMS };
-  });
 }
 
 function buildMetadataRows(
@@ -656,14 +581,6 @@ function statusCodeBadgeVariant(statusCode: number): BadgeVariant {
   return "success";
 }
 
-function textStatusBadgeVariant(status: string): BadgeVariant {
-  const normalized = status.trim().toLowerCase();
-  if (["error", "failed", "failure"].includes(normalized)) return "destructive";
-  if (["retry", "fallback", "timeout"].includes(normalized)) return "warning";
-  if (["ok", "success", "succeeded", "complete", "completed"].includes(normalized)) return "success";
-  return "secondary";
-}
-
 function MetricItem({
   icon: Icon,
   label,
@@ -688,75 +605,6 @@ function MetricItem({
 
 function EmptyText({ children }: { children: ReactNode }) {
   return <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{children}</p>;
-}
-
-function TimelineStepMarker({
-  index,
-  kind,
-  total,
-  locale,
-}: {
-  index: number;
-  kind: string;
-  total: number;
-  locale: string;
-}) {
-  return (
-    <span className="relative flex shrink-0 items-center gap-1.5">
-      {index < total - 1 ? (
-        <span className="absolute start-3 top-6 h-7 border-s border-border" aria-hidden="true" />
-      ) : null}
-      <span className="flex size-6 items-center justify-center rounded-full border bg-background text-xs font-semibold">
-        {formatNumber(index + 1, locale)}
-      </span>
-      <Badge variant={spanKindBadgeVariant(kind)}>{kind}</Badge>
-    </span>
-  );
-}
-
-function spanKindBadgeVariant(kind: string): BadgeVariant {
-  const normalized = kind.trim().toLowerCase();
-  if (normalized === "server") return "info";
-  if (normalized === "client") return "warning";
-  if (normalized === "internal") return "secondary";
-  return "outline";
-}
-
-function TimelineAxis({ totalMS, msLabel, locale }: { totalMS: number; msLabel: string; locale: string }) {
-  const ticks = [0, 25, 50, 75, 100];
-  return (
-    <div dir="ltr" className="hidden md:block">
-      <div className="relative h-6">
-        {ticks.map((tick) => (
-          <span
-            key={tick}
-            className={cn(
-              "absolute top-0 text-xs text-muted-foreground",
-              tick === 0 ? "translate-x-0" : tick === 100 ? "-translate-x-full" : "-translate-x-1/2",
-            )}
-            style={{ insetInlineStart: `${tick}%` }}
-          >
-            {formatDuration((totalMS * tick) / 100, msLabel, locale)}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TimelineGridLines() {
-  return (
-    <>
-      {[25, 50, 75].map((tick) => (
-        <span
-          key={tick}
-          className="absolute top-0 h-full border-s border-background/80"
-          style={{ insetInlineStart: `${tick}%` }}
-          aria-hidden="true"
-        />
-      ))}
-    </>
-  );
 }
 
 function buildMetricsLink(trace: RequestTraceV2) {
