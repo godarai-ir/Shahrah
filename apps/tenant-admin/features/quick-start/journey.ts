@@ -472,15 +472,15 @@ function actionForStep(
       return {
         type: "link",
         href: resources.rateLimitRuleCount > 0
-          ? "/gateway-policies/rate-limiting-rules"
-          : "/gateway-policies/rate-limiting-rules/new",
+          ? "/gateway-policies?type=rate"
+          : "/gateway-policies?new=rate",
       };
     case "create_budget_limit_rule":
       return {
         type: "link",
         href: resources.budgetLimitRuleCount > 0
-          ? "/gateway-policies/budget-limiting-rules"
-          : "/gateway-policies/budget-limiting-rules/new",
+          ? "/gateway-policies?type=budget"
+          : "/gateway-policies?new=budget",
       };
     case "create_guardrail":
       return {

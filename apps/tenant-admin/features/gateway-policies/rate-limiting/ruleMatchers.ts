@@ -1,8 +1,11 @@
 import type { GatewayRequestContext, RateLimitCondition, RateLimitRule } from "./ruleTypes";
 
+// Mirrors services/control-plane/internal/billing/budget_policies.go
+// (budgetStructuredConditionMatches), which evaluates both rate and budget rules.
+
 function toStringValue(value: unknown): string {
   if (value === undefined || value === null) return "";
-  return String(value);
+  return String(value).trim();
 }
 
 function compareText(operator: RateLimitCondition["operator"], actual: string, expected: string): boolean {
@@ -15,6 +18,7 @@ function compareText(operator: RateLimitCondition["operator"], actual: string, e
 }
 
 function compareNumeric(operator: RateLimitCondition["operator"], actual: number, expected: number): boolean {
+  if (Number.isNaN(actual) || Number.isNaN(expected)) return false;
   if (operator === "gt") return actual > expected;
   if (operator === "gte") return actual >= expected;
   if (operator === "lt") return actual < expected;
@@ -22,53 +26,39 @@ function compareNumeric(operator: RateLimitCondition["operator"], actual: number
   return false;
 }
 
-function getRequestField(request: GatewayRequestContext, field: RateLimitCondition["field"]): unknown {
-  switch (field) {
-    case "subject":
-      return request.subject;
-    case "model":
-      return request.model;
-    default:
-      return undefined;
-  }
+/** The request identity a subject condition reads, chosen by its subjectKind. */
+function subjectValue(request: GatewayRequestContext, kind: RateLimitCondition["subjectKind"]): string {
+  if (kind === "team") return toStringValue(request.teamId);
+  if (kind === "virtual_account") return toStringValue(request.apiKeyId);
+  if (kind === "organization_unit") return toStringValue(request.organizationUnitId);
+  return toStringValue(request.userId);
 }
 
 function doesConditionMatch(request: GatewayRequestContext, condition: RateLimitCondition): boolean {
   if (condition.field === "metadata") {
-    const key = condition.metadataKey ?? "";
-    const metadataValue = request.metadata?.[key];
-    if (condition.operator === "exists") return metadataValue !== undefined;
-    if (condition.operator === "not_exists") return metadataValue === undefined;
-    if (metadataValue === undefined) return false;
+    const raw = request.metadata?.[condition.metadataKey?.trim() ?? ""];
+    const actual = toStringValue(raw);
+    if (condition.operator === "exists") return raw !== undefined && actual !== "";
+    if (condition.operator === "not_exists") return raw === undefined || actual === "";
     if (["gt", "gte", "lt", "lte"].includes(condition.operator)) {
-      return compareNumeric(condition.operator, Number(metadataValue), Number(condition.value));
+      return raw !== undefined && compareNumeric(condition.operator, Number(actual), Number(toStringValue(condition.value)));
     }
-    return compareText(condition.operator, toStringValue(metadataValue), toStringValue(condition.value));
+    return compareText(condition.operator, actual, toStringValue(condition.value));
   }
 
-  const requestValue = toStringValue(getRequestField(request, condition.field));
-  const values = (condition.values ?? []).map((v) => toStringValue(v));
-  if (condition.operator === "in") return values.includes(requestValue);
-  if (condition.operator === "not_in") return !values.includes(requestValue);
-  return compareText(condition.operator, requestValue, toStringValue(condition.value));
+  const actual = condition.field === "model" ? toStringValue(request.model) : subjectValue(request, condition.subjectKind);
+  const values = (condition.values ?? []).map(toStringValue).filter(Boolean);
+  if (condition.operator === "in") return values.includes(actual);
+  if (condition.operator === "not_in") return !values.includes(actual);
+  return false;
+}
+
+/** Whether the conditions alone match, ignoring enabled state and schedule. */
+export function doConditionsMatch(request: GatewayRequestContext, conditions: RateLimitCondition[] | undefined): boolean {
+  return (conditions ?? []).every((condition) => doesConditionMatch(request, condition));
 }
 
 export function doesRequestMatchRateLimitRule(request: GatewayRequestContext, rule: RateLimitRule): boolean {
   if (!rule.enabled) return false;
-  if (!rule.conditions?.conditions?.length) return true;
-  return rule.conditions.conditions.every((condition) => doesConditionMatch(request, condition));
-}
-
-export function buildRateLimitKey(request: GatewayRequestContext, rule: RateLimitRule): string {
-  const parts = [`rate_limit`, rule.rule_id];
-  for (const condition of rule.conditions.conditions) {
-    if (condition.field === "metadata") {
-      const key = condition.metadataKey ?? "unknown";
-      parts.push(`meta:${key}=${toStringValue(request.metadata?.[key])}`);
-      continue;
-    }
-    const value = toStringValue(getRequestField(request, condition.field));
-    parts.push(`${condition.field}:${value}`);
-  }
-  return parts.join(":");
+  return doConditionsMatch(request, rule.conditions?.conditions);
 }

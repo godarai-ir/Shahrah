@@ -151,9 +151,9 @@ Use `JsonViewer` for read-only structured JSON such as request payloads, respons
 
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 
-Use the feature-level `GatewayPolicyRulesList` for the shared Rate Limit and Budget Limit page shell. It composes `PageHeader`, entitlement-aware create actions, notice feedback, `DataListPanel`, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog.
+Use the feature-level `GatewayPolicyRulesList` for the gateway limit-rules page shell. It composes notice feedback, `DataListPanel` with a caller-owned `toolbar` and `createAction`, an optional `aside` column (the request simulator) that sits beside the list on wide screens and below it on narrow ones, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog. Pass `filtered` so the empty state drops its create action while a search or filter narrows the list.
 
-Keep policy tables, columns, row actions, API calls, rule forms, and domain types in their owning feature. The shared shell must not introduce a generic gateway-rule model.
+Rule rows read as one sentence from `ruleSentence`; do not reintroduce limit/window/dimension columns. Rule forms, row rendering, API calls, and domain types stay in `features/gateway-policies`.
 
 ## Dropdowns And Lists
 

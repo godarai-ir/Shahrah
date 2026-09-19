@@ -33,6 +33,9 @@ export const budgetLimitConditionSchema = z
     values: z.array(z.string().min(1)).optional(),
     value: z.union([z.string(), z.number(), z.boolean()]).optional(),
     metadataKey: z.string().optional(),
+    subjectKind: z.enum(["user", "team", "virtual_account", "organization_unit"]).optional(),
+    /** Display names captured when the value was picked; the gateway ignores this key. */
+    valueLabels: z.record(z.string(), z.string()).optional(),
   })
   .superRefine((val, ctx) => {
     if ((val.field === "subject" || val.field === "model") && val.operator !== "in") {

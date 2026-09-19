@@ -1,0 +1,261 @@
+{
+  "title": "قواعد محدودیت",
+  "description": "محدودیت نرخ و سقف بودجه درخواست‌های گیت‌وی در یک فهرست، به همان ترتیبی که گیت‌وی بررسی می‌کند.",
+  "searchPlaceholder": "جست‌وجو در نام، شناسه، مدل یا درخواست‌کننده",
+  "evaluationNote": "قواعد به ترتیب اولویت بررسی می‌شوند (عدد کمتر زودتر). هر قاعده‌ای که به درخواست بخورد شمارنده جدای خودش را دارد و اولین سقفی که پر شود درخواست را با خطای 429 رد می‌کند. ارزیابی فقط بعد از قاعده‌ای که «توقف ارزیابی» دارد متوقف می‌شود.",
+  "budgetEvaluationNote": "ترتیب در سقف‌های بودجه اثری ندارد: هزینه هر درخواست از همه سقف‌های فعالی که به آن می‌خورند کم می‌شود و پر شدن هر کدام درخواست را رد می‌کند.",
+  "overlapWarning": "با {count, number} قاعده دیگر هم‌پوشانی دارد: {names}",
+  "overlapNone": "با هیچ قاعده فعال دیگری هم‌پوشانی ندارد.",
+  "overlapExplanation": "درخواستی که به همه این قواعد بخورد باید زیر همه سقف‌ها بماند.",
+  "legacySubjectRow": "شرط درخواست‌کننده در قالب قدیمی ذخیره شده و در گیت‌وی به هیچ درخواستی نمی‌خورد. قاعده را باز و دوباره ذخیره کنید.",
+  "priorityTitle": "اولویت {priority, number}",
+  "rowActions": "عملیات قاعده {name}",
+  "copyName": "{name} (کپی)",
+  "actions": {
+    "new": "قاعده جدید",
+    "edit": "ویرایش",
+    "enable": "فعال‌سازی",
+    "disable": "غیرفعال‌سازی",
+    "duplicate": "تکثیر",
+    "delete": "حذف"
+  },
+  "types": {
+    "rate": "محدودیت نرخ",
+    "budget": "سقف بودجه",
+    "budgetShort": "بودجه"
+  },
+  "filters": {
+    "label": "نوع قاعده",
+    "all": "همه",
+    "rate": "محدودیت نرخ",
+    "budget": "سقف بودجه",
+    "disabled": "غیرفعال"
+  },
+  "status": {
+    "disabled": "غیرفعال",
+    "scheduled": "شروع از {date}",
+    "expired": "منقضی از {date}",
+    "expires": "تا {date}",
+    "countOnly": "فقط شمارش",
+    "stopsEvaluation": "توقف ارزیابی",
+    "noEffect": "بی‌اثر: مسدودسازی خاموش"
+  },
+  "sections": {
+    "rate": "محدودیت نرخ · {count, number} قاعده",
+    "budget": "سقف بودجه · {count, number} قاعده"
+  },
+  "emptyState": {
+    "title": "هنوز قاعده‌ای ندارید",
+    "description": "با یک محدودیت نرخ یا سقف بودجه مشخص کنید هر تیم، کاربر یا مدل چقدر می‌تواند از گیت‌وی استفاده کند."
+  },
+  "noResults": {
+    "title": "قاعده‌ای پیدا نشد",
+    "description": "عبارت جست‌وجو یا فیلتر نوع را تغییر دهید."
+  },
+  "messages": {
+    "loading": "در حال بارگذاری قواعد...",
+    "loadError": "بارگذاری قواعد ناموفق بود.",
+    "ruleNotFound": "قاعده «{ruleId}» پیدا نشد؛ ممکن است حذف شده باشد.",
+    "statusError": "تغییر وضعیت قاعده ناموفق بود.",
+    "duplicated": "کپی غیرفعال قاعده ساخته شد.",
+    "duplicateError": "تکثیر قاعده ناموفق بود.",
+    "deleted": "قاعده حذف شد.",
+    "deleteError": "حذف قاعده ناموفق بود."
+  },
+  "deleteDialog": {
+    "title": "حذف «{name}»؟",
+    "description": "این قاعده برای همیشه حذف می‌شود: {sentence}"
+  },
+  "targets": {
+    "anySubject": "همه درخواست‌کننده‌ها",
+    "anyModel": "همه مدل‌ها"
+  },
+  "metadata": {
+    "none": "شرط متادیتا ندارد. متادیتا فقط وقتی کار می‌کند که کلاینت آن را در بدنه درخواست بفرستد."
+  },
+  "subjectKinds": {
+    "user": {
+      "one": "کاربر",
+      "many": "کاربران"
+    },
+    "team": {
+      "one": "تیم",
+      "many": "تیم‌های"
+    },
+    "organization_unit": {
+      "one": "واحد سازمانی",
+      "many": "واحدهای سازمانی"
+    },
+    "virtual_account": {
+      "one": "اکانت مجازی",
+      "many": "اکانت‌های مجازی"
+    }
+  },
+  "operators": {
+    "equals": "برابر با",
+    "not_equals": "نابرابر با",
+    "contains": "شامل",
+    "starts_with": "شروع با",
+    "ends_with": "پایان با",
+    "exists": "ارسال شده باشد",
+    "not_exists": "ارسال نشده باشد",
+    "gt": "بزرگ‌تر از",
+    "gte": "بزرگ‌تر یا برابر",
+    "lt": "کوچک‌تر از",
+    "lte": "کوچک‌تر یا برابر"
+  },
+  "sentence": {
+    "rule": "برای {subjects} روی {models} {limit}{metadata}",
+    "anySubject": "همه درخواست‌کننده‌ها",
+    "anyModel": "همه مدل‌ها",
+    "quoted": "«{value}»",
+    "listSeparator": "، ",
+    "subjectOne": "{kind} «{name}»",
+    "subjectMany": "هر یک از {kind} {names}",
+    "modelMany": "هر یک از مدل‌های {models}",
+    "rateLimit": "حداکثر {max} {dimension} در هر {window}",
+    "windowMany": "{value} {unit}",
+    "units": {
+      "second": "ثانیه",
+      "minute": "دقیقه",
+      "hour": "ساعت",
+      "day": "روز",
+      "week": "هفته",
+      "month": "ماه"
+    },
+    "unitsMany": {
+      "second": "ثانیه",
+      "minute": "دقیقه",
+      "hour": "ساعت",
+      "day": "روز",
+      "week": "هفته",
+      "month": "ماه"
+    },
+    "dimensions": {
+      "requests": "درخواست",
+      "tokens": "توکن"
+    },
+    "budgetLimit": "حداکثر {amount} ریال هزینه در هر {period}",
+    "periods": {
+      "cost_per_day": "روز",
+      "cost_per_week": "هفته",
+      "cost_per_month": "ماه"
+    },
+    "appliesPer": "، جدا برای هر {scope}",
+    "scopes": {
+      "user": "کاربر",
+      "team": "تیم",
+      "org_unit": "واحد سازمانی",
+      "model": "مدل",
+      "virtualaccount": "اکانت مجازی",
+      "metadata": "مقدار متادیتای {key}"
+    },
+    "metadata": "، به شرط {count, number} شرط متادیتا"
+  },
+  "editor": {
+    "preview": "این قاعده در فهرست این‌طور خوانده می‌شود",
+    "sheetDescription": "هدف، سقف و ترتیب ارزیابی قاعده را تنظیم کنید.",
+    "newRateTitle": "محدودیت نرخ جدید",
+    "editRateTitle": "ویرایش محدودیت نرخ",
+    "rateDescription": "تعداد درخواست یا توکن را در یک بازه زمانی محدود کنید.",
+    "newBudgetTitle": "سقف بودجه جدید",
+    "editBudgetTitle": "ویرایش سقف بودجه",
+    "budgetDescription": "هزینه درخواست‌ها را در هر روز، هفته یا ماه محدود کنید.",
+    "legacySubject": "شرط درخواست‌کننده این قاعده در قالب قدیمی ذخیره شده بود و گیت‌وی آن را با هیچ درخواستی تطبیق نمی‌داد. با ذخیره، به قالب درست تبدیل می‌شود.",
+    "legacySubjectDropped": "این قاعده چند نوع درخواست‌کننده داشت؛ فقط نوع اول نگه داشته شد، چون هر قاعده یک نوع را هدف می‌گیرد.",
+    "subjectTitle": "درخواست‌کننده",
+    "subjectDescription": "خالی یعنی همه درخواست‌کننده‌ها. هر قاعده فقط یک نوع را هدف می‌گیرد. «تیم» یعنی تیمِ کلید API درخواست، نه عضویت کاربر در تیم.",
+    "subjectChip": "{kind}: {name}",
+    "remove": "حذف {label}",
+    "modelTitle": "مدل",
+    "modelDescription": "خالی یعنی همه مدل‌ها. برای هر مدل انتخاب‌شده شمارنده جدا نگه داشته می‌شود.",
+    "metadataTitle": "متادیتا",
+    "metadataDescription": "همه شرط‌ها باید برقرار باشند. متادیتا فقط وقتی کار می‌کند که کلاینت آن را در بدنه درخواست بفرستد.",
+    "addMetadata": "افزودن شرط متادیتا",
+    "metadataKey": "کلید شرط متادیتای {index, number}",
+    "metadataOperator": "عملگر شرط متادیتای {index, number}",
+    "metadataValue": "مقدار شرط متادیتای {index, number}",
+    "metadataKeyPlaceholder": "کلید، مثلا project_id",
+    "metadataValuePlaceholder": "مقدار",
+    "removeMetadata": "حذف شرط متادیتای {index, number}",
+    "picker": {
+      "users": "کاربران",
+      "teams": "تیم‌ها",
+      "orgUnits": "واحدهای سازمانی",
+      "virtualAccounts": "اکانت‌های مجازی",
+      "externalIdentities": "هویت خارجی",
+      "searchSubject": "جست‌وجوی نام...",
+      "addSubject": "افزودن درخواست‌کننده",
+      "loading": "در حال بارگذاری...",
+      "empty": "موردی پیدا نشد",
+      "minSearchHint": "دست‌کم دو حرف بنویسید.",
+      "addModel": "افزودن مدل",
+      "searchModel": "جست‌وجوی مدل...",
+      "providerModels": "مدل‌های پروایدر",
+      "virtualModels": "مدل‌های مجازی"
+    },
+    "sections": {
+      "identity": "مشخصات",
+      "targets": "روی چه درخواست‌هایی اعمال شود؟",
+      "targetsDescription": "درخواست باید همه شرط‌های زیر را داشته باشد.",
+      "limit": "سقف",
+      "evaluation": "ترتیب ارزیابی",
+      "evaluationDescription": "قواعد به ترتیب اولویت بررسی می‌شوند و همه قواعدی که به درخواست بخورند اعمال می‌شوند، مگر اینکه یکی از آن‌ها ارزیابی را متوقف کند."
+    },
+    "limitSentence": {
+      "prefix": "حداکثر",
+      "per": "در هر"
+    },
+    "enforcement": {
+      "label": "وقتی سقف پر شد",
+      "hard": {
+        "title": "رد درخواست",
+        "description": "عبور از سقف با خطای 429 رد می‌شود."
+      },
+      "soft": {
+        "title": "فقط شمارش",
+        "description": "مصرف شمرده می‌شود ولی درخواست رد نمی‌شود.",
+        "badge": "نرم"
+      }
+    },
+    "afterMatch": {
+      "label": "بعد از تطبیق این قاعده",
+      "continue": {
+        "title": "ادامه ارزیابی",
+        "description": "قواعد بعدی هم بررسی و اعمال می‌شوند.",
+        "badge": "پیش‌فرض"
+      },
+      "stop": {
+        "title": "توقف ارزیابی",
+        "description": "قواعد بعدی برای این درخواست بررسی نمی‌شوند.",
+        "badge": "اولین تطبیق"
+      }
+    }
+  },
+  "simulator": {
+    "title": "شبیه‌سازی یک درخواست",
+    "description": "ببینید یک درخواست مشخص به کدام قواعد می‌خورد و کدام سقف واقعاً اعمال می‌شود.",
+    "requester": "درخواست‌کننده",
+    "pickRequester": "انتخاب کاربر، تیم یا اکانت",
+    "requesterHint": "یک درخواست هم‌زمان کاربر، تیمِ کلید و اکانت مجازی دارد؛ از هر نوع یکی را انتخاب کنید.",
+    "model": "مدل",
+    "metadata": "متادیتا",
+    "metadataPlaceholder": "key=value و Enter",
+    "resultLabel": "نتیجه شبیه‌سازی",
+    "empty": "هیچ قاعده‌ای این درخواست را محدود نمی‌کند؛ فقط سقف پلن و اعتبار حساب اعمال می‌شود.",
+    "outcomes": {
+      "enforced": "اعمال می‌شود",
+      "countOnly": "فقط شمارش",
+      "notReached": "بررسی نمی‌شود",
+      "noEffect": "بی‌اثر"
+    },
+    "notReachedNote": "ارزیابی در «{name}» متوقف شد.",
+    "enforcementNote": "هر قاعده شمارنده جدا دارد؛ اولین سقفی که پر شود درخواست را رد می‌کند.",
+    "dormantTitle": "قواعدی که الان اعمال نمی‌شوند",
+    "dormant": {
+      "disabled": "اگر فعال بود، این درخواست را هم می‌گرفت.",
+      "scheduled": "هنوز شروع نشده؛ از زمان شروع این درخواست را هم می‌گیرد.",
+      "expired": "منقضی شده و دیگر اعمال نمی‌شود."
+    }
+  }
+}

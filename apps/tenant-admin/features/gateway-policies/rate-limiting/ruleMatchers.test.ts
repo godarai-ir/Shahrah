@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRateLimitKey, doesRequestMatchRateLimitRule } from "./ruleMatchers";
+import { doConditionsMatch, doesRequestMatchRateLimitRule } from "./ruleMatchers";
 import type { RateLimitRule } from "./ruleTypes";
 
 const baseRule: RateLimitRule = {
@@ -11,7 +11,7 @@ const baseRule: RateLimitRule = {
   conditions: {
     combinator: "AND",
     conditions: [
-      { field: "subject", operator: "in", values: ["Iman Zareh", "Team A"] },
+      { field: "subject", operator: "in", subjectKind: "team", values: ["team-a", "team-b"] },
       { field: "model", operator: "in", values: ["chatgpt-image-latest", "gpt-4o-mini-2024-07-18"] },
       { field: "metadata", operator: "equals", metadataKey: "my-key", value: "7090" },
     ],
@@ -26,44 +26,41 @@ const baseRule: RateLimitRule = {
 };
 
 describe("doesRequestMatchRateLimitRule", () => {
-  it("matches subject/model/metadata equals", () => {
+  it("matches the subject through its kind, plus model and metadata", () => {
     expect(
-      doesRequestMatchRateLimitRule(
-        { subject: "Team A", model: "chatgpt-image-latest", metadata: { "my-key": "7090" } },
-        baseRule,
-      ),
+      doesRequestMatchRateLimitRule({ teamId: "team-a", model: "chatgpt-image-latest", metadata: { "my-key": "7090" } }, baseRule),
     ).toBe(true);
   });
 
-  it("supports metadata exists and not_in", () => {
-    const rule = {
-      ...baseRule,
-      conditions: {
-        combinator: "AND" as const,
-        conditions: [
-          { field: "model" as const, operator: "not_in" as const, values: ["blocked-model"] },
-          { field: "metadata" as const, operator: "exists" as const, metadataKey: "k1" },
-        ],
-      },
-    };
-    expect(doesRequestMatchRateLimitRule({ model: "gpt-4o", metadata: { k1: "1" } }, rule)).toBe(true);
+  it("does not read a team subject from the user identity", () => {
+    expect(
+      doesRequestMatchRateLimitRule({ userId: "team-a", model: "chatgpt-image-latest", metadata: { "my-key": "7090" } }, baseRule),
+    ).toBe(false);
   });
 
-  it("supports contains behavior", () => {
-    const rule = {
-      ...baseRule,
-      conditions: { combinator: "AND" as const, conditions: [{ field: "metadata" as const, operator: "contains" as const, metadataKey: "k", value: "abc" }] },
-    };
-    expect(doesRequestMatchRateLimitRule({ metadata: { k: "xyzabcuvw" } }, rule)).toBe(true);
+  it("reads the user identity when subjectKind is missing, as the gateway does", () => {
+    const conditions = [{ field: "subject" as const, operator: "in" as const, values: ["user-1"] }];
+    expect(doConditionsMatch({ userId: "user-1" }, conditions)).toBe(true);
+    // Legacy `kind:id` tokens are compared verbatim and never equal a real ID.
+    expect(doConditionsMatch({ userId: "user-1" }, [{ ...conditions[0], values: ["user:user-1"] }])).toBe(false);
   });
-});
 
-describe("buildRateLimitKey", () => {
-  it("builds deterministic key", () => {
-    const key = buildRateLimitKey(
-      { subject: "Team A", model: "chatgpt-image-latest", metadata: { "my-key": "7090" } },
-      baseRule,
-    );
-    expect(key).toBe("rate_limit:image-model-hourly-limit:subject:Team A:model:chatgpt-image-latest:meta:my-key=7090");
+  it("ignores disabled rules", () => {
+    expect(doesRequestMatchRateLimitRule({ teamId: "team-a", model: "chatgpt-image-latest", metadata: { "my-key": "7090" } }, { ...baseRule, enabled: false })).toBe(false);
+  });
+
+  it("supports metadata exists and model not_in", () => {
+    const conditions = [
+      { field: "model" as const, operator: "not_in" as const, values: ["blocked-model"] },
+      { field: "metadata" as const, operator: "exists" as const, metadataKey: "k1" },
+    ];
+    expect(doConditionsMatch({ model: "gpt-4o", metadata: { k1: "1" } }, conditions)).toBe(true);
+    expect(doConditionsMatch({ model: "gpt-4o", metadata: { k1: " " } }, conditions)).toBe(false);
+  });
+
+  it("supports contains and numeric comparisons", () => {
+    expect(doConditionsMatch({ metadata: { k: "xyzabcuvw" } }, [{ field: "metadata", operator: "contains", metadataKey: "k", value: "abc" }])).toBe(true);
+    expect(doConditionsMatch({ metadata: { tier: 3 } }, [{ field: "metadata", operator: "gte", metadataKey: "tier", value: "2" }])).toBe(true);
+    expect(doConditionsMatch({}, [{ field: "metadata", operator: "lt", metadataKey: "tier", value: "2" }])).toBe(false);
   });
 });

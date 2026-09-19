@@ -9,7 +9,8 @@ import { useEffect } from "react";
 export function useCommandShortcut(toggle: () => void) {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
+      // Browser autofill dispatches keydown events without a key.
+      if (typeof event.key !== "string" || event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
       if (event.defaultPrevented) return;
       event.preventDefault();
       toggle();

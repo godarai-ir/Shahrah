@@ -296,12 +296,11 @@ export default function DesignSystemPage() {
       <section className="rounded-xl border border-border p-4">
         <GatewayPolicyRulesList
           title="Gateway policy rules"
-          createLabel="New rule"
-          onCreate={() => setPolicySheetOpen(true)}
+          createAction={<Button type="button" onClick={() => setPolicySheetOpen(true)}>New rule</Button>}
           alertLabels={{ error: "Error", success: "Success" }}
-          query={policyQuery}
-          onQueryChange={setPolicyQuery}
-          searchPlaceholder="Search rules"
+          toolbar={<SearchField placeholder="Search rules" value={policyQuery} onChange={(event) => setPolicyQuery(event.target.value)} />}
+          filtered={Boolean(policyQuery)}
+          aside={<div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">Feature-owned side panel</div>}
           itemCount={1}
           loading={false}
           loadingLabel="Loading rules"

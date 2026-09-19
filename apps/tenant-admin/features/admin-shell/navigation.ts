@@ -52,8 +52,7 @@ export type AdminNavKey =
   | "traces"
   | "metrics"
   | "orgUnits"
-  | "rateLimitPolicies"
-  | "budgetLimitPolicies"
+  | "gatewayRules"
   | "guardrails"
   | "supportTickets"
   | "settings"
@@ -81,7 +80,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const GATEWAY_POLICY_TAB_KEYS: AdminNavKey[] = ["rateLimitPolicies", "budgetLimitPolicies", "guardrails"];
+export const GATEWAY_POLICY_TAB_KEYS: AdminNavKey[] = ["gatewayRules", "guardrails"];
 export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "bankTransfer", "billingReports", "billingDocuments", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
@@ -360,19 +359,12 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["org_unit:list", "org_unit:read"],
     },
     {
-      key: "rateLimitPolicies",
-      href: "/gateway-policies/rate-limiting-rules",
-      title: t("nav.rateLimitPolicies"),
+      // Rate and budget rules share one list at the section root; the old per-type routes redirect here.
+      key: "gatewayRules",
+      href: "/gateway-policies",
+      title: t("nav.gatewayRules"),
       icon: Gauge,
-      isActive: pathname.startsWith("/gateway-policies/rate-limiting-rules"),
-      requiredPermissions: ["policy:list"],
-    },
-    {
-      key: "budgetLimitPolicies",
-      href: "/gateway-policies/budget-limiting-rules",
-      title: t("nav.budgetLimitPolicies"),
-      icon: CircleDollarSign,
-      isActive: pathname.startsWith("/gateway-policies/budget-limiting-rules"),
+      isActive: pathname.startsWith("/gateway-policies"),
       requiredPermissions: ["policy:list"],
     },
     {

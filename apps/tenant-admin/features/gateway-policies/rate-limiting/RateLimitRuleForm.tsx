@@ -1,19 +1,10 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  ChevronUp,
-  Layers3,
-  ListOrdered,
-  Plus,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { ArrowDownToLine, Ban, ChevronDown, ChevronUp, Gauge, OctagonX } from "lucide-react";
 
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
@@ -22,79 +13,43 @@ import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { FormSection } from "@/components/app-ui/FormSection";
 import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
-import { PageContainer } from "@/components/app-ui/PageContainer";
-import { PageHeader } from "@/components/app-ui/PageHeader";
-import { RemovableChipList } from "@/components/app-ui/RemovableChipList";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { StatusOptionGroup } from "@/components/app-ui/StatusOptionGroup";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Field,
-  FieldDescription,
-  FieldError as FormFieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
+import { FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  PrincipalEntitySelect,
-  type PrincipalEntitySelection,
-  type PrincipalEntitySelectLabels,
-} from "@/components/app-ui/PrincipalEntitySelect";
-import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } from "@/components/app-ui/ModelEntitySelect";
-import { GatewayPolicyRuleSheetFooter } from "@/features/gateway-policies/components";
-
-import { createRateLimitRule, updateRateLimitRule } from "./ruleApi";
-import type { RateLimitCondition, RateLimitRule } from "./ruleTypes";
-import { rateLimitRuleSchema, type RateLimitRuleFormInput } from "./ruleValidation";
-import { loadPolicyModelOptions, searchPolicyPrincipals as searchPrincipals } from "../lookups";
+import { GatewayPolicyRuleSheetFooter, RuleOverlapNote, RuleSentencePreview, RuleTargetsEditor } from "@/features/gateway-policies/components";
+import { findOverlappingRules, type PolicyRule } from "@/features/gateway-policies/policy-rules";
+import { buildRuleConditions, readRuleTargets } from "@/features/gateway-policies/rule-targets";
 import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-message";
 import { getLocaleDirection } from "@/lib/locale-direction";
 
-const fieldOptions = ["subject", "model", "metadata"] as const;
+import { createRateLimitRule, updateRateLimitRule } from "./ruleApi";
+import type { RateLimitRule } from "./ruleTypes";
+import { rateLimitRuleSchema, type RateLimitRuleFormInput } from "./ruleValidation";
 
-const metadataOperatorOptions = ["exists", "not_exists", "equals", "not_equals", "contains", "starts_with", "ends_with", "gt", "gte", "lt", "lte"] as const;
-
-function subjectTokenFromSelection(selection: PrincipalEntitySelection) {
-  return `${selection.type}:${selection.principal_id ?? selection.display_name}`;
-}
-
-function toSubjectSelection(token: string): PrincipalEntitySelection {
-  const [typeRaw, ...rest] = token.split(":");
-  const principalId = rest.join(":");
-  const type = (typeRaw || "user") as PrincipalEntitySelection["type"];
-  return {
-    type,
-    principal_id: principalId,
-    display_name: principalId,
-  };
-}
+const WINDOW_UNITS = ["minute", "hour", "day", "week", "month", "second"] as const;
 
 type RateLimitRuleFormProps = {
   initialRule?: RateLimitRule;
-  embedded?: boolean;
-  onCancel?: () => void;
-  onSaved?: () => void | Promise<void>;
+  /** Every loaded rule, for the overlap warning. */
+  rules: PolicyRule[];
+  onCancel: () => void;
+  onSaved: () => void | Promise<void>;
 };
 
-export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onSaved }: RateLimitRuleFormProps) {
+export function RateLimitRuleForm({ initialRule, rules, onCancel, onSaved }: RateLimitRuleFormProps) {
   const t = useTranslations("rateLimitRules");
+  const tp = useTranslations("gatewayPolicies");
   const locale = useLocale();
-  const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "error"; message: string } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [subjectPickerSelection, setSubjectPickerSelection] = useState<Record<number, PrincipalEntitySelection | null>>({});
-  const [subjectDisplayNameByRow, setSubjectDisplayNameByRow] = useState<Record<number, Record<string, string>>>({});
-  const [modelPickerSelection, setModelPickerSelection] = useState<Record<number, ModelSelection | null>>({});
-  const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
-  const [virtualModels, setVirtualModels] = useState<ModelSelection[]>([]);
+  const [now] = useState(() => new Date());
+  const storedTargets = useMemo(() => readRuleTargets(initialRule?.conditions?.conditions), [initialRule]);
 
   const defaultValues = useMemo<RateLimitRuleFormInput>(
     () => ({
@@ -103,8 +58,9 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
       description: initialRule?.description ?? "",
       enabled: initialRule?.enabled ?? true,
       priority: initialRule?.priority ?? 100,
-      conditions: initialRule?.conditions ?? { combinator: "AND", conditions: [] },
-      limit: initialRule?.limit ?? { dimension: "requests", max: 1, window: { value: 1, unit: "hour" } },
+      // Re-writing through the targets model upgrades legacy `kind:id` subjects to the shape the gateway reads.
+      conditions: { combinator: "AND", conditions: buildRuleConditions(readRuleTargets(initialRule?.conditions?.conditions)) },
+      limit: initialRule?.limit ?? { dimension: "requests", max: 60, window: { value: 1, unit: "minute" } },
       conflict_behavior: initialRule?.conflict_behavior ?? "most_restrictive",
       response_behavior: "return_429",
       soft_limit: initialRule?.soft_limit ?? false,
@@ -120,114 +76,31 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
     mode: "onChange",
     defaultValues,
   });
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "conditions.conditions" });
-  const watchedConditions = useWatch({ control: form.control, name: "conditions.conditions" });
-  const selectedWindowUnit = useWatch({ control: form.control, name: "limit.window.unit" });
-  const enabled = useWatch({ control: form.control, name: "enabled" });
-  const limitDimension = useWatch({ control: form.control, name: "limit.dimension" });
-  const priority = useWatch({ control: form.control, name: "priority" });
-  const conflictBehavior = useWatch({ control: form.control, name: "conflict_behavior" });
-  const softLimit = useWatch({ control: form.control, name: "soft_limit" });
-  const retryAfterHeader = useWatch({ control: form.control, name: "retry_after_header" });
-  const fieldRows = fields.map((field, index) => ({
-    field,
-    index,
-    rowField: watchedConditions?.[index]?.field ?? "subject",
-  }));
-  const metadataIndexes = fieldRows.filter((item) => item.rowField === "metadata").map((item) => item.index);
-  const nonMetadataIndexes = fieldRows.filter((item) => item.rowField !== "metadata").map((item) => item.index);
-  const fieldLabel: Record<(typeof fieldOptions)[number], string> = {
-    subject: t("filters.fields.subject"),
-    model: t("filters.fields.model"),
-    metadata: t("filters.fields.metadata"),
-  };
-  const metadataOperatorLabel: Record<(typeof metadataOperatorOptions)[number], string> = {
-    exists: t("filters.operators.exists"),
-    not_exists: t("filters.operators.not_exists"),
-    equals: t("filters.operators.equals"),
-    not_equals: t("filters.operators.not_equals"),
-    contains: t("filters.operators.contains"),
-    starts_with: t("filters.operators.starts_with"),
-    ends_with: t("filters.operators.ends_with"),
-    gt: t("filters.operators.gt"),
-    gte: t("filters.operators.gte"),
-    lt: t("filters.operators.lt"),
-    lte: t("filters.operators.lte"),
-  };
-  const principalLabels: PrincipalEntitySelectLabels = {
-    users: t("selectors.principal.users"),
-    teams: t("selectors.principal.teams"),
-    orgUnits: t("selectors.principal.orgUnits"),
-    virtualAccounts: t("selectors.principal.virtualAccounts"),
-    externalIdentities: t("selectors.principal.externalIdentities"),
-    everyone: t("selectors.principal.everyone"),
-    searchPlaceholder: t("selectors.principal.searchPlaceholder"),
-    triggerPlaceholder: t("selectors.principal.triggerPlaceholder"),
-    loading: t("selectors.principal.loading"),
-    empty: t("selectors.principal.empty"),
-  };
-  const modelLabels: ModelEntitySelectLabels = {
-    triggerPlaceholder: t("selectors.model.triggerPlaceholder"),
-    searchPlaceholder: t("selectors.model.searchPlaceholder"),
-    providerAllowed: t("selectors.model.providerAllowed"),
-    virtualModels: t("selectors.model.virtualModels"),
-    loading: t("selectors.model.loading"),
-    empty: t("selectors.model.empty"),
-  };
+  const values = useWatch({ control: form.control }) as RateLimitRuleFormInput;
+  const conditions = values.conditions?.conditions;
+  const errors = form.formState.errors;
 
-  useEffect(() => {
-    void (async () => {
-      const options = await loadPolicyModelOptions();
-      setProviderAllowedModels(options.providerAllowedModels);
-      setVirtualModels(options.virtualModels);
-    })();
-  }, []);
+  const draft: PolicyRule = { type: "rate", rule: { ...(values as RateLimitRule), conditions: { combinator: "AND", conditions: conditions ?? [] } } };
+  const overlapping = values.enabled === false
+    ? []
+    : findOverlappingRules("rate", readRuleTargets(conditions), rules, now, initialRule ? `rate:${initialRule.rule_id}` : undefined);
 
-  function getUsedFields(excludeIndex?: number) {
-    const used = new Set<string>();
-    (watchedConditions ?? []).forEach((condition, index) => {
-      if (excludeIndex !== undefined && index === excludeIndex) return;
-      if (condition?.field && condition.field !== "metadata") used.add(condition.field);
-    });
-    return used;
+  function set<K extends Parameters<typeof form.setValue>[0]>(name: K, value: Parameters<typeof form.setValue<K>>[1]) {
+    form.setValue(name, value, { shouldValidate: true, shouldDirty: true });
   }
 
-  function getNextAvailableField() {
-    const used = getUsedFields();
-    return fieldOptions.find((option) => option === "metadata" || !used.has(option));
-  }
-
-  function normalizeCondition(condition: RateLimitCondition): RateLimitCondition {
-    if (condition.field === "metadata") return condition;
-    const joined = condition.values?.[0] ?? "";
-    const values = joined.split(",").map((item) => item.trim()).filter(Boolean);
-    return { ...condition, values, operator: "in" };
-  }
-
-  async function onSubmit(values: RateLimitRuleFormInput) {
+  async function onSubmit(submitted: RateLimitRuleFormInput) {
     setIsSaving(true);
     setNotice(null);
-    const parsed = rateLimitRuleSchema.parse(values);
-    const normalized = {
-      ...parsed,
-      conditions: {
-        ...parsed.conditions,
-        conditions: parsed.conditions.conditions.map((condition) => normalizeCondition(condition as RateLimitCondition) as never),
-      },
-    };
+    const parsed = rateLimitRuleSchema.parse(submitted);
     try {
       if (initialRule) {
-        await updateRateLimitRule(initialRule.rule_id, normalized);
+        await updateRateLimitRule(initialRule.rule_id, parsed);
       } else {
-        await createRateLimitRule(normalized);
+        await createRateLimitRule(parsed);
       }
       showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.saveSuccess") });
-      if (onSaved) {
-        await onSaved();
-        return;
-      }
-      router.push("/gateway-policies/rate-limiting-rules");
-      router.refresh();
+      await onSaved();
     } catch (error) {
       setNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.saveError")) });
     } finally {
@@ -235,352 +108,132 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
     }
   }
 
-  const title = initialRule ? t("form.editTitle") : t("form.addTitle");
-
   return (
-    <PageContainer size={embedded ? "full" : "wide"}>
-      <PageHeader
-        eyebrow={t("eyebrow")}
-        title={title}
-        description={t("form.headerDescription")}
-        actions={initialRule ? <Badge variant="secondary">{initialRule.rule_id}</Badge> : undefined}
-      />
+    <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold md:text-lg">{initialRule ? tp("editor.editRateTitle") : tp("editor.newRateTitle")}</h2>
+        <p className="text-sm leading-6 text-muted-foreground">{tp("editor.rateDescription")}</p>
+      </div>
 
-      {notice ? (
-        <Alert variant={notice.kind === "error" ? "destructive" : "default"}>
-          <AlertTitle>{notice.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
-        </Alert>
-      ) : null}
+      <RuleSentencePreview rule={draft} />
+
+      <OperationNotice notice={notice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
 
       <form id="rate-limit-rule-form" className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormSection>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
-
-            <DisplayNameField id="name" label={t("form.fields.name")} description={t("form.descriptions.name")} placeholder={t("form.placeholders.name")} error={form.formState.errors.name?.message} {...form.register("name")} />
+        <FormSection title={tp("editor.sections.identity")} className="md:grid-cols-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DisplayNameField id="rate-rule-name" label={t("form.fields.name")} placeholder={t("form.placeholders.name")} error={errors.name?.message} {...form.register("name")} />
+            <IdentifierField id="rate-rule-id" label={t("form.fields.ruleId")} error={errors.rule_id?.message} {...form.register("rule_id")} />
           </div>
-
-          <FormField label={t("form.fields.description")} htmlFor="description" description={t("form.descriptions.description")}>
-            <Textarea id="description" placeholder={t("form.placeholders.description")} {...form.register("description")} />
-          </FormField>
-
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="rate-rule-description">{t("form.fields.description")}</FieldLabel>
+            <Textarea id="rate-rule-description" placeholder={t("form.placeholders.description")} {...form.register("description")} />
+          </div>
           <AppSwitchField
-            id="enabled"
+            id="rate-rule-enabled"
             label={t("form.switches.enabled.title")}
             description={t("form.switches.enabled.description")}
-            checked={Boolean(enabled)}
-            onCheckedChange={(checked) => form.setValue("enabled", checked, { shouldValidate: true, shouldDirty: true })}
+            checked={Boolean(values.enabled)}
+            onCheckedChange={(checked) => set("enabled", checked)}
           />
         </FormSection>
 
-        <FormSection
-          title={t("filters.title")}
-          description={t("filters.description")}
-          className={embedded ? "md:grid-cols-1" : undefined}
-          actions={embedded ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!getNextAvailableField()}
-              onClick={() => {
-                const nextField = getNextAvailableField();
-                if (!nextField) return;
-                append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
-              }}
-            >
-              <Plus data-icon="inline-start" />
-              {t("actions.addFilter")}
-            </Button>
-          ) : undefined}
-        >
-          <div className="flex flex-col gap-4">
-            {!embedded ? (
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {t("filters.helper")}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!getNextAvailableField()}
-                  onClick={() => {
-                    const nextField = getNextAvailableField();
-                    if (!nextField) return;
-                    append({ field: nextField, operator: nextField === "metadata" ? "equals" : "in", values: undefined });
-                  }}
-                >
-                  <Plus data-icon="inline-start" />
-                  {t("actions.addFilter")}
-                </Button>
-              </div>
-            ) : null}
-
-            {fields.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm leading-6 text-muted-foreground">
-                {t("filters.empty")}
-              </div>
-            ) : null}
-
-            {nonMetadataIndexes.map((index) => {
-              const field = fields[index];
-              const rowField = watchedConditions?.[index]?.field ?? "subject";
-              const usedByOthers = getUsedFields(index);
-              const rowValues = watchedConditions?.[index]?.values;
-              const subjectTokens = ((rowValues as Array<string | undefined> | undefined) ?? []).filter(
-                (token): token is string => typeof token === "string" && token.trim().length > 0,
-              );
-              const modelValues = (((rowValues as string[] | undefined) ?? []).filter((item) => typeof item === "string" && item.trim().length > 0));
-
-              return (
-                <div key={field.id} className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <InlineSelect
-                        value={rowField}
-                        ariaLabel={t("aria.filterFieldType")}
-                        onValueChange={(value) =>
-                          form.setValue(`conditions.conditions.${index}.field`, value as (typeof fieldOptions)[number], {
-                            shouldValidate: true,
-                            shouldDirty: true,
-                          })
-                        }
-                        options={fieldOptions
-                          .filter((option) => option === rowField || !usedByOthers.has(option))
-                          .map((option) => ({ value: option, label: fieldLabel[option] }))}
-                      />
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={t("aria.removeFilter")}>
-                      <Trash2 />
-                    </Button>
-                  </div>
-
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      {rowField === "subject" ? (
-                        <PrincipalEntitySelect
-                          id={`subject-selector-${index}`}
-                          selected={subjectPickerSelection[index] ?? null}
-                          onSelectedChange={(value) => setSubjectPickerSelection((prev) => ({ ...prev, [index]: value }))}
-                          onSearch={searchPrincipals}
-                          labels={principalLabels}
-                          kinds={["user", "team", "org_unit", "virtual_account"]}
-                          triggerClassName="h-10 min-h-10 rounded-lg"
-                        />
-                      ) : (
-                        <ModelEntitySelect
-                          id={`model-selector-${index}`}
-                          selected={modelPickerSelection[index] ?? null}
-                          onSelectedChange={(value) => setModelPickerSelection((prev) => ({ ...prev, [index]: value }))}
-                          providerAllowedModels={providerAllowedModels}
-                          virtualModels={virtualModels}
-                          labels={modelLabels}
-                          triggerClassName="h-10 rounded-lg"
-                        />
-                      )}
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      disabled={rowField === "subject" ? !subjectPickerSelection[index] : !modelPickerSelection[index]}
-                      onClick={() => {
-                        if (rowField === "subject") {
-                          const selected = subjectPickerSelection[index];
-                          if (!selected) return;
-                          const token = subjectTokenFromSelection(selected);
-                          if (subjectTokens.includes(token)) return;
-                          form.setValue(`conditions.conditions.${index}.values`, [...subjectTokens, token], { shouldValidate: true, shouldDirty: true });
-                          setSubjectDisplayNameByRow((prev) => ({
-                            ...prev,
-                            [index]: {
-                              ...(prev[index] ?? {}),
-                              [token]: selected.display_name || selected.principal_id || token,
-                            },
-                          }));
-                          setSubjectPickerSelection((prev) => ({ ...prev, [index]: null }));
-                          return;
-                        }
-
-                        const selected = modelPickerSelection[index];
-                        if (!selected || modelValues.includes(selected.name)) return;
-                        form.setValue(`conditions.conditions.${index}.values`, [...modelValues, selected.name], { shouldValidate: true, shouldDirty: true });
-                        setModelPickerSelection((prev) => ({ ...prev, [index]: null }));
-                      }}
-                    >
-                      <Plus data-icon="inline-start" />
-                      {t("actions.add")}
-                    </Button>
-                  </div>
-
-                  {subjectTokens.length > 0 || modelValues.length > 0 ? (
-                    <div className="border-t border-border pt-3">
-                      {rowField === "subject" ? (
-                        <RemovableChipList variant="outline" items={subjectTokens.map((token) => { const item = toSubjectSelection(token); const displayName = subjectDisplayNameByRow[index]?.[token] ?? item.display_name ?? item.principal_id ?? token; const label = `${item.type}: ${displayName}`; return { value: token, label, removeLabel: t("aria.removeSelection", { label }) }; })} onRemove={(token) => { form.setValue(`conditions.conditions.${index}.values`, subjectTokens.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true }); setSubjectDisplayNameByRow((prev) => { const nextRow = { ...(prev[index] ?? {}) }; delete nextRow[token]; return { ...prev, [index]: nextRow }; }); }} />
-                      ) : (
-                        <RemovableChipList variant="outline" items={modelValues.map((token) => ({ value: token, label: token, removeLabel: t("aria.removeSelection", { label: token }), textDir: "ltr" as const }))} onRemove={(token) => form.setValue(`conditions.conditions.${index}.values`, modelValues.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true })} />
-                      )}
-                    </div>
-                  ) : null}
-
-                  <FormFieldError>{form.formState.errors.conditions?.conditions?.[index]?.values?.message}</FormFieldError>
-                </div>
-              );
-            })}
-
-            {metadataIndexes.length > 0 ? (
-              <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-base font-semibold text-card-foreground">{t("filters.metadataTitle")}</h3>
-                  <p className="text-sm leading-6 text-muted-foreground">{t("filters.metadataDescription")}</p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {metadataIndexes.map((index, itemIndex) => {
-                    const operatorError = form.formState.errors.conditions?.conditions?.[index]?.operator?.message;
-                    const keyError = form.formState.errors.conditions?.conditions?.[index]?.metadataKey?.message;
-                    const valueError = form.formState.errors.conditions?.conditions?.[index]?.value?.message;
-
-                    return (
-                      <div key={fields[index]?.id ?? `metadata-${index}`} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
-                        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_14rem_minmax(0,1.2fr)_auto_auto]">
-                          <Input
-                            placeholder={t("form.placeholders.metadataKey")}
-                            aria-invalid={Boolean(keyError)}
-                            {...form.register(`conditions.conditions.${index}.metadataKey`)}
-                          />
-
-                          <InlineSelect
-                            value={watchedConditions?.[index]?.operator ?? "equals"}
-                            ariaLabel={t("aria.metadataOperator")}
-                            onValueChange={(value) =>
-                              form.setValue(`conditions.conditions.${index}.operator`, value as (typeof metadataOperatorOptions)[number], {
-                                shouldValidate: true,
-                                shouldDirty: true,
-                              })
-                            }
-                            options={metadataOperatorOptions.map((option) => ({ value: option, label: metadataOperatorLabel[option] }))}
-                          />
-
-                          <Input
-                            placeholder={t("form.placeholders.metadataValue")}
-                            aria-invalid={Boolean(valueError)}
-                            {...form.register(`conditions.conditions.${index}.value` as const)}
-                          />
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            aria-label={t("aria.addMetadataRow")}
-                            onClick={() => append({ field: "metadata", operator: "equals", values: undefined })}
-                          >
-                            <Plus />
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => remove(index)}
-                            aria-label={t("aria.removeMetadataRow", { index: itemIndex + 1 })}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
-
-                        <div className="grid gap-2 md:grid-cols-3">
-                          <FormFieldError>{keyError}</FormFieldError>
-                          <FormFieldError>{operatorError}</FormFieldError>
-                          <FormFieldError>{valueError}</FormFieldError>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
+        <FormSection title={tp("editor.sections.targets")} description={tp("editor.sections.targetsDescription")} className="md:grid-cols-1">
+          <RuleTargetsEditor value={conditions} onChange={(next) => set("conditions.conditions", next)} disabled={isSaving} storedTargets={storedTargets} />
+          <RuleOverlapNote overlapping={overlapping} variant="editor" />
         </FormSection>
 
-        <FormSection
-          title={t("form.sections.limit")}
-          description={t("form.descriptions.limit")}
-          className={embedded ? "md:grid-cols-1" : undefined}
-        >
-          <div className={embedded ? "grid gap-3 sm:grid-cols-2" : "grid gap-4 lg:grid-cols-4"}>
-            <FormField label={t("form.fields.limitMax")} htmlFor="limit-max">
+        <FormSection title={tp("editor.sections.limit")} className="md:grid-cols-1">
+          <fieldset className="flex flex-col gap-2">
+            <legend className="sr-only">{tp("editor.sections.limit")}</legend>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span>{tp("editor.limitSentence.prefix")}</span>
               <Input
-                id="limit-max"
                 type="number"
+                dir="ltr"
                 min={1}
-                aria-invalid={Boolean(form.formState.errors.limit?.max)}
+                className="w-28 tabular-nums"
+                aria-label={t("form.fields.limitMax")}
+                aria-invalid={Boolean(errors.limit?.max) || undefined}
                 {...form.register("limit.max", { valueAsNumber: true })}
               />
-              <FormFieldError>{form.formState.errors.limit?.max?.message}</FormFieldError>
-            </FormField>
-
-            <FormField label={t("form.fields.limitDimension")}>
-              <InlineSelect
-                value={limitDimension ?? "requests"}
+              <AppSelectField
                 ariaLabel={t("aria.limitDimension")}
-                onValueChange={(value) => form.setValue("limit.dimension", value as "requests" | "tokens", { shouldValidate: true, shouldDirty: true })}
+                className="w-auto"
+                triggerClassName="min-w-28 rounded-lg"
+                value={values.limit?.dimension ?? "requests"}
+                onValueChange={(value) => set("limit.dimension", value as "requests" | "tokens")}
                 options={[
-                  { value: "requests", label: t("form.options.dimension.requests") },
-                  { value: "tokens", label: t("form.options.dimension.tokens") },
+                  { value: "requests", label: tp("sentence.dimensions.requests") },
+                  { value: "tokens", label: tp("sentence.dimensions.tokens") },
                 ]}
               />
-            </FormField>
-
-            <FormField label={t("form.fields.windowUnit")}>
-              <InlineSelect
-                value={selectedWindowUnit}
-                ariaLabel={t("aria.windowUnit")}
-                onValueChange={(value) =>
-                  form.setValue("limit.window.unit", value as "second" | "minute" | "hour" | "day" | "week" | "month", {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  })
-                }
-                options={[
-                  { value: "minute", label: t("form.options.windowUnit.minute") },
-                  { value: "hour", label: t("form.options.windowUnit.hour") },
-                  { value: "day", label: t("form.options.windowUnit.day") },
-                  { value: "week", label: t("form.options.windowUnit.week") },
-                  { value: "month", label: t("form.options.windowUnit.month") },
-                  { value: "second", label: t("form.options.windowUnit.second") },
-                ]}
-              />
-            </FormField>
-
-            <FormField
-              label={t("form.fields.windowValue")}
-              htmlFor="limit-window-value"
-              description={selectedWindowUnit === "second" ? t("form.descriptions.windowSeconds") : undefined}
-            >
+              <span>{tp("editor.limitSentence.per")}</span>
               <Input
-                id="limit-window-value"
                 type="number"
+                dir="ltr"
                 min={1}
                 step={1}
-                placeholder={selectedWindowUnit === "second" ? t("form.placeholders.windowCustom") : t("form.placeholders.windowDefault")}
-                aria-invalid={Boolean(form.formState.errors.limit?.window?.value)}
+                className="w-20 tabular-nums"
+                aria-label={t("form.fields.windowValue")}
+                aria-invalid={Boolean(errors.limit?.window?.value) || undefined}
                 {...form.register("limit.window.value", { valueAsNumber: true })}
               />
-              <FormFieldError>{form.formState.errors.limit?.window?.value?.message}</FormFieldError>
-            </FormField>
-          </div>
+              <AppSelectField
+                ariaLabel={t("aria.windowUnit")}
+                className="w-auto"
+                triggerClassName="min-w-28 rounded-lg"
+                value={values.limit?.window?.unit ?? "minute"}
+                onValueChange={(value) => set("limit.window.unit", value as (typeof WINDOW_UNITS)[number])}
+                options={WINDOW_UNITS.map((unit) => ({ value: unit, label: tp(`sentence.units.${unit}`) }))}
+              />
+            </div>
+            <FieldError>{errors.limit?.max?.message ?? errors.limit?.window?.value?.message}</FieldError>
+          </fieldset>
+
+          <StatusOptionGroup
+            label={tp("editor.enforcement.label")}
+            value={values.soft_limit ? "soft" : "hard"}
+            columns={2}
+            dir={getLocaleDirection(locale)}
+            disabled={isSaving}
+            onValueChange={(value) => set("soft_limit", value === "soft")}
+            options={[
+              { value: "hard", title: tp("editor.enforcement.hard.title"), description: tp("editor.enforcement.hard.description"), badge: "429", icon: OctagonX, tone: "success" },
+              { value: "soft", title: tp("editor.enforcement.soft.title"), description: tp("editor.enforcement.soft.description"), badge: tp("editor.enforcement.soft.badge"), icon: Gauge, tone: "warning" },
+            ]}
+          />
+        </FormSection>
+
+        <FormSection title={tp("editor.sections.evaluation")} description={tp("editor.sections.evaluationDescription")} className="md:grid-cols-1">
+          <AppNumberField
+            id="rate-rule-priority"
+            label={t("form.fields.priority")}
+            description={t("form.descriptions.priority")}
+            min={0}
+            step={1}
+            error={errors.priority?.message}
+            {...form.register("priority", { valueAsNumber: true })}
+          />
+          <StatusOptionGroup
+            label={tp("editor.afterMatch.label")}
+            // apply_all enforces exactly like most_restrictive in the gateway; it keeps its stored value until changed.
+            value={values.conflict_behavior === "first_match" ? "first_match" : "continue"}
+            columns={2}
+            dir={getLocaleDirection(locale)}
+            disabled={isSaving}
+            onValueChange={(value) => set("conflict_behavior", value === "first_match" ? "first_match" : "most_restrictive")}
+            options={[
+              { value: "continue", title: tp("editor.afterMatch.continue.title"), description: tp("editor.afterMatch.continue.description"), badge: tp("editor.afterMatch.continue.badge"), icon: ArrowDownToLine, tone: "success" },
+              { value: "first_match", title: tp("editor.afterMatch.stop.title"), description: tp("editor.afterMatch.stop.description"), badge: tp("editor.afterMatch.stop.badge"), icon: Ban, tone: "info" },
+            ]}
+          />
         </FormSection>
 
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <FormSection
             title={t("form.sections.advanced")}
-            description={t("form.descriptions.advanced")}
-            className={embedded ? "md:grid-cols-1" : undefined}
+            className="md:grid-cols-1"
             actions={(
               <CollapsibleTrigger asChild>
                 <Button type="button" variant="ghost" size="sm">
@@ -590,163 +243,26 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
               </CollapsibleTrigger>
             )}
           >
-            <div className="flex flex-wrap gap-2" aria-label={t("form.advanced.summaryLabel")}>
-              <Badge variant="outline">{t("form.advanced.summary.priority", { value: priority ?? 100 })}</Badge>
-              <Badge variant="outline">{t(`form.options.conflictBehavior.${conflictBehavior ?? "most_restrictive"}`)}</Badge>
-              <Badge variant={softLimit ? "secondary" : "outline"}>
-                {softLimit ? t("form.advanced.summary.soft") : t("form.advanced.summary.hard")}
-              </Badge>
-              <Badge variant={retryAfterHeader ? "secondary" : "outline"}>
-                <span dir="ltr">Retry-After</span>
-                <span aria-hidden="true">:</span>
-                {retryAfterHeader ? t("form.advanced.summary.enabled") : t("form.advanced.summary.disabled")}
-              </Badge>
-            </div>
-
-            <CollapsibleContent className="flex flex-col gap-6 border-t border-border pt-4">
-              <FieldSet>
-                <FieldLegend>{t("form.advanced.conflict.title")}</FieldLegend>
-                <FieldDescription>{t("form.advanced.conflict.description")}</FieldDescription>
-                <FieldGroup>
-                  <AppNumberField
-                    id="priority"
-                    label={t("form.fields.priority")}
-                    description={t("form.descriptions.priority")}
-                    min={0}
-                    step={1}
-                    error={form.formState.errors.priority?.message}
-                    {...form.register("priority", { valueAsNumber: true })}
-                  />
-
-                  <StatusOptionGroup
-                    label={t("form.fields.conflictBehavior")}
-                    value={conflictBehavior ?? "most_restrictive"}
-                    columns={3}
-                    dir={getLocaleDirection(locale)}
-                    onValueChange={(value) =>
-                      form.setValue("conflict_behavior", value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    options={[
-                      {
-                        value: "first_match",
-                        title: t("form.options.conflictBehavior.first_match"),
-                        description: t("form.advanced.conflict.options.first_match.description"),
-                        badge: t("form.advanced.conflict.options.first_match.badge"),
-                        icon: ListOrdered,
-                        tone: "info",
-                      },
-                      {
-                        value: "most_restrictive",
-                        title: t("form.options.conflictBehavior.most_restrictive"),
-                        description: t("form.advanced.conflict.options.most_restrictive.description"),
-                        badge: t("form.advanced.conflict.options.most_restrictive.badge"),
-                        icon: ShieldCheck,
-                        tone: "success",
-                      },
-                      {
-                        value: "apply_all",
-                        title: t("form.options.conflictBehavior.apply_all"),
-                        description: t("form.advanced.conflict.options.apply_all.description"),
-                        badge: t("form.advanced.conflict.options.apply_all.badge"),
-                        icon: Layers3,
-                        tone: "neutral",
-                      },
-                    ]}
-                  />
-                </FieldGroup>
-              </FieldSet>
-
-              <FieldSet>
-                <FieldLegend>{t("form.advanced.response.title")}</FieldLegend>
-                <FieldDescription>{t("form.advanced.response.description")}</FieldDescription>
-                <FieldGroup className="grid gap-4 lg:grid-cols-2">
-                  <AppSwitchField
-                    id="soft-limit"
-                    label={t("form.switches.softLimit.title")}
-                    description={t("form.switches.softLimit.description")}
-                    checked={Boolean(softLimit)}
-                    onCheckedChange={(checked) => form.setValue("soft_limit", checked, { shouldValidate: true, shouldDirty: true })}
-                  />
-
-                  <AppSwitchField
-                    id="retry-after-header"
-                    label={t("form.switches.retryAfterHeader.title")}
-                    description={t("form.switches.retryAfterHeader.description")}
-                    checked={Boolean(retryAfterHeader)}
-                    onCheckedChange={(checked) => form.setValue("retry_after_header", checked, { shouldValidate: true, shouldDirty: true })}
-                  />
-                </FieldGroup>
-              </FieldSet>
+            <CollapsibleContent>
+              <AppSwitchField
+                id="rate-rule-retry-after"
+                label={t("form.switches.retryAfterHeader.title")}
+                description={t("form.switches.retryAfterHeader.description")}
+                checked={Boolean(values.retry_after_header)}
+                disabled={Boolean(values.soft_limit)}
+                onCheckedChange={(checked) => set("retry_after_header", checked)}
+              />
             </CollapsibleContent>
           </FormSection>
         </Collapsible>
 
-        {embedded ? (
-          <GatewayPolicyRuleSheetFooter>
-            <FormSheetActions
-              secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/rate-limiting-rules")}>
-              {t("actions.cancel")}
-              </Button>}
-              primary={<Button type="submit" form="rate-limit-rule-form" disabled={!form.formState.isValid || isSaving}>
-              {isSaving ? t("actions.saving") : t("actions.save")}
-              </Button>}
-            />
-          </GatewayPolicyRuleSheetFooter>
-        ) : (
-          <div className="sticky bottom-0 border-t border-border bg-background px-6 py-4">
-            <FormSheetActions
-              secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => router.push("/gateway-policies/rate-limiting-rules")}>{t("actions.cancel")}</Button>}
-              primary={<Button type="submit" form="rate-limit-rule-form" disabled={!form.formState.isValid || isSaving}>{isSaving ? t("actions.saving") : t("actions.save")}</Button>}
-            />
-          </div>
-        )}
+        <GatewayPolicyRuleSheetFooter>
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={onCancel}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="rate-limit-rule-form" disabled={!form.formState.isValid || isSaving}>{isSaving ? t("actions.saving") : t("actions.save")}</Button>}
+          />
+        </GatewayPolicyRuleSheetFooter>
       </form>
-    </PageContainer>
+    </div>
   );
 }
-
-function FormField({
-  label,
-  htmlFor,
-  description,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Field className="min-w-0">
-      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
-      {children}
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-    </Field>
-  );
-}
-
-function InlineSelect({
-  value,
-  onValueChange,
-  options,
-  ariaLabel,
-}: {
-  value: string;
-  onValueChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
-  ariaLabel: string;
-}) {
-  return (
-    <AppSelectField
-      ariaLabel={ariaLabel}
-      value={value}
-      onValueChange={onValueChange}
-      triggerClassName="min-w-0 rounded-lg"
-      options={options}
-    />
-  );
-}
-

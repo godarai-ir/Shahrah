@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { requestParsedJSON } from "@/lib/http/api-client";
 
+import { RULE_LIST_LIMIT } from "../rate-limiting/ruleApi";
+
 import type { BudgetLimitRuleFormInput } from "./ruleValidation";
 import { budgetLimitRuleResponseSchema } from "./ruleValidation";
 
@@ -20,7 +22,7 @@ const successResponseSchema = z.union([
 ]);
 
 export function listBudgetLimitRules(query = "") {
-  return requestParsedJSON(listResponseSchema, `/api/gateway-policies/budget-limit-rules?query=${encodeURIComponent(query)}`);
+  return requestParsedJSON(listResponseSchema, `/api/gateway-policies/budget-limit-rules?query=${encodeURIComponent(query)}&limit=${RULE_LIST_LIMIT}`);
 }
 
 export function getBudgetLimitEntitlements() {
