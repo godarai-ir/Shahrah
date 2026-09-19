@@ -47,12 +47,11 @@ export type AdminNavKey =
   | "tracePrivacySettings"
   | "accessManagement"
   | "personalAccessTokens"
-  | "teams"
+  | "orgStructure"
   | "users"
   | "logs"
   | "traces"
   | "metrics"
-  | "orgUnits"
   | "gatewayRules"
   | "guardrails"
   | "supportTickets"
@@ -75,8 +74,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "users",
   "personalAccessTokens",
   "accessManagement",
-  "teams",
-  "orgUnits",
+  "orgStructure",
   "virtualUsers",
 ];
 
@@ -327,14 +325,6 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: [],
     },
     {
-      key: "teams",
-      href: "/teams",
-      title: t("nav.teams"),
-      icon: Users,
-      isActive: pathname.startsWith("/teams"),
-      requiredPermissions: ["team:read", "team:manage"],
-    },
-    {
       key: "users",
       href: "/users",
       title: t("nav.users"),
@@ -367,12 +357,12 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["settings:list"],
     },
     {
-      key: "orgUnits",
-      href: "/org-units",
-      title: t("nav.orgUnits"),
+      key: "orgStructure",
+      href: "/org-structure",
+      title: t("nav.orgStructure"),
       icon: Building2,
-      isActive: pathname.startsWith("/org-units"),
-      requiredPermissions: ["org_unit:list", "org_unit:read"],
+      isActive: ["/org-structure", "/teams", "/org-units"].some((prefix) => pathname.startsWith(prefix)),
+      requiredPermissions: ["team:read", "team:manage", "org_unit:list", "org_unit:read"],
     },
     {
       // Rate and budget rules share one list at the section root; the old per-type routes redirect here.
@@ -412,7 +402,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/users",
       title: t("nav.accessAndUsers"),
       icon: Users,
-      isActive: ["/users", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/users", "/org-structure", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
       // Personal access tokens are open to everyone; the individual tabs gate themselves.
       requiredPermissions: [],
     },

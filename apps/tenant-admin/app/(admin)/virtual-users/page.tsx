@@ -6,8 +6,8 @@ import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { parseVirtualUserListPayload } from "@/features/virtual-users/api";
-import { parseTeamListPayload } from "@/features/teams/api";
-import { parseOrgUnitListPayload } from "@/features/org-units/api";
+import { parseTeamListPayload } from "@/lib/api/teams";
+import { parseOrgUnitListPayload } from "@/lib/api/org-units";
 
 export const dynamic = "force-dynamic";
 

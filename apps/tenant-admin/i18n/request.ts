@@ -28,6 +28,7 @@ const MESSAGE_NAMESPACES = [
   "accessManagement",
   "orgUnits",
   "teams",
+  "orgStructure",
   "personalAccessTokens",
   "traces",
   "logs",
