@@ -19,6 +19,8 @@ app ───────────────► features ──────
 
 `components` and `lib` together are the shared layer. Do not create another shared UI hierarchy.
 
+The observe area (`/logs`, `/traces`, `/metrics`) is three features sharing one filter state. Because features must not import each other, the shared filter model lives in `lib/observe-filters.ts` and its query bar in `components/app-ui/ObserveQueryBar.tsx`. Each feature maps the shared filters onto its own and keeps view-specific filters to itself.
+
 ## Feature Shape
 
 Use only the files and folders a feature needs. Small features may stay flat; introduce `api`, `domain`, `server`, `ui`, or `tests` subfolders only when each folder has more than one cohesive module:
