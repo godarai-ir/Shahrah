@@ -11,6 +11,7 @@ import {
   type Filters,
   type LogRange,
   type LogsFormatter,
+  type SavedView,
 } from "./logs-types";
 
 export function isAbortError(error: unknown) {
@@ -87,6 +88,19 @@ export function isSameFilterSet(a: FilterSetInput, b: FilterSetInput): boolean {
   const right = normalizeFilterSet(b);
   const leftKeys = Object.keys(left);
   return leftKeys.length === Object.keys(right).length && leftKeys.every((key) => left[key] === right[key]);
+}
+
+/** The filter set a saved view stores: the relative range itself rather than timestamps derived from it. */
+export function savedViewFilters(filters: Filters): Record<string, string> {
+  return normalizeFilterSet(filters);
+}
+
+/** Restores a saved view's filters. Older views stored derived from/to without a range; those fall back to the default range. */
+export function filtersFromSavedView(view: Pick<SavedView, "filters">): Filters {
+  const normalized = normalizeFilterSet(view.filters);
+  const range = normalized.range in rangeMs ? normalized.range as Filters["range"] : DEFAULT_FILTERS.range;
+  const sortOrder = normalized.sort_order === "asc" ? "asc" : "desc";
+  return { ...DEFAULT_FILTERS, ...normalized, range, sort_order: sortOrder };
 }
 
 export function normalizeVisibleColumns(columns?: string[]) {

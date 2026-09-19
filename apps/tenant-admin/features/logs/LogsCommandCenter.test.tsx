@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import LogsCommandCenter from "./LogsCommandCenter";
@@ -36,6 +37,19 @@ vi.mock("next-intl", async (importOriginal) => {
 
 vi.mock("@/features/logs/RequestLoggingSettingsPanel", () => ({ default: () => null }));
 
+vi.mock("@/features/logs/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api")>();
+  const pending = () => new Promise<never>(() => {});
+  return {
+    ...actual,
+    getLogs: vi.fn(pending),
+    getLogSummary: vi.fn(pending),
+    getLogFacets: vi.fn(pending),
+    getLogAnalytics: vi.fn(pending),
+    getLogRangeStats: vi.fn(pending),
+  };
+});
+
 const log = {
   log_id: "log-1",
   request_id: "req-1",
@@ -46,7 +60,7 @@ const log = {
   duration_ms: 320,
 };
 
-function renderCenter() {
+function renderCenter(overrides: Partial<ComponentProps<typeof LogsCommandCenter>> = {}) {
   return render(
     <LogsCommandCenter
       initialLogs={{ data: [log], total: 1, limit: 25, offset: 0 }}
@@ -56,6 +70,7 @@ function renderCenter() {
       initialTimeseries={{ data: [] }}
       initialBreakdown={{ data: [] }}
       initialRangeStats={{ data: {} }}
+      {...overrides}
     />,
   );
 }
@@ -72,6 +87,35 @@ describe("LogsCommandCenter layout", () => {
     expect(summary.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(summary).not.toHaveAttribute("open");
     expect(container.querySelectorAll("details")).toHaveLength(1);
+  });
+
+  it("shows saved views as chips above the table and highlights the applied one", () => {
+    renderCenter({
+      initialSavedViews: {
+        data: [
+          { saved_view_id: "v1", name: "OpenAI 7d", filters: { provider: "openai", range: "7d" }, visible_columns: [], shared_scope: "tenant" },
+          { saved_view_id: "v2", name: "Legacy", filters: { from: "2026-01-01T00:00:00.000Z", to: "2026-01-02T00:00:00.000Z" }, visible_columns: [], shared_scope: "tenant" },
+        ],
+      },
+    });
+
+    const openai = screen.getByRole("button", { name: "OpenAI 7d" });
+    const legacy = screen.getByRole("button", { name: "Legacy" });
+    expect(openai.compareDocumentPosition(screen.getByRole("table")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(openai).toHaveAttribute("aria-pressed", "false");
+    // A legacy view that stored only derived timestamps matches the default 24h range.
+    expect(legacy).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(openai);
+
+    expect(openai).toHaveAttribute("aria-pressed", "true");
+    expect(legacy).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(legacy);
+
+    expect(legacy).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /From:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Saved views" })).not.toBeInTheDocument();
   });
 
   it("keeps metric cards and charts out of the page until the summary is opened", () => {

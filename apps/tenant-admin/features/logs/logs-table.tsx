@@ -2,7 +2,7 @@
 
 import { memo, type Dispatch, type SetStateAction } from "react";
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
-import { Columns3, Filter, FolderOpen, Save } from "lucide-react";
+import { Columns3, Filter } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { AppCard } from "@/components/app-ui/AppCard";
@@ -30,8 +30,6 @@ export const LogsTable = memo(function LogsTable({
   loading,
   visibleColumns,
   setVisibleColumns,
-  onOpenSaveView,
-  onOpenSavedViews,
   onPreviousPage,
   onNextPage,
   hasNextPage,
@@ -48,8 +46,6 @@ export const LogsTable = memo(function LogsTable({
   loading: boolean;
   visibleColumns: string[];
   setVisibleColumns: Dispatch<SetStateAction<string[]>>;
-  onOpenSaveView: () => void;
-  onOpenSavedViews: () => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
   hasNextPage: boolean;
@@ -61,14 +57,6 @@ export const LogsTable = memo(function LogsTable({
       title={t("table.title")}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={onOpenSaveView} aria-label={t("actions.saveView")} title={t("actions.saveView")}>
-            <Save className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("actions.saveView")}</span>
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={onOpenSavedViews} aria-label={t("actions.savedViews")} title={t("actions.savedViews")}>
-            <FolderOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("actions.savedViews")}</span>
-          </Button>
           <ColumnMenu visibleColumns={visibleColumns} setVisibleColumns={setVisibleColumns} t={t} />
         </div>
       }

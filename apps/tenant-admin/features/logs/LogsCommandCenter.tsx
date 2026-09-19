@@ -8,12 +8,10 @@ import {
   ChevronDown,
   Download,
   Eye,
-  FolderOpen,
   RefreshCw,
   RotateCcw,
   Save,
   Settings2,
-  Trash2,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -23,7 +21,6 @@ import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
-import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { DebouncedTextFilter, FilterField, RangeFilterField } from "@/components/app-ui/FilterField";
 import { FormDialog } from "@/components/app-ui/FormDialog";
@@ -74,6 +71,7 @@ import {
 } from "@/features/logs/api";
 import { LogsTable } from "@/features/logs/logs-table";
 import { RangeSummary } from "@/features/logs/RangeSummary";
+import { SavedViewsRow } from "@/features/logs/SavedViewsRow";
 import {
   DEFAULT_COLUMNS,
   DEFAULT_FILTERS,
@@ -96,17 +94,20 @@ import {
   buildQuery,
   buildRangeStatsQuery,
   createLogFormatters,
+  filtersFromSavedView,
   filtersFromSearchParams,
   formatCacheTimeseries,
   formatFilterNumber,
   formatTimeseries,
   isAbortError,
+  isSameFilterSet,
   limitChartPoints,
   normalizeRange,
   normalizeRangeValue,
   normalizeVisibleColumns,
   payloadStatus,
   rangeStep,
+  savedViewFilters,
   serializeFilters,
 } from "@/features/logs/logs-utils";
 
@@ -174,10 +175,9 @@ export default function LogsCommandCenter({
   const [traceAvailable, setTraceAvailable] = useState(false);
   const [viewName, setViewName] = useState("");
   const [saveViewOpen, setSaveViewOpen] = useState(false);
-  const [savedViewsOpen, setSavedViewsOpen] = useState(false);
   const [expandedChart, setExpandedChart] = useState<ExpandedChartKey | null>(null);
   const [requestLoggingOpen, setRequestLoggingOpen] = useState(false);
-  const [deletingViewID, setDeletingViewID] = useState("");
+  const [deletingViewID, setDeletingViewID] = useState<string | null>(null);
   const [includeContentExport, setIncludeContentExport] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(false);
@@ -519,15 +519,17 @@ export default function LogsCommandCenter({
   }, [limit, logs.next_offset]);
 
   const openSaveViewDialog = useCallback(() => setSaveViewOpen(true), []);
-  const openSavedViewsDialog = useCallback(() => setSavedViewsOpen(true), []);
 
   const activeChips = useMemo(() => activeFilterChips(filters, t), [filters, t]);
+  const activeViewID = useMemo(
+    () => savedViews.find((view) => isSameFilterSet(filters, view.filters))?.saved_view_id ?? null,
+    [filters, savedViews],
+  );
 
   const applySavedView = useCallback((view: SavedView) => {
-    setFilters({ ...DEFAULT_FILTERS, ...view.filters } as Filters);
+    setFilters(filtersFromSavedView(view));
     setVisibleColumns(normalizeVisibleColumns(view.visible_columns));
     setOffset(0);
-    setSavedViewsOpen(false);
   }, []);
 
   const saveCurrentView = useCallback(async () => {
@@ -535,7 +537,7 @@ export default function LogsCommandCenter({
     try {
       const created = await createSavedView({
         name: viewName.trim(),
-        filters: serializeFilters(filters),
+        filters: savedViewFilters(filters),
         visible_columns: visibleColumns,
         shared_scope: "tenant",
       });
@@ -555,7 +557,7 @@ export default function LogsCommandCenter({
     } catch (err) {
       setError(err instanceof Error ? err.message : t("savedViews.deleteError"));
     } finally {
-      setDeletingViewID("");
+      setDeletingViewID(null);
     }
   }, [t]);
 
@@ -675,6 +677,15 @@ export default function LogsCommandCenter({
           t={t}
         />
       </RangeSummary>
+      <SavedViewsRow
+        views={savedViews}
+        activeViewID={activeViewID}
+        onApply={applySavedView}
+        onDelete={deleteSavedView}
+        onSaveCurrent={openSaveViewDialog}
+        deletingViewID={deletingViewID}
+        t={t}
+      />
       <LogsTable
         rows={rows}
         columns={columns}
@@ -686,8 +697,6 @@ export default function LogsCommandCenter({
         loading={loading}
         visibleColumns={visibleColumns}
         setVisibleColumns={setVisibleColumns}
-        onOpenSaveView={openSaveViewDialog}
-        onOpenSavedViews={openSavedViewsDialog}
         onPreviousPage={previousPage}
         onNextPage={nextPage}
         hasNextPage={hasNextPage}
@@ -707,18 +716,12 @@ export default function LogsCommandCenter({
         formatters={formatters}
         t={t}
       />
-      <SavedViewsDialogs
-        saveViewOpen={saveViewOpen}
-        savedViewsOpen={savedViewsOpen}
+      <SaveViewDialog
+        open={saveViewOpen}
         viewName={viewName}
-        savedViews={savedViews}
-        deletingViewID={deletingViewID}
-        setSaveViewOpen={setSaveViewOpen}
-        setSavedViewsOpen={setSavedViewsOpen}
+        setOpen={setSaveViewOpen}
         setViewName={setViewName}
         onSaveCurrentView={saveCurrentView}
-        onApplySavedView={applySavedView}
-        onDeleteSavedView={deleteSavedView}
         t={t}
       />
       {canManageRequestLogging ? (
@@ -990,79 +993,37 @@ function DeferredLogsCharts(props: ComponentProps<typeof LogsCharts>) {
   );
 }
 
-const SavedViewsDialogs = memo(function SavedViewsDialogs({
-  saveViewOpen,
-  savedViewsOpen,
+const SaveViewDialog = memo(function SaveViewDialog({
+  open,
   viewName,
-  savedViews,
-  deletingViewID,
-  setSaveViewOpen,
-  setSavedViewsOpen,
+  setOpen,
   setViewName,
   onSaveCurrentView,
-  onApplySavedView,
-  onDeleteSavedView,
   t,
 }: {
-  saveViewOpen: boolean;
-  savedViewsOpen: boolean;
+  open: boolean;
   viewName: string;
-  savedViews: SavedView[];
-  deletingViewID: string;
-  setSaveViewOpen: Dispatch<SetStateAction<boolean>>;
-  setSavedViewsOpen: Dispatch<SetStateAction<boolean>>;
+  setOpen: Dispatch<SetStateAction<boolean>>;
   setViewName: Dispatch<SetStateAction<string>>;
   onSaveCurrentView: () => Promise<void>;
-  onApplySavedView: (view: SavedView) => void;
-  onDeleteSavedView: (viewID: string) => Promise<void>;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <>
-      <FormDialog open={saveViewOpen} onOpenChange={setSaveViewOpen} title={t("savedViews.saveTitle")} description={t("savedViews.saveDescription")} footer={(
-          <>
-            <Button type="button" variant="outline" onClick={() => setSaveViewOpen(false)}>
-              {t("actions.cancel")}
-            </Button>
-            <Button type="button" onClick={() => void onSaveCurrentView()} disabled={!viewName.trim()}>
-              <Save data-icon="inline-start" />
-              {t("actions.saveView")}
-            </Button>
-          </>
-      )}>
-        <AppTextField id="logs-save-view-name" label={t("savedViews.nameLabel")} value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
-      </FormDialog>
-
-      <FormDialog open={savedViewsOpen} onOpenChange={setSavedViewsOpen} title={t("savedViews.manageTitle")} description={t("savedViews.manageDescription")} size="md">
-          {savedViews.length ? (
-            <div className="grid gap-2">
-              {savedViews.map((view) => (
-                <div key={view.saved_view_id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{view.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{view.shared_scope}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => onApplySavedView(view)}>
-                      <FolderOpen className="h-4 w-4" />
-                      {t("actions.load")}
-                    </Button>
-                    <Button type="button" size="sm" variant="destructive" onClick={() => void onDeleteSavedView(view.saved_view_id)} disabled={deletingViewID === view.saved_view_id}>
-                      <Trash2 className="h-4 w-4" />
-                      {deletingViewID === view.saved_view_id ? t("savedViews.deleting") : t("actions.delete")}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title={t("savedViews.emptyTitle")} description={t("savedViews.emptyDescription")} />
-          )}
-      </FormDialog>
-    </>
+    <FormDialog open={open} onOpenChange={setOpen} title={t("savedViews.saveTitle")} description={t("savedViews.saveDescription")} footer={(
+        <>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            {t("actions.cancel")}
+          </Button>
+          <Button type="button" onClick={() => void onSaveCurrentView()} disabled={!viewName.trim()}>
+            <Save data-icon="inline-start" />
+            {t("actions.saveView")}
+          </Button>
+        </>
+    )}>
+      <AppTextField id="logs-save-view-name" label={t("savedViews.nameLabel")} value={viewName} onChange={(event) => setViewName(event.target.value)} placeholder={t("savedViews.namePlaceholder")} />
+    </FormDialog>
   );
 });
-
 
 const TextFilter = memo(function TextFilter({ label, value, onChange, mono }: { label: string; value: string; onChange: (value: string) => void; mono?: boolean }) {
   return <DebouncedTextFilter label={label} value={value} onValueChange={onChange} mono={mono} />;
