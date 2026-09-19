@@ -17,10 +17,9 @@ import {
 function t(key: string) {
   const dictionary: Record<string, string> = {
     "nav.roles": "نقش‌ها",
-    "nav.teams": "تیم‌ها",
     "nav.users": "کاربران",
     "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
-    "nav.orgUnits": "واحدهای سازمانی",
+    "nav.orgStructure": "ساختار سازمانی",
     "nav.virtualUsers": "کاربران مجازی",
     "nav.supportTickets": "پشتیبانی",
   };
@@ -43,14 +42,17 @@ describe("admin access navigation items", () => {
       "users",
       "personalAccessTokens",
       "accessManagement",
-      "teams",
-      "orgUnits",
+      "orgStructure",
       "virtualUsers",
     ]);
   });
 
-  it("shows the teams item for team:read only", () => {
-    expect(getVisibleTitles(["team:read"])).toContain("تیم‌ها");
+  it("shows the org structure item for team:read only", () => {
+    expect(getVisibleTitles(["team:read"])).toContain("ساختار سازمانی");
+  });
+
+  it("shows the org structure item for org_unit:read only", () => {
+    expect(getVisibleTitles(["org_unit:read"])).toContain("ساختار سازمانی");
   });
 
   it("shows the users item for user:list only", () => {
@@ -99,12 +101,14 @@ describe("admin sidebar sections", () => {
     expect(activeKeys("/gateway-policies/budget-limiting-rules")).toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
+    expect(activeKeys("/teams")).toContain("orgStructure");
+    expect(activeKeys("/org-units")).toContain("orgStructure");
     expect(activeKeys("/billing/topup")).toContain("billing");
   });
 
   it("keeps every retired key reachable as a tab key", () => {
     const tabKeys = [...ACCESS_NAV_ITEM_KEYS, ...OBSERVE_TAB_KEYS, ...GATEWAY_POLICY_TAB_KEYS, ...BILLING_TAB_KEYS];
-    for (const key of ["users", "teams", "logs", "metrics", "guardrails", "topup", "plan"] as const) {
+    for (const key of ["users", "orgStructure", "logs", "metrics", "guardrails", "topup", "plan"] as const) {
       expect(tabKeys).toContain(key);
     }
   });

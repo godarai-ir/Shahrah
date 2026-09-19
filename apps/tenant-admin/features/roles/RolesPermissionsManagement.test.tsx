@@ -146,7 +146,7 @@ describe("RolesPermissionsManagement", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("opens role creation in a left-side drawer when RBAC is enabled", async () => {
+  it("opens role creation in a drawer when RBAC is enabled", async () => {
     renderManagement();
 
     const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });

@@ -139,7 +139,6 @@ export function GatewayPolicyRulesList({
 
       <Sheet open={ruleSheet.open} onOpenChange={ruleSheet.onOpenChange}>
         <SheetContent
-          side="left"
           closeLabel={ruleSheet.closeLabel}
           className="flex w-full flex-col overflow-hidden p-0 sm:max-w-3xl"
           dir={ruleSheet.dir}

@@ -36,6 +36,14 @@ const teamListSchema = z.object({ data: z.array(teamSchema).optional(), total: z
 const memberListSchema = z.object({ data: z.array(teamMemberSchema).optional(), total: z.number().optional() });
 const principalListSchema = z.object({ data: z.array(accessPrincipalSchema).optional(), total: z.number().optional() });
 const entitlementSchema = z.object({ features: z.record(z.string(), z.unknown()).optional() }).nullable();
+const usageSummarySchema = z.object({
+  data: z.object({ request_count: z.number().optional(), cost_irr: z.number().optional() }).optional(),
+});
+const costBreakdownEntrySchema = z.object({
+  team_id: z.string().optional(),
+  cost_irr: z.number().optional(),
+});
+const costBreakdownSchema = z.object({ data: z.array(costBreakdownEntrySchema).optional() });
 
 export type Team = z.infer<typeof teamSchema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
@@ -57,6 +65,19 @@ export type TeamMemberPayload = {
 
 export function getTeamEntitlements() {
   return requestParsedJSON(entitlementSchema, "/api/entitlements");
+}
+
+export function getTeamUsage(params: URLSearchParams, signal: AbortSignal) {
+  return requestParsedJSON(usageSummarySchema, `/api/logs/summary?${params.toString()}`, { signal });
+}
+
+/**
+ * Per-team cost breakdown for the org-structure tree's "cost this month" column.
+ * group_by=team_id support on the control-plane analytics endpoint is unconfirmed;
+ * callers must treat a failure or an empty/unparseable response as "not available yet", not zero.
+ */
+export function listTeamCostBreakdown(params: URLSearchParams, signal: AbortSignal) {
+  return requestParsedJSON(costBreakdownSchema, `/api/logs/analytics?${params.toString()}`, { signal });
 }
 
 export function listTeams(params: URLSearchParams) {

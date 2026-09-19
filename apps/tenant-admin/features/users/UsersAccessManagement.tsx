@@ -269,7 +269,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     },
     {
       id: "actions",
-      header: () => <span className="sr-only">{t("actions.changeRole")}</span>,
+      header: () => <span className="sr-only">{t("actions.openMenu")}</span>,
       meta: { headerClassName: "w-14", cellClassName: "w-14 text-end" },
       cell: ({ row }) => {
         const user = row.original;
@@ -278,7 +278,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         const canDeactivate = !isSelf && !hasTenantAdminRole(user);
         return (
           <RowActionsMenu
-            label={t("actions.changeRole")}
+            label={t("actions.openMenu")}
             disabled={isSelf || isUpdatingUserID === user.id}
             actions={[
               {

@@ -44,11 +44,11 @@ function SheetOverlay({
 function SheetContent({
   className,
   children,
-  side = "left",
+  side = "inline-end",
   closeLabel = "Close",
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
-  side?: "top" | "right" | "bottom" | "left";
+  side?: "top" | "bottom" | "inline-start" | "inline-end";
   closeLabel?: string;
 }) {
   return (
@@ -58,8 +58,8 @@ function SheetContent({
         data-slot="sheet-content"
         className={cn(
           "fixed z-50 gap-4 bg-card p-5 text-card-foreground shadow-xl",
-          side === "right" && "inset-y-0 right-0 h-full w-4/5 border-l sm:max-w-sm",
-          side === "left" && "inset-y-0 left-0 h-full w-4/5 border-r sm:max-w-sm",
+          side === "inline-end" && "inset-y-0 end-0 h-full w-4/5 border-s sm:max-w-sm",
+          side === "inline-start" && "inset-y-0 start-0 h-full w-4/5 border-e sm:max-w-sm",
           side === "top" && "inset-x-0 top-0 border-b",
           side === "bottom" && "inset-x-0 bottom-0 border-t",
           className,

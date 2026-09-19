@@ -201,7 +201,6 @@ export function DataTable<TData, TValue>({
                   <TableHead
                     key={header.id}
                     className={header.column.columnDef.meta?.headerClassName}
-                    style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>

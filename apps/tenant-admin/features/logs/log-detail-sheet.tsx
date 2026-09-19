@@ -65,7 +65,7 @@ export const LogDetailSheet = memo(function LogDetailSheet({
 
   return (
     <Sheet open={selectedLog !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="left" closeLabel={closeLabel} className="flex w-full flex-col sm:max-w-2xl">
+      <SheetContent closeLabel={closeLabel} className="flex w-full flex-col sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>{t("detailTitle")}</SheetTitle>
           <SheetDescription asChild>

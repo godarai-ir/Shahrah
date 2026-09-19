@@ -1058,6 +1058,10 @@ func normalizeLogAnalyticsGroupBy(groupBy string) string {
 		return "load_balance_status"
 	case "payload_mode":
 		return "payload_mode"
+	case "team_id":
+		return "team_id"
+	case "org_unit_id":
+		return "org_unit_id"
 	default:
 		return ""
 	}
