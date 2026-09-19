@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-import { requestParsedJSON } from "@/lib/http/api-client";
+import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
+
+import { parseTraceAttempts, parseTraceDetail, parseTraceSpans } from "./detail-contracts";
 
 const requestTraceSchema = z.object({
   trace_id: z.string(), tenant_id: z.string(), request_id: z.string().optional(),
@@ -51,4 +53,19 @@ export function parseTraceListPayload(payload: unknown) {
 export function parseTracePrivacySettings(payload: unknown): TracePrivacySettings | null {
   const parsed = tracePrivacySettingsSchema.safeParse(payload);
   return parsed.success ? parsed.data : null;
+}
+
+/** One trace's summary. Null when the payload does not match the contract. */
+export async function getTraceDetail(traceID: string, signal?: AbortSignal) {
+  return parseTraceDetail(await requestJSON(`/api/traces/${encodeURIComponent(traceID)}`, { signal }));
+}
+
+/** Span timeline of a sampled trace. */
+export async function getTraceTimeline(traceID: string, signal?: AbortSignal) {
+  return parseTraceSpans(await requestJSON(`/api/traces/${encodeURIComponent(traceID)}/spans`, { signal }));
+}
+
+/** Provider attempts, including retry and fallback reasons. */
+export async function getTraceAttempts(traceID: string, signal?: AbortSignal) {
+  return parseTraceAttempts(await requestJSON(`/api/traces/${encodeURIComponent(traceID)}/attempts`, { signal }));
 }

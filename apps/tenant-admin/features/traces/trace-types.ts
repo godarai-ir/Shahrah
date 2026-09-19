@@ -40,17 +40,11 @@ export type TraceFilters = {
   sortOrder: "asc" | "desc";
 };
 
+/** Filters only the traces view has; the rest come from the shared observe filters. */
+export type TraceLocalFilters = Pick<TraceFilters, "traceID" | "route" | "sortBy" | "sortOrder">;
+
 export const PAGE_SIZE = 25;
 export const MAX_BREAKDOWN_ITEMS = 5;
-export const RANGE_PRESETS = ["last15m", "last1h", "last24h", "yesterday", "last3d", "last7d", "last14d", "last30d", "custom"] as const;
-export const DEFAULT_RANGE_PRESET = "last24h";
-export const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1000;
-export const ALL_MODELS_VALUE = "__all_models__";
-export const ALL_PROVIDERS_VALUE = "__all_providers__";
-export const TRACE_COLUMN_KEYS = ["startedAt", "status", "duration", "trace", "context", "endpoint", "error"] as const;
-
-export type RangePreset = (typeof RANGE_PRESETS)[number];
-export type TraceColumnKey = (typeof TRACE_COLUMN_KEYS)[number];
 
 export type TraceManagementProps = {
   initialData: RequestTrace[];

@@ -1,31 +1,53 @@
+import type { ObserveFilters } from "@/lib/observe-filters";
+
 import {
   BASE_FILTERS,
-  DEFAULT_RANGE_MS,
-  DEFAULT_RANGE_PRESET,
-  TRACE_COLUMN_KEYS,
   type BreakdownBucket,
   type FacetBucket,
-  type RangePreset,
   type RequestTrace,
   type StatusFacetBucket,
-  type TraceColumnKey,
   type TraceFilters,
+  type TraceLocalFilters,
 } from "./trace-types";
 
-export function createEmptyFilters(): TraceFilters {
-  return { ...BASE_FILTERS, from: "", to: "" };
+export function createDefaultLocalFilters(): TraceLocalFilters {
+  return { traceID: "", route: "", sortBy: BASE_FILTERS.sortBy, sortOrder: BASE_FILTERS.sortOrder };
 }
 
-export function createDefaultFilters(): TraceFilters {
-  const range = rangeForPreset(DEFAULT_RANGE_PRESET);
-  return { ...BASE_FILTERS, from: range.from, to: range.to };
+/** The trace list query: shared filters plus trace-only ones. `range` is the resolved window. */
+export function traceFiltersFromObserve(local: TraceLocalFilters, observe: ObserveFilters, range: { from: string; to: string }): TraceFilters {
+  return normalizeFilters({
+    ...BASE_FILTERS,
+    ...local,
+    requestID: observe.q,
+    model: observe.model,
+    provider: observe.provider,
+    statusCode: observe.status,
+    errorCode: observe.errorCode,
+    from: range.from,
+    to: range.to,
+  });
 }
 
-export function createDefaultColumnVisibility(): Record<TraceColumnKey, boolean> {
-  return TRACE_COLUMN_KEYS.reduce((visibility, key) => {
-    visibility[key] = true;
-    return visibility;
-  }, {} as Record<TraceColumnKey, boolean>);
+export function buildTraceFiltersQuery(filters: TraceFilters): string {
+  const params = new URLSearchParams();
+  const entries: Array<[string, string]> = [
+    ["trace_id", filters.traceID],
+    ["request_id", filters.requestID],
+    ["model", filters.model],
+    ["provider", filters.provider],
+    ["route", filters.route],
+    ["status_code", filters.statusCode],
+    ["error_code", filters.errorCode],
+    ["from", filters.from],
+    ["to", filters.to],
+    ["sort_by", filters.sortBy],
+    ["sort_order", filters.sortOrder],
+  ];
+  for (const [key, value] of entries) {
+    if (value) params.set(key, value);
+  }
+  return params.toString();
 }
 
 export function normalizeError(error: unknown, fallback: string) {
@@ -111,42 +133,7 @@ export function formatLocalDateTime(value: string, locale: string) {
   }).format(date);
 }
 
-export function formatIsoDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toISOString();
-}
-
-export function resolveSelectedRange(preset: RangePreset, from: string, to: string) {
-  if (preset === "custom") return { from, to };
-  return rangeForPreset(preset);
-}
-
 export function sortBuckets(a: { count: number; value: string }, b: { count: number; value: string }) {
   if (b.count !== a.count) return b.count - a.count;
   return a.value.localeCompare(b.value);
-}
-
-export function rangeForPreset(preset: Exclude<RangePreset, "custom">) {
-  const now = new Date();
-  if (preset === "yesterday") {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - 1);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return { from: start.toISOString(), to: end.toISOString() };
-  }
-
-  const durationMs = {
-    last15m: 15 * 60 * 1000,
-    last1h: 60 * 60 * 1000,
-    last24h: DEFAULT_RANGE_MS,
-    last3d: 3 * DEFAULT_RANGE_MS,
-    last7d: 7 * DEFAULT_RANGE_MS,
-    last14d: 14 * DEFAULT_RANGE_MS,
-    last30d: 30 * DEFAULT_RANGE_MS,
-  }[preset];
-
-  return { from: new Date(now.getTime() - durationMs).toISOString(), to: now.toISOString() };
 }

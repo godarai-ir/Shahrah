@@ -120,7 +120,8 @@
     "actions": {
       "openTrace": "Open trace {traceId}",
       "columns": "Columns",
-      "columnsMenu": "Visible columns"
+      "columnsMenu": "Visible columns",
+      "select": "Show trace {traceId}"
     },
     "meta": {
       "requestId": "req {id}",
@@ -253,5 +254,19 @@
         "span": "Span {name}"
       }
     }
+  },
+  "panel": {
+    "title": "Span waterfall",
+    "placeholderTitle": "Select a trace",
+    "placeholderDescription": "Pick a row to see that request's span waterfall and attempts here.",
+    "notSampledTitle": "This request was not sampled — only the summary is available.",
+    "notSampledPolicy": "Current capture policy: {policy}",
+    "policyUnavailable": "Capture policy unavailable",
+    "loadFailed": "Failed to load this trace.",
+    "openFull": "Full trace page",
+    "close": "Close",
+    "attemptsTitle": "Attempts",
+    "retry": "Retry: {reason}",
+    "fallback": "Fallback: {reason}"
   }
 }
