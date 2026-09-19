@@ -10,6 +10,11 @@ describe("FormSheet", () => {
     expect(screen.getByText("Form body")).toBeInTheDocument();
   });
 
+  it("opens from the inline-end edge by default", () => {
+    render(<FormSheet open onOpenChange={vi.fn()} title="Create team" description="Team details"><form>Form body</form></FormSheet>);
+    expect(screen.getByRole("dialog").className).toMatch(/\bend-0\b/);
+  });
+
   it("prevents dismissal while pending", () => {
     const onOpenChange = vi.fn();
     render(<FormSheet open pending onOpenChange={onOpenChange} title="Saving" description="Please wait">Body</FormSheet>);

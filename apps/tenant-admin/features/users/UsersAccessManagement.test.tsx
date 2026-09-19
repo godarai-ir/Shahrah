@@ -93,7 +93,7 @@ describe("UsersAccessManagement", () => {
     expect(screen.queryByText("inviteTitle")).not.toBeInTheDocument();
   });
 
-  it("opens the invite sheet from the left while capacity remains", async () => {
+  it("opens the invite sheet from the inline-end edge while capacity remains", async () => {
     renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });
@@ -101,7 +101,7 @@ describe("UsersAccessManagement", () => {
     fireEvent.click(inviteButton);
 
     expect(screen.getByRole("dialog")).toHaveTextContent("inviteDescription");
-    expect(screen.getByRole("dialog")).toHaveClass("left-0");
+    expect(screen.getByRole("dialog")).toHaveClass("end-0");
 
     fireEvent.click(screen.getByRole("combobox", { name: "form.role" }));
     expect(await screen.findByRole("option", { name: "Support Agent" })).toBeInTheDocument();

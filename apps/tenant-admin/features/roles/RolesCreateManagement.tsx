@@ -108,7 +108,6 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
       title={t("rolesPage.createTitle")}
       description={t("rolesPage.createDescription")}
       size="lg"
-      side="left"
       pending={isSubmitting}
       closeLabel={t("rolesPage.actions.cancel")}
       footer={

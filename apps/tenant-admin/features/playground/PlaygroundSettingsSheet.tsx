@@ -69,7 +69,7 @@ type PlaygroundSettingsSheetProps = {
   guardrailsLoading: boolean;
   cacheEntitlements: PlaygroundCacheEntitlements;
   readOnly: boolean;
-  side: "left" | "right";
+  dir: "rtl" | "ltr";
   onChange: (column: PlaygroundColumnDraft) => void;
   t: Translation;
 };
@@ -127,10 +127,9 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
-        side={props.side}
         closeLabel={props.t("actions.close")}
         className="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
-        dir={props.side === "left" ? "rtl" : "ltr"}
+        dir={props.dir}
       >
         <SheetHeader className="border-b border-border p-4 text-start">
           <SheetTitle>{props.t("settings.title")}</SheetTitle>

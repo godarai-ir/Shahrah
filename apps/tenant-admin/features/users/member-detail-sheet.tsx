@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { Activity, KeyRound, ShieldCheck } from "lucide-react";
 
@@ -39,7 +39,6 @@ export type MemberDetailSheetProps = {
 
 export function MemberDetailSheet(props: MemberDetailSheetProps) {
   const t = useTranslations("accessManagement");
-  const locale = useLocale();
   const calendarLocale = useCalendarLocale();
   const member = props.member;
 
@@ -64,8 +63,6 @@ export function MemberDetailSheet(props: MemberDetailSheetProps) {
   return (
     <Sheet open={Boolean(member)} onOpenChange={props.onOpenChange}>
       <SheetContent
-        // inline-start: the right edge in RTL, the left edge in LTR.
-        side={locale === "fa" ? "right" : "left"}
         closeLabel={t("actions.close")}
         className="flex w-full min-w-0 flex-col overflow-hidden p-0 sm:max-w-[440px]"
       >

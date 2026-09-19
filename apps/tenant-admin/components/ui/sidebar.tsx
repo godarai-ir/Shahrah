@@ -196,7 +196,8 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          side={side}
+          // Mobile drawer always opens from the same edge as the desktop sidebar (inline-start), independent of the `side` prop above (which is physical, for desktop CSS).
+          side="inline-start"
           closeLabel={mobileCloseLabel}
           className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
           style={

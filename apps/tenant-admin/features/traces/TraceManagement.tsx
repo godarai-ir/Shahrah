@@ -387,7 +387,7 @@ export default function TraceManagement(props: TraceManagementProps) {
       ) : null}
 
       <Sheet open={tracePrivacyOpen} onOpenChange={setTracePrivacyOpen}>
-        <SheetContent side="left" closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>{tracePrivacyT("title")}</SheetTitle>
           </SheetHeader>

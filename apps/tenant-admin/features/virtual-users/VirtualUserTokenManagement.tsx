@@ -602,7 +602,7 @@ export default function VirtualUserTokenManagement({
                         <Plus data-icon="inline-start" />
                         {t("actions.createToken")}
                       </Button>
-                      <SheetContent side="left" closeLabel={t("oneTime.close")} className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+                      <SheetContent closeLabel={t("oneTime.close")} className="w-full max-w-xl overflow-y-auto sm:w-3/4">
                         <SheetHeader>
                           <SheetTitle>{t("createToken.title")}</SheetTitle>
                           <SheetDescription>{t("createToken.description")}</SheetDescription>

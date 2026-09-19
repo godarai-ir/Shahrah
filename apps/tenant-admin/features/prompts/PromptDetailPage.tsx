@@ -703,7 +703,6 @@ function PromptVersionHistorySheet(props: {
   return (
     <Sheet open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
       <SheetContent
-        side="left"
         closeLabel={props.t("actions.close")}
         className="flex h-full w-full flex-col overflow-hidden p-0 sm:max-w-lg"
       >

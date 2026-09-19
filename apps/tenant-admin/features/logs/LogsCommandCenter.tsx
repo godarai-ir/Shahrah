@@ -735,7 +735,7 @@ export default function LogsCommandCenter({
       />
       {canManageRequestLogging ? (
         <Sheet open={requestLoggingOpen} onOpenChange={setRequestLoggingOpen}>
-          <SheetContent side="left" closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetContent closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
             <SheetHeader>
               <SheetTitle>{requestLoggingT("title")}</SheetTitle>
               <SheetDescription>{requestLoggingT("description")}</SheetDescription>

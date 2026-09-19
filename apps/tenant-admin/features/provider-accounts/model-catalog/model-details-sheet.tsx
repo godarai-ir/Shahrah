@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { BookOpen, FlaskConical, ScrollText, TriangleAlert } from "lucide-react";
 
@@ -50,7 +50,6 @@ export function ModelDetailsSheet({
   onOpenChange,
 }: ModelDetailsSheetProps) {
   const t = useTranslations("modelCatalog");
-  const locale = useLocale();
   const availability = model ? resolveModelAvailability(model, accountID) : null;
   const modelName = model ? formatCatalogModelDisplayName(model.model, model.display_name) : t("drawer.title");
   const links = useMemo(() => {
@@ -76,8 +75,6 @@ export function ModelDetailsSheet({
   return (
     <Sheet open={Boolean(model)} onOpenChange={onOpenChange}>
       <SheetContent
-        // inline-start: the right edge in RTL, the left edge in LTR.
-        side={locale === "fa" ? "right" : "left"}
         closeLabel={t("actions.close")}
         className="flex w-full min-w-0 flex-col overflow-hidden p-0 sm:max-w-[460px]"
       >

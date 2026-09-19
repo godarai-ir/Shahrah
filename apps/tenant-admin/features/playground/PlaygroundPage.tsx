@@ -599,14 +599,14 @@ export default function PlaygroundPage() {
       </div>
 
       <ModelPickerDialog open={modelPickerOpen} onOpenChange={setModelPickerOpen} search={modelSearch} onSearchChange={setModelSearch} models={modeModels} mode={mode} selectedModel={activeColumn.selectedModel} onSelect={(model) => { updateColumn({ ...activeColumn, selectedModel: model.id, selectedProvider: model.provider ?? "", dirty: true }); setModelPickerOpen(false); }} t={t} />
-      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} mode={mode} guardrails={guardrails} guardrailsLoading={guardrailsLoading} cacheEntitlements={cacheEntitlements} readOnly={!canRun} side={locale === "fa" ? "left" : "right"} onChange={updateColumn} t={t} />
+      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} mode={mode} guardrails={guardrails} guardrailsLoading={guardrailsLoading} cacheEntitlements={cacheEntitlements} readOnly={!canRun} dir={locale === "fa" ? "rtl" : "ltr"} onChange={updateColumn} t={t} />
       <VariablesSheet
         open={variablesOpen}
         onOpenChange={setVariablesOpen}
         variables={allVariables}
         columns={columns}
         readOnly={!canRun}
-        side={locale === "fa" ? "left" : "right"}
+        dir={locale === "fa" ? "rtl" : "ltr"}
         onChange={(name, value) => {
           setColumns((current) => current.map((column) => ({
             ...column,
@@ -811,14 +811,13 @@ function modelPickerIdentity(model: GatewayModel): { modelName: string; metadata
   return { modelName, metadata: [provider, account].filter(Boolean).join(" · ") };
 }
 
-function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) => void; variables: string[]; columns: PlaygroundColumnDraft[]; readOnly: boolean; side: "left" | "right"; onChange: (name: string, value: string) => void; t: PlaygroundTranslation }) {
+function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) => void; variables: string[]; columns: PlaygroundColumnDraft[]; readOnly: boolean; dir: "rtl" | "ltr"; onChange: (name: string, value: string) => void; t: PlaygroundTranslation }) {
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
-        side={props.side}
         closeLabel={props.t("actions.close")}
         className="flex w-full flex-col gap-0 p-0 sm:max-w-lg"
-        dir={props.side === "left" ? "rtl" : "ltr"}
+        dir={props.dir}
       >
         <SheetHeader className="border-b border-border p-4">
           <SheetTitle>{props.t("variables.title")}</SheetTitle>
