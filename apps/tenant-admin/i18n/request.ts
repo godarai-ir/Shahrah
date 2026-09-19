@@ -33,6 +33,7 @@ const MESSAGE_NAMESPACES = [
   "logs",
   "metrics",
   "invite",
+  "gatewayPolicies",
   "rateLimitRules",
   "budgetLimitRules",
   "guardrails",

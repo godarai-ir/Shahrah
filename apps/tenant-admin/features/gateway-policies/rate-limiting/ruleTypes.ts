@@ -15,11 +15,9 @@ export type RateLimitConflictBehavior = z.infer<typeof rateLimitRuleSchema>["con
 export type RateLimitResponseBehavior = z.infer<typeof rateLimitRuleSchema>["response_behavior"];
 export type RateLimitRule = z.infer<typeof rateLimitRuleResponseSchema>;
 
+/** The request identities the gateway matches rules against (platform.AuthContext). */
 export type GatewayRequestContext = {
-  subject?: string;
   model?: string;
-  provider?: string;
-  virtualAccount?: string;
   userId?: string;
   apiKeyId?: string;
   organizationUnitId?: string;

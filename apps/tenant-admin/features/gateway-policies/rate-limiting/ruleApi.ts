@@ -90,8 +90,11 @@ async function requestRateLimitJSON<T>(schema: z.ZodType<T>, path: string, optio
   }
 }
 
+/** The gateway compiles at most this many rules per type, so one page holds the whole set. */
+export const RULE_LIST_LIMIT = 1000;
+
 export function listRateLimitRules(query = "") {
-  return requestRateLimitJSON(listResponseSchema, `/api/gateway-policies/rate-limit-rules?query=${encodeURIComponent(query)}`);
+  return requestRateLimitJSON(listResponseSchema, `/api/gateway-policies/rate-limit-rules?query=${encodeURIComponent(query)}&limit=${RULE_LIST_LIMIT}`);
 }
 
 export function getRateLimitEntitlements() {

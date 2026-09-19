@@ -1,0 +1,261 @@
+{
+  "title": "Limit rules",
+  "description": "Rate limits and budget caps for gateway requests in one list, in the order the gateway checks them.",
+  "searchPlaceholder": "Search by name, ID, model, or requester",
+  "evaluationNote": "Rules are checked in priority order (lower numbers first). Every rule that matches a request keeps its own counter, and the first limit that fills rejects the request with 429. Evaluation stops early only after a matching rule set to stop evaluation.",
+  "budgetEvaluationNote": "Order does not matter for budget caps: each request is charged against every active cap it matches, and any full cap rejects it.",
+  "overlapWarning": "Overlaps with {count, plural, one {# other rule} other {# other rules}}: {names}",
+  "overlapNone": "Does not overlap any other active rule.",
+  "overlapExplanation": "A request that matches all of them has to stay under every limit.",
+  "legacySubjectRow": "The requester condition is stored in an old format that the gateway never matches. Open the rule and save it again.",
+  "priorityTitle": "Priority {priority, number}",
+  "rowActions": "Actions for rule {name}",
+  "copyName": "{name} (copy)",
+  "actions": {
+    "new": "New rule",
+    "edit": "Edit",
+    "enable": "Enable",
+    "disable": "Disable",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
+  },
+  "types": {
+    "rate": "Rate limit",
+    "budget": "Budget cap",
+    "budgetShort": "Budget"
+  },
+  "filters": {
+    "label": "Rule type",
+    "all": "All",
+    "rate": "Rate limits",
+    "budget": "Budget caps",
+    "disabled": "Disabled"
+  },
+  "status": {
+    "disabled": "Disabled",
+    "scheduled": "Starts {date}",
+    "expired": "Expired {date}",
+    "expires": "Until {date}",
+    "countOnly": "Count only",
+    "stopsEvaluation": "Stops evaluation",
+    "noEffect": "No effect: blocking off"
+  },
+  "sections": {
+    "rate": "Rate limits · {count, plural, one {# rule} other {# rules}}",
+    "budget": "Budget caps · {count, plural, one {# rule} other {# rules}}"
+  },
+  "emptyState": {
+    "title": "No rules yet",
+    "description": "Add a rate limit or budget cap to control how much each team, user, or model can use the gateway."
+  },
+  "noResults": {
+    "title": "No rules found",
+    "description": "Change the search or the type filter."
+  },
+  "messages": {
+    "loading": "Loading rules...",
+    "loadError": "Could not load rules.",
+    "ruleNotFound": "Rule “{ruleId}” was not found; it may have been deleted.",
+    "statusError": "Could not change the rule status.",
+    "duplicated": "A disabled copy of the rule was created.",
+    "duplicateError": "Could not duplicate the rule.",
+    "deleted": "Rule deleted.",
+    "deleteError": "Could not delete the rule."
+  },
+  "deleteDialog": {
+    "title": "Delete “{name}”?",
+    "description": "This rule will be deleted permanently: {sentence}"
+  },
+  "targets": {
+    "anySubject": "All requesters",
+    "anyModel": "All models"
+  },
+  "metadata": {
+    "none": "No metadata condition. Metadata only works when the client sends it in the request body."
+  },
+  "subjectKinds": {
+    "user": {
+      "one": "user",
+      "many": "users"
+    },
+    "team": {
+      "one": "team",
+      "many": "teams"
+    },
+    "organization_unit": {
+      "one": "org unit",
+      "many": "org units"
+    },
+    "virtual_account": {
+      "one": "virtual account",
+      "many": "virtual accounts"
+    }
+  },
+  "operators": {
+    "equals": "equals",
+    "not_equals": "does not equal",
+    "contains": "contains",
+    "starts_with": "starts with",
+    "ends_with": "ends with",
+    "exists": "is sent",
+    "not_exists": "is not sent",
+    "gt": "greater than",
+    "gte": "greater than or equal",
+    "lt": "less than",
+    "lte": "less than or equal"
+  },
+  "sentence": {
+    "rule": "For {subjects} on {models}: {limit}{metadata}",
+    "anySubject": "all requesters",
+    "anyModel": "all models",
+    "quoted": "“{value}”",
+    "listSeparator": ", ",
+    "subjectOne": "{kind} “{name}”",
+    "subjectMany": "each of {kind} {names}",
+    "modelMany": "each of {models}",
+    "rateLimit": "at most {max} {dimension} per {window}",
+    "windowMany": "{value} {unit}",
+    "units": {
+      "second": "second",
+      "minute": "minute",
+      "hour": "hour",
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    },
+    "unitsMany": {
+      "second": "seconds",
+      "minute": "minutes",
+      "hour": "hours",
+      "day": "days",
+      "week": "weeks",
+      "month": "months"
+    },
+    "dimensions": {
+      "requests": "requests",
+      "tokens": "tokens"
+    },
+    "budgetLimit": "at most {amount} IRR spent per {period}",
+    "periods": {
+      "cost_per_day": "day",
+      "cost_per_week": "week",
+      "cost_per_month": "month"
+    },
+    "appliesPer": ", tracked separately per {scope}",
+    "scopes": {
+      "user": "user",
+      "team": "team",
+      "org_unit": "org unit",
+      "model": "model",
+      "virtualaccount": "virtual account",
+      "metadata": "metadata value {key}"
+    },
+    "metadata": ", when {count, plural, one {# metadata condition holds} other {# metadata conditions hold}}"
+  },
+  "editor": {
+    "preview": "How this rule reads in the list",
+    "sheetDescription": "Set the rule's targets, limit, and evaluation order.",
+    "newRateTitle": "New rate limit",
+    "editRateTitle": "Edit rate limit",
+    "rateDescription": "Limit requests or tokens within a time window.",
+    "newBudgetTitle": "New budget cap",
+    "editBudgetTitle": "Edit budget cap",
+    "budgetDescription": "Limit what requests cost per day, week, or month.",
+    "legacySubject": "This rule's requester condition was stored in an old format that the gateway never matched. Saving converts it to the correct format.",
+    "legacySubjectDropped": "It named several kinds of requester; only the first kind was kept, because a rule targets one kind.",
+    "subjectTitle": "Requester",
+    "subjectDescription": "Empty means every requester. A rule targets one kind. \"Team\" means the team of the request's API key, not the user's team membership.",
+    "subjectChip": "{kind}: {name}",
+    "remove": "Remove {label}",
+    "modelTitle": "Model",
+    "modelDescription": "Empty means every model. Each selected model keeps its own counter.",
+    "metadataTitle": "Metadata",
+    "metadataDescription": "Every condition has to hold. Metadata only works when the client sends it in the request body.",
+    "addMetadata": "Add metadata condition",
+    "metadataKey": "Key of metadata condition {index, number}",
+    "metadataOperator": "Operator of metadata condition {index, number}",
+    "metadataValue": "Value of metadata condition {index, number}",
+    "metadataKeyPlaceholder": "Key, e.g. project_id",
+    "metadataValuePlaceholder": "Value",
+    "removeMetadata": "Remove metadata condition {index, number}",
+    "picker": {
+      "users": "Users",
+      "teams": "Teams",
+      "orgUnits": "Org units",
+      "virtualAccounts": "Virtual accounts",
+      "externalIdentities": "External identities",
+      "searchSubject": "Search by name...",
+      "addSubject": "Add requester",
+      "loading": "Loading...",
+      "empty": "Nothing found",
+      "minSearchHint": "Type at least two characters.",
+      "addModel": "Add model",
+      "searchModel": "Search models...",
+      "providerModels": "Provider models",
+      "virtualModels": "Virtual models"
+    },
+    "sections": {
+      "identity": "Details",
+      "targets": "Which requests does it apply to?",
+      "targetsDescription": "A request has to meet every condition below.",
+      "limit": "Limit",
+      "evaluation": "Evaluation order",
+      "evaluationDescription": "Rules are checked in priority order, and every rule that matches a request is enforced unless one of them stops evaluation."
+    },
+    "limitSentence": {
+      "prefix": "At most",
+      "per": "per"
+    },
+    "enforcement": {
+      "label": "When the limit is reached",
+      "hard": {
+        "title": "Reject the request",
+        "description": "Requests over the limit are rejected with 429."
+      },
+      "soft": {
+        "title": "Count only",
+        "description": "Usage is counted, but no request is rejected.",
+        "badge": "Soft"
+      }
+    },
+    "afterMatch": {
+      "label": "After this rule matches",
+      "continue": {
+        "title": "Continue evaluation",
+        "description": "Later rules are still checked and enforced.",
+        "badge": "Default"
+      },
+      "stop": {
+        "title": "Stop evaluation",
+        "description": "Later rules are not checked for this request.",
+        "badge": "First match"
+      }
+    }
+  },
+  "simulator": {
+    "title": "Simulate a request",
+    "description": "See which rules a specific request matches and which limits actually apply.",
+    "requester": "Requester",
+    "pickRequester": "Pick a user, team, or account",
+    "requesterHint": "A request carries a user, its key's team, and a virtual account at once; pick one of each kind as needed.",
+    "model": "Model",
+    "metadata": "Metadata",
+    "metadataPlaceholder": "key=value, then Enter",
+    "resultLabel": "Simulation result",
+    "empty": "No rule limits this request; only the plan and account-credit limits apply.",
+    "outcomes": {
+      "enforced": "Enforced",
+      "countOnly": "Count only",
+      "notReached": "Not checked",
+      "noEffect": "No effect"
+    },
+    "notReachedNote": "Evaluation stopped at “{name}”.",
+    "enforcementNote": "Each rule keeps its own counter; the first limit that fills rejects the request.",
+    "dormantTitle": "Rules that do not apply right now",
+    "dormant": {
+      "disabled": "Would also catch this request if it were enabled.",
+      "scheduled": "Not started yet; catches this request once it starts.",
+      "expired": "Expired and no longer enforced."
+    }
+  }
+}

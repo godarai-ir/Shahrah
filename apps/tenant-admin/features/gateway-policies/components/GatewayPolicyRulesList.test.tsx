@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { Shield } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,12 +7,10 @@ import { GatewayPolicyRulesList, type GatewayPolicyRulesListProps } from "./Gate
 function createProps(overrides: Partial<GatewayPolicyRulesListProps> = {}): GatewayPolicyRulesListProps {
   return {
     title: "Policy rules",
-    createLabel: "New rule",
-    onCreate: vi.fn(),
+    createAction: <button type="button">New rule</button>,
     alertLabels: { error: "Error", success: "Success" },
-    query: "",
-    onQueryChange: vi.fn(),
-    searchPlaceholder: "Search rules",
+    toolbar: <input type="search" aria-label="Search rules" />,
+    filtered: false,
     itemCount: 0,
     loading: false,
     loadingLabel: "Loading rules",
@@ -52,18 +50,20 @@ function createProps(overrides: Partial<GatewayPolicyRulesListProps> = {}): Gate
 }
 
 describe("GatewayPolicyRulesList", () => {
-  it("composes the list toolbar, search, and empty-state create action without a duplicate page heading", () => {
-    const onCreate = vi.fn();
-    const onQueryChange = vi.fn();
-    render(<GatewayPolicyRulesList {...createProps({ onCreate, onQueryChange })} />);
+  it("composes the toolbar, aside, and empty-state create action without a duplicate page heading", () => {
+    render(<GatewayPolicyRulesList {...createProps({ aside: <div>Simulator</div> })} />);
 
     expect(screen.queryByRole("heading", { name: "Policy rules" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Policy rules" })).toBeInTheDocument();
     expect(screen.getByText("No rules")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value: "monthly" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "New rule" })[0]);
-    expect(onQueryChange).toHaveBeenCalledWith("monthly");
-    expect(onCreate).toHaveBeenCalledOnce();
+    expect(screen.getByRole("searchbox", { name: "Search rules" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New rule" })).toHaveLength(2);
+    expect(screen.getByRole("complementary")).toHaveTextContent("Simulator");
+  });
+
+  it("drops the empty-state create action while the list is filtered", () => {
+    render(<GatewayPolicyRulesList {...createProps({ filtered: true })} />);
+    expect(screen.getAllByRole("button", { name: "New rule" })).toHaveLength(1);
   });
 
   it("keeps the feature form inside an accessible controlled sheet", () => {

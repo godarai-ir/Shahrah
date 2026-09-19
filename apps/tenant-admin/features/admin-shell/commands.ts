@@ -47,14 +47,14 @@ const ACTION_DEFINITIONS: ActionDefinition[] = [
     id: "action:createRateLimitRule",
     titleKey: "palette.actions.createRateLimitRule",
     icon: Gauge,
-    href: "/gateway-policies/rate-limiting-rules/new",
+    href: "/gateway-policies?new=rate",
     requiredPermissions: ["policy:manage"],
   },
   {
     id: "action:createBudgetLimitRule",
     titleKey: "palette.actions.createBudgetLimitRule",
     icon: Wallet,
-    href: "/gateway-policies/budget-limiting-rules/new",
+    href: "/gateway-policies?new=budget",
     requiredPermissions: ["policy:manage"],
   },
   {

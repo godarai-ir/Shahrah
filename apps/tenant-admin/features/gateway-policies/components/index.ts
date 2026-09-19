@@ -7,3 +7,6 @@ export {
   type GatewayPolicyRulesListProps,
   type GatewayPolicyUpgradeDialog,
 } from "./GatewayPolicyRulesList";
+export { RuleOverlapNote } from "./RuleOverlapNote";
+export { RuleSentencePreview, useRuleSentence } from "./RuleSentencePreview";
+export { RuleTargetsEditor } from "./RuleTargetsEditor";

@@ -97,6 +97,7 @@ describe("admin sidebar sections", () => {
     const activeKeys = (path: string) => buildAdminNavItems(path, t).filter((item) => item.isActive).map((item) => item.key);
     expect(activeKeys("/guardrails")).toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies/budget-limiting-rules")).toContain("gatewayPolicies");
+    expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
     expect(activeKeys("/billing/topup")).toContain("billing");
   });

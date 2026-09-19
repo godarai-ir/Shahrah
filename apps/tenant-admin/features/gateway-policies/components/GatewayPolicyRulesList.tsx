@@ -3,16 +3,13 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
-import { Plus } from "lucide-react";
 
 import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
 import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
 import { DataListPanel } from "@/components/app-ui/DataListPanel";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { PageContainer } from "@/components/app-ui/PageContainer";
-import { SearchField } from "@/components/app-ui/SearchField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const GatewayPolicyRuleSheetFooterContext = React.createContext<HTMLElement | null>(null);
@@ -62,14 +59,16 @@ export type GatewayPolicyUpgradeDialog = {
 
 export type GatewayPolicyRulesListProps = {
   title: React.ReactNode;
-  createLabel: React.ReactNode;
-  onCreate: () => void;
-  createDisabled?: boolean;
+  /** The create control; the owning page decides whether it is a button or a type menu. */
+  createAction: React.ReactNode;
   notice?: GatewayPolicyNotice | null;
   alertLabels: { error: React.ReactNode; success: React.ReactNode };
-  query: string;
-  onQueryChange: (query: string) => void;
-  searchPlaceholder: string;
+  /** Search and filter controls. */
+  toolbar: React.ReactNode;
+  /** Whether a search or filter is narrowing the list; hides the create action in the empty state. */
+  filtered: boolean;
+  /** Side column beside the list on wide screens, below it on narrow ones. */
+  aside?: React.ReactNode;
   itemCount: number;
   loading: boolean;
   loadingLabel: string;
@@ -85,14 +84,12 @@ export type GatewayPolicyRulesListProps = {
 
 export function GatewayPolicyRulesList({
   title,
-  createLabel,
-  onCreate,
-  createDisabled,
+  createAction,
   notice,
   alertLabels,
-  query,
-  onQueryChange,
-  searchPlaceholder,
+  toolbar,
+  filtered,
+  aside,
   itemCount,
   loading,
   loadingLabel,
@@ -106,13 +103,6 @@ export function GatewayPolicyRulesList({
   className,
 }: GatewayPolicyRulesListProps) {
   const [ruleSheetFooterHost, setRuleSheetFooterHost] = React.useState<HTMLDivElement | null>(null);
-  const createAction = (
-    <Button type="button" className="w-full sm:w-auto" onClick={onCreate} disabled={createDisabled}>
-      <Plus data-icon="inline-start" />
-      {createLabel}
-    </Button>
-  );
-
   return (
     <>
       <PageContainer className={className}>
@@ -123,18 +113,12 @@ export function GatewayPolicyRulesList({
           </Alert>
         ) : null}
 
+        <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <DataListPanel
           aria-label={typeof title === "string" ? title : undefined}
-          toolbar={(
-            <SearchField
-              containerClassName="max-w-xl"
-              placeholder={searchPlaceholder}
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
-          )}
+          toolbar={toolbar}
           toolbarMeta={createAction}
-          contentClassName="@container/gateway-rules overflow-hidden"
+          contentClassName="@container/gateway-rules min-w-0"
           loading={loading && itemCount === 0}
           loadingLabel={loadingLabel}
           empty={itemCount === 0}
@@ -143,12 +127,14 @@ export function GatewayPolicyRulesList({
               icon={emptyIcon}
               title={emptyTitle}
               description={emptyDescription}
-              primaryAction={!query ? createAction : undefined}
+              primaryAction={!filtered ? createAction : undefined}
             />
           )}
         >
           {children}
         </DataListPanel>
+        {aside ? <aside className="min-w-0 xl:sticky xl:top-4">{aside}</aside> : null}
+        </div>
       </PageContainer>
 
       <Sheet open={ruleSheet.open} onOpenChange={ruleSheet.onOpenChange}>
