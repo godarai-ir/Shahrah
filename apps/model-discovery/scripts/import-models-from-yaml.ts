@@ -17,6 +17,7 @@ import {
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
 import {
+  OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS,
   OPENAI_PROVIDER_SLUG,
   validateOpenAIProviderDirectory,
 } from './model-import/providers/openai';
@@ -961,6 +962,7 @@ async function parseProviderDir(
             min_prompt_tokens: 272001,
           },
         },
+        ...OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS,
         ...(providerImporter?.rateMappings ?? []),
       ];
       for (const mapping of rateMappings) {
