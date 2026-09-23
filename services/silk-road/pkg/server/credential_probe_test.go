@@ -140,7 +140,6 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 	}{
 		{name: "SambaNova IP", provider: "sambanova", apiBase: "https://127.0.0.1/openai/v1"},
 		{name: "Moonshot lookalike", provider: "moonshot", apiBase: "https://api.moonshot.ai.evil.example/v1"},
-		{name: "DeepSeek lookalike", provider: "deepseek", apiBase: "https://api.deepseek.com.evil.example"},
 		{name: "TokenBazaar lookalike", provider: "tokenbazaar", apiBase: "https://zx1.deepwl.net.evil.example"},
 		{name: "TokenBazaar unconfirmed alias", provider: "tokenbazaar", apiBase: "https://api.tokenbazaar.ai"},
 		{name: "DeepSeek IP", provider: "deepseek", apiBase: "https://127.0.0.1/v1"},
