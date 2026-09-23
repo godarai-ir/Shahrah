@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import {
+  OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS,
   OPENAI_SUPPORTED_MODEL_IDS,
   validateOpenAIProviderDirectory,
 } from '../../scripts/model-import/providers/openai';
@@ -58,6 +59,14 @@ describe('OpenAI provider importer', () => {
       string,
       { endpoints: string[]; transports: string[] }
     > = {
+      'gpt-6-sol': {
+        endpoints: ['chat_completions', 'responses', 'batches'],
+        transports: ['http', 'sse'],
+      },
+      'gpt-6-luna': {
+        endpoints: ['chat_completions', 'responses', 'batches'],
+        transports: ['http', 'sse'],
+      },
       'gpt-5.6-sol': {
         endpoints: ['chat_completions', 'responses', 'batches'],
         transports: ['http', 'sse'],
@@ -98,6 +107,121 @@ describe('OpenAI provider importer', () => {
       expect(profile.transports).toEqual(contract.transports);
     }
   });
+
+  it('maps Fast mode long-context prices to priority speed dimensions', () => {
+    const condition = { service_tier: 'priority', min_prompt_tokens: 272001 };
+    expect(
+      OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS.map(
+        ({ dimension, unit, conditionJson }) => ({
+          dimension,
+          unit,
+          conditionJson,
+        }),
+      ),
+    ).toEqual([
+      {
+        dimension: 'speed_long_context_input_tokens',
+        unit: 'token',
+        conditionJson: condition,
+      },
+      {
+        dimension: 'speed_long_context_output_tokens',
+        unit: 'token',
+        conditionJson: condition,
+      },
+      {
+        dimension: 'speed_long_context_cache_read_tokens',
+        unit: 'token',
+        conditionJson: condition,
+      },
+      {
+        dimension: 'speed_long_context_cache_write_tokens',
+        unit: 'token',
+        conditionJson: condition,
+      },
+    ]);
+  });
+
+  // Official per-1M-token prices from https://developers.openai.com/api/docs/pricing
+  // in the order input, cached input, cache writes, output.
+  it.each([
+    [
+      'gpt-6-sol',
+      {
+        standard: [2, 0.2, 2.5, 10],
+        standardLong: [4, 0.4, 5, 15],
+        batchFlex: [1, 0.1, 1.25, 5],
+        batchFlexLong: [2, 0.2, 2.5, 7.5],
+        fast: [4, 0.4, 5, 20],
+        fastLong: [8, 0.8, 10, 30],
+      },
+    ],
+    [
+      'gpt-6-luna',
+      {
+        standard: [0.1, 0.01, 0.125, 0.5],
+        standardLong: [0.2, 0.02, 0.25, 0.75],
+        batchFlex: [0.05, 0.005, 0.0625, 0.25],
+        batchFlexLong: [0.1, 0.01, 0.125, 0.375],
+        fast: [0.2, 0.02, 0.25, 1],
+        fastLong: [0.4, 0.04, 0.5, 1.5],
+      },
+    ],
+  ])(
+    'pins the published %s token prices for every tier',
+    async (model, prices) => {
+      const document = parse(
+        await readFile(join(providerDir, `${model}.yaml`), 'utf8'),
+      ) as OpenAIProfileFixture;
+      const cost = document.costs?.[0] ?? {};
+      const priority = cost.priority_pricing as Record<string, number>;
+      const tiered = cost.tiered_pricing as Record<
+        string,
+        Array<{ cost_per_token: number; from: number }>
+      >;
+      const perMillion = (value: unknown) =>
+        Math.round(Number(value) * 1e6 * 1e6) / 1e6;
+      const fields = [
+        'input_cost_per_token',
+        'cache_read_input_token_cost',
+        'cache_creation_input_token_cost',
+        'output_cost_per_token',
+      ];
+
+      expect(fields.map((field) => perMillion(cost[field]))).toEqual(
+        prices.standard,
+      );
+      expect(
+        ['input', 'cache_read', 'cache_write', 'output'].map((key) => {
+          expect(tiered[key][0].from).toBe(272000);
+          return perMillion(tiered[key][0].cost_per_token);
+        }),
+      ).toEqual(prices.standardLong);
+      for (const tier of ['batches', 'flex']) {
+        expect(
+          fields.map((field) => perMillion(cost[`${field}_${tier}`])),
+        ).toEqual(prices.batchFlex);
+        expect(
+          fields.map((field) =>
+            perMillion(cost[`${field}_${tier}_above_272k_tokens`]),
+          ),
+        ).toEqual(prices.batchFlexLong);
+      }
+      expect(fields.map((field) => perMillion(priority[field]))).toEqual(
+        prices.fast,
+      );
+      expect(
+        OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS.map((mapping) =>
+          perMillion(cost[mapping.key]),
+        ),
+      ).toEqual([
+        prices.fastLong[0],
+        prices.fastLong[3],
+        prices.fastLong[1],
+        prices.fastLong[2],
+      ]);
+    },
+  );
 
   it('rejects a missing or downgraded runtime profile', async () => {
     const root = await copyProviderFixture();
@@ -190,5 +314,6 @@ type OpenAIProfileFixture = {
   serviceTiers?: string[];
   rateLimits?: Array<Record<string, unknown>>;
   limits?: Record<string, number>;
+  costs?: Array<Record<string, unknown>>;
   runtimeProfile?: unknown;
 };

@@ -2,10 +2,13 @@ import { existsSync, promises as fs } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { parse } from 'yaml';
 import { modelRuntimeProfileSchema } from '../../../src/catalog/runtime-profile.schema';
+import type { ProviderRateMapping } from '../types';
 
 export const OPENAI_PROVIDER_SLUG = 'openai';
 
 export const OPENAI_SUPPORTED_MODEL_IDS = [
+  'gpt-6-sol',
+  'gpt-6-luna',
   'gpt-5.6-sol',
   'gpt-5.6-terra',
   'gpt-5.6-luna',
@@ -28,6 +31,34 @@ export const OPENAI_SUPPORTED_MODEL_IDS = [
   'tts-1',
   'tts-1-hd',
 ] as const;
+
+// Fast mode (service_tier "priority" or "fast") long-context rates. OpenAI
+// prices prompts with more than 272K input tokens at long-context rates for
+// the full request, including under Fast mode for models that publish them.
+export const OPENAI_PRIORITY_LONG_CONTEXT_RATE_MAPPINGS: ProviderRateMapping[] =
+  [
+    [
+      'input_cost_per_token_priority_above_272k_tokens',
+      'speed_long_context_input_tokens',
+    ],
+    [
+      'output_cost_per_token_priority_above_272k_tokens',
+      'speed_long_context_output_tokens',
+    ],
+    [
+      'cache_read_input_token_cost_priority_above_272k_tokens',
+      'speed_long_context_cache_read_tokens',
+    ],
+    [
+      'cache_creation_input_token_cost_priority_above_272k_tokens',
+      'speed_long_context_cache_write_tokens',
+    ],
+  ].map(([key, dimension]) => ({
+    key,
+    dimension,
+    unit: 'token',
+    conditionJson: { service_tier: 'priority', min_prompt_tokens: 272001 },
+  }));
 
 type OpenAIYamlDocument = {
   model?: unknown;

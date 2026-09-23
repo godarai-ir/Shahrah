@@ -1,0 +1,259 @@
+costs:
+    - cache_creation_input_token_cost: 2.5e-6
+      cache_read_input_token_cost: 2e-7
+      input_cost_per_token: 2e-6
+      output_cost_per_token: 1e-5
+      input_cost_per_token_batches: 1e-6
+      cache_creation_input_token_cost_batches: 1.25e-6
+      cache_read_input_token_cost_batches: 1e-7
+      output_cost_per_token_batches: 5e-6
+      input_cost_per_token_flex: 1e-6
+      cache_creation_input_token_cost_flex: 1.25e-6
+      cache_read_input_token_cost_flex: 1e-7
+      output_cost_per_token_flex: 5e-6
+      input_cost_per_token_batches_above_272k_tokens: 2e-6
+      output_cost_per_token_batches_above_272k_tokens: 7.5e-6
+      cache_creation_input_token_cost_batches_above_272k_tokens: 2.5e-6
+      cache_read_input_token_cost_batches_above_272k_tokens: 2e-7
+      input_cost_per_token_flex_above_272k_tokens: 2e-6
+      output_cost_per_token_flex_above_272k_tokens: 7.5e-6
+      cache_creation_input_token_cost_flex_above_272k_tokens: 2.5e-6
+      cache_read_input_token_cost_flex_above_272k_tokens: 2e-7
+      input_cost_per_token_priority_above_272k_tokens: 8e-6
+      output_cost_per_token_priority_above_272k_tokens: 3e-5
+      cache_creation_input_token_cost_priority_above_272k_tokens: 1e-5
+      cache_read_input_token_cost_priority_above_272k_tokens: 8e-7
+      priority_pricing:
+          cache_creation_input_token_cost: 5e-6
+          cache_read_input_token_cost: 4e-7
+          input_cost_per_token: 4e-6
+          output_cost_per_token: 2e-5
+      region: "*"
+      tiered_pricing:
+          cache_read:
+              - cost_per_token: 4e-7
+                from: 272000
+          cache_write:
+              - cost_per_token: 5e-6
+                from: 272000
+          input:
+              - cost_per_token: 4e-6
+                from: 272000
+          output:
+              - cost_per_token: 1.5e-5
+                from: 272000
+          pricing_mode: cumulative
+features:
+    - function_calling
+    - structured_output
+    - prompt_caching
+    - system_messages
+tools:
+    - function_calling
+    - web_search
+    - file_search
+    - tool_search
+    - image_generation
+    - code_interpreter
+    - hosted_shell
+    - apply_patch
+    - skills
+    - computer_use
+    - mcp
+    - programmatic_tool_calling
+serviceTiers:
+    - standard
+    - batch
+    - flex
+    - priority
+    - fast
+limits:
+    context_window: 1050000
+    max_output_tokens: 128000
+    max_tokens: 128000
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - text
+mode: chat
+model: gpt-6-sol
+params:
+    - defaultValue: 128
+      key: max_completion_tokens
+      maxValue: 128000
+      minValue: 1
+    - defaultValue: medium
+      key: reasoning_effort
+      supportedValues:
+          - none
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+      type: string
+provisioning: serverless
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 500
+      tokensPerMinute: 500000
+      batchQueueTokens: 1500000
+    - tier: 2
+      requestsPerMinute: 5000
+      tokensPerMinute: 1000000
+      batchQueueTokens: 3000000
+    - tier: 3
+      requestsPerMinute: 5000
+      tokensPerMinute: 2000000
+      batchQueueTokens: 100000000
+    - tier: 4
+      requestsPerMinute: 10000
+      tokensPerMinute: 4000000
+      batchQueueTokens: 200000000
+    - tier: 5
+      requestsPerMinute: 15000
+      tokensPerMinute: 40000000
+      batchQueueTokens: 15000000000
+removeParams:
+    - max_tokens
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-6-sol
+    - https://developers.openai.com/api/docs/pricing
+    - https://developers.openai.com/api/docs/guides/latest-model
+status: active
+supportedModes:
+    - chat
+    - responses
+thinking: true
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - chat_completions
+        - responses
+        - responses_input_tokens
+        - responses_compact
+        - conversations
+        - uploads
+        - vector_stores
+        - containers
+        - batches
+    transports:
+        - http
+        - sse
+    lifecycle: active
+    thinking:
+        defaultMode: manual
+        allowedModes:
+            - manual
+        manualDeprecated: false
+        effortValues:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+        reasoningModes:
+            - standard
+            - pro
+        contextValues:
+            - auto
+            - current_turn
+            - all_turns
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters:
+            - temperature
+            - top_p
+        disallowedWithThinking:
+            - temperature
+            - top_p
+    tools:
+        custom: true
+        server: true
+        parallel: false
+        structuredOutput: true
+        supported:
+            - function_calling
+            - web_search
+            - file_search
+            - tool_search
+            - image_generation
+            - code_interpreter
+            - hosted_shell
+            - apply_patch
+            - skills
+            - computer_use
+            - mcp
+            - programmatic_tool_calling
+        preferredVersions: {}
+    modalities:
+        input:
+            - text
+            - image
+        output:
+            - text
+    requestControls:
+        serviceTierValues:
+            - standard
+            - batch
+            - flex
+            - priority
+            - fast
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    contextPricing:
+        longContextThresholdTokens: 272000
+        appliesToAllTokens: true
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          requestsPerMinute: 500
+          tokensPerMinute: 500000
+          batchQueueTokens: 1500000
+        - tier: 2
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 1000000
+          batchQueueTokens: 3000000
+        - tier: 3
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 2000000
+          batchQueueTokens: 100000000
+        - tier: 4
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 4000000
+          batchQueueTokens: 200000000
+        - tier: 5
+          scope: project
+          dynamic: false
+          requestsPerMinute: 15000
+          tokensPerMinute: 40000000
+          batchQueueTokens: 15000000000
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 1050000
+        maxInputTokens: 0
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 128000
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

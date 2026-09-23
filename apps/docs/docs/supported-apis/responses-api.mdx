@@ -37,6 +37,7 @@ import TabItem from '@theme/TabItem';
 
 پشتیبانی `Responses` برای این مدل‌ها در کاتالوگ گدارAI ثبت شده است:
 
+- `gpt-6-sol` و `gpt-6-luna`
 - `gpt-5.6-sol`، `gpt-5.6-terra` و `gpt-5.6-luna`
 - `gpt-5.5` و `gpt-5.5-pro`
 - `gpt-5.4`، `gpt-5.4-pro`، `gpt-5.4-mini` و `gpt-5.4-nano`
@@ -45,6 +46,23 @@ import TabItem from '@theme/TabItem';
 و ویدئویی برای آن‌ها پشتیبانی نمی‌شود. جریان `SSE` برای همه مدل‌های این فهرست
 به‌جز `gpt-5.5-pro` قابل استفاده است. ابزارهای مجاز هر مدل در کاتالوگ ثبت
 شده‌اند و ممکن است با مدل دیگر متفاوت باشند.
+
+### نکات GPT-6 Sol و Luna
+
+- قابلیت‌های جدید GPT-6 بدون تغییر به OpenAI فرستاده می‌شوند: ابزار با
+  `async: true`، آیتم ورودی `configuration_update` برای تغییر reasoning effort
+  در میانه گفتگو، `prompt_cache_options` و `reasoning.mode: "pro"`.
+- مقادیر `reasoning.effort` عبارت‌اند از `none`، `low`، `medium` (پیش‌فرض)،
+  `high`، `xhigh` و `max`. وقتی effort برابر `none` نیست، `temperature`،
+  `top_p` و `top_logprobs` را نفرستید.
+- در `Chat Completions` فراخوانی تابع فقط با `reasoning_effort: "none"` کار
+  می‌کند. برای ابزارهای داخلی و فراخوانی تابع همراه با reasoning از
+  `Responses` استفاده کنید.
+- `service_tier` می‌تواند `default`، `flex`، `priority` یا `fast` باشد. برای
+  درخواست‌های بالای ۲۷۲ هزار توکن ورودی، هزینه با نرخ‌های long-context همان tier
+  برای کل درخواست محاسبه می‌شود.
+- Mid-turn steering فقط روی اتصال `WebSocket` به Responses API کار می‌کند و به
+  همین دلیل هنوز از گدارAI در دسترس نیست.
 
 ## چه زمانی از Responses API استفاده کنیم؟
 

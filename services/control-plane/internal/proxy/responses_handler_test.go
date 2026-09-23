@@ -258,6 +258,17 @@ func newResponsesTestAppWithCache(
 		})
 	}
 
+	if strings.EqualFold(provider, "openai") {
+		deployments = append(deployments, config.ModelDeployment{
+			ModelName: "gpt-6-sol",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: provider,
+				Model:    "gpt-6-sol",
+				APIKey:   "test-key",
+			},
+		})
+	}
+
 	rt, err := router.NewRouter(deployments, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
@@ -1260,6 +1271,61 @@ func TestResponsesHandlerPreservesUnknownOfficialFieldsLosslessly(t *testing.T) 
 	require.NoError(t, err)
 	assert.JSONEq(t, string(upstreamBody), string(received))
 	assert.Contains(t, string(received), `"future_response_field"`)
+}
+
+// GPT-6 request features documented at
+// https://developers.openai.com/api/docs/guides/latest-model must reach OpenAI
+// byte-for-byte: async tools, configuration_update items, reasoning mode and
+// context, and prompt_cache_options with explicit cache breakpoints.
+func TestResponsesHandlerRelaysGPT6RequestFeaturesLosslessly(t *testing.T) {
+	requestBody := `{
+		"model":"gpt-6-sol",
+		"previous_response_id":null,
+		"reasoning":{"effort":"medium","mode":"pro","context":"all_turns"},
+		"prompt_cache_options":{"ttl":"30m","mode":"explicit"},
+		"service_tier":"fast",
+		"tools":[
+			{"type":"function","name":"lookup_price","async":true,"parameters":{"type":"object","properties":{"task_handle":{"type":"string"}},"required":["task_handle"]}},
+			{"type":"custom","name":"run_job","async":true},
+			{"type":"function","name":"wait_for_tasks","async":false,"parameters":{"type":"object","properties":{}}}
+		],
+		"input":[
+			{"role":"developer","content":[{"type":"input_text","text":"Stable instructions.","prompt_cache_breakpoint":{"mode":"explicit"}}]},
+			{"type":"function_call_output","call_id":"call_widget","output":"{\"price_cents\":1200}"},
+			{"type":"configuration_update","reasoning":{"effort":"high"}},
+			{"role":"user","content":"Compare the prices."}
+		]
+	}`
+	upstreamBody := []byte(`{
+		"id":"resp_gpt6","object":"response","model":"gpt-6-sol","status":"completed","service_tier":"priority",
+		"output":[{"type":"function_call","id":"fc_1","call_id":"call_gadget","name":"lookup_price",
+			"arguments":"{\"task_handle\":\"gadget_price_1\"}","async":true,"status":"completed"}],
+		"usage":{"input_tokens":10,"output_tokens":2,"total_tokens":12}
+	}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       upstreamBody,
+	}}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var inbound, outbound map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(requestBody), &inbound))
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	assert.Equal(t, inbound, outbound)
+
+	received, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(upstreamBody), string(received))
 }
 
 func TestResponsesHandlerPreservesOpenAIErrorContract(t *testing.T) {
