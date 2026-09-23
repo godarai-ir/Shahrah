@@ -98,6 +98,7 @@ sources:
     - https://ai.google.dev/gemini-api/docs/pricing
     - https://ai.google.dev/gemini-api/docs/rate-limits
     - https://ai.google.dev/gemini-api/docs/interactions-overview
+    - https://tokenbazaar.ai/shelf?model=gemini-3.7-flash
 runtimeProfile:
     version: 2
     endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
