@@ -58,6 +58,7 @@ sources:
     - https://developers.openai.com/api/docs/models/gpt-image-2
     - https://developers.openai.com/api/docs/guides/image-generation
     - https://developers.openai.com/api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=gpt-image-2
 snapshots:
     - gpt-image-2-2026-04-21
 rateLimits:

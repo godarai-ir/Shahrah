@@ -122,6 +122,7 @@ removeParams:
 sources:
     - https://developers.openai.com/api/docs/models/gpt-5.6-sol
     - https://developers.openai.com/api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=gpt-5.6-sol
 status: active
 supportedModes:
     - chat

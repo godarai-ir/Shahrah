@@ -117,6 +117,7 @@ removeParams:
 sources:
     - https://developers.openai.com/api/docs/models/gpt-5.5
     - https://developers.openai.com/api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=gpt-5.5
 status: active
 supportedModes:
     - chat

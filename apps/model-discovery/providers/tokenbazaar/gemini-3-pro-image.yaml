@@ -63,6 +63,7 @@ sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-image
     - https://ai.google.dev/gemini-api/docs/image-generation
     - https://ai.google.dev/gemini-api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=gemini-3-pro-image
 runtimeProfile:
     version: 2
     endpoints: [models, interactions, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]
