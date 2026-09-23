@@ -1,6 +1,6 @@
 # Cumulative OpenAI model support in GodarAI
 
-**Review date:** 2026-09-23 (GPT-6 Sol and Luna added; earlier models reviewed 2026-07-30)
+**Review date:** 2026-09-23 (GPT-6 Sol and Luna added and GPT-5.6 pricing re-verified; earlier models reviewed 2026-07-30)
 **Provider:** OpenAI only
 **Audited models:** 23
 **Private pricing:** Out of scope
@@ -221,7 +221,7 @@ tokens. Private tenant or provider-account price overrides are excluded.
 |---|---:|---:|---:|
 | `gpt-6-sol` | 2 / 0.2 / 10 | 1 / 0.1 / 5 | 4 / 0.4 / 20 |
 | `gpt-6-luna` | 0.1 / 0.01 / 0.5 | 0.05 / 0.005 / 0.25 | 0.2 / 0.02 / 1 |
-| `gpt-5.6-sol` | 5 / 0.5 / 30 | 2.5 / 0.25 / 15 | 10 / 1 / 60 |
+| `gpt-5.6-sol` | 4 / 0.4 / 20 | 2 / 0.2 / 10 | 8 / 0.8 / 40 |
 | `gpt-5.6-terra` | 2 / 0.2 / 12 | 1 / 0.1 / 6 | 4 / 0.4 / 24 |
 | `gpt-5.6-luna` | 0.2 / 0.02 / 1.2 | 0.1 / 0.01 / 0.6 | 0.4 / 0.04 / 2.4 |
 | `gpt-5.5` | 5 / 0.5 / 30 | 2.5 / 0.25 / 15 | 12.5 / 1.25 / 75 |
@@ -235,9 +235,9 @@ For 1.05M-context models, requests with more than 272K input tokens use the
 published long-context rates for the full request; a request of exactly
 272,000 input tokens uses short-context rates. GodarAI has distinct Standard,
 Batch, Flex, and Fast long-context dimensions. Fast/Priority long context is
-priced for models that publish those rates (GPT-6 Sol and Luna) and rejected
-for the others. `service_tier: "fast"` and `"priority"` use the Fast
-dimensions.
+priced for models that publish those rates (GPT-6 Sol and Luna, and GPT-5.6
+Sol, Terra, and Luna) and rejected for the others. `service_tier: "fast"` and
+`"priority"` use the Fast dimensions.
 
 GPT-6 long-context rates (input / cached / cache write / output):
 
@@ -251,17 +251,64 @@ half of that at Batch and Flex, and double at Fast. Regional processing (data
 residency) adds 10% at OpenAI and is available for GPT-6 only with Standard
 processing; GodarAI routes GPT-6 to global processing only.
 
+GPT-5.6 short-context rates, including cache writes (input / cached / cache
+write / output):
+
+| Model | Standard | Batch and Flex | Fast |
+|---|---:|---:|---:|
+| `gpt-5.6-sol` | 4 / 0.4 / 5 / 20 | 2 / 0.2 / 2.5 / 10 | 8 / 0.8 / 10 / 40 |
+| `gpt-5.6-terra` | 2 / 0.2 / 2.5 / 12 | 1 / 0.1 / 1.25 / 6 | 4 / 0.4 / 5 / 24 |
+| `gpt-5.6-luna` | 0.2 / 0.02 / 0.25 / 1.2 | 0.1 / 0.01 / 0.125 / 0.6 | 0.4 / 0.04 / 0.5 / 2.4 |
+
+GPT-5.6 long-context rates (input / cached / cache write / output):
+
+| Model | Standard | Batch and Flex | Fast |
+|---|---:|---:|---:|
+| `gpt-5.6-sol` | 8 / 0.8 / 10 / 30 | 4 / 0.4 / 5 / 15 | 16 / 1.6 / 20 / 60 |
+| `gpt-5.6-terra` | 4 / 0.4 / 5 / 18 | 2 / 0.2 / 2.5 / 9 | 8 / 0.8 / 10 / 36 |
+| `gpt-5.6-luna` | 0.4 / 0.04 / 0.5 / 1.8 | 0.2 / 0.02 / 0.25 / 0.9 | 0.8 / 0.08 / 1 / 3.6 |
+
+All GPT-5.6 values were re-verified on 2026-09-23 against official OpenAI pages
+only. Their provenance:
+
+- **Tabulated on the
+  [pricing page](https://developers.openai.com/api/docs/pricing):** every
+  short-context value above, for all three models and all four tiers, and the
+  `gpt-5.6-sol` Standard long-context row.
+- **Stated in the
+  [Fast mode guide](https://developers.openai.com/api/docs/guides/fast-mode):**
+  `gpt-5.6-sol` Fast long context, 16 input and 60 output. The guide says GPT-5.6
+  Sol Fast mode "costs twice the corresponding Standard rate", which gives 1.6
+  cached and 20 cache write.
+- **Derived from a published rule:** the other long-context values. The pricing
+  page does not tabulate them. Each GPT-5.6
+  [model card](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
+  states that prompts with more than 272K input tokens are priced at 2x input
+  and 1.5x output for the full request. GodarAI applies that rule to each tier's
+  published short-context rates. Cached input and cache writes use the 2x input
+  multiplier, as the tabulated `gpt-5.6-sol` Standard long-context row and every
+  GPT-6 long-context row do.
+
+The GPT-5.6 Terra and Luna model cards now show the same Standard prices as the
+central pricing table. The earlier upstream conflict (card prices of
+2.5 / 0.25 / 15 and 1 / 0.1 / 6) is resolved.
+
+**GPT-5.6 Sol promotional pricing.** OpenAI says the `gpt-5.6-sol` prices
+above are promotional and "available at least through November 21, 2026". The
+Sol model card calls them a 20% input and 33% output reduction, which implies a
+prior 5 / 30. OpenAI does not publish a post-promotion price or a firm end date.
+GodarAI therefore stores the promotional prices with no `effective_to`. The
+importer replaces a model's pricing rows on every run, and the catalog serves
+only rows whose `effectiveTo` is empty or in the future. An `effective_to`
+without a published successor row would leave `gpt-5.6-sol` unpriced once the
+date passes. Re-verify the official pages on or after 2026-11-21. When OpenAI
+publishes a new price, add it as a successor cost entry with `effective_from`
+and close the promotional entry with a matching `effective_to`.
+
 GPT-6 and GPT-5.6 cache-write tokens are preserved from
 `usage.input_tokens_details.cache_write_tokens` and billed separately. Pro
 models fall back to ordinary input pricing for cached tokens because OpenAI
 does not publish a cached-input discount.
-
-The central [OpenAI pricing table](https://developers.openai.com/api/docs/pricing)
-currently lists the Terra and Luna values used above and in GodarAI. Their
-individual model cards currently display different Standard prices
-(`gpt-5.6-terra`: 2.5 / 0.25 / 15; `gpt-5.6-luna`: 1 / 0.1 / 6). This is an
-upstream documentation conflict. GodarAI follows the dedicated central pricing
-table pending clarification.
 
 ### GPT-4.1, GPT-4o mini, and embeddings
 
