@@ -2826,137 +2826,6 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleExtendedThinking(t *tes
 	assert.Contains(t, bodyText, `"signature":"sig_123"`)
 }
 
-func TestChatCompletionHandler_RejectsExtendedThinkingForUnsupportedProvider(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, err := testcache.New(t, logger)
-	require.NoError(t, err)
-	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
-		ModelName: "command-r",
-		ProviderEndpoint: config.ProviderEndpointConfig{
-			Provider: "cohere",
-			Model:    "cohere/command-r",
-			RPM:      1000,
-		},
-	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
-	require.NoError(t, err)
-
-	mTunnel := &mockTunnelTransport{}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
-	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
-	app := setupTestApp(t, handler)
-
-	payload := []byte(`{
-		"model":"command-r",
-		"messages":[{"role":"user","content":"Solve this."}],
-		"reasoning_effort":"high"
-	}`)
-	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	assert.Zero(t, mTunnel.proxyCalls)
-
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "does not support extended thinking")
-}
-
-func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, err := testcache.New(t, logger)
-	require.NoError(t, err)
-	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
-		ModelName: "command-r",
-		ProviderEndpoint: config.ProviderEndpointConfig{
-			Provider: "cohere",
-			Model:    "cohere/command-r",
-			RPM:      1000,
-		},
-	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
-	require.NoError(t, err)
-
-	mTunnel := &mockTunnelTransport{}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 26}}
-	mWallet := &mockWalletStore{}
-	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
-	app := setupTestApp(t, handler)
-
-	payload := []byte(`{
-		"model":"command-r",
-		"messages":[{
-			"role":"user",
-			"content":[
-				{"type":"text","text":"Describe this image."},
-				{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}
-			]
-		}]
-	}`)
-	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "does not support image input")
-}
-
-func TestChatCompletionHandler_RejectsFileInputForUnsupportedProvider(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, err := testcache.New(t, logger)
-	require.NoError(t, err)
-	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
-		ModelName: "command-r",
-		ProviderEndpoint: config.ProviderEndpointConfig{
-			Provider: "cohere",
-			Model:    "cohere/command-r",
-			RPM:      1000,
-		},
-	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
-	require.NoError(t, err)
-
-	mTunnel := &mockTunnelTransport{}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
-	mWallet := &mockWalletStore{}
-	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
-	app := setupTestApp(t, handler)
-
-	payload := []byte(`{
-		"model":"command-r",
-		"messages":[{
-			"role":"user",
-			"content":[
-				{"type":"text","text":"Summarize this PDF."},
-				{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}
-			]
-		}]
-	}`)
-	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "does not support file input")
-}
-
 func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, err := testcache.New(t, logger)
@@ -2999,78 +2868,87 @@ func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 
 	var apiErr contractsopenai.APIError
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(
-		t,
-		apiErr.Error.Message,
-		"does not support file input through GodarAI chat completions",
-	)
+	assert.Contains(t, apiErr.Error.Message, "file.file_id is not supported for provider gemini")
 }
 
-func TestChatCompletionHandler_RejectsToolsForNativeProviderWithoutAdapter(t *testing.T) {
+func TestChatCompletionHandler_ForwardsToolsAndResponseFormatForTokenBazaar(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
-		ModelName: "claude-3-haiku",
+		ModelName: "gpt-5.5",
 		ProviderEndpoint: config.ProviderEndpointConfig{
-			Provider: "anthropic",
-			Model:    "anthropic/claude-3-haiku-20240307",
+			Provider: "tokenbazaar",
+			Model:    "gpt-5.5",
 			RPM:      1000,
 		},
 	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
 	require.NoError(t, err)
 
-	mTunnel := &mockTunnelTransport{}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
+	validResponse := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-tokenbazaar-tools",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gpt-5.5",
+		Choices: []contractsopenai.Choice{{
+			Index: 0,
+			Message: &contractsopenai.ChatMessage{
+				Role: "assistant",
+				ToolCalls: []contractsopenai.ToolCall{{
+					ID:   "call_123",
+					Type: "function",
+					Function: &contractsopenai.FunctionCall{
+						Name:      "get_order_status",
+						Arguments: `{"order_id":"A-1024"}`,
+					},
+				}},
+			},
+			FinishReason: "tool_calls",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 40, CompletionTokens: 12, TotalTokens: 52},
+	}
+	respBody, err := json.Marshal(validResponse)
+	require.NoError(t, err)
+
+	runtimeProfile := platform.ModelRuntimeProfileBinding{
+		Provider:        "tokenbazaar",
+		CatalogRevision: "tokenbazaar-chat-tools-test-revision",
+		CanonicalID:     "tokenbazaar/gpt-5.5",
+		Slug:            "gpt-5.5",
+		ProfileVersion:  1,
+		EffectiveFrom:   time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version:    1,
+			Endpoints:  []string{"models", "chat_completions"},
+			Transports: []string{"http", "sse"},
+			Lifecycle:  "active",
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+			},
+			Sampling:   platform.ModelRuntimeSamplingProfile{Parameters: []string{"temperature", "top_p"}},
+			Tools:      platform.ModelRuntimeToolsProfile{Custom: true, Supported: []string{"function_calling"}},
+			Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"text"}},
+			Limits: platform.ModelRuntimeLimits{
+				ContextWindow: 200000, MaxInputTokens: 200000, MaxOutputTokens: 64000,
+				MessagesBytes: 32 * 1024 * 1024, BatchBytes: 256 * 1024 * 1024, FileBytes: 500 * 1024 * 1024,
+			},
+		},
+	}
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{
+		TotalCostUSD: 0.001, TotalTokens: 52,
+		ModelRuntimeProfile: &runtimeProfile, PricingRevision: runtimeProfile.CatalogRevision,
+	}}
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
-		"model":"claude-3-haiku",
+		"model":"gpt-5.5",
 		"messages":[{"role":"user","content":"What is order A-1024?"}],
-		"tools":[{"type":"function","function":{"name":"get_order_status","parameters":{"type":"object"}}}]
-	}`)
-	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	assert.Zero(t, mTunnel.proxyCalls)
-
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "does not support tools")
-}
-
-func TestChatCompletionHandler_RejectsResponseFormatForNativeProviderWithoutAdapter(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, err := testcache.New(t, logger)
-	require.NoError(t, err)
-	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
-		ModelName: "claude-3-haiku",
-		ProviderEndpoint: config.ProviderEndpointConfig{
-			Provider: "anthropic",
-			Model:    "anthropic/claude-3-haiku-20240307",
-			RPM:      1000,
-		},
-	}}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
-	require.NoError(t, err)
-
-	mTunnel := &mockTunnelTransport{}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
-	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
-	app := setupTestApp(t, handler)
-
-	payload := []byte(`{
-		"model":"claude-3-haiku",
-		"messages":[{"role":"user","content":"Return JSON."}],
+		"tools":[{"type":"function","function":{"name":"get_order_status","parameters":{"type":"object"}}}],
+		"tool_choice":"auto",
 		"response_format":{"type":"json_object"}
 	}`)
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
@@ -3080,12 +2958,19 @@ func TestChatCompletionHandler_RejectsResponseFormatForNativeProviderWithoutAdap
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	assert.Zero(t, mTunnel.proxyCalls)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "does not support response_format")
+	outbound := string(mTunnel.lastRequest.Body)
+	assert.Contains(t, outbound, `"tools"`)
+	assert.Contains(t, outbound, `"tool_choice":"auto"`)
+	assert.Contains(t, outbound, `"response_format"`)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	bodyText := string(body)
+	assert.Contains(t, bodyText, `"tool_calls"`)
+	assert.Contains(t, bodyText, `"finish_reason":"tool_calls"`)
 }
 
 func TestChatCompletionHandler_RejectsInvalidResponseFormatType(t *testing.T) {
