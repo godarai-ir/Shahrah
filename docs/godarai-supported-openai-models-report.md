@@ -1,34 +1,37 @@
 # Cumulative OpenAI model support in GodarAI
 
-**Review date:** 2026-07-30
+**Review date:** 2026-09-23 (GPT-6 Sol and Luna added; earlier models reviewed 2026-07-30)
 **Provider:** OpenAI only
-**Audited models:** 21
+**Audited models:** 23
 **Private pricing:** Out of scope
 **Responses REST baseline:** `openai/openai-openapi@db14b6e1712aaf5265cf5a6871adff7a9c61d31c`
 
 ## Executive result
 
-This report is cumulative. It includes the previously reviewed GPT-5.4,
-GPT-5.5, and GPT-5.6 families together with the later GPT-4.1, embedding,
-moderation, image, transcription, and speech models.
+This report is cumulative. It includes GPT-6 Sol and GPT-6 Luna, the
+previously reviewed GPT-5.4, GPT-5.5, and GPT-5.6 families, and the later
+GPT-4.1, embedding, moderation, image, transcription, and speech models.
 
 GodarAI publicly exposes all seven OpenAI Responses REST operations. Request,
 response, error, query, header, and SSE contracts are relayed without narrowing
-the provider schema. All 21 models are present in the OpenAI catalog and have
+the provider schema. All 23 models are present in the OpenAI catalog and have
 endpoint, modality, feature, tool, public-pricing, and reference-rate-limit
 metadata appropriate to their model type.
 
 The implementation is route-, schema-, catalog-, billing-, and
 automated-contract-ready for the REST capabilities marked ready below. It is
 not accurate to call the complete OpenAI surface production-ready yet:
-Responses WebSocket mode, Realtime transcription, fine-tuning job management,
-and several newer GPT-5.6 Responses features still have gaps. No credentialed
+Responses WebSocket mode (and therefore GPT-6 mid-turn steering), Realtime
+transcription, fine-tuning job management, and several newer GPT-5.6 Responses
+features still have gaps. No credentialed
 OpenAI staging canary was run.
 
 ## Cumulative model and endpoint inventory
 
 | Model | Public GodarAI endpoints | Context / max output | Modalities | Status |
 |---|---|---:|---|---|
+| [`gpt-6-sol`](https://developers.openai.com/api/docs/models/gpt-6-sol) | Chat Completions, Responses REST, Batch | 1.05M / 128K | Text/image → text | REST ready |
+| [`gpt-6-luna`](https://developers.openai.com/api/docs/models/gpt-6-luna) | Chat Completions, Responses REST, Batch | 1.05M / 128K | Text/image → text | REST ready |
 | [`gpt-5.6-sol`](https://developers.openai.com/api/docs/models/gpt-5.6-sol) | Chat Completions, Responses REST, Batch | 1.05M / 128K | Text/image → text | REST ready |
 | [`gpt-5.6-terra`](https://developers.openai.com/api/docs/models/gpt-5.6-terra) | Chat Completions, Responses REST, Batch | 1.05M / 128K | Text/image → text | REST ready |
 | [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna) | Chat Completions, Responses REST, Batch | 1.05M / 128K | Text/image → text | REST ready |
@@ -105,7 +108,7 @@ tunnel. File and Batch IDs retain tenant and provider-account affinity.
 
 ## General-model capabilities and tools
 
-All audited GPT-5 and GPT-4.1-family models have model-specific streaming,
+All audited GPT-6, GPT-5, and GPT-4.1-family models have model-specific streaming,
 reasoning, structured-output, function-calling, prompt-caching, and tool
 capabilities in the runtime profile. GodarAI does not infer capabilities from
 model size.
@@ -116,13 +119,14 @@ predicted outputs, and fine-tuning capability. Their Responses tool set is
 function calling, web search, file search, image generation, code interpreter,
 and MCP.
 
-For GPT-5 models, `FC` means function calling. The remaining abbreviations are
+For GPT-6 and GPT-5 models, `FC` means function calling. The remaining abbreviations are
 `WS` web search, `FS` file search, `TS` tool search, `IG` image generation,
 `CI` code interpreter, `HS` hosted shell, `AP` apply patch, `SK` skills,
 `CU` computer use, and `MCP`.
 
 | Model | FC | WS | FS | TS | IG | CI | HS | AP | SK | CU | MCP |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| GPT-6 Sol/Luna | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GPT-5.6 Sol/Terra/Luna | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GPT-5.5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GPT-5.5 Pro | ✓ | ✓ | ✓ | — | ✓ | ✓ | ✓ | — | — | — | ✓ |
@@ -135,6 +139,37 @@ The relay is schema-forward-compatible, but two capabilities newly documented
 for GPT-5.6—Programmatic Tool Calling and the beta multi-agent tool—are not yet
 explicit capability entries in the GodarAI model catalog or dedicated
 contract tests. They are therefore not marked production-ready in this audit.
+
+### GPT-6 Sol and Luna
+
+The [GPT-6 guide](https://developers.openai.com/api/docs/guides/latest-model)
+and model pages define the following model-specific behavior. GodarAI relays
+all of it unchanged; OpenAI remains the enforcement point for model rules.
+
+- **Reasoning:** `none`, `low`, `medium` (default), `high`, `xhigh`, and `max`;
+  `reasoning.mode` `standard` or `pro`; `reasoning.context` `auto`,
+  `current_turn`, or `all_turns`. When effort is not `none`, OpenAI requires
+  removing `temperature`, `top_p`, and `top_logprobs` (and `logprobs` in Chat
+  Completions); the runtime profile records `temperature` and `top_p` as
+  disallowed with thinking.
+- **Chat Completions:** function calling works only with
+  `reasoning_effort: "none"`. Built-in tools and reasoning with tools require
+  Responses.
+- **Async tool calling:** `async: true` on function and custom tools, with
+  results returned on the original `call_id`. Works over REST and SSE.
+- **`configuration_update` input items:** change reasoning effort mid-conversation
+  while preserving the cached prefix. Works over REST and SSE.
+- **Prompt caching:** `prompt_cache_options` (`ttl: "30m"`, explicit
+  `prompt_cache_breakpoint`) replaces `prompt_cache_retention`. Cache writes
+  are billed at 1.25x the input rate.
+- **Programmatic Tool Calling:** listed by the GPT-6 guide among the supported
+  GPT-5.6 capabilities, and cataloged for both models.
+- **Mid-turn steering:** WebSocket-only; not available until GodarAI exposes
+  Responses WebSocket mode.
+
+`TestResponsesHandlerRelaysGPT6RequestFeaturesLosslessly` and
+`TestBuildChatCompletionPayloadPreservesGPT6Fields` assert that these request
+fields reach OpenAI byte-for-byte.
 
 ## Specialized endpoint contracts
 
@@ -184,6 +219,8 @@ tokens. Private tenant or provider-account price overrides are excluded.
 
 | Model | Standard input / cached / output | Batch and Flex input / cached / output | Fast input / cached / output |
 |---|---:|---:|---:|
+| `gpt-6-sol` | 2 / 0.2 / 10 | 1 / 0.1 / 5 | 4 / 0.4 / 20 |
+| `gpt-6-luna` | 0.1 / 0.01 / 0.5 | 0.05 / 0.005 / 0.25 | 0.2 / 0.02 / 1 |
 | `gpt-5.6-sol` | 5 / 0.5 / 30 | 2.5 / 0.25 / 15 | 10 / 1 / 60 |
 | `gpt-5.6-terra` | 2 / 0.2 / 12 | 1 / 0.1 / 6 | 4 / 0.4 / 24 |
 | `gpt-5.6-luna` | 0.2 / 0.02 / 1.2 | 0.1 / 0.01 / 0.6 | 0.4 / 0.04 / 2.4 |
@@ -194,13 +231,27 @@ tokens. Private tenant or provider-account price overrides are excluded.
 | `gpt-5.4-mini` | 0.75 / 0.075 / 4.5 | 0.375 / 0.0375 / 2.25 | 1.5 / 0.15 / 9 |
 | `gpt-5.4-nano` | 0.2 / 0.02 / 1.25 | 0.1 / 0.01 / 0.625 | — |
 
-For 1.05M-context models, requests above 272K input tokens use the published
-long-context rates for the full request. GodarAI has distinct Standard, Batch,
-and Flex long-context dimensions. Fast/Priority is rejected for unsupported
-long-context combinations. `service_tier: "fast"` and `"priority"` use the
-Fast dimensions.
+For 1.05M-context models, requests with more than 272K input tokens use the
+published long-context rates for the full request; a request of exactly
+272,000 input tokens uses short-context rates. GodarAI has distinct Standard,
+Batch, Flex, and Fast long-context dimensions. Fast/Priority long context is
+priced for models that publish those rates (GPT-6 Sol and Luna) and rejected
+for the others. `service_tier: "fast"` and `"priority"` use the Fast
+dimensions.
 
-GPT-5.6 cache-write tokens are preserved from
+GPT-6 long-context rates (input / cached / cache write / output):
+
+| Model | Standard | Batch and Flex | Fast |
+|---|---:|---:|---:|
+| `gpt-6-sol` | 4 / 0.4 / 5 / 15 | 2 / 0.2 / 2.5 / 7.5 | 8 / 0.8 / 10 / 30 |
+| `gpt-6-luna` | 0.2 / 0.02 / 0.25 / 0.75 | 0.1 / 0.01 / 0.125 / 0.375 | 0.4 / 0.04 / 0.5 / 1.5 |
+
+GPT-6 short-context cache writes are 2.5 (Sol) and 0.125 (Luna) at Standard,
+half of that at Batch and Flex, and double at Fast. Regional processing (data
+residency) adds 10% at OpenAI and is available for GPT-6 only with Standard
+processing; GodarAI routes GPT-6 to global processing only.
+
+GPT-6 and GPT-5.6 cache-write tokens are preserved from
 `usage.input_tokens_details.cache_write_tokens` and billed separately. Pro
 models fall back to ordinary input pricing for cached tokens because OpenAI
 does not publish a cached-input discount.
@@ -248,8 +299,8 @@ These are catalog reference limits, not limits imposed by GodarAI. OpenAI
 selects the account's actual usage tier, and GodarAI forwards live provider
 rate-limit headers.
 
-The common GPT-5 Standard profile used by GPT-5.6 Sol/Terra and GPT-5.5/GPT-5.4
-at standard context is:
+The common GPT-5 Standard profile used by GPT-6 Sol, GPT-5.6 Sol/Terra, and
+GPT-5.5/GPT-5.4 at standard context is:
 
 | Tier | RPM | TPM | Batch queue |
 |---:|---:|---:|---:|
@@ -261,7 +312,9 @@ at standard context is:
 
 Luna, mini, nano, Pro, and long-context requests retain their model-page
 specific tables. For example, the GPT-5.6 Luna TPM limits are 500K, 2M, 4M,
-10M, and 180M for Tiers 1–5. GPT-5.5 Pro uses 50/50K, 500/200K, 500/500K,
+10M, and 180M for Tiers 1–5. GPT-6 Luna uses 500/500K/5M, 5K/2M/20M,
+5K/4M/40M, 10K/10M/1B, and 30K/180M/15B RPM/TPM/batch-queue tokens across
+Tiers 1–5; Free tier is not supported for either GPT-6 model. GPT-5.5 Pro uses 50/50K, 500/200K, 500/500K,
 1K/1M, and 2K/4M RPM/TPM across Tiers 1–5.
 
 | Models | Tier 1 | Tier 2 | Tier 3 | Tier 4 | Tier 5 |
@@ -284,8 +337,8 @@ model pages and live response headers remain authoritative.
 
 1. **Responses WebSocket mode is not public.** GodarAI exposes all seven REST
    operations and SSE streaming, but not OpenAI's persistent `/v1/responses`
-   WebSocket mode. The readiness artifact therefore has
-   `websocket_ready: false`.
+   WebSocket mode, so GPT-6 mid-turn steering is unavailable. The readiness
+   artifact has `websocket_ready: false`.
 2. **Realtime transcription is not public.** `gpt-transcribe` file and SSE
    transcription are supported, but committed-turn Realtime WebSocket
    transcription is not available through the regional tunnel.
@@ -294,14 +347,17 @@ model pages and live response headers remain authoritative.
    job, event, or checkpoint management routes. Inference with an existing
    fine-tuned model ID remains supported.
 4. **New GPT-5.6 tools need explicit productization.** Programmatic Tool
-   Calling and beta multi-agent requests may pass through the forward-compatible
-   Responses relay, but they are not cataloged or covered by dedicated
-   lifecycle/event contract tests.
+   Calling is cataloged for GPT-6 Sol and Luna only. It and beta multi-agent
+   requests pass through the forward-compatible Responses relay, but they are
+   not covered by dedicated lifecycle/event contract tests.
 5. **Some tool-cost reconciliation remains incomplete.** Web-search and
    file-search calls are reconciled, but file-search storage and container
    duration/memory cannot always be attributed from one Responses body and are
    not fully debited by a provider-usage reconciliation worker.
-6. **No live canary was run.** Static and automated tests cannot establish
+6. **Data residency is not offered.** GodarAI routes OpenAI traffic to global
+   processing; OpenAI's regional (EU) endpoints and their 10% uplift are not
+   exposed.
+7. **No live canary was run.** Static and automated tests cannot establish
    account entitlement, current provider behavior, or regional availability.
 
 Consequently, REST route and contract readiness are true, while
