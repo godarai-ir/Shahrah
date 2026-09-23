@@ -35,6 +35,38 @@ func TestBuildChatCompletionPayloadPreservesFutureOpenAIFields(t *testing.T) {
 	require.NotContains(t, got, "prompt_variables")
 }
 
+// GPT-6 Sol and Luna support Chat Completions function calling only with
+// reasoning_effort "none"; the gateway forwards the combination and the other
+// documented GPT-6 fields unchanged and leaves enforcement to OpenAI.
+func TestBuildChatCompletionPayloadPreservesGPT6Fields(t *testing.T) {
+	var request contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"model":"public-model",
+		"messages":[{"role":"user","content":"What is the weather in Paris?"}],
+		"reasoning_effort":"none",
+		"service_tier":"fast",
+		"prompt_cache_options":{"ttl":"30m"},
+		"tools":[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}],
+		"temperature":0.2
+	}`), &request))
+
+	payload, err := buildChatCompletionPayload(request, "gpt-6-luna", "")
+	require.NoError(t, err)
+
+	var got map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(payload, &got))
+	require.JSONEq(t, `"gpt-6-luna"`, string(got["model"]))
+	require.JSONEq(t, `"none"`, string(got["reasoning_effort"]))
+	require.JSONEq(t, `"fast"`, string(got["service_tier"]))
+	require.JSONEq(t, `{"ttl":"30m"}`, string(got["prompt_cache_options"]))
+	require.JSONEq(t, `0.2`, string(got["temperature"]))
+	require.JSONEq(
+		t,
+		`[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}]`,
+		string(got["tools"]),
+	)
+}
+
 func TestBuildChatCompletionPayloadDoesNotInventMetadataOrStoreForProviders(t *testing.T) {
 	t.Parallel()
 
