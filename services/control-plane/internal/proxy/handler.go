@@ -388,34 +388,6 @@ func (h *ChatCompletionHandler) chatDeploymentRequestValidationError(
 		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("z.ai chat completions are disabled")
 	}
 
-	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support image input through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasVideo(req) && !supportsChatVideoProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support video input through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasFile(req) && !supportsChatFileProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support file input through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasInputAudio(req) && !supportsChatInputAudioProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support input_audio through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasTools(req) && !supportsChatToolsProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support tools through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasResponseFormat(req) && !supportsChatResponseFormatProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support response_format through GodarAI chat completions", provider)
-	}
-
-	if chatRequestHasExtendedThinking(req) && !supportsChatExtendedThinkingProvider(provider) {
-		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support extended thinking through GodarAI chat completions", provider)
-	}
-
 	if err := validateProviderMediaInput(req, provider); err != nil {
 		return fiber.StatusBadRequest, "invalid_request_error", err
 	}
@@ -2264,66 +2236,6 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 	thinkingType := strings.ToLower(strings.TrimSpace(value.Type))
 
 	return thinkingType == "enabled" || thinkingType == "adaptive"
-}
-
-func supportsChatImageProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "anthropic", "gemini", "google-gemini":
-		return true
-	default:
-		return false
-	}
-}
-
-func supportsChatVideoProvider(provider string) bool {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-
-	return provider == "moonshot" || provider == "zai"
-}
-
-func supportsChatToolsProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "gemini", "google-gemini":
-		return true
-	default:
-		return false
-	}
-}
-
-func supportsChatResponseFormatProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "gemini", "google-gemini":
-		return true
-	default:
-		return false
-	}
-}
-
-func supportsChatExtendedThinkingProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "anthropic", "gemini", "google-gemini":
-		return true
-	default:
-		return false
-	}
-}
-
-func supportsChatFileProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "openrouter", "anthropic", "xai", "zai":
-		return true
-	default:
-		return false
-	}
-}
-
-func supportsChatInputAudioProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "gemini", "google-gemini":
-		return true
-	default:
-		return false
-	}
 }
 
 func validateReasoningEffort(value string) error {

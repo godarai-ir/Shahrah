@@ -1885,6 +1885,9 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 					Data:      data,
 				},
 			})
+		default:
+			// Reject rather than skip: a dropped part would reach the model silently.
+			return nil, fmt.Errorf("unsupported anthropic content part type %q", part.Type)
 		}
 	}
 
