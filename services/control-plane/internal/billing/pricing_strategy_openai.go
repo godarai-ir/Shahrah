@@ -15,14 +15,19 @@ import (
 )
 
 type openAITokenPricingPolicy struct {
-	longContextThreshold         int
+	// longContextMinPromptTokens is the smallest prompt size billed at
+	// long-context rates. It must match the catalog min_prompt_tokens
+	// condition so boundary requests always resolve to a published rate.
+	longContextMinPromptTokens   int
 	supportsSpeedTierLongContext bool
 }
 
 var (
-	openAIStandardTokenPricingPolicy = openAITokenPricingPolicy{longContextThreshold: 272000}
+	// OpenAI bills prompts with more than 272K input tokens at long-context
+	// rates, so a 272,000-token prompt still uses the short-context rates.
+	openAIStandardTokenPricingPolicy = openAITokenPricingPolicy{longContextMinPromptTokens: 272001}
 	xAITokenPricingPolicy            = openAITokenPricingPolicy{
-		longContextThreshold:         200000,
+		longContextMinPromptTokens:   200000,
 		supportsSpeedTierLongContext: true,
 	}
 )
@@ -111,10 +116,13 @@ func openAIUsageCostBreakdownWithPolicy(
 		cacheWriteDimension = "speed_cache_write_tokens"
 	}
 
-	if usage.PromptTokens >= policy.longContextThreshold {
+	if usage.PromptTokens >= policy.longContextMinPromptTokens {
 		switch tier {
 		case "priority":
-			if policy.supportsSpeedTierLongContext {
+			// Models that publish Fast mode long-context rates, such as
+			// GPT-6 Sol and Luna, are priced at them; the others reject.
+			if policy.supportsSpeedTierLongContext ||
+				hasOpenAIRate(price.RateList, "speed_long_context_input_tokens", usage.PromptTokens, tier, conditions) {
 				inputDimension, outputDimension = "speed_long_context_input_tokens", "speed_long_context_output_tokens"
 				cacheDimension = "speed_long_context_cache_read_tokens"
 				cacheWriteDimension = "speed_long_context_cache_write_tokens"
