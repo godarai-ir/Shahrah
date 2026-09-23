@@ -143,7 +143,9 @@ describe('OpenAI provider importer', () => {
   });
 
   // Official per-1M-token prices from https://developers.openai.com/api/docs/pricing
-  // in the order input, cached input, cache writes, output.
+  // in the order input, cached input, cache writes, output. GPT-5.6 long-context
+  // rates not tabulated there follow each model card's published rule: >272K
+  // input tokens cost 2x input and 1.5x output for the full request.
   it.each([
     [
       'gpt-6-sol',
@@ -165,6 +167,40 @@ describe('OpenAI provider importer', () => {
         batchFlexLong: [0.1, 0.01, 0.125, 0.375],
         fast: [0.2, 0.02, 0.25, 1],
         fastLong: [0.4, 0.04, 0.5, 1.5],
+      },
+    ],
+    [
+      // Promotional pricing, available at least through 2026-11-21.
+      'gpt-5.6-sol',
+      {
+        standard: [4, 0.4, 5, 20],
+        standardLong: [8, 0.8, 10, 30],
+        batchFlex: [2, 0.2, 2.5, 10],
+        batchFlexLong: [4, 0.4, 5, 15],
+        fast: [8, 0.8, 10, 40],
+        fastLong: [16, 1.6, 20, 60],
+      },
+    ],
+    [
+      'gpt-5.6-terra',
+      {
+        standard: [2, 0.2, 2.5, 12],
+        standardLong: [4, 0.4, 5, 18],
+        batchFlex: [1, 0.1, 1.25, 6],
+        batchFlexLong: [2, 0.2, 2.5, 9],
+        fast: [4, 0.4, 5, 24],
+        fastLong: [8, 0.8, 10, 36],
+      },
+    ],
+    [
+      'gpt-5.6-luna',
+      {
+        standard: [0.2, 0.02, 0.25, 1.2],
+        standardLong: [0.4, 0.04, 0.5, 1.8],
+        batchFlex: [0.1, 0.01, 0.125, 0.6],
+        batchFlexLong: [0.2, 0.02, 0.25, 0.9],
+        fast: [0.4, 0.04, 0.5, 2.4],
+        fastLong: [0.8, 0.08, 1, 3.6],
       },
     ],
   ])(
@@ -222,6 +258,19 @@ describe('OpenAI provider importer', () => {
       ]);
     },
   );
+
+  // OpenAI publishes GPT-5.6 Sol's promotion as available "at least through"
+  // 2026-11-21, which is a floor rather than an end date, and publishes no
+  // successor price. An effective_to without a successor cost row would leave
+  // the model unpriced once the date passes.
+  it('keeps the open-ended GPT-5.6 Sol promotion without an end date', async () => {
+    const document = parse(
+      await readFile(join(providerDir, 'gpt-5.6-sol.yaml'), 'utf8'),
+    ) as OpenAIProfileFixture;
+
+    expect(document.costs).toHaveLength(1);
+    expect(document.costs?.[0]).not.toHaveProperty('effective_to');
+  });
 
   it('rejects a missing or downgraded runtime profile', async () => {
     const root = await copyProviderFixture();
