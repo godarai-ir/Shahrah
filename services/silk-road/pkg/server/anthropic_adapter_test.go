@@ -430,6 +430,46 @@ func TestAnthropicConversionRejectsUnknownServerToolVersion(t *testing.T) {
 	}
 }
 
+func TestAnthropicConversionRejectsUntranslatableContentParts(t *testing.T) {
+	cases := map[string]contractsopenai.ChatContentPart{
+		"video_url": {
+			Type:     "video_url",
+			VideoURL: &contractsopenai.ChatVideoURL{URL: "https://example.com/clip.mp4"},
+		},
+		"file_url": {
+			Type:    "file_url",
+			FileURL: &contractsopenai.ChatFileURL{URL: "https://example.com/report.pdf"},
+		},
+		"input_audio": {
+			Type:       "input_audio",
+			InputAudio: &contractsopenai.ChatInputAudio{Data: "UklGRg==", Format: "wav"},
+		},
+	}
+
+	for partType, part := range cases {
+		t.Run(partType, func(t *testing.T) {
+			request := contractsopenai.ChatCompletionRequest{
+				Model: "claude-opus-4-7",
+				Messages: []contractsopenai.ChatMessage{{
+					Role: "user",
+					Content: []contractsopenai.ChatContentPart{
+						{Type: "text", Text: "describe this"},
+						part,
+					},
+				}},
+			}
+
+			_, err := convertToAnthropicRequest(
+				request,
+				anthropicTestRuntimeProfile(request.Model).Profile,
+			)
+			if err == nil || !strings.Contains(err.Error(), partType) {
+				t.Fatalf("expected %s part rejection, got %v", partType, err)
+			}
+		})
+	}
+}
+
 func TestAnthropicResponsePreservesServerToolBlocks(t *testing.T) {
 	var response anthropicResponse
 	if err := json.Unmarshal([]byte(`{
