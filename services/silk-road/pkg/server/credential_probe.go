@@ -274,7 +274,7 @@ func safeCredentialProbeURL(provider, raw string) bool {
 
 	exact := map[string]string{
 		"cerebras": "api.cerebras.ai", "cohere": "api.cohere.com",
-		"deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com",
+		"deepinfra":     "api.deepinfra.com",
 		"tokenbazaar":   tokenBazaarHost,
 		"google-gemini": "generativelanguage.googleapis.com", "groq": "api.groq.com",
 		"mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
