@@ -1,0 +1,589 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`guardrailSentence > describes 'basic_pii' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'basic_pii' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'basic_pii' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'basic_pii' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the request passes and is flagged in the log.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'basic_pii' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the request is stopped and logged.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'basic_pii' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If personal information is found in the text, the request is stopped without being logged.",
+  "fa": "اگر در متن اطلاعات شخصی پیدا شود، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'character_count' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the character count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد کاراکتر‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request passes and is flagged in the log.",
+  "fa": "اگر متن کد نداشته باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request is stopped and logged.",
+  "fa": "اگر متن کد نداشته باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request is stopped without being logged.",
+  "fa": "اگر متن کد نداشته باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request passes and is flagged in the log.",
+  "fa": "اگر متن کد نداشته باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request is stopped and logged.",
+  "fa": "اگر متن کد نداشته باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'contains_code' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text contains no code, the request is stopped without being logged.",
+  "fa": "اگر متن کد نداشته باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'inline_image_urls' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "Image URLs in the request are downloaded and embedded inline in the request.",
+  "fa": "تصویرهای آدرس‌دار داخل درخواست دانلود و به‌صورت درون‌خطی در درخواست قرار می‌گیرند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request passes and is flagged in the log.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request is stopped and logged.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request is stopped without being logged.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request passes and is flagged in the log.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request is stopped and logged.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_keys' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the JSON is missing any of answer, confidence, the request is stopped without being logged.",
+  "fa": "اگر همهٔ کلیدهای answer، confidence در JSON نباشند، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request passes and is flagged in the log.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request is stopped and logged.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request is stopped without being logged.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request passes and is flagged in the log.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request is stopped and logged.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'json_schema' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the response does not match the JSON schema, the request is stopped without being logged.",
+  "fa": "اگر پاسخ با JSON Schema مطابق نباشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request passes and is flagged in the log.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request is stopped and logged.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request is stopped without being logged.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request passes and is flagged in the log.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request is stopped and logged.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'jwt_validation' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the request's JWT is not valid, the request is stopped without being logged.",
+  "fa": "اگر توکن JWT درخواست معتبر نباشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request passes and is flagged in the log.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request is stopped and logged.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request is stopped without being logged.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request passes and is flagged in the log.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request is stopped and logged.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'keyword_blocklist' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text contains any of 3 blocked terms, the request is stopped without being logged.",
+  "fa": "اگر متن شامل یکی از ۳ عبارت مسدود باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request passes and is flagged in the log.",
+  "fa": "اگر متن خالی باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request is stopped and logged.",
+  "fa": "اگر متن خالی باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request is stopped without being logged.",
+  "fa": "اگر متن خالی باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request passes and is flagged in the log.",
+  "fa": "اگر متن خالی باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request is stopped and logged.",
+  "fa": "اگر متن خالی باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'not_null' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text is empty, the request is stopped without being logged.",
+  "fa": "اگر متن خالی باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر متن با الگو منطبق باشد، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر متن با الگو منطبق باشد، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر متن با الگو منطبق باشد، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the request passes and is flagged in the log.",
+  "fa": "اگر متن با الگو منطبق باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the request is stopped and logged.",
+  "fa": "اگر متن با الگو منطبق باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the text matches the pattern, the request is stopped without being logged.",
+  "fa": "اگر متن با الگو منطبق باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'regex_replace' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "Any part of the text that matches the pattern is replaced with “<hidden>” and the request continues.",
+  "fa": "بخشی از متن که با الگو منطبق است با «<hidden>» جایگزین می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the part that is found is masked with “[***]” and the request continues.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، بخش پیدا شده با «[***]» پوشانده می‌شود و درخواست ادامه پیدا می‌کند.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the request passes and is flagged in the log.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the request is stopped and logged.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'secrets_detection' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If a key or secret is found in the text, the request is stopped without being logged.",
+  "fa": "اگر در متن کلید یا رمز پیدا شود، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'sentence_count' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the sentence count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد جمله‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request passes and is flagged in the log.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request is stopped and logged.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'word_count' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If the word count is below 5 or above 200, the request is stopped without being logged.",
+  "fa": "اگر تعداد کلمه‌ها کمتر از ۵ یا بیشتر از ۲۰۰ باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;

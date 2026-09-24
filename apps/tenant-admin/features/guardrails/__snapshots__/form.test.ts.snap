@@ -220,14 +220,8 @@ exports[`buildPayload > keeps the jwt_validation payload stable > create 1`] = `
 {
   "config": {
     "audience": "gateway",
-    "inline_jwks": {
-      "keys": [],
-    },
-    "introspection_auth_header": "Bearer abc",
-    "introspection_url": "https://issuer.example.com/introspect",
     "issuer": "https://issuer.example.com",
     "jwks_uri": "https://issuer.example.com/jwks.json",
-    "shared_secret": "s3cret",
     "token_regex": "Bearer (.+)",
   },
   "description": "Masks personal data",
@@ -244,14 +238,8 @@ exports[`buildPayload > keeps the jwt_validation payload stable > edit 1`] = `
 {
   "config": {
     "audience": "gateway",
-    "inline_jwks": {
-      "keys": [],
-    },
-    "introspection_auth_header": "Bearer abc",
-    "introspection_url": "https://issuer.example.com/introspect",
     "issuer": "https://issuer.example.com",
     "jwks_uri": "https://issuer.example.com/jwks.json",
-    "shared_secret": "s3cret",
     "token_regex": "Bearer (.+)",
   },
   "description": "Masks personal data",
