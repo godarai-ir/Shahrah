@@ -34,9 +34,12 @@ compose run --rm --no-deps -T -v "$(pwd)/${backup_dir}/support-files:/out" --ent
 
 if [[ -n "${BACKUP_S3_ENDPOINT:-}" && -n "${BACKUP_S3_BUCKET:-}" ]]; then
   echo "Uploading to ${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/${stamp}"
+  # Credentials go through `mc alias set` so keys with '/' or '+' need no URL encoding.
   docker run --rm -v "$(pwd)/${backup_dir}:/backup:ro" \
-    -e MC_HOST_remote="https://${BACKUP_S3_ACCESS_KEY}:${BACKUP_S3_SECRET_KEY}@${BACKUP_S3_ENDPOINT#https://}" \
-    minio/mc:latest cp --recursive /backup/ "remote/${BACKUP_S3_BUCKET}/${stamp}/"
+    -e BACKUP_S3_ENDPOINT -e BACKUP_S3_ACCESS_KEY -e BACKUP_S3_SECRET_KEY -e BACKUP_S3_BUCKET -e stamp="${stamp}" \
+    --entrypoint sh minio/mc:latest -c \
+    'mc alias set remote "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY" >/dev/null &&
+     mc cp --recursive /backup/ "remote/$BACKUP_S3_BUCKET/$stamp/"'
 fi
 
 find backups -mindepth 1 -maxdepth 1 -type d -mtime "+${BACKUP_LOCAL_RETENTION_DAYS:-7}" -exec rm -rf {} +
