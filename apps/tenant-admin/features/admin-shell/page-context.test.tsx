@@ -15,6 +15,7 @@ describe("AdminShell page metadata bridge", () => {
         <AdminShellPageBridge
           pageHeader={{ title: "Logs", description: "Workspace logs", helpHref: "/docs/logs" }}
           contentPadding="none"
+          contentLayout="fill"
         >
           <div>Page content</div>
         </AdminShellPageBridge>
@@ -25,6 +26,7 @@ describe("AdminShell page metadata bridge", () => {
     expect(screen.getByTestId("page-description")).toHaveTextContent("Workspace logs");
     expect(screen.getByTestId("page-help")).toHaveTextContent("/docs/logs");
     expect(screen.getByTestId("page-padding")).toHaveTextContent("none");
+    expect(screen.getByTestId("page-layout")).toHaveTextContent("fill");
 
     rerender(
       <AdminShellPageProvider>
@@ -35,12 +37,13 @@ describe("AdminShell page metadata bridge", () => {
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toBeEmptyDOMElement();
       expect(screen.getByTestId("page-padding")).toHaveTextContent("default");
+      expect(screen.getByTestId("page-layout")).toHaveTextContent("flow");
     });
   });
 });
 
 function PageStateProbe() {
-  const { pageHeader, contentPadding } = useAdminShellPage();
+  const { pageHeader, contentPadding, contentLayout } = useAdminShellPage();
 
   return (
     <div>
@@ -48,6 +51,7 @@ function PageStateProbe() {
       <span data-testid="page-description">{pageHeader?.description}</span>
       <span data-testid="page-help">{pageHeader?.helpHref}</span>
       <span data-testid="page-padding">{contentPadding}</span>
+      <span data-testid="page-layout">{contentLayout}</span>
     </div>
   );
 }

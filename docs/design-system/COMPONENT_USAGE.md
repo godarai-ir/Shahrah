@@ -210,6 +210,20 @@ Use `StatusOptionGroup` when one setting must be selected from a small set of vi
 
 The component composes a single-selection `ToggleGroup`, preserves one selected value, and provides roving keyboard focus. Keep persistence and save state in the feature, pass `disabled` while loading or saving, and do not use standalone status-option buttons.
 
+## WizardStepper
+
+Use `WizardStepper` for the step list of every multi-step create or edit flow, such as provider-account setup and the guardrail wizard. Each step has a `title`, an optional one-line `description` for its current value or scope, and a `state` of `complete`, `active`, or `idle`. The component renders localized step numbers, a check for completed steps, `aria-current="step"` on the active step, and an underline that marks progress.
+
+Reachability stays in the feature: pass `disabled` for steps that cannot open yet and `onSelect` for steps that can. The active step never calls `onSelect`. Wrap the list in a labelled `nav` when it is the flow's primary navigation, and choose `columns` to match the step count. Do not build feature-local step indicators.
+
+Pages with a sticky action footer pass `contentLayout="fill"` to `AdminShell`; the content area then stretches to the viewport height, so the page root can use `flex-1` and the footer `mt-auto` to stay at the bottom even when the step content is short.
+
+## OptionCardGroup
+
+Use `OptionCardGroup` when a form field chooses one of two to four options and each option needs a title plus a one-line explanation of its effect, such as a guardrail's action, its enforcement mode, or a verification method. It composes the shared `RadioGroup` with `RadioGroupCard` items, so the group is a `radiogroup`, every card is a `radio` with `aria-checked`, and arrow keys move the selection in the page direction.
+
+Label the group with `aria-labelledby` pointing at the visible section heading or `FieldLegend`, or with `aria-label`. Each card is named by its `title` and described by its `description` and optional `tip`; use `tip` for a short emphasized note about when to prefer that option. Mark options that the current context does not allow as `disabled` instead of hiding them, and explain the lock next to the group heading. Use `density="compact"` for option sets inside a form card. Prefer `StatusOptionGroup` when the choice is a status with a badge, and `AppSelectField` when the options need no explanation.
+
 ## Spinner And Async Actions
 
 Use `Spinner` for indeterminate loading. Inside a button, compose it with `data-icon="inline-start"`, keep the localized pending label visible, disable the button, and set `aria-busy` on the button. Do not add `loading` or `isPending` props to `Button`.

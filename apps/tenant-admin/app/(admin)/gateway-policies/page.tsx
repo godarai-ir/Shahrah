@@ -8,6 +8,7 @@ import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
 import GuardrailsPage from "../guardrails/page";
+import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,4 @@ export default async function GatewayPoliciesPage() {
       <GatewayPolicyRulesPage />
     </AdminShell>
   );
-}
-
-function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
-  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
-  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
-  const tenantPrefix = `${tenantSlug}.`;
-  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
-
-  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

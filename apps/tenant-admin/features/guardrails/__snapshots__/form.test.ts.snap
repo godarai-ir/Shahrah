@@ -1,0 +1,473 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildPayload > keeps the basic_pii payload stable > create 1`] = `
+{
+  "config": {
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "slug": "pii-guard",
+  "type": "basic_pii",
+}
+`;
+
+exports[`buildPayload > keeps the basic_pii payload stable > edit 1`] = `
+{
+  "config": {
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "type": "basic_pii",
+}
+`;
+
+exports[`buildPayload > keeps the character_count payload stable > create 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "character_count",
+}
+`;
+
+exports[`buildPayload > keeps the character_count payload stable > edit 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "character_count",
+}
+`;
+
+exports[`buildPayload > keeps the contains_code payload stable > create 1`] = `
+{
+  "config": {
+    "languages": [
+      "sql",
+      "python",
+    ],
+    "mode": "must_not_contain",
+    "must_contain": false,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "contains_code",
+}
+`;
+
+exports[`buildPayload > keeps the contains_code payload stable > edit 1`] = `
+{
+  "config": {
+    "languages": [
+      "sql",
+      "python",
+    ],
+    "mode": "must_not_contain",
+    "must_contain": false,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "contains_code",
+}
+`;
+
+exports[`buildPayload > keeps the inline_image_urls payload stable > create 1`] = `
+{
+  "config": {
+    "allow_private_networks": true,
+    "allowed_hosts": [
+      "cdn.example.com",
+      "images.example.com",
+    ],
+    "max_bytes": 2097152,
+    "timeout_ms": 5000,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "slug": "pii-guard",
+  "type": "inline_image_urls",
+}
+`;
+
+exports[`buildPayload > keeps the inline_image_urls payload stable > edit 1`] = `
+{
+  "config": {
+    "allow_private_networks": true,
+    "allowed_hosts": [
+      "cdn.example.com",
+      "images.example.com",
+    ],
+    "max_bytes": 2097152,
+    "timeout_ms": 5000,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "type": "inline_image_urls",
+}
+`;
+
+exports[`buildPayload > keeps the json_keys payload stable > create 1`] = `
+{
+  "config": {
+    "keys": [
+      "answer",
+      "confidence",
+    ],
+    "mode": "any",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "json_keys",
+}
+`;
+
+exports[`buildPayload > keeps the json_keys payload stable > edit 1`] = `
+{
+  "config": {
+    "keys": [
+      "answer",
+      "confidence",
+    ],
+    "mode": "any",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "json_keys",
+}
+`;
+
+exports[`buildPayload > keeps the json_schema payload stable > create 1`] = `
+{
+  "config": {
+    "schema": {
+      "required": [
+        "answer",
+      ],
+      "type": "object",
+    },
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "json_schema",
+}
+`;
+
+exports[`buildPayload > keeps the json_schema payload stable > edit 1`] = `
+{
+  "config": {
+    "schema": {
+      "required": [
+        "answer",
+      ],
+      "type": "object",
+    },
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "json_schema",
+}
+`;
+
+exports[`buildPayload > keeps the jwt_validation payload stable > create 1`] = `
+{
+  "config": {
+    "audience": "gateway",
+    "issuer": "https://issuer.example.com",
+    "jwks_uri": "https://issuer.example.com/jwks.json",
+    "token_regex": "Bearer (.+)",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "jwt_validation",
+}
+`;
+
+exports[`buildPayload > keeps the jwt_validation payload stable > edit 1`] = `
+{
+  "config": {
+    "audience": "gateway",
+    "issuer": "https://issuer.example.com",
+    "jwks_uri": "https://issuer.example.com/jwks.json",
+    "token_regex": "Bearer (.+)",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "jwt_validation",
+}
+`;
+
+exports[`buildPayload > keeps the keyword_blocklist payload stable > create 1`] = `
+{
+  "config": {
+    "terms": [
+      "ignore previous instructions",
+      "drop table",
+    ],
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "keyword_blocklist",
+}
+`;
+
+exports[`buildPayload > keeps the keyword_blocklist payload stable > edit 1`] = `
+{
+  "config": {
+    "terms": [
+      "ignore previous instructions",
+      "drop table",
+    ],
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "keyword_blocklist",
+}
+`;
+
+exports[`buildPayload > keeps the not_null payload stable > create 1`] = `
+{
+  "config": {},
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "not_null",
+}
+`;
+
+exports[`buildPayload > keeps the not_null payload stable > edit 1`] = `
+{
+  "config": {},
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "not_null",
+}
+`;
+
+exports[`buildPayload > keeps the regex payload stable > create 1`] = `
+{
+  "config": {
+    "patterns": [
+      "(?i)password\\s*[:=]\\s*\\S+",
+      "\\b\\d{10}\\b",
+    ],
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "slug": "pii-guard",
+  "type": "regex",
+}
+`;
+
+exports[`buildPayload > keeps the regex payload stable > edit 1`] = `
+{
+  "config": {
+    "patterns": [
+      "(?i)password\\s*[:=]\\s*\\S+",
+      "\\b\\d{10}\\b",
+    ],
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "type": "regex",
+}
+`;
+
+exports[`buildPayload > keeps the regex_replace payload stable > create 1`] = `
+{
+  "config": {
+    "case_sensitive": true,
+    "pattern": "secret-\\d+",
+    "replacement": "<hidden>",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "slug": "pii-guard",
+  "type": "regex_replace",
+}
+`;
+
+exports[`buildPayload > keeps the regex_replace payload stable > edit 1`] = `
+{
+  "config": {
+    "case_sensitive": true,
+    "pattern": "secret-\\d+",
+    "replacement": "<hidden>",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "type": "regex_replace",
+}
+`;
+
+exports[`buildPayload > keeps the secrets_detection payload stable > create 1`] = `
+{
+  "config": {
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "slug": "pii-guard",
+  "type": "secrets_detection",
+}
+`;
+
+exports[`buildPayload > keeps the secrets_detection payload stable > edit 1`] = `
+{
+  "config": {
+    "redaction_text": "[redacted]",
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "mutate",
+  "type": "secrets_detection",
+}
+`;
+
+exports[`buildPayload > keeps the sentence_count payload stable > create 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "sentence_count",
+}
+`;
+
+exports[`buildPayload > keeps the sentence_count payload stable > edit 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "sentence_count",
+}
+`;
+
+exports[`buildPayload > keeps the word_count payload stable > create 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "word_count",
+}
+`;
+
+exports[`buildPayload > keeps the word_count payload stable > edit 1`] = `
+{
+  "config": {
+    "max": 40,
+    "min": 2,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "word_count",
+}
+`;

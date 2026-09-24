@@ -28,6 +28,9 @@ export type GuardrailOperation = z.infer<typeof guardrailOperationSchema>;
 export type GuardrailEnforcement = z.infer<typeof guardrailEnforcementSchema>;
 export type TenantGuardrail = z.infer<typeof tenantGuardrailSchema>;
 
+/** How a JWT guardrail verifies tokens. A UI-only choice; only the chosen method's field is sent. */
+export type JwtVerifier = "jwks" | "inline" | "shared" | "introspection";
+
 export type GuardrailFormInput = {
   slug: string;
   name: string;
@@ -48,6 +51,7 @@ export type GuardrailFormInput = {
   keyMode: "any" | "all" | "none";
   languages: string;
   codeMode: "must_contain" | "must_not_contain";
+  jwtVerifier: JwtVerifier;
   tokenRegex: string;
   issuer: string;
   audience: string;

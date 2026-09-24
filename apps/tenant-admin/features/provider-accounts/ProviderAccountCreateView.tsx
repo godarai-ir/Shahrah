@@ -31,6 +31,7 @@ import { CreateReviewPanel } from "@/features/provider-accounts/create-review-pa
 import { ProviderCredentialSchemaFields } from "@/features/provider-accounts/provider-credential-schema-fields";
 import { ProviderPicker } from "@/features/provider-accounts/provider-picker";
 import { ProviderLogo } from "@/components/app-ui/ProviderLogo";
+import { WizardStepper, type WizardStepState } from "@/components/app-ui/WizardStepper";
 import type {
   AccessPrincipal,
   AccessPrincipalCandidate,
@@ -45,7 +46,7 @@ import type {
 } from "@/features/provider-accounts/types";
 import { WIFCredentialStatus } from "@/features/provider-accounts/wif-credential-status";
 import { CatalogCreateSection } from "@/features/provider-accounts/wizard-shell";
-import { CreateFlowStepIndicator, type CreateWizardSectionID } from "@/features/provider-accounts/wizard-layout";
+import { type CreateWizardSectionID } from "@/features/provider-accounts/wizard-layout";
 
 const ModelsEditor = dynamic(
   () => import("@/features/provider-accounts/models-editor").then((module) => module.ModelsEditor),
@@ -63,7 +64,7 @@ const ModelsEditor = dynamic(
 
 type Translator = ReturnType<typeof useTranslations>;
 type CreateStep = { id: CreateWizardSectionID; number: number; title: string };
-type CreateStepState = ComponentProps<typeof CreateFlowStepIndicator>["state"];
+type CreateStepState = WizardStepState;
 type CredentialNotice = (Banner & Partial<CredentialTestResult>) | null;
 
 export type ProviderAccountCreateViewProps = {
@@ -220,32 +221,25 @@ export function ProviderAccountCreateView(props: ProviderAccountCreateViewProps)
                 aria-label={catalogStepProgressLabel}
               />
             </div>
-            <div className="hidden grid-cols-5 gap-2 xl:grid">
-              <CreateFlowStepIndicator
-                number={1}
-                title={catalogT("create.chooseProvider")}
-                state={provider ? "complete" : "active"}
-                variant="compact"
-                onClick={resetCreateProviderSelection}
-              />
-              {createWizardSteps.map((step) => {
-                const stepState = createStepState(step.id);
-                const isStepOpenable = Boolean(provider) && canOpenCreateStep(step.id);
-                return (
-                  <CreateFlowStepIndicator
-                    key={step.id}
-                    number={step.number + 1}
-                    title={step.title}
-                    state={provider ? stepState : "idle"}
-                    variant="compact"
-                    disabled={!isStepOpenable}
-                    onClick={() => {
-                      if (isStepOpenable) setActiveCreateSection(step.id);
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <WizardStepper
+              columns={5}
+              className="hidden xl:grid"
+              steps={[
+                {
+                  id: "provider",
+                  title: catalogT("create.chooseProvider"),
+                  state: provider ? "complete" : "active",
+                  onSelect: resetCreateProviderSelection,
+                },
+                ...createWizardSteps.map((step) => ({
+                  id: step.id,
+                  title: step.title,
+                  state: provider ? createStepState(step.id) : "idle" as const,
+                  disabled: !provider || !canOpenCreateStep(step.id),
+                  onSelect: () => setActiveCreateSection(step.id),
+                })),
+              ]}
+            />
           </nav>
 
           <div className="min-w-0">

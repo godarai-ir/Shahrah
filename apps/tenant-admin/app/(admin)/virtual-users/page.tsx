@@ -8,6 +8,7 @@ import { getTranslations } from "next-intl/server";
 import { parseVirtualUserListPayload } from "@/features/virtual-users/api";
 import { parseTeamListPayload } from "@/lib/api/teams";
 import { parseOrgUnitListPayload } from "@/lib/api/org-units";
+import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
@@ -73,14 +74,4 @@ export default async function VirtualUsersPage() {
       />
     </AdminShell>
   );
-}
-
-function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
-  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
-  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
-  const tenantPrefix = `${tenantSlug}.`;
-  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
-
-  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

@@ -43,6 +43,7 @@ export { ModelNameValue, type ModelNameValueProps } from "./ModelNameValue";
 export { ModalityFlow, type ModalityFlowProps } from "./ModalityFlow";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
 export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
+export { OptionCardGroup, type OptionCardGroupProps, type OptionCardItem } from "./OptionCardGroup";
 export { PageHeader } from "./PageHeader";
 export { ShellPageHeading, type ShellPageMetadata } from "./ShellPageHeading";
 export { PageContainer, type PageContainerPadding, type PageContainerProps, type PageContainerSize, type PageContainerSpacing } from "./PageContainer";
@@ -64,5 +65,6 @@ export { StatusOptionGroup, type StatusOption, type StatusOptionGroupProps, type
 export { TablePagination } from "./TablePagination";
 export { TableEmptyRow, TableLoadingRows, type TableEmptyRowProps, type TableLoadingRowsProps } from "./TableStateRows";
 export { TypedConfirmDialog, type TypedConfirmDialogProps } from "./TypedConfirmDialog";
+export { WizardStepper, type WizardStepperProps, type WizardStepperStep, type WizardStepState } from "./WizardStepper";
 export { UnsavedChangesDialog, type UnsavedChangesDialogProps } from "./UnsavedChangesDialog";
 export { VariableTextarea, VariableTextareaField, getVariableColorStyle, type VariableColorStyle, type VariableTextareaFieldProps, type VariableTextareaProps } from "./VariableTextarea";

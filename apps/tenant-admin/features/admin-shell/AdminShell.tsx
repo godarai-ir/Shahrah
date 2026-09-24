@@ -1,8 +1,9 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
-import { AdminShellPageBridge } from "@/features/admin-shell/page-context";
+import { AdminShellPageBridge, type ContentLayout } from "@/features/admin-shell/page-context";
 import type { ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
+import { buildDocsBaseHref } from "@/lib/docs-href";
 import { pickMessages } from "@/lib/pick-messages";
 
 const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "language", "shell"] as const;
@@ -12,6 +13,7 @@ type AdminShellProps = {
   tenantSlug: string;
   pageHeader?: ShellPageMetadata;
   contentPadding?: "default" | "none";
+  contentLayout?: ContentLayout;
   messageNamespaces?: readonly string[];
   currentUser: {
     id: string;
@@ -25,6 +27,7 @@ export default async function AdminShell({
   children,
   pageHeader,
   contentPadding,
+  contentLayout,
   messageNamespaces = [],
 }: AdminShellProps) {
   const locale = await getLocale();
@@ -34,19 +37,14 @@ export default async function AdminShell({
   );
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <AdminShellPageBridge pageHeader={pageHeader} contentPadding={contentPadding}>
+      <AdminShellPageBridge pageHeader={pageHeader} contentPadding={contentPadding} contentLayout={contentLayout}>
         {children}
       </AdminShellPageBridge>
     </NextIntlClientProvider>
   );
 }
 
+/** The documentation base URL with a trailing slash, for appending relative doc paths. */
 export function buildDocsHref(headersList: Headers, tenantSlug: string): string {
-  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
-  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
-  const tenantPrefix = `${tenantSlug}.`;
-  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
-
-  return docsHost ? `${proto}://${docsHost}/docs/` : "/docs/";
+  return `${buildDocsBaseHref(headersList, tenantSlug)}/`;
 }

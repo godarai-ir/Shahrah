@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 
-import { Check } from "lucide-react";
-
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 export type CreateWizardSectionID = "details" | "models" | "access" | "review";
 
@@ -61,65 +58,6 @@ export function ProviderAccountSidebarSkeleton() {
         </CardContent>
       </Card>
     </>
-  );
-}
-
-export function CreateFlowStepIndicator(props: {
-  number: number;
-  title: string;
-  state: "active" | "complete" | "idle";
-  onClick: () => void;
-  disabled?: boolean;
-  variant?: "default" | "compact";
-}) {
-  const compact = props.variant === "compact";
-
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      aria-current={props.state === "active" ? "step" : undefined}
-      aria-label={`${props.number}. ${props.title}`}
-      className={cn(
-        "group flex flex-1 flex-row items-center text-start transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60",
-        compact
-          ? "min-h-16 min-w-0 gap-2 rounded-lg border border-card-border bg-card px-2 py-2 shadow-xs hover:border-primary-subtle-border hover:bg-primary-soft sm:gap-3 sm:px-3"
-          : "min-w-14 justify-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/50 disabled:hover:bg-transparent sm:min-w-24 sm:justify-start sm:py-1 lg:w-full lg:min-w-0 lg:flex-none lg:px-1 lg:py-2",
-        compact && props.state === "active" && "border-primary-subtle-border bg-primary-soft",
-        compact && props.state === "idle" && "bg-muted/20",
-      )}
-    >
-      <div
-        className={cn(
-          "flex shrink-0 items-center justify-center rounded-full text-sm",
-          compact ? "size-8" : "size-11 sm:size-9 sm:text-xs lg:size-11 lg:text-sm",
-          props.state === "idle"
-            ? "border border-border bg-background text-muted-foreground"
-            : props.state === "complete" && compact
-              ? "border border-primary-subtle-border bg-primary-soft font-semibold text-primary-soft-foreground"
-              : "bg-primary font-semibold text-primary-foreground",
-          !compact && props.state !== "idle" && "ring-8 ring-primary/10 sm:ring-4 lg:ring-8",
-        )}
-      >
-        {props.state === "complete" ? <Check aria-hidden="true" className="size-4" /> : props.number}
-      </div>
-      <span
-        className={cn(
-          "min-w-0 flex-1 text-start text-xs leading-5 sm:text-sm",
-          !compact && "hidden sm:block",
-          props.state === "idle"
-            ? "font-medium text-muted-foreground"
-            : props.state === "active" && compact
-              ? "font-semibold text-primary-soft-foreground"
-              : compact
-                ? "font-medium text-foreground"
-                : "font-semibold text-primary",
-        )}
-      >
-        {props.title}
-      </span>
-    </button>
   );
 }
 
