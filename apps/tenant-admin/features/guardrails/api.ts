@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { APIClientError, requestParsedJSON } from "@/lib/http/api-client";
 
-import { type GuardrailPayload, tenantGuardrailSchema } from "./types";
+import { type GuardrailPayload, semanticPolicyTestResultSchema, tenantGuardrailSchema } from "./types";
 
 const listResponseSchema = z.object({
   data: z.array(tenantGuardrailSchema),
@@ -42,5 +42,14 @@ export function updateGuardrail(slug: string, body: GuardrailPayload) {
 export function deleteGuardrail(slug: string) {
   return requestParsedJSON(successResponseSchema, `/api/guardrails/${encodeURIComponent(slug)}`, {
     method: "DELETE",
+  });
+}
+
+/** Runs one sample through an unsaved semantic policy. Each call is a paid judge request and is rate limited. */
+export function testSemanticGuardrail(body: { config: Record<string, unknown>; text: string }, signal?: AbortSignal) {
+  return requestParsedJSON(semanticPolicyTestResultSchema, "/api/guardrails/semantic/test", {
+    method: "POST",
+    body: JSON.stringify(body),
+    signal,
   });
 }

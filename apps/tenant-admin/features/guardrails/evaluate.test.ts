@@ -37,6 +37,8 @@ const expected: Record<GuardrailType, { operation: "validate" | "mutate"; status
   json_keys: { operation: "validate", status: "block" },
   jwt_validation: { operation: "validate", status: "na" },
   inline_image_urls: { operation: "mutate", status: "na" },
+  // Semantic policies are judged on the gateway, never in the browser.
+  semantic_policy: { operation: "validate", status: "na" },
 };
 
 describe("evaluateSample", () => {

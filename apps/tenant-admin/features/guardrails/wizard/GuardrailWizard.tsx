@@ -27,6 +27,7 @@ import { StepBehavior } from "./StepBehavior";
 import { StepConfig } from "./StepConfig";
 import { StepReview } from "./StepReview";
 import { StepType } from "./StepType";
+import { SemanticTestPanel } from "./SemanticTestPanel";
 import { SummaryPanel } from "./SummaryPanel";
 import { TestPanel } from "./TestPanel";
 import { createWizardState, editWizardState, type WizardMode, wizardReducer, type WizardState } from "./state";
@@ -259,7 +260,10 @@ function WizardFlow({ initialState, existingSlugs, originalSlug }: { initialStat
 
         <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-20">
           <SummaryPanel type={state.form.type} name={state.form.name} sentence={sentence} />
-          {form && state.step >= 1 ? (
+          {form && state.step >= 1 && form.type === "semantic_policy" ? (
+            <SemanticTestPanel form={form} sample={sample} onSampleChange={(value) => dispatch({ type: "setSample", sample: value })} />
+          ) : null}
+          {form && state.step >= 1 && form.type !== "semantic_policy" ? (
             <TestPanel form={form} sample={sample} format={format} onSampleChange={(value) => dispatch({ type: "setSample", sample: value })} />
           ) : null}
         </aside>

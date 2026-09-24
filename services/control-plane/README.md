@@ -110,6 +110,7 @@ add post-construction setters to storage.
 - `BALE_SAFIR_BOT_ID`: numeric ID of the Bale bot whose name is shown in the OTP message
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: bearer credential for the Iran-hosted BGE-M3 endpoint
+- `TYPESAFE_API_KEY`: optional TypeSafe Jev credential for `semantic_policy` guardrails; without it, selected semantic guardrails fail as execution errors and the wizard test endpoint returns 503
 
 Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision or rotate the complete, version-controlled `support-admin` scope set with:
 

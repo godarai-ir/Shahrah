@@ -56,6 +56,38 @@ type UpdateTenantGuardrailRequest struct {
 	Config      map[string]interface{} `json:"config,omitempty"`
 }
 
+// SemanticDecision is the band a semantic policy probability falls into.
+type SemanticDecision string
+
+const (
+	SemanticDecisionPass   SemanticDecision = "pass"
+	SemanticDecisionReview SemanticDecision = "review"
+	SemanticDecisionBlock  SemanticDecision = "block"
+)
+
+// SemanticRuleScore is one rule's probability and the decision its thresholds give.
+type SemanticRuleScore struct {
+	Key         string           `json:"key"`
+	Probability float64          `json:"probability"`
+	Decision    SemanticDecision `json:"decision"`
+}
+
+// SemanticPolicyTestRequest evaluates an unsaved semantic_policy config against one sample text.
+type SemanticPolicyTestRequest struct {
+	Config map[string]interface{} `json:"config"`
+	Text   string                 `json:"text"`
+}
+
+// SemanticPolicyTestResponse is the wizard's live test result.
+type SemanticPolicyTestResponse struct {
+	Decision  SemanticDecision    `json:"decision"`
+	Language  string              `json:"language"`
+	Rules     []SemanticRuleScore `json:"rules"`
+	Severity  *float64            `json:"severity,omitempty"`
+	LatencyMS int64               `json:"latency_ms"`
+	Truncated bool                `json:"truncated"`
+}
+
 type TenantGuardrailListResponse struct {
 	Data       []TenantGuardrail `json:"data"`
 	Total      int               `json:"total"`

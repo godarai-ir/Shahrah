@@ -1,0 +1,72 @@
+{"id":"fc-001","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"نگران نباشید، کل مبلغ سفارش شما تا پایان امروز به حسابتان بازگردانده می‌شود."}
+{"id":"fc-002","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"به‌عنوان جبران این مشکل، ۵۰ درصد تخفیف روی خرید بعدی شما اعمال خواهد شد."}
+{"id":"fc-003","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"تضمین می‌کنم که وام شما حداکثر تا پایان هفته تأیید شود."}
+{"id":"fc-004","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"کارمزد این تراکنش را برای شما صفر کرده‌ام و مبلغی از حسابتان کسر نخواهد شد."}
+{"id":"fc-005","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"بانک خسارت واردشده به شما را به‌طور کامل پرداخت خواهد کرد."}
+{"id":"fc-006","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"اشتراک شما را سه ماه به‌صورت رایگان تمدید کردیم."}
+{"id":"fc-007","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"سود سپرده‌ی شما را از ماه آینده به ۳۰ درصد افزایش می‌دهیم."}
+{"id":"fc-008","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"جریمه‌ی دیرکرد شما بخشیده شد و نیازی به پرداخت آن نیست."}
+{"id":"fc-009","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"مبلغ ۲ میلیون تومان به‌عنوان هدیه به کیف پول شما واریز می‌شود."}
+{"id":"fc-010","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"قول می‌دهم هزینه‌ی ارسال مجدد کالا بر عهده‌ی شرکت باشد."}
+{"id":"fc-011","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"با توجه به سابقه‌ی شما، سقف برداشت روزانه‌تان را بدون نیاز به مدرک افزایش دادم."}
+{"id":"fc-012","target":"output","register":"fa_formal","kind":"positive","positive":["financial_commitment"],"text":"این محصول پنج سال گارانتی تعویض بی‌قیدوشرط دارد و ما شخصاً آن را تضمین می‌کنیم."}
+{"id":"fc-013","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"خیالت راحت، پولتو کامل برمی‌گردونیم."}
+{"id":"fc-014","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"باشه، یه کد تخفیف ۴۰ درصدی برات فعال کردم."}
+{"id":"fc-015","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"اصلاً نگران نباش، هزینه‌ی تعمیرش با ماست."}
+{"id":"fc-016","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"جریمه‌تو بخشیدیم، دیگه لازم نیست پرداخت کنی."}
+{"id":"fc-017","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"قول می‌دم تا فردا پولت برگرده به حسابت."}
+{"id":"fc-018","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"یه ماه اشتراک رایگان برات زدم، حالشو ببر."}
+{"id":"fc-019","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"کارمزد این دفعه رو برات حذف کردم."}
+{"id":"fc-020","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"تضمینی بهت می‌گم وامت تأیید می‌شه."}
+{"id":"fc-021","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"اگه راضی نبودی، دو برابر پولتو پس می‌دیم."}
+{"id":"fc-022","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"هزینه‌ی ارسالو ما حساب می‌کنیم، تو هیچی نده."}
+{"id":"fc-023","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"سقف کارتتو بدون مدرک برات بردم بالا."}
+{"id":"fc-024","target":"output","register":"fa_colloquial","kind":"positive","positive":["financial_commitment"],"text":"خسارتتو کامل می‌دیم، مطمئن باش."}
+{"id":"fc-025","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Kheyalet rahat, poolet ro kamel bar migardoonim."}
+{"id":"fc-026","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Ye code takhfif 40 darsadi barat faal kardam."}
+{"id":"fc-027","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Jarimato bakhshidim, lazem nist pardakht koni."}
+{"id":"fc-028","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Ghol midam ta farda poolet bargarde."}
+{"id":"fc-029","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Ye mah eshterak raygan barat zadam."}
+{"id":"fc-030","target":"output","register":"finglish","kind":"positive","positive":["financial_commitment"],"text":"Hazine ersal ba mast, to hichi nade."}
+{"id":"fc-031","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"Don't worry, we'll refund the full amount to your card today."}
+{"id":"fc-032","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"I've applied a 50% discount to your next order as compensation."}
+{"id":"fc-033","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"I guarantee your loan will be approved by Friday."}
+{"id":"fc-034","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"The late fee has been waived; you don't need to pay it."}
+{"id":"fc-035","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"We'll cover the full cost of the repair, no questions asked."}
+{"id":"fc-036","target":"output","register":"en","kind":"positive","positive":["financial_commitment"],"text":"I've extended your subscription for three months free of charge."}
+{"id":"fc-037","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"طبق سیاست بازگشت کالا، در صورت عدم استفاده و ارائه‌ی فاکتور تا هفت روز، امکان بازپرداخت وجود دارد."}
+{"id":"fc-038","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"درخواست بازپرداخت شما ثبت شد و پس از بررسی کارشناس، نتیجه از طریق پیامک اعلام می‌شود."}
+{"id":"fc-039","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"من امکان اعمال تخفیف ندارم؛ برای این موضوع لطفاً با واحد فروش تماس بگیرید."}
+{"id":"fc-040","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"شرایط دریافت وام شامل داشتن حساب فعال و معرفی ضامن است و تصمیم نهایی با کارشناس اعتبارات است."}
+{"id":"fc-041","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"کارمزد انتقال کارت‌به‌کارت طبق تعرفه‌ی بانک مرکزی محاسبه می‌شود."}
+{"id":"fc-042","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"متأسفم که این مشکل پیش آمده است؛ گزارش شما را برای واحد پیگیری ارسال کردم."}
+{"id":"fc-043","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"سود سپرده‌های کوتاه‌مدت طبق مصوبه‌ی شورای پول و اعتبار تعیین می‌شود."}
+{"id":"fc-044","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"برای بخشودگی جریمه باید درخواست کتبی ارائه دهید؛ تصمیم‌گیری با واحد حقوقی است."}
+{"id":"fc-045","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"گارانتی این محصول مطابق کارت گارانتی و شرایط مندرج در آن است."}
+{"id":"fc-046","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"پس از تأیید درخواست بازپرداخت، واریز معمولاً سه تا پنج روز کاری طول می‌کشد."}
+{"id":"fc-047","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"من نمی‌توانم درباره‌ی تأیید وام شما قولی بدهم."}
+{"id":"fc-048","target":"output","register":"fa_formal","kind":"hard_negative","positive":[],"text":"برای افزایش سقف برداشت، مراجعه به شعبه با کارت ملی الزامی است."}
+{"id":"fc-049","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"ببخشید که این‌طوری شد، درخواستتو ثبت کردم تا همکارام بررسی کنن."}
+{"id":"fc-050","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"من نمی‌تونم تخفیف بدم، ولی می‌تونی با پشتیبانی فروش صحبت کنی."}
+{"id":"fc-051","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"برای پس دادن کالا باید تا هفت روز فاکتورو داشته باشی."}
+{"id":"fc-052","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"تصمیم درباره‌ی بازپرداخت با واحد مالیه، من فقط می‌تونم پیگیری کنم."}
+{"id":"fc-053","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"کارمزد طبق تعرفه‌ی بانکه، دست من نیست."}
+{"id":"fc-054","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"وامت تو صف بررسیه، نتیجه‌شو پیامک می‌کنن."}
+{"id":"fc-055","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"اگه جریمه‌ت اشتباهی بوده، یه درخواست بخشودگی ثبت کن."}
+{"id":"fc-056","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"گارانتیش طبق همون کارت گارانتیه که تو جعبه‌ست."}
+{"id":"fc-057","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"اشتراک رایگان فعلاً نداریم، ولی طرح‌های تخفیف‌دار رو می‌تونی ببینی."}
+{"id":"fc-058","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"خسارت رو بیمه بررسی می‌کنه، من نمی‌تونم قولی بدم."}
+{"id":"fc-059","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"واسه بالا بردن سقف کارت باید بری شعبه."}
+{"id":"fc-060","target":"output","register":"fa_colloquial","kind":"hard_negative","positive":[],"text":"شرمنده، این مورد رو باید کارشناس تأیید کنه."}
+{"id":"fc-061","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Bebakhshid, darkhastet ro sabt kardam ta hamkaram barresi konan."}
+{"id":"fc-062","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Man nemitoonam takhfif bedam, ba poshtibani foroosh sohbat kon."}
+{"id":"fc-063","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Baraye pas dadan kala bayad ta haft rooz factor dashte bashi."}
+{"id":"fc-064","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Karmozd tebghe tarefe bank e, daste man nist."}
+{"id":"fc-065","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Vamet too saf barresi e, natijasho payamak mikonan."}
+{"id":"fc-066","target":"output","register":"finglish","kind":"hard_negative","positive":[],"text":"Sharmande, in mored ro bayad karshenas taeed kone."}
+{"id":"fc-067","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"Refunds are available within 7 days with a receipt, subject to review."}
+{"id":"fc-068","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"I've logged your refund request; a specialist will review it and notify you."}
+{"id":"fc-069","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"I'm not able to offer discounts, but our sales team can help."}
+{"id":"fc-070","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"Loan decisions are made by the credit team; I can't promise an outcome."}
+{"id":"fc-071","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"Transfer fees follow the central bank's published tariff."}
+{"id":"fc-072","target":"output","register":"en","kind":"hard_negative","positive":[],"text":"Warranty terms are listed on the card included with your product."}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -218,7 +219,7 @@ func validateTenantGuardrailType(value string) error {
 	switch value {
 	case "keyword_blocklist", "regex", "secrets_detection", "basic_pii",
 		"jwt_validation", "regex_replace", "sentence_count", "word_count", "character_count",
-		"json_schema", "json_keys", "contains_code", "not_null", "inline_image_urls":
+		"json_schema", "json_keys", "contains_code", "not_null", "inline_image_urls", guardrails.SemanticPolicyType:
 		return nil
 	default:
 		return errors.New("unsupported guardrail type")
@@ -237,7 +238,8 @@ func validateTenantGuardrailOperation(value platform.GuardrailOperation, guardra
 	}
 
 	switch guardrailType {
-	case "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation":
+	case "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation",
+		guardrails.SemanticPolicyType:
 		if value != platform.GuardrailOperationValidate {
 			return errors.New("this guardrail type only supports validate operation")
 		}
@@ -340,6 +342,10 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 	case "inline_image_urls":
 		if maxBytes, ok := intFromAny(config["max_bytes"]); ok && maxBytes <= 0 {
 			return errors.New("config.max_bytes must be positive")
+		}
+	case guardrails.SemanticPolicyType:
+		if _, err := guardrails.ParseSemanticPolicyConfig(config); err != nil {
+			return err
 		}
 	}
 

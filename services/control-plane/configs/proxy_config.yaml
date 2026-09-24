@@ -28,6 +28,20 @@ response_cache:
   embedding_timeout_seconds: 10
   embedding_max_batch_size: 16
 
+# Semantic guardrails (semantic_policy) ask TypeSafe Jev to judge messages against
+# natural-language rules. They stay disabled until TYPESAFE_API_KEY is supplied
+# through runtime secrets; until then selected semantic guardrails fail as errors.
+semantic_guardrails:
+  enabled: true
+  base_url: "https://api.typesafe.ai"
+  api_key: ${TYPESAFE_API_KEY}
+  model: "jev-1.13.0"
+  timeout_ms: 1500
+  cache_ttl_seconds: 600
+  cache_key_prefix: "shahrah:semantic-judge:"
+  failure_threshold: 5
+  cooldown_seconds: 30
+
 tenant_settings:
   allow_header_hint: true
 

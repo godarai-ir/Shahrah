@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
@@ -65,6 +66,7 @@ type builder struct {
 	traceHealth                *tracing.ReliableExporter
 	serverDependencies         server.Dependencies
 	httpApp                    *fiber.App
+	guardrailsEngine           *guardrails.Engine
 }
 
 // Build assembles and validates the complete control-plane application.

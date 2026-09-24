@@ -321,6 +321,7 @@ type CatalogDependencies struct {
 	ProviderCredentials platformProviderCredentialService
 	Prompts             promptStore
 	Discovery           DiscoveryConfig
+	SemanticGuardrails  semanticPolicyTester
 }
 
 // BillingDependencies contains wallet, plan, and entitlement ports.
@@ -382,6 +383,8 @@ type catalogState struct {
 	providerCredentials platformProviderCredentialService
 	prompts             promptStore
 	discovery           DiscoveryConfig
+	semanticGuardrails  semanticPolicyTester
+	semanticTestLimiter *authRateLimiter
 }
 
 type billingState struct {
@@ -441,6 +444,8 @@ func New(deps Dependencies) *Handlers {
 			providerCredentials: deps.Catalog.ProviderCredentials,
 			prompts:             deps.Catalog.Prompts,
 			discovery:           deps.Catalog.Discovery,
+			semanticGuardrails:  deps.Catalog.SemanticGuardrails,
+			semanticTestLimiter: newAuthRateLimiter(),
 		},
 		billingState: billingState{
 			wallets:      deps.Billing.Wallets,

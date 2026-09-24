@@ -9,6 +9,7 @@ import { OptionCardGroup } from "@/components/app-ui/OptionCardGroup";
 
 import { catalogEntry, operationForType } from "../catalog";
 import type { GuardrailEnforcement, GuardrailFormInput, GuardrailOperation } from "../types";
+import { SemanticFailureNote, SemanticThresholds } from "./SemanticThresholds";
 import type { WizardMode } from "./state";
 
 type StepBehaviorProps = {
@@ -16,7 +17,7 @@ type StepBehaviorProps = {
   mode: WizardMode;
   dir: "rtl" | "ltr";
   headingRef?: React.Ref<HTMLHeadingElement>;
-  onChange: (patch: Partial<Pick<GuardrailFormInput, "operation" | "enforcement" | "enabled">>) => void;
+  onChange: (patch: Partial<Omit<GuardrailFormInput, "type" | "name" | "slug">>) => void;
 };
 
 const OPERATION_ICONS = { validate: ListChecks, mutate: Eraser } as const;
@@ -79,7 +80,10 @@ export function StepBehavior({ form, mode, dir, headingRef, onChange }: StepBeha
             tip: value === "audit" ? t("enforcementTips.audit") : undefined,
           }))}
         />
+        {form.type === "semantic_policy" ? <SemanticFailureNote enforcement={form.enforcement} /> : null}
       </section>
+
+      {form.type === "semantic_policy" ? <SemanticThresholds form={form} onChange={onChange} /> : null}
 
       <AppSwitchField
         id="guardrail-enabled"
