@@ -7,10 +7,12 @@ import { AppTextareaField } from "@/components/app-ui/AppTextField";
 import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { Button } from "@/components/ui/button";
+import { useNumberFormatter } from "@/hooks/use-locale-format";
 import { cn } from "@/lib/utils";
 
 import { catalogEntry } from "../catalog";
 import { isValidSlug, lines, type WizardStep } from "../form";
+import { semanticCostPerThousand, semanticRuleCount } from "../semantic";
 import type { SentenceFormat } from "../sentence";
 import type { GuardrailFormInput } from "../types";
 import type { WizardMode } from "./state";
@@ -78,6 +80,16 @@ function configSummary(form: GuardrailFormInput, { t, formatNumber }: SentenceFo
     }
     case "not_null":
       return { value: t("wizard.review.configSummary.none"), technical: false };
+    case "semantic_policy": {
+      const count = semanticRuleCount(form);
+      if (form.semanticSource === "pack") {
+        return { value: t("wizard.review.configSummary.semanticPack", { n: count, count: formatNumber(count) }), technical: false };
+      }
+      const keys = form.semanticRules.map((rule) => rule.key.trim()).join(separator);
+      const target = t(`wizard.config.semantic.targets.${form.semanticTarget}`);
+
+      return { value: t("wizard.review.configSummary.semanticCustom", { n: count, count: formatNumber(count), target, keys }), technical: false };
+    }
   }
 }
 
@@ -86,13 +98,17 @@ export function StepReview({ form, mode, sentence, existingSlugs, format, headin
   const slug = form.slug.trim();
   const slugTaken = mode === "create" && slug !== "" && existingSlugs.includes(slug);
   const slugError = mode === "create" && slug !== "" && !isValidSlug(slug) ? t("validation.slug") : slugTaken ? t("messages.duplicate") : undefined;
+  const currency = useNumberFormatter({ style: "currency", currency: "USD", maximumFractionDigits: 3 });
   const config = configSummary(form, format);
-  const rows: { key: "type" | "config" | "behavior" | "status"; value: string; step: WizardStep; technical?: boolean }[] = [
+  const rows: { key: "type" | "config" | "behavior" | "status" | "cost"; value: string; step: WizardStep; technical?: boolean }[] = [
     { key: "type", value: t(`types.${form.type}`), step: 0 },
     { key: "config", value: config.value, step: 1, technical: config.technical },
     { key: "behavior", value: sentence, step: 2 },
     { key: "status", value: form.enabled ? t("status.enabled") : t("status.disabled"), step: 2 },
   ];
+  if (form.type === "semantic_policy") {
+    rows.push({ key: "cost", value: t("wizard.review.costValue", { cost: currency.format(semanticCostPerThousand(form)) }), step: 1 });
+  }
 
   return (
     <div className="flex flex-col gap-6">

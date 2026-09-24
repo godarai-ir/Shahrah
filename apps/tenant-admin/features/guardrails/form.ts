@@ -1,4 +1,5 @@
 import { operationForType } from "./catalog";
+import { emptySemanticFields, semanticBehaviorError, semanticConfig, semanticConfigError, semanticFieldsFromConfig } from "./semantic";
 import type { GuardrailFormInput, GuardrailPayload, GuardrailType, JwtVerifier, TenantGuardrail } from "./types";
 
 /** A form whose type has not been picked yet, as the create wizard starts. */
@@ -55,6 +56,7 @@ export const emptyForm: GuardrailFormInput = {
   allowedHosts: "",
   timeoutMs: "3000",
   allowPrivateNetworks: false,
+  ...emptySemanticFields(),
 };
 
 export function lines(value: string) {
@@ -142,13 +144,16 @@ export function formFromGuardrail(item: TenantGuardrail): GuardrailFormInput {
     allowedHosts: listStringFromConfig(item.config, "allowed_hosts"),
     timeoutMs: numberStringFromConfig(item.config, "timeout_ms") || "3000",
     allowPrivateNetworks: item.config.allow_private_networks === true,
+    ...(item.type === "semantic_policy" ? semanticFieldsFromConfig(item.config) : emptySemanticFields()),
   };
 }
 
 export function buildPayload(form: GuardrailFormInput, mode: "create" | "edit"): GuardrailPayload {
   const type = form.type;
-  const config: Record<string, unknown> = {};
-  if (type === "keyword_blocklist") {
+  let config: Record<string, unknown> = {};
+  if (type === "semantic_policy") {
+    config = semanticConfig(form);
+  } else if (type === "keyword_blocklist") {
     config.terms = lines(form.terms);
   } else if (type === "regex") {
     config.patterns = lines(form.patterns);
@@ -285,8 +290,19 @@ function validateConfig(form: GuardrailDraft, t: GuardrailTranslator) {
     if (!jwtVerifierValue(form).trim()) return t("validation.jwtVerifier");
     if (form.jwtVerifier === "inline" && !isValidJSON(form.inlineJwks)) return t("validation.json");
   }
+  if (type === "semantic_policy") {
+    const error = semanticConfigError(form);
+    if (error) return t(`validation.${error}`);
+  }
 
   return "";
+}
+
+function validateBehavior(form: GuardrailDraft, t: GuardrailTranslator) {
+  if (form.type !== "semantic_policy") return "";
+  const error = semanticBehaviorError(form);
+
+  return error ? t(`validation.${error}`) : "";
 }
 
 export type StepValidationContext = {
@@ -298,7 +314,7 @@ export type StepValidationContext = {
 export function validateStep(step: WizardStep, form: GuardrailDraft, t: GuardrailTranslator, context: StepValidationContext = {}) {
   if (step === 0) return form.type ? "" : t("validation.type");
   if (step === 1) return form.type ? validateConfig(form, t) : "";
-  if (step === 2) return "";
+  if (step === 2) return validateBehavior(form, t);
 
   if (!form.name.trim()) return t("validation.name");
   if (!isValidSlug(form.slug)) return t("validation.slug");

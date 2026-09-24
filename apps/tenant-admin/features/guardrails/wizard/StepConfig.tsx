@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { catalogEntry } from "../catalog";
 import { JWT_VERIFIERS, lines, parseJSONOrEmpty } from "../form";
 import type { GuardrailFormInput } from "../types";
+import { SemanticPolicyConfig } from "./SemanticPolicyConfig";
 
 type ConfigPatch = Partial<Omit<GuardrailFormInput, "type" | "name" | "slug">>;
 
@@ -280,6 +281,8 @@ function ConfigFields({ form, dir, onChange }: Omit<StepConfigProps, "headingRef
         </>
       );
     }
+    case "semantic_policy":
+      return <SemanticPolicyConfig form={form} dir={dir} onChange={onChange} />;
     case "not_null":
       return (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">

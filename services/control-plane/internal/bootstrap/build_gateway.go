@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
-	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
@@ -89,7 +88,7 @@ func (b *builder) buildGateway() error {
 		Base:                      baseDependencies,
 		GuardrailResolver:         runtimeprofile.NewGuardrailResolver(b.runtimeProfiles),
 		PromptResolver:            b.promptApplication,
-		Guardrails:                guardrails.NewDefaultEngine(),
+		Guardrails:                b.guardrailEngine(),
 		ResponseCache:             baseDependencies.ResponseCache,
 		VirtualModelAliasCacheTTL: b.cfg.Runtime.VirtualModelAliasCacheTTL,
 		VirtualModelNegativeTTL:   b.cfg.Runtime.VirtualModelNegativeTTL,

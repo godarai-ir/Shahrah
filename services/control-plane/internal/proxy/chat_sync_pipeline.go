@@ -225,7 +225,7 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 		guardrailOverrides = state.guardrailOverrides
 	}
 
-	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(completion, selection, guardrailOverrides)
+	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(c.Context(), completion, selection, guardrailOverrides)
 	h.recordGuardrailChecks(c, outputResult.Checks)
 
 	if err != nil {

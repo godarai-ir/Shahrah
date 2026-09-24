@@ -15,6 +15,7 @@ import (
 type Config struct {
 	RouterSettings   RouterSettings          `mapstructure:"router_settings"`
 	ResponseCache    ResponseCacheSettings   `mapstructure:"response_cache"`
+	SemanticJudge    SemanticJudgeSettings   `mapstructure:"semantic_guardrails"`
 	GeneralSettings  GeneralSettings         `mapstructure:"general_settings"`
 	Profiling        ProfilingSettings       `mapstructure:"profiling"`
 	OperationalLogs  OperationalLogSettings  `mapstructure:"operational_logging"`
@@ -92,6 +93,20 @@ type ResponseCacheSettings struct {
 	EmbeddingDimensions   int    `mapstructure:"embedding_dimensions"`
 	EmbeddingTimeoutSec   int    `mapstructure:"embedding_timeout_seconds"`
 	EmbeddingMaxBatchSize int    `mapstructure:"embedding_max_batch_size"`
+}
+
+// SemanticJudgeSettings configures the TypeSafe Jev judge behind semantic_policy guardrails. The judge is disabled
+// until an API key is supplied, and semantic guardrails then fail as execution errors.
+type SemanticJudgeSettings struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	BaseURL          string `mapstructure:"base_url"`
+	APIKey           string `mapstructure:"api_key"`
+	Model            string `mapstructure:"model"`
+	TimeoutMS        int    `mapstructure:"timeout_ms"`
+	CacheTTLSeconds  int    `mapstructure:"cache_ttl_seconds"`
+	CacheKeyPrefix   string `mapstructure:"cache_key_prefix"`
+	FailureThreshold int    `mapstructure:"failure_threshold"`
+	CooldownSeconds  int    `mapstructure:"cooldown_seconds"`
 }
 
 // ModelDeployment represents a single model deployment configuration.
@@ -216,6 +231,14 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("response_cache.embedding_dimensions", 1024)
 	v.SetDefault("response_cache.embedding_timeout_seconds", 10)
 	v.SetDefault("response_cache.embedding_max_batch_size", 16)
+	v.SetDefault("semantic_guardrails.enabled", false)
+	v.SetDefault("semantic_guardrails.base_url", "https://api.typesafe.ai")
+	v.SetDefault("semantic_guardrails.model", "jev-1.13.0")
+	v.SetDefault("semantic_guardrails.timeout_ms", 1500)
+	v.SetDefault("semantic_guardrails.cache_ttl_seconds", 600)
+	v.SetDefault("semantic_guardrails.cache_key_prefix", "shahrah:semantic-judge:")
+	v.SetDefault("semantic_guardrails.failure_threshold", 5)
+	v.SetDefault("semantic_guardrails.cooldown_seconds", 30)
 	v.SetDefault("tenant_settings.allow_header_hint", true)
 	v.SetDefault("provider_egress.url", "http://127.0.0.1:8083")
 	v.SetDefault("provider_egress.timeout_seconds", 300)
@@ -278,6 +301,7 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 	cfg.RouterSettings.RedisPassword = resolveString(cfg.RouterSettings.RedisPassword)
 	cfg.ResponseCache.EmbeddingBaseURL = resolveString(cfg.ResponseCache.EmbeddingBaseURL)
 	cfg.ResponseCache.EmbeddingAPIKey = resolveString(cfg.ResponseCache.EmbeddingAPIKey)
+	cfg.SemanticJudge.APIKey = resolveString(cfg.SemanticJudge.APIKey)
 	cfg.GeneralSettings.MasterKey = resolveString(cfg.GeneralSettings.MasterKey)
 	cfg.GeneralSettings.DatabaseURL = resolveString(cfg.GeneralSettings.DatabaseURL)
 	cfg.ProviderEgress.URL = resolveString(cfg.ProviderEgress.URL)

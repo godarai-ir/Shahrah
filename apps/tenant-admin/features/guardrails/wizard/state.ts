@@ -57,7 +57,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       if (state.mode === "edit" || state.form.type === action.guardrailType) return state;
       const slug = state.slugTouched ? state.form.slug : slugFromName(state.form.name) || slugFromType(action.guardrailType);
       // Config fields of the previous type stay in the form; buildPayload sends only the current type's fields.
-      const form = { ...state.form, type: action.guardrailType, operation: defaultOperationForType(action.guardrailType), slug };
+      // A new semantic policy starts in audit so its thresholds can be tuned on real traffic before it blocks.
+      const enforcement = action.guardrailType === "semantic_policy" ? "audit" : state.form.enforcement;
+      const form = { ...state.form, type: action.guardrailType, operation: defaultOperationForType(action.guardrailType), enforcement, slug };
 
       return { ...state, form, attempted: false, dirty: true };
     }

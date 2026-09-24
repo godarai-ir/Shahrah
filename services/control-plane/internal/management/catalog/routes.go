@@ -30,6 +30,7 @@ type Handler interface {
 	GetTenantGuardrail(*fiber.Ctx) error
 	UpdateTenantGuardrail(*fiber.Ctx) error
 	DeleteTenantGuardrail(*fiber.Ctx) error
+	TestTenantSemanticGuardrail(*fiber.Ctx) error
 	ListPrompts(*fiber.Ctx) error
 	CreatePrompt(*fiber.Ctx) error
 	GetPrompt(*fiber.Ctx) error
@@ -103,6 +104,7 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Patch("/gateway-policies/budget-limit-rules/:id/status", r.handler.UpdateBudgetLimitRuleStatus)
 	router.Get("/guardrails", r.handler.ListTenantGuardrails)
 	router.Post("/guardrails", r.handler.CreateTenantGuardrail)
+	router.Post("/guardrails/semantic/test", r.handler.TestTenantSemanticGuardrail)
 	router.Get("/guardrails/:slug", r.handler.GetTenantGuardrail)
 	router.Put("/guardrails/:slug", r.handler.UpdateTenantGuardrail)
 	router.Delete("/guardrails/:slug", r.handler.DeleteTenantGuardrail)

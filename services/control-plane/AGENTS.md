@@ -86,6 +86,7 @@ Common required or important env vars:
 - `SHAHRAH_DISCOVERY_TOKEN`: optional dedicated model-discovery credential
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: opaque embedding base URL for smart cache
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: embedding API credential for smart cache
+- `TYPESAFE_API_KEY`: optional TypeSafe Jev credential for `semantic_policy` guardrails
 
 ## Database and Local Verification
 

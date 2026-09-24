@@ -99,7 +99,7 @@ func (h *ChatCompletionHandler) recordGuardrailChecks(c *fiber.Ctx, checks map[s
 				status = fiber.StatusBadRequest
 			}
 
-			tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "guardrail."+hook, "internal", time.Now(), status, map[string]interface{}{
+			attributes := map[string]interface{}{
 				"selector":    check.Selector,
 				"status":      check.Status,
 				"operation":   check.Operation,
@@ -107,9 +107,72 @@ func (h *ChatCompletionHandler) recordGuardrailChecks(c *fiber.Ctx, checks map[s
 				"latency_ms":  check.LatencyMS,
 				"mutated":     check.Mutated,
 				"reason":      check.Reason,
-			})
+			}
+			addSemanticTraceAttributes(attributes, check.Semantic)
+
+			tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "guardrail."+hook, "internal", time.Now(), status, attributes)
 		}
 	}
+
+	setGuardrailReviewHeader(c, checks)
+}
+
+// addSemanticTraceAttributes records rule probabilities on the trace only; API responses never carry them.
+func addSemanticTraceAttributes(attributes map[string]interface{}, detail *guardrails.SemanticCheckDetail) {
+	if detail == nil {
+		return
+	}
+
+	attributes["semantic_decision"] = detail.Decision
+	attributes["semantic_language"] = detail.Language
+	attributes["semantic_rules"] = detail.Rules
+	attributes["semantic_truncated"] = detail.Truncated
+	attributes["semantic_cached"] = detail.Cached
+	attributes["semantic_model"] = detail.Model
+
+	if detail.Severity != nil {
+		attributes["semantic_severity"] = *detail.Severity
+	}
+}
+
+// setGuardrailReviewHeader lists the guardrails that put this exchange in the review band. Review never blocks in v1.
+func setGuardrailReviewHeader(c *fiber.Ctx, checks map[string][]guardrails.Check) {
+	var selectors []string
+
+	for _, hookChecks := range checks {
+		for _, check := range hookChecks {
+			if check.Status == "review" {
+				selectors = append(selectors, guardrailSlugFromSelector(check.Selector))
+			}
+		}
+	}
+
+	if len(selectors) == 0 {
+		return
+	}
+
+	if existing := strings.TrimSpace(string(c.Response().Header.Peek(apiheaders.HeaderGuardrailReview))); existing != "" {
+		selectors = append(strings.Split(existing, ","), selectors...)
+	}
+
+	c.Set(apiheaders.HeaderGuardrailReview, strings.Join(uniqueNonEmpty(selectors), ","))
+}
+
+func uniqueNonEmpty(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+
+		seen[value] = true
+		out = append(out, value)
+	}
+
+	return out
 }
 
 func writeGuardrailError(c *fiber.Ctx, status int, message string, checks map[string][]guardrails.Check) error {

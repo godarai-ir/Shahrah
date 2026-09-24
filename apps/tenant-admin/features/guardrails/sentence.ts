@@ -38,6 +38,12 @@ function conditionPhrase(form: GuardrailFormInput, { t, formatNumber }: Sentence
     return t(`sentence.cond.json_keys.${form.keyMode}`, { keys: keyList });
   }
   if (type === "contains_code") return t(`sentence.cond.contains_code.${form.codeMode}`);
+  if (type === "semantic_policy") {
+    if (form.semanticSource === "pack") return t("sentence.cond.semantic_pack");
+    const count = form.semanticRules.length;
+
+    return t(`sentence.cond.semantic_policy.${form.semanticTarget}`, { n: count, count: formatNumber(count) });
+  }
 
   return t(`sentence.cond.${type}`);
 }
@@ -45,6 +51,7 @@ function conditionPhrase(form: GuardrailFormInput, { t, formatNumber }: Sentence
 function actionPhrase(form: GuardrailFormInput, t: GuardrailTranslator) {
   if (form.type === "regex_replace") return t("sentence.action.regex_replace", { text: form.replacement });
   if (form.type === "inline_image_urls") return t("sentence.action.inline_image_urls");
+  if (form.type === "semantic_policy") return t(`sentence.action.semantic.${form.enforcement}`);
   if (operationForType(form.type, form.operation) === "mutate") {
     return t("sentence.action.mutate", { text: form.redactionText.trim() || "[***]" });
   }

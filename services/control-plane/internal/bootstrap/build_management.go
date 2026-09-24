@@ -40,6 +40,7 @@ func (b *builder) buildManagement() error {
 			ProviderSchemas:     b.credentialRuntime.schemas,
 			ProviderCredentials: b.credentialRuntime.service,
 			Prompts:             b.promptApplication,
+			SemanticGuardrails:  b.guardrailEngine(),
 			Discovery: admin.DiscoveryConfig{
 				BaseURL:  b.cfg.Admin.Discovery.BaseURL,
 				Token:    b.cfg.Admin.Discovery.Token,

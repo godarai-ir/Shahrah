@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Ban,
   Braces,
+  BrainCircuit,
   CircleDashed,
   CodeXml,
   Fingerprint,
@@ -18,7 +19,7 @@ import {
 
 import type { GuardrailOperation, GuardrailType } from "./types";
 
-export type GuardrailCategory = "data" | "content" | "length" | "structure" | "access";
+export type GuardrailCategory = "semantic" | "data" | "content" | "length" | "structure" | "access";
 export type GuardrailOps = GuardrailOperation | "both";
 export type GuardrailCountUnit = "sentence" | "word" | "character";
 
@@ -31,10 +32,11 @@ export type GuardrailCatalogEntry = {
   unit?: GuardrailCountUnit;
 };
 
-export const GUARDRAIL_CATEGORIES: GuardrailCategory[] = ["data", "content", "length", "structure", "access"];
+export const GUARDRAIL_CATEGORIES: GuardrailCategory[] = ["semantic", "data", "content", "length", "structure", "access"];
 
 /** The single source of guardrail type metadata. Array order is display order. */
 export const GUARDRAIL_CATALOG: GuardrailCatalogEntry[] = [
+  { type: "semantic_policy", category: "semantic", icon: BrainCircuit, ops: "validate", recommended: true },
   { type: "secrets_detection", category: "data", icon: KeyRound, ops: "both", recommended: true },
   { type: "basic_pii", category: "data", icon: Fingerprint, ops: "both", recommended: true },
   { type: "regex", category: "data", icon: Regex, ops: "both" },
