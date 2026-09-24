@@ -10,15 +10,12 @@
   },
   "actions": {
     "new": "گاردریل جدید",
-    "guide": "راهنما",
     "edit": "ویرایش",
     "delete": "حذف",
     "copySelector": "کپی selector",
     "copied": "کپی شد",
-    "save": "ذخیره",
     "saving": "در حال ذخیره...",
-    "cancel": "انصراف",
-    "close": "بستن"
+    "cancel": "انصراف"
   },
   "table": {
     "name": "نام",
@@ -29,12 +26,9 @@
     "actions": "عملیات"
   },
   "form": {
-    "addTitle": "گاردریل جدید",
-    "editTitle": "ویرایش گاردریل",
     "name": "نام",
     "identifier": "شناسه فنی",
     "notes": "توضیح",
-    "type": "نوع",
     "operation": "نوع اقدام",
     "enforcement": "شیوه اعمال",
     "terms": "عبارت‌های مسدود",
@@ -214,7 +208,6 @@
         "must_contain": "برای دستیارهای برنامه‌نویسی"
       },
       "languagesHint": "هر زبان در یک خط. خالی یعنی همه زبان‌ها.",
-      "optional": "اختیاری",
       "optionalLabel": "{label} (اختیاری)",
       "verifierLabel": "توکن با چه روشی بررسی شود؟",
       "verifiers": {

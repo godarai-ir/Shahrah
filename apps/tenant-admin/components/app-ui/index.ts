@@ -65,5 +65,6 @@ export { StatusOptionGroup, type StatusOption, type StatusOptionGroupProps, type
 export { TablePagination } from "./TablePagination";
 export { TableEmptyRow, TableLoadingRows, type TableEmptyRowProps, type TableLoadingRowsProps } from "./TableStateRows";
 export { TypedConfirmDialog, type TypedConfirmDialogProps } from "./TypedConfirmDialog";
+export { WizardStepper, type WizardStepperProps, type WizardStepperStep, type WizardStepState } from "./WizardStepper";
 export { UnsavedChangesDialog, type UnsavedChangesDialogProps } from "./UnsavedChangesDialog";
 export { VariableTextarea, VariableTextareaField, getVariableColorStyle, type VariableColorStyle, type VariableTextareaFieldProps, type VariableTextareaProps } from "./VariableTextarea";

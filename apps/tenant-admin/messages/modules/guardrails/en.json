@@ -10,15 +10,12 @@
   },
   "actions": {
     "new": "New guardrail",
-    "guide": "Guide",
     "edit": "Edit",
     "delete": "Delete",
     "copySelector": "Copy selector",
     "copied": "Copied",
-    "save": "Save",
     "saving": "Saving...",
-    "cancel": "Cancel",
-    "close": "Close"
+    "cancel": "Cancel"
   },
   "table": {
     "name": "Name",
@@ -29,12 +26,9 @@
     "actions": "Actions"
   },
   "form": {
-    "addTitle": "New guardrail",
-    "editTitle": "Edit guardrail",
     "name": "Name",
     "identifier": "Technical identifier",
     "notes": "Description",
-    "type": "Type",
     "operation": "Action",
     "enforcement": "Enforcement mode",
     "terms": "Blocked terms",
@@ -214,7 +208,6 @@
         "must_contain": "For coding assistants"
       },
       "languagesHint": "One language per line. Leave empty for all languages.",
-      "optional": "Optional",
       "optionalLabel": "{label} (optional)",
       "verifierLabel": "How should the token be verified?",
       "verifiers": {

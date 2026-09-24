@@ -112,7 +112,8 @@ function AdminShellClientContent({
   const searchParams = useSearchParams();
   const router = useRouter();
   const t = useTranslations("shell");
-  const { pageHeader, contentPadding } = useAdminShellPage();
+  const { pageHeader, contentPadding, contentLayout } = useAdminShellPage();
+  const fillContent = contentLayout === "fill" && contentPadding === "default";
 
   const userIdentity =
     currentUser.email ?? (mobileAuthUIEnabled ? currentUser.mobile : undefined) ?? currentUser.id;
@@ -184,9 +185,10 @@ function AdminShellClientContent({
             "relative min-h-0 min-w-0 flex-1",
             contentPadding === "default" && "p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
             contentPadding === "none" && "overflow-hidden",
+            fillContent && "flex flex-col",
           )}>
             <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
-              <div className={cn("w-full", contentPadding === "none" && "h-full")}>
+              <div className={cn("w-full", contentPadding === "none" && "h-full", fillContent && "flex flex-1 flex-col")}>
                 {sectionTabs && contentPadding === "default" ? <SectionTabs tabs={sectionTabs.tabs} /> : null}
                 {children}
               </div>

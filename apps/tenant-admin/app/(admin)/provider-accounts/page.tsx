@@ -7,6 +7,7 @@ import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
+import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
@@ -73,14 +74,4 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
 function normalizeWorkspaceSection(value?: string): WorkspaceTab {
   if (value === "models" || value === "access" || value === "credentials") return value;
   return "overview";
-}
-
-function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {
-  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
-  const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";
-  const tenantPrefix = `${tenantSlug}.`;
-  const docsHost = host.startsWith(tenantPrefix) ? host.slice(tenantPrefix.length) : host;
-
-  return docsHost ? `${proto}://${docsHost}/docs` : "/docs";
 }

@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { UnsavedChangesDialog } from "@/components/app-ui/UnsavedChangesDialog";
+import { WizardStepper, type WizardStepperStep } from "@/components/app-ui/WizardStepper";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { getLocaleDirection } from "@/lib/locale-direction";
-import { cn } from "@/lib/utils";
 
 import { createGuardrail, getGuardrail, listGuardrails, updateGuardrail } from "../api";
 import { localizedError } from "../errors";
@@ -45,66 +45,32 @@ type StepperProps = {
   onGoTo: (step: WizardStep) => void;
 };
 
-function WizardStepper({ state, reachable, onGoTo }: StepperProps) {
+function GuardrailStepper({ state, reachable, onGoTo }: StepperProps) {
   const t = useTranslations("guardrails");
-  const format = useGuardrailFormat();
-  const hint = (step: WizardStep, done: boolean) => {
+  const description = (step: WizardStep, complete: boolean) => {
     if (step === 0) return state.form.type ? t(`types.${state.form.type}`) : t("wizard.stepHints.type");
-    if (step === 1) return done ? t("wizard.stepHints.done") : t("wizard.stepHints.config");
-    if (step === 2) return done ? t(`enforcement.${state.form.enforcement}`) : t("wizard.stepHints.behavior");
+    if (step === 1) return complete ? t("wizard.stepHints.done") : t("wizard.stepHints.config");
+    if (step === 2) return complete ? t(`enforcement.${state.form.enforcement}`) : t("wizard.stepHints.behavior");
 
     return t("wizard.stepHints.review");
   };
+  const steps: WizardStepperStep[] = WIZARD_STEPS.map((key, index) => {
+    const step = index as WizardStep;
+    const complete = step < state.step || (state.mode === "edit" && step === 0);
+
+    return {
+      id: key,
+      title: t(`wizard.steps.${key}`),
+      description: description(step, complete),
+      state: step === state.step ? "active" : complete ? "complete" : "idle",
+      disabled: !reachable(step),
+      onSelect: () => onGoTo(step),
+    };
+  });
 
   return (
     <nav aria-label={t("wizard.stepsLabel")} className="min-w-0 flex-1">
-      <ol className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        {WIZARD_STEPS.map((key, index) => {
-          const step = index as WizardStep;
-          const current = step === state.step;
-          const done = step < state.step || (state.mode === "edit" && step === 0);
-          const enabled = !current && reachable(step);
-
-          return (
-            <li key={key} className="min-w-0">
-              <button
-                type="button"
-                aria-current={current ? "step" : undefined}
-                disabled={!enabled && !current}
-                onClick={() => (enabled ? onGoTo(step) : undefined)}
-                className={cn(
-                  "group relative flex w-full min-w-0 items-center gap-3 px-1 pt-2 pb-3 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  enabled ? "cursor-pointer" : "cursor-default",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute inset-x-0 bottom-0 h-0.5 rounded-full transition-colors",
-                    current ? "bg-primary" : done ? "bg-primary-subtle-border" : "bg-transparent",
-                    enabled && !current && "group-hover:bg-primary-subtle-border",
-                  )}
-                />
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ring-1 ring-inset",
-                    done ? "bg-primary text-primary-foreground ring-primary" : current ? "bg-primary-soft text-primary ring-primary" : "bg-card text-muted-foreground ring-input-border",
-                  )}
-                >
-                  {done ? <Check className="size-3.5" strokeWidth={3} /> : format.formatNumber(index + 1)}
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className={cn("truncate text-sm", current ? "font-semibold text-foreground" : done ? "font-medium text-foreground" : "font-medium text-muted-foreground")}>
-                    {t(`wizard.steps.${key}`)}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">{hint(step, done)}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      <WizardStepper steps={steps} />
     </nav>
   );
 }
@@ -245,9 +211,9 @@ function WizardFlow({ initialState, existingSlugs, originalSlug }: { initialStat
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-1 flex-col gap-6">
       <div className="flex items-start gap-3 border-b border-border">
-        <WizardStepper state={state} reachable={reachable} onGoTo={goTo} />
+        <GuardrailStepper state={state} reachable={reachable} onGoTo={goTo} />
         <Button type="button" variant="outline" size="sm" className="mt-2 shrink-0" onClick={cancel}>
           <X data-icon="inline-start" aria-hidden="true" />
           {t("wizard.actions.cancel")}
@@ -299,7 +265,7 @@ function WizardFlow({ initialState, existingSlugs, originalSlug }: { initialStat
         </aside>
       </div>
 
-      <footer className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-border bg-background px-4 py-3 md:-mx-6 md:px-6">
+      <footer className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-3 border-t border-border bg-background px-4 py-3 md:-mx-6 md:px-6">
         <span className="text-sm text-muted-foreground">
           {t("wizard.stepOf", { current: format.formatNumber(state.step + 1), total: format.formatNumber(WIZARD_STEPS.length) })}
         </span>
