@@ -140,7 +140,7 @@ sources:
   - https://ai.google.dev/gemini-api/docs/deprecations
   - https://tokenbazaar.ai/shelf?model=gemini-2.5-pro
 runtimeProfile:
-  version: 2
+  version: 3
   endpoints: [models, chat_completions, generate_content, stream_generate_content]
   transports: [http, sse]
   lifecycle: active

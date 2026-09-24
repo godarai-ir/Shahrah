@@ -75,7 +75,7 @@ sources:
     - https://ai.google.dev/gemini-api/docs/rate-limits
     - https://tokenbazaar.ai/shelf?model=gemini-3.1-pro-preview
 runtimeProfile:
-    version: 2
+    version: 3
     endpoints: [models, chat_completions, generate_content, stream_generate_content]
     transports: [http, sse]
     lifecycle: preview
