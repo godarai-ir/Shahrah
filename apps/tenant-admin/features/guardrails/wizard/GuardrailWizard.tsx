@@ -73,17 +73,23 @@ function WizardStepper({ state, reachable, onGoTo }: StepperProps) {
                 disabled={!enabled && !current}
                 onClick={() => (enabled ? onGoTo(step) : undefined)}
                 className={cn(
-                  "flex w-full min-w-0 items-center gap-3 border-b-2 border-transparent px-1 pt-2 pb-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  current && "border-primary",
-                  done && !current && "border-primary-subtle-border",
-                  enabled ? "cursor-pointer hover:border-primary-subtle-border" : "cursor-default",
+                  "group relative flex w-full min-w-0 items-center gap-3 px-1 pt-2 pb-3 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  enabled ? "cursor-pointer" : "cursor-default",
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
-                    done ? "border-primary bg-primary text-primary-foreground" : current ? "border-primary bg-primary-soft text-primary" : "border-input-border bg-card text-muted-foreground",
+                    "absolute inset-x-0 bottom-0 h-0.5 rounded-full transition-colors",
+                    current ? "bg-primary" : done ? "bg-primary-subtle-border" : "bg-transparent",
+                    enabled && !current && "group-hover:bg-primary-subtle-border",
+                  )}
+                />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ring-1 ring-inset",
+                    done ? "bg-primary text-primary-foreground ring-primary" : current ? "bg-primary-soft text-primary ring-primary" : "bg-card text-muted-foreground ring-input-border",
                   )}
                 >
                   {done ? <Check className="size-3.5" strokeWidth={3} /> : format.formatNumber(index + 1)}

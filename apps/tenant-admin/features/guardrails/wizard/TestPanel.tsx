@@ -21,12 +21,12 @@ type TestPanelProps = {
 };
 
 const STATUS_STYLES: Record<EvaluationStatus, { icon: LucideIcon; className: string }> = {
-  pass: { icon: CircleCheck, className: "border-success-soft-border bg-success-soft text-success-soft-foreground" },
-  mutate: { icon: Eraser, className: "border-primary-subtle-border bg-primary-soft text-primary-soft-foreground" },
-  flag: { icon: Flag, className: "border-warning-soft-border bg-warning-soft text-warning-soft-foreground" },
-  block: { icon: OctagonX, className: "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground" },
-  blockNoLog: { icon: OctagonX, className: "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground" },
-  na: { icon: Info, className: "border-border bg-muted text-muted-foreground" },
+  pass: { icon: CircleCheck, className: "bg-success-soft text-success-soft-foreground ring-success-soft-border" },
+  mutate: { icon: Eraser, className: "bg-primary-soft text-primary-soft-foreground ring-primary-subtle-border" },
+  flag: { icon: Flag, className: "bg-warning-soft text-warning-soft-foreground ring-warning-soft-border" },
+  block: { icon: OctagonX, className: "bg-destructive-soft text-destructive-soft-foreground ring-destructive-soft-border" },
+  blockNoLog: { icon: OctagonX, className: "bg-destructive-soft text-destructive-soft-foreground ring-destructive-soft-border" },
+  na: { icon: Info, className: "bg-muted text-muted-foreground ring-border" },
 };
 
 function detailText(detail: EvaluationDetail, form: GuardrailFormInput, { t, formatNumber }: SentenceFormat) {
@@ -68,7 +68,7 @@ export function TestPanel({ form, sample, format, onSampleChange }: TestPanelPro
           onChange={(event) => onSampleChange(event.target.value)}
           className="min-h-24 text-sm leading-6"
         />
-        <div role="status" aria-live="polite" className={cn("flex flex-col gap-1 rounded-lg border px-3 py-2", style.className)}>
+        <div role="status" aria-live="polite" className={cn("flex flex-col gap-1 rounded-lg px-3 py-2 ring-1 ring-inset", style.className)}>
           <span className="flex items-center gap-2 text-sm font-semibold">
             <StatusIcon className="size-4 shrink-0" aria-hidden="true" />
             {t(`wizard.test.result.${result.status}`)}

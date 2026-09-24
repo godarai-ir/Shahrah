@@ -78,7 +78,7 @@ export function OptionCardGroup<T extends string>({
             aria-describedby={descriptionID}
             className={cn(
               "group flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card text-start transition-colors",
-              "hover:border-primary-subtle-border data-[state=checked]:border-primary data-[state=checked]:bg-primary-soft",
+              "hover:border-primary-subtle-border data-[state=checked]:border-primary data-[state=checked]:bg-primary-soft data-[state=checked]:ring-1 data-[state=checked]:ring-primary",
               "data-[disabled]:hover:border-border",
               density === "compact" ? "p-3" : "p-4",
             )}

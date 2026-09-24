@@ -35,7 +35,7 @@ function TypeTile({ entry, selected, onSelect }: { entry: GuardrailCatalogEntry;
       aria-labelledby={`${id}-name`}
       aria-describedby={`${id}-description`}
       onClick={onSelect}
-      className="group flex min-h-42 flex-col gap-3 rounded-xl border border-card-border bg-card p-4 text-start shadow-xs transition-colors hover:border-primary-subtle-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:ring-4 aria-pressed:ring-primary/15"
+      className="group flex min-h-42 flex-col gap-3 rounded-xl border border-card-border bg-card p-4 text-start shadow-xs transition-colors hover:border-primary-subtle-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:ring-2 aria-pressed:ring-primary"
     >
       <span className="flex items-center gap-2">
         <span
@@ -49,7 +49,7 @@ function TypeTile({ entry, selected, onSelect }: { entry: GuardrailCatalogEntry;
         ) : null}
         <span
           aria-hidden="true"
-          className="ms-auto flex size-5 shrink-0 items-center justify-center rounded-full border border-input-border text-primary-foreground group-aria-pressed:border-primary group-aria-pressed:bg-primary"
+          className="ms-auto flex size-5 shrink-0 items-center justify-center rounded-full text-primary-foreground ring-1 ring-inset ring-input-border group-aria-pressed:bg-primary group-aria-pressed:ring-primary"
         >
           {selected ? <Check className="size-3" strokeWidth={3} /> : null}
         </span>
@@ -104,7 +104,7 @@ export function StepType({ selected, query, category, headingRef, onQueryChange,
               variant="outline"
               aria-pressed={category === filter}
               onClick={() => onCategoryChange(filter)}
-              className="rounded-full font-normal aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:font-semibold aria-pressed:text-primary"
+              className="rounded-full font-normal aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:font-semibold aria-pressed:text-primary aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary"
             >
               {t(`categories.${filter}`)}
             </Button>
