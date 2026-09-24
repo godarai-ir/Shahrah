@@ -24,6 +24,29 @@ type adapterResponse struct {
 	Body       io.ReadCloser
 }
 
+// requestValidationError marks a request that an adapter rejected before
+// contacting the upstream provider, so the server answers with a 400 that
+// names the reason instead of a generic 502.
+type requestValidationError struct {
+	err error
+}
+
+func (e *requestValidationError) Error() string {
+	return e.err.Error()
+}
+
+func (e *requestValidationError) Unwrap() error {
+	return e.err
+}
+
+func newRequestValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return &requestValidationError{err: err}
+}
+
 type providerRegistry struct {
 	adapters map[string]providerAdapter
 }

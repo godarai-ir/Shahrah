@@ -546,6 +546,10 @@ func (h *ResponsesHandler) prepareDirectResponseRuntimeProfiles(
 	}
 
 	tunnelRequest.ModelRuntimeProfiles = runtimeProfiles
+	if !runtimeProfilesAllowResponses(runtimeProfiles) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, responsesEndpointUnsupportedMessage(requestedModel), "invalid_request_error")
+	}
+
 	if !isDeepSeekProvider(tunnelRequest.Deployment.Provider) {
 		return false, nil
 	}
@@ -702,6 +706,10 @@ func (h *ResponsesHandler) estimateVirtualResponseTarget(
 	runtimeProfiles, err := runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, estimated)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	if !runtimeProfilesAllowResponses(runtimeProfiles) {
+		return platform.UsageCostBreakdown{}, nil, errors.New(responsesEndpointUnsupportedMessage(deployment.ModelName))
 	}
 
 	if isDeepSeekProvider(deployment.Provider) {
@@ -1446,6 +1454,24 @@ func supportsResponsesCreateProvider(provider string) bool {
 	default:
 		return false
 	}
+}
+
+// runtimeProfilesAllowResponses reports whether every catalog runtime profile
+// bound to the request declares the Responses endpoint. A model such as
+// Gemini, whose official API has no Responses surface, is rejected here
+// instead of failing later inside the provider adapter.
+func runtimeProfilesAllowResponses(bindings []platform.ModelRuntimeProfileBinding) bool {
+	for i := range bindings {
+		if !bindings[i].Profile.AllowsEndpoint("responses") {
+			return false
+		}
+	}
+
+	return true
+}
+
+func responsesEndpointUnsupportedMessage(model string) string {
+	return fmt.Sprintf("Model %s does not support the Responses API; use /v1/chat/completions instead", model)
 }
 
 func supportsResponseResourcesProvider(provider string) bool {

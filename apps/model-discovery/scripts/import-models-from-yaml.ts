@@ -58,6 +58,7 @@ type ModelMode =
   | 'chat'
   | 'completion'
   | 'embedding'
+  | 'generate_content'
   | 'image'
   | 'moderation'
   | 'ocr'
@@ -149,6 +150,7 @@ const knownModes = new Set<ModelMode>([
   'chat',
   'completion',
   'embedding',
+  'generate_content',
   'image',
   'moderation',
   'realtime',
@@ -361,6 +363,9 @@ function normalizeModeValue(input: unknown): ModelMode {
     case 'responses':
     case 'response':
       return 'responses';
+    case 'generate_content':
+    case 'generatecontent':
+      return 'generate_content';
     case 'moderation':
     case 'moderations':
       return 'moderation';
@@ -416,6 +421,34 @@ function enforceOpenAIReleaseStatus(
   }
   if (id.includes('preview')) return 'preview';
   return status;
+}
+
+// Modes that name a gateway surface must be backed by the runtime endpoint
+// that serves it, so the catalog never advertises a route the model cannot
+// take (for example, Gemini models have no OpenAI Responses endpoint).
+const modeRequiredRuntimeEndpoints: Partial<
+  Record<ModelMode, ModelRuntimeProfile['endpoints']>
+> = {
+  responses: ['responses'],
+  generate_content: ['generate_content'],
+};
+
+function assertModesMatchRuntimeEndpoints(
+  modelId: string,
+  modes: ModelMode[],
+  runtimeProfile: ModelRuntimeProfile | undefined,
+): void {
+  if (!runtimeProfile) return;
+  for (const mode of modes) {
+    const missing = (modeRequiredRuntimeEndpoints[mode] ?? []).filter(
+      (endpoint) => !runtimeProfile.endpoints.includes(endpoint),
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `${modelId}: supportedModes includes ${mode}, but runtimeProfile.endpoints is missing ${missing.join(', ')}`,
+      );
+    }
+  }
 }
 
 function enforceOpenAIModes(
@@ -482,6 +515,7 @@ function inferOutputModalities(
       case 'chat':
       case 'completion':
       case 'responses':
+      case 'generate_content':
       case 'unknown':
         inferred.add('text');
         break;
@@ -1196,6 +1230,7 @@ async function parseProviderDir(
       );
     }
     const runtimeProfile = explicitRuntimeProfile;
+    assertModesMatchRuntimeEndpoints(modelId, mode, runtimeProfile);
 
     const deprecatedAt = deprecationDate;
     const releaseDate =

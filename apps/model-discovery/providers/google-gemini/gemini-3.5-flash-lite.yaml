@@ -1,7 +1,7 @@
 model: gemini-3.5-flash-lite
 status: active
 mode: chat
-supportedModes: [chat, responses]
+supportedModes: [chat, generate_content]
 provisioning: serverless
 modalities:
     input: [text, image, audio, video, pdf]

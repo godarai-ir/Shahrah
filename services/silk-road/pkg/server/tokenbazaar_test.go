@@ -3,9 +3,11 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -2876,5 +2878,65 @@ func TestTokenBazaarGenerateContentNeverForwardsGodarAIAuthorizationHeader(t *te
 
 	if gotAuth != "Bearer tokenbazaar-secret" {
 		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}
+
+// TestRawDispatchReturnsBadRequestForTokenBazaarValidationFailure covers a
+// request the TokenBazaar adapter rejects before contacting the upstream. The
+// raw dispatch endpoint must answer with a 400 that names the reason, not a
+// generic 502 that hides it.
+func TestRawDispatchReturnsBadRequestForTokenBazaarValidationFailure(t *testing.T) {
+	t.Parallel()
+
+	var upstreamCalls atomic.Int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(*http.Request) (*http.Response, error) {
+		upstreamCalls.Add(1)
+
+		return nil, io.ErrUnexpectedEOF
+	})}
+
+	metadata, err := json.Marshal(platform.TunnelRequest{
+		Operation:  platform.ProviderOperationOpenAIResponsesCreate,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: "gemini-2.5-pro", APIKey: "tokenbazaar-secret"},
+	})
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+
+	rawBody := []byte(`{"model":"gemini-2.5-pro","input":"hello"}`)
+
+	var prefix [4]byte
+	binary.BigEndian.PutUint32(prefix[:], uint32(len(metadata)))
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/dispatch/raw",
+		io.MultiReader(bytes.NewReader(prefix[:]), bytes.NewReader(metadata), bytes.NewReader(rawBody)),
+	)
+	req.ContentLength = int64(len(prefix) + len(metadata) + len(rawBody))
+	recorder := httptest.NewRecorder()
+	NewHandler(client).ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error"`
+	}
+	if decodeErr := json.Unmarshal(recorder.Body.Bytes(), &body); decodeErr != nil {
+		t.Fatalf("decode error body: %v", decodeErr)
+	}
+
+	if body.Error.Type != "invalid_request_error" || !strings.Contains(body.Error.Message, "tokenbazaar_unsupported_model: gemini-2.5-pro") {
+		t.Fatalf("unexpected error body: %s", recorder.Body.String())
+	}
+
+	if calls := upstreamCalls.Load(); calls != 0 {
+		t.Fatalf("expected no upstream calls, got %d", calls)
 	}
 }

@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -59,7 +60,14 @@ func tokenBazaarProxyTestRuntimeProfile(model string) platform.ModelRuntimeProfi
 	}
 }
 
-type tokenBazaarResponsesBudgeter struct{ testBudgeter }
+// tokenBazaarResponsesBudgeter attaches a TokenBazaar runtime profile to every
+// estimate. A non-nil endpoints value replaces the profile's default endpoint
+// list.
+type tokenBazaarResponsesBudgeter struct {
+	testBudgeter
+
+	endpoints []string
+}
 
 func (b *tokenBazaarResponsesBudgeter) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
 	estimated, err := b.testBudgeter.EstimateCost(ctx, req)
@@ -68,6 +76,15 @@ func (b *tokenBazaarResponsesBudgeter) EstimateCost(ctx context.Context, req con
 	}
 
 	binding := tokenBazaarProxyTestRuntimeProfile(req.Model)
+	if b.endpoints != nil {
+		binding.Profile.Endpoints = append([]string(nil), b.endpoints...)
+		for endpoint := range binding.Profile.Parameters {
+			if !binding.Profile.AllowsEndpoint(endpoint) {
+				delete(binding.Profile.Parameters, endpoint)
+			}
+		}
+	}
+
 	estimated.ModelRuntimeProfile = &binding
 	estimated.PricingRevision = binding.CatalogRevision
 
@@ -82,15 +99,29 @@ func newTokenBazaarResponsesTestApp(
 ) (*fiber.App, *testLogs) {
 	t.Helper()
 
+	return newTokenBazaarResponsesTestAppForModel(t, tunnel, "gpt-5.5", nil)
+}
+
+// newTokenBazaarResponsesTestAppForModel builds a Responses test app routed to
+// a single "tokenbazaar" deployment for model. A non-nil endpoints value
+// replaces the runtime profile's endpoint list.
+func newTokenBazaarResponsesTestAppForModel(
+	t *testing.T,
+	tunnel *captureTunnel,
+	model string,
+	endpoints []string,
+) (*fiber.App, *testLogs) {
+	t.Helper()
+
 	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mem.Close()) })
 
 	rt, err := router.NewRouter([]config.ModelDeployment{{
-		ModelName: "gpt-5.5",
+		ModelName: model,
 		ProviderEndpoint: config.ProviderEndpointConfig{
 			Provider: "tokenbazaar",
-			Model:    "gpt-5.5",
+			Model:    model,
 			APIKey:   "test-key",
 		},
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
@@ -101,7 +132,7 @@ func newTokenBazaarResponsesTestApp(
 	handler := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
 		Router:              rt,
 		Tunnel:              tunnel,
-		Billing:             &tokenBazaarResponsesBudgeter{},
+		Billing:             &tokenBazaarResponsesBudgeter{endpoints: endpoints},
 		BillingCapabilities: compatibilityBillingCapabilities(),
 		Wallets:             &testWallets{},
 		RequestLogger:       logs,
@@ -179,4 +210,48 @@ func TestResponsesHandlerSupportsTokenBazaarWithReasoningEffortPassthrough(t *te
 	assert.True(t, tunnel.lastReq.ModelRuntimeProfiles[0].MatchesModel("gpt-5.5"))
 	assert.Equal(t, platform.ProviderOperationOpenAIResponsesCreate, tunnel.lastReq.Operation)
 	assert.Contains(t, string(tunnel.lastReq.Body), `"reasoning":{"effort":"low"}`)
+}
+
+// TestResponsesHandlerRejectsGeminiWithoutResponsesEndpoint covers a Gemini
+// model reached through TokenBazaar. The official Gemini API has no Responses
+// endpoint, so the catalog profile omits it and the request must fail with a
+// 400 before anything is dispatched to Silk Road.
+func TestResponsesHandlerRejectsGeminiWithoutResponsesEndpoint(t *testing.T) {
+	tunnel := &captureTunnel{}
+	app, _ := newTokenBazaarResponsesTestAppForModel(
+		t,
+		tunnel,
+		"gemini-2.5-pro",
+		[]string{"models", "chat_completions", "generate_content", "stream_generate_content"},
+	)
+
+	req := httptest.NewRequest(
+		"POST",
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"gemini-2.5-pro","input":"hello"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode, string(body))
+	assert.Contains(t, string(body), "does not support the Responses API")
+	assert.Empty(t, tunnel.requests)
+	assert.Empty(t, tunnel.lastReq.Operation)
+}
+
+func TestRuntimeProfilesAllowResponses(t *testing.T) {
+	withResponses := tokenBazaarProxyTestRuntimeProfile("gpt-5.5")
+	withoutResponses := tokenBazaarProxyTestRuntimeProfile("gemini-2.5-pro")
+	withoutResponses.Profile.Endpoints = []string{"chat_completions", "generate_content"}
+
+	assert.True(t, runtimeProfilesAllowResponses(nil))
+	assert.True(t, runtimeProfilesAllowResponses([]platform.ModelRuntimeProfileBinding{withResponses}))
+	assert.False(t, runtimeProfilesAllowResponses([]platform.ModelRuntimeProfileBinding{withoutResponses}))
+	assert.False(t, runtimeProfilesAllowResponses([]platform.ModelRuntimeProfileBinding{withResponses, withoutResponses}))
 }

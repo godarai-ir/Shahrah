@@ -332,7 +332,7 @@ func (a *tokenBazaarAdapter) Dispatch(
 	payload platform.TunnelRequest,
 ) (*adapterResponse, error) {
 	if err := validateTokenBazaarDispatch(payload); err != nil {
-		return nil, err
+		return nil, newRequestValidationError(err)
 	}
 
 	// generateContent/streamGenerateContent speak Gemini's own native wire

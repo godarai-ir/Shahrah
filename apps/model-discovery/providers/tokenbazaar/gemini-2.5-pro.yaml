@@ -1,7 +1,7 @@
 model: gemini-2.5-pro
 status: active
 mode: chat
-supportedModes: [chat, responses]
+supportedModes: [chat, generate_content]
 provisioning: serverless
 modalities:
   input: [text, image, audio, video, pdf]
@@ -33,19 +33,7 @@ tools:
     file_search,
     code_execution,
   ]
-endpoints:
-  [
-    models,
-    interactions,
-    generate_content,
-    stream_generate_content,
-    count_tokens,
-    batches,
-    batch_generate_content,
-    files,
-    cached_contents,
-    chat_completions,
-  ]
+endpoints: [models, chat_completions, generate_content, stream_generate_content]
 transports: [http, sse]
 serviceTiers: [standard, batch, flex, priority]
 thinkingProfile:
@@ -153,19 +141,7 @@ sources:
   - https://tokenbazaar.ai/shelf?model=gemini-2.5-pro
 runtimeProfile:
   version: 2
-  endpoints:
-    [
-      models,
-      interactions,
-      generate_content,
-      stream_generate_content,
-      count_tokens,
-      batches,
-      batch_generate_content,
-      files,
-      cached_contents,
-      chat_completions,
-    ]
+  endpoints: [models, chat_completions, generate_content, stream_generate_content]
   transports: [http, sse]
   lifecycle: active
   thinking:
