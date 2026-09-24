@@ -33,10 +33,13 @@ export type StatusOptionGroupProps<T extends string = string> = {
 };
 
 const toneClasses: Record<StatusOptionTone, string> = {
-  neutral: "data-[state=on]:tone-neutral",
-  info: "data-[state=on]:tone-info",
-  warning: "data-[state=on]:tone-warning",
-  success: "data-[state=on]:tone-success",
+  neutral:
+    "data-[state=on]:border-neutral-soft-border data-[state=on]:bg-neutral-soft data-[state=on]:text-neutral-soft-foreground",
+  info: "data-[state=on]:border-info-soft-border data-[state=on]:bg-info-soft data-[state=on]:text-info-soft-foreground",
+  warning:
+    "data-[state=on]:border-warning-soft-border data-[state=on]:bg-warning-soft data-[state=on]:text-warning-soft-foreground",
+  success:
+    "data-[state=on]:border-success-soft-border data-[state=on]:bg-success-soft data-[state=on]:text-success-soft-foreground",
 };
 
 const columnClasses = {
@@ -82,8 +85,7 @@ export function StatusOptionGroup<T extends string>({
             disabled={option.disabled}
             className={cn(
               "group h-auto min-w-0 flex-col items-stretch whitespace-normal rounded-xl border border-border bg-background p-4 text-start",
-              "hover:border-primary/30 hover:bg-muted/30 hover:shadow-sm",
-              "data-[state=on]:ring-2 data-[state=on]:ring-primary/20",
+              "hover:shadow-sm data-[state=off]:hover:border-primary/30 data-[state=off]:hover:bg-muted/30",
               toneClasses[option.tone],
             )}
           >
