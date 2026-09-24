@@ -51,6 +51,7 @@ Read `ARCHITECTURE.md` before changing application structure, feature ownership,
 ## Current UI Flows
 
 - Provider account setup uses a 3-step flow: provider selection, provider-specific connection fields, then models plus access policy.
+- Guardrails are created at `/guardrails/new` and edited at `/guardrails/[slug]/edit` through a 4-step wizard: type, settings, behavior, then name and review. `features/guardrails/catalog.ts` is the single source of type metadata.
 - Billing top-up lives under `/billing/topup` and the result page is `/billing/topup/result`.
 - PAT management lives under `/personal-access-tokens`.
 - Traces live under `/traces` and `/traces/[traceID]`.

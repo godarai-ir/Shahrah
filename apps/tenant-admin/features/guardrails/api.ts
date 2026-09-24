@@ -21,6 +21,10 @@ export function listGuardrails(query = "") {
   return requestParsedJSON(listResponseSchema, `/api/guardrails?query=${encodeURIComponent(query)}`);
 }
 
+export function getGuardrail(slug: string) {
+  return requestParsedJSON(tenantGuardrailSchema, `/api/guardrails/${encodeURIComponent(slug)}`);
+}
+
 export function createGuardrail(body: GuardrailPayload) {
   return requestParsedJSON(tenantGuardrailSchema, "/api/guardrails", {
     method: "POST",

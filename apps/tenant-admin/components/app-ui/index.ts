@@ -43,6 +43,7 @@ export { ModelNameValue, type ModelNameValueProps } from "./ModelNameValue";
 export { ModalityFlow, type ModalityFlowProps } from "./ModalityFlow";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
 export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
+export { OptionCardGroup, type OptionCardGroupProps, type OptionCardItem } from "./OptionCardGroup";
 export { PageHeader } from "./PageHeader";
 export { ShellPageHeading, type ShellPageMetadata } from "./ShellPageHeading";
 export { PageContainer, type PageContainerPadding, type PageContainerProps, type PageContainerSize, type PageContainerSpacing } from "./PageContainer";

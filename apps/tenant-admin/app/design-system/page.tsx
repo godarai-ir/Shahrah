@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Database, Flag, Inbox, KeyRound, OctagonX, Shield, Trash2, Upload, X } from "lucide-react";
 
 import { ActiveFilterChips } from "@/components/app-ui/ActiveFilterChips";
 import { AppCard } from "@/components/app-ui/AppCard";
@@ -43,6 +43,7 @@ import { ModalityFlow } from "@/components/app-ui/ModalityFlow";
 import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
 import { OneTimeSecretDialog } from "@/components/app-ui/OneTimeSecretDialog";
 import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
+import { OptionCardGroup } from "@/components/app-ui/OptionCardGroup";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { PermissionEditor } from "@/components/app-ui/PermissionEditor";
@@ -115,6 +116,7 @@ export default function DesignSystemPage() {
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [demoSecret, setDemoSecret] = useState<string | null>(null);
   const [statusOption, setStatusOption] = useState<"metadata" | "full">("metadata");
+  const [optionCard, setOptionCard] = useState<"block" | "flag" | "rewrite">("block");
   const [typedConfirmOpen, setTypedConfirmOpen] = useState(false);
   const [typedConfirmNotice, setTypedConfirmNotice] = useState<OperationNoticeValue | null>(null);
   const [unsavedChangesOpen, setUnsavedChangesOpen] = useState(false);
@@ -431,6 +433,19 @@ export default function DesignSystemPage() {
                 icon: Shield,
                 tone: "success",
               },
+            ]}
+          />
+        </AppCard>
+        <AppCard title="Option card group" description="Use for one choice among a few options that each need a title and a one-line effect. Cards are radios; arrow keys move the selection.">
+          <OptionCardGroup
+            aria-label="Enforcement"
+            columns={3}
+            value={optionCard}
+            onValueChange={setOptionCard}
+            options={[
+              { value: "block", title: "Block and log", description: "The request is stopped and logged.", icon: OctagonX },
+              { value: "flag", title: "Allow and flag", description: "The request passes and is flagged.", tip: "Useful before enforcing.", icon: Flag },
+              { value: "rewrite", title: "Rewrite", description: "Unavailable for this rule type.", icon: Shield, disabled: true },
             ]}
           />
         </AppCard>

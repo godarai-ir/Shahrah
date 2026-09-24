@@ -210,6 +210,12 @@ Use `StatusOptionGroup` when one setting must be selected from a small set of vi
 
 The component composes a single-selection `ToggleGroup`, preserves one selected value, and provides roving keyboard focus. Keep persistence and save state in the feature, pass `disabled` while loading or saving, and do not use standalone status-option buttons.
 
+## OptionCardGroup
+
+Use `OptionCardGroup` when a form field chooses one of two to four options and each option needs a title plus a one-line explanation of its effect, such as a guardrail's action, its enforcement mode, or a verification method. It composes the shared `RadioGroup` with `RadioGroupCard` items, so the group is a `radiogroup`, every card is a `radio` with `aria-checked`, and arrow keys move the selection in the page direction.
+
+Label the group with `aria-labelledby` pointing at the visible section heading or `FieldLegend`, or with `aria-label`. Each card is named by its `title` and described by its `description` and optional `tip`; use `tip` for a short emphasized note about when to prefer that option. Mark options that the current context does not allow as `disabled` instead of hiding them, and explain the lock next to the group heading. Use `density="compact"` for option sets inside a form card. Prefer `StatusOptionGroup` when the choice is a status with a badge, and `AppSelectField` when the options need no explanation.
+
 ## Spinner And Async Actions
 
 Use `Spinner` for indeterminate loading. Inside a button, compose it with `data-icon="inline-start"`, keep the localized pending label visible, disable the button, and set `aria-busy` on the button. Do not add `loading` or `isPending` props to `Button`.
