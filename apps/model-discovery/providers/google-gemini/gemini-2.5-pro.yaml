@@ -1,7 +1,7 @@
 model: gemini-2.5-pro
 status: active
 mode: chat
-supportedModes: [chat, responses]
+supportedModes: [chat, generate_content]
 provisioning: serverless
 modalities:
   input: [text, image, audio, video, pdf]

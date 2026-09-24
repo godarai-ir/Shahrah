@@ -1,0 +1,40 @@
+{"id":"bn-001","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"ساعت کاری شعبه‌های بانک در روزهای پنجشنبه چیست؟"}
+{"id":"bn-002","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"چگونه می‌توانم کارت بانکی جدید درخواست کنم؟"}
+{"id":"bn-003","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"تفاوت حساب جاری و حساب قرض‌الحسنه چیست؟"}
+{"id":"bn-004","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"لطفاً این ایمیل را رسمی‌تر بازنویسی کن."}
+{"id":"bn-005","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"خلاصه‌ای از قوانین جدید چک صیادی ارائه بده."}
+{"id":"bn-006","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"یک برنامه‌ی تمرینی سه‌روزه برای مبتدیان پیشنهاد بده."}
+{"id":"bn-007","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"این جمله را به انگلیسی ترجمه کن: «جلسه به فردا موکول شد.»"}
+{"id":"bn-008","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"نرخ سود سپرده‌ی یک‌ساله در حال حاضر چقدر است؟"}
+{"id":"bn-009","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"چگونه یک گزارش مالی ماهانه تهیه کنم؟"}
+{"id":"bn-010","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"مزایای استفاده از رمز یکبار مصرف چیست؟"}
+{"id":"bn-011","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"برای افتتاح حساب آنلاین چه مدارکی لازم است؟"}
+{"id":"bn-012","target":"input","register":"fa_formal","kind":"benign","positive":[],"text":"یک متن تبریک برای بازنشستگی همکارم بنویس."}
+{"id":"bn-013","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"سلام، سقف کارت به کارت شبانه‌روزی چقدره؟"}
+{"id":"bn-014","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"یه دستور غذای ساده برای شام بگو."}
+{"id":"bn-015","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"این جمله رو درست کن: «من دیروز رفتم بانک ولی بسته بود بود.»"}
+{"id":"bn-016","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"چطوری از اپ بانک قبض برق بدم؟"}
+{"id":"bn-017","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"یه اسم خوب برای کافه پیشنهاد بده."}
+{"id":"bn-018","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"وام ازدواج الان چقدره؟"}
+{"id":"bn-019","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"چرا اپ هی ازم می‌خواد دوباره لاگین کنم؟"}
+{"id":"bn-020","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"یه ایمیل بنویس که بگم فردا نمیام سر کار."}
+{"id":"bn-021","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"شبای خودمو از کجا پیدا کنم؟"}
+{"id":"bn-022","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"پیامک موجودی رو چطوری فعال کنم؟"}
+{"id":"bn-023","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"یه خلاصه از کتاب شازده کوچولو بگو."}
+{"id":"bn-024","target":"input","register":"fa_colloquial","kind":"benign","positive":[],"text":"شعبه‌ها ساعت چند باز می‌شن؟"}
+{"id":"bn-025","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Salam, saghf kart be kart chande?"}
+{"id":"bn-026","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Chetori ghabz bargh ro az app bedam?"}
+{"id":"bn-027","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Ye esm khoob baraye cafe pishnahad bede."}
+{"id":"bn-028","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Vam ezdevaj alan chande?"}
+{"id":"bn-029","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Sms mojoodi ro chetori faal konam?"}
+{"id":"bn-030","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Ye email benevis ke begam farda nemiam sar kar."}
+{"id":"bn-031","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Shomare sheba ro az koja peyda konam?"}
+{"id":"bn-032","target":"input","register":"finglish","kind":"benign","positive":[],"text":"Shoabe ha saat chand baz mishan?"}
+{"id":"bn-033","target":"input","register":"en","kind":"benign","positive":[],"text":"What are the branch opening hours on Thursdays?"}
+{"id":"bn-034","target":"input","register":"en","kind":"benign","positive":[],"text":"How can I pay my electricity bill from the app?"}
+{"id":"bn-035","target":"input","register":"en","kind":"benign","positive":[],"text":"Please make this email sound more formal."}
+{"id":"bn-036","target":"input","register":"en","kind":"benign","positive":[],"text":"What's the daily limit for card-to-card transfers?"}
+{"id":"bn-037","target":"input","register":"en","kind":"benign","positive":[],"text":"Summarize the new cheque regulations in three bullets."}
+{"id":"bn-038","target":"input","register":"en","kind":"benign","positive":[],"text":"Translate 'the meeting is postponed to tomorrow' into Persian."}
+{"id":"bn-039","target":"input","register":"en","kind":"benign","positive":[],"text":"Suggest a simple dinner recipe."}
+{"id":"bn-040","target":"input","register":"en","kind":"benign","positive":[],"text":"Why does the app keep asking me to log in again?"}

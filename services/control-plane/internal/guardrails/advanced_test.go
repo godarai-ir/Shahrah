@@ -1,6 +1,7 @@
 package guardrails
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -25,7 +26,7 @@ func TestRegexReplaceGuardrailMutatesInput(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	req := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "card 1234-5678"}}}
-	result, err := engine.ApplyInputWithGuardrails(req, RequestSelection{LLMInput: []string{"guardrails/mask-card"}, Scope: ScopeAll}, map[string]Guardrail{"mask_card": g})
+	result, err := engine.ApplyInputWithGuardrails(context.Background(), req, RequestSelection{LLMInput: []string{"guardrails/mask-card"}, Scope: ScopeAll}, map[string]Guardrail{"mask_card": g})
 	require.NoError(t, err)
 	require.Equal(t, "card [***]", result.Request.Messages[0].Content)
 }
@@ -40,7 +41,7 @@ func TestCountGuardrailsBlockOutOfRange(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	req := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "one two three"}}}
-	_, err := engine.ApplyInputWithGuardrails(req, RequestSelection{LLMInput: []string{"guardrails/short-answer"}, Scope: ScopeAll}, map[string]Guardrail{"short_answer": g})
+	_, err := engine.ApplyInputWithGuardrails(context.Background(), req, RequestSelection{LLMInput: []string{"guardrails/short-answer"}, Scope: ScopeAll}, map[string]Guardrail{"short_answer": g})
 	require.Error(t, err)
 }
 
@@ -67,7 +68,7 @@ func TestJSONSchemaAndKeysGuardrails(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	resp := contractsopenai.ChatCompletionResponse{Choices: []contractsopenai.Choice{{Message: &contractsopenai.ChatMessage{Content: `{"answer":"ok"}`}}}}
-	result, err := engine.ApplyOutputWithGuardrails(resp, RequestSelection{LLMOutput: []string{"guardrails/schema", "guardrails/keys"}, Scope: ScopeAll}, map[string]Guardrail{"schema": schemaGuardrail, "keys": keysGuardrail})
+	result, err := engine.ApplyOutputWithGuardrails(context.Background(), resp, RequestSelection{LLMOutput: []string{"guardrails/schema", "guardrails/keys"}, Scope: ScopeAll}, map[string]Guardrail{"schema": schemaGuardrail, "keys": keysGuardrail})
 	require.NoError(t, err)
 	require.Equal(t, "passed", result.Checks["llm_output_guardrails"][0].Status)
 	require.Equal(t, "passed", result.Checks["llm_output_guardrails"][1].Status)
@@ -90,7 +91,7 @@ func TestContainsCodeAndNotNullGuardrails(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	resp := contractsopenai.ChatCompletionResponse{Choices: []contractsopenai.Choice{{Message: &contractsopenai.ChatMessage{Content: "select * from users"}}}}
-	_, err := engine.ApplyOutputWithGuardrails(resp, RequestSelection{LLMOutput: []string{"guardrails/needs-code", "guardrails/not-null"}, Scope: ScopeAll}, map[string]Guardrail{"needs_code": codeGuardrail, "not_null": notNullGuardrail})
+	_, err := engine.ApplyOutputWithGuardrails(context.Background(), resp, RequestSelection{LLMOutput: []string{"guardrails/needs-code", "guardrails/not-null"}, Scope: ScopeAll}, map[string]Guardrail{"needs_code": codeGuardrail, "not_null": notNullGuardrail})
 	require.NoError(t, err)
 }
 
@@ -107,11 +108,11 @@ func TestContainsCodeGuardrailUsesModeWhenBooleanIsOmitted(t *testing.T) {
 	overrides := map[string]Guardrail{"no_code": g}
 
 	plainRequest := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "Explain relational databases"}}}
-	_, err := engine.ApplyInputWithGuardrails(plainRequest, selection, overrides)
+	_, err := engine.ApplyInputWithGuardrails(context.Background(), plainRequest, selection, overrides)
 	require.NoError(t, err)
 
 	codeRequest := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "select * from users"}}}
-	_, err = engine.ApplyInputWithGuardrails(codeRequest, selection, overrides)
+	_, err = engine.ApplyInputWithGuardrails(context.Background(), codeRequest, selection, overrides)
 	require.Error(t, err)
 }
 
@@ -126,7 +127,7 @@ func TestJWTValidationGuardrailValidatesHMAC(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	req := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "Bearer " + token}}}
-	_, err := engine.ApplyInputWithGuardrails(req, RequestSelection{LLMInput: []string{"guardrails/jwt"}, Scope: ScopeAll}, map[string]Guardrail{"jwt": g})
+	_, err := engine.ApplyInputWithGuardrails(context.Background(), req, RequestSelection{LLMInput: []string{"guardrails/jwt"}, Scope: ScopeAll}, map[string]Guardrail{"jwt": g})
 	require.NoError(t, err)
 }
 
@@ -146,7 +147,7 @@ func TestInlineImageURLsGuardrailMutatesTextURL(t *testing.T) {
 	})
 	engine := NewDefaultEngine()
 	req := contractsopenai.ChatCompletionRequest{Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "look " + server.URL + "/image.png"}}}
-	result, err := engine.ApplyInputWithGuardrails(req, RequestSelection{LLMInput: []string{"guardrails/inline-images"}, Scope: ScopeAll}, map[string]Guardrail{"inline_images": g})
+	result, err := engine.ApplyInputWithGuardrails(context.Background(), req, RequestSelection{LLMInput: []string{"guardrails/inline-images"}, Scope: ScopeAll}, map[string]Guardrail{"inline_images": g})
 	require.NoError(t, err)
 	require.Contains(t, result.Request.Messages[0].Content, "data:image/png;base64,")
 }

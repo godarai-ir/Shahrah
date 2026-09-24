@@ -1,6 +1,7 @@
 package guardrails
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -59,6 +60,8 @@ type Check struct {
 	LatencyMS   int64       `json:"latency_ms"`
 	Mutated     bool        `json:"mutated,omitempty"`
 	Error       string      `json:"error,omitempty"`
+	// Semantic carries rule probabilities for traces. It is never returned to API clients.
+	Semantic *SemanticCheckDetail `json:"-"`
 }
 
 type Result struct {
@@ -147,6 +150,8 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 		return newJWTValidationGuardrail(item.Slug, enforcement, item.Config)
 	case "inline_image_urls":
 		return newInlineImageURLsGuardrail(item.Slug, enforcement, item.Config)
+	case SemanticPolicyType:
+		return newSemanticPolicyGuardrail(item.Slug, enforcement, item.Config)
 	default:
 		return nil
 	}
@@ -154,10 +159,25 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 
 type Engine struct {
 	registry map[string]Guardrail
+	judge    SemanticJudge
 }
 
-func NewDefaultEngine() *Engine {
+// EngineOption configures optional engine collaborators.
+type EngineOption func(*Engine)
+
+// WithSemanticJudge enables semantic_policy guardrails. Without a judge they fail as execution errors.
+func WithSemanticJudge(judge SemanticJudge) EngineOption {
+	return func(e *Engine) {
+		e.judge = judge
+	}
+}
+
+func NewDefaultEngine(options ...EngineOption) *Engine {
 	e := &Engine{registry: map[string]Guardrail{}}
+	for _, option := range options {
+		option(e)
+	}
+
 	for _, g := range []Guardrail{
 		NewKeywordBlocklistGuardrail(),
 		NewRegexGuardrail(),
@@ -223,10 +243,12 @@ func ParseSelection(rawGuardrails string, rawScope string) (RequestSelection, er
 }
 
 func (e *Engine) ApplyInput(req contractsopenai.ChatCompletionRequest, sel RequestSelection) (Result, error) {
-	return e.ApplyInputWithGuardrails(req, sel, nil)
+	return e.ApplyInputWithGuardrails(context.Background(), req, sel, nil)
 }
 
-func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequest, sel RequestSelection, overrides map[string]Guardrail) (Result, error) {
+// ApplyInputWithGuardrails runs deterministic guardrails in selection order, then every semantic guardrail in one
+// judge call on the already-mutated request, so redacted values never reach the judge.
+func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopenai.ChatCompletionRequest, sel RequestSelection, overrides map[string]Guardrail) (Result, error) {
 	result := Result{Request: req, Checks: map[string][]Check{}}
 	if e == nil || len(sel.LLMInput) == 0 {
 		return result, nil
@@ -234,8 +256,17 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 
 	texts, refs := inputTexts(req, sel.Scope)
 
+	var semantic []semanticItem
+
 	outTexts := append([]string(nil), texts...)
+
 	for _, selector := range sel.LLMInput {
+		if sg := e.semanticGuardrail(selector, overrides); sg != nil {
+			semantic = append(semantic, semanticItem{selector: selector, prefix: fmt.Sprintf("g%d__", len(semantic)), g: sg})
+
+			continue
+		}
+
 		g, check, eval, err := e.evaluate(selector, HookLLMInput, outTexts, overrides)
 		if err != nil {
 			result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
@@ -263,14 +294,29 @@ func (e *Engine) ApplyInputWithGuardrails(req contractsopenai.ChatCompletionRequ
 		}
 	}
 
+	if len(semantic) == 0 {
+		return result, nil
+	}
+
+	checks, blocking := e.applySemantic(ctx, HookLLMInput, semantic, semanticInputState(result.Request, sel.Scope))
+	result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], checks...)
+
+	if blocking >= 0 {
+		result.Blocked = true
+		result.Reason = checks[blocking].Reason
+
+		return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
+	}
+
 	return result, nil
 }
 
 func (e *Engine) ApplyOutput(resp contractsopenai.ChatCompletionResponse, sel RequestSelection) (Result, error) {
-	return e.ApplyOutputWithGuardrails(resp, sel, nil)
+	return e.ApplyOutputWithGuardrails(context.Background(), resp, sel, nil)
 }
 
-func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionResponse, sel RequestSelection, overrides map[string]Guardrail) (Result, error) {
+// ApplyOutputWithGuardrails mirrors ApplyInputWithGuardrails for the model's reply.
+func (e *Engine) ApplyOutputWithGuardrails(ctx context.Context, resp contractsopenai.ChatCompletionResponse, sel RequestSelection, overrides map[string]Guardrail) (Result, error) {
 	result := Result{Response: &resp, Checks: map[string][]Check{}}
 	if e == nil || len(sel.LLMOutput) == 0 {
 		return result, nil
@@ -278,8 +324,17 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 
 	texts, refs := outputTexts(resp)
 
+	var semantic []semanticItem
+
 	outTexts := append([]string(nil), texts...)
+
 	for _, selector := range sel.LLMOutput {
+		if sg := e.semanticGuardrail(selector, overrides); sg != nil {
+			semantic = append(semantic, semanticItem{selector: selector, prefix: fmt.Sprintf("g%d__", len(semantic)), g: sg})
+
+			continue
+		}
+
 		g, check, eval, err := e.evaluate(selector, HookLLMOutput, outTexts, overrides)
 		if err != nil {
 			result.Checks["llm_output_guardrails"] = append(result.Checks["llm_output_guardrails"], check)
@@ -305,6 +360,20 @@ func (e *Engine) ApplyOutputWithGuardrails(resp contractsopenai.ChatCompletionRe
 			outTexts = eval.Texts
 			applyOutputTexts(result.Response, refs, outTexts)
 		}
+	}
+
+	if len(semantic) == 0 {
+		return result, nil
+	}
+
+	checks, blocking := e.applySemantic(ctx, HookLLMOutput, semantic, semanticOutputState(result.Response))
+	result.Checks["llm_output_guardrails"] = append(result.Checks["llm_output_guardrails"], checks...)
+
+	if blocking >= 0 {
+		result.Blocked = true
+		result.Reason = checks[blocking].Reason
+
+		return result, &ViolationError{Message: "Response blocked by GodarAI guardrail", Checks: result.Checks}
 	}
 
 	return result, nil

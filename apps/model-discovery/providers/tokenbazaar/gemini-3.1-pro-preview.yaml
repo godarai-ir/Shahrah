@@ -1,7 +1,7 @@
 model: gemini-3.1-pro-preview
 status: preview
 mode: chat
-supportedModes: [chat, responses]
+supportedModes: [chat, generate_content]
 provisioning: serverless
 modalities:
     input: [text, image, audio, video, pdf]
@@ -9,7 +9,7 @@ modalities:
 limits: { context_window: 1048576, max_input_tokens: 1048576, max_output_tokens: 65536, max_tokens: 65536 }
 features: [function_calling, parallel_function_calling, system_messages, tool_choice, prompt_caching, structured_output, code_execution, json_output]
 tools: [function_calling, google_search, google_maps, url_context, code_execution]
-endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+endpoints: [models, chat_completions, generate_content, stream_generate_content]
 transports: [http, sse]
 serviceTiers: [standard, batch, flex, priority]
 thinkingProfile:
@@ -76,7 +76,7 @@ sources:
     - https://tokenbazaar.ai/shelf?model=gemini-3.1-pro-preview
 runtimeProfile:
     version: 2
-    endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+    endpoints: [models, chat_completions, generate_content, stream_generate_content]
     transports: [http, sse]
     lifecycle: preview
     thinking:

@@ -113,7 +113,12 @@ func NewHandler(client *http.Client) http.Handler {
 
 		resp, err := adapter.Dispatch(r.Context(), selectHTTPClient(client, streamClient, payload.Stream), payload)
 		if err != nil {
+			if writeRequestValidationError(w, err) {
+				return
+			}
+
 			http.Error(w, err.Error(), http.StatusBadGateway)
+
 			return
 		}
 		defer closeBody(resp.Body)
@@ -191,6 +196,10 @@ func NewHandler(client *http.Client) http.Handler {
 				return
 			}
 
+			if writeRequestValidationError(w, dispatchErr) {
+				return
+			}
+
 			log.Printf(
 				"raw provider operation failed provider=%q operation=%q request_id=%q trace_id=%q: %v",
 				payload.Deployment.Provider,
@@ -224,6 +233,38 @@ func NewHandler(client *http.Client) http.Handler {
 	})
 
 	return metrics.wrap(mux)
+}
+
+// writeRequestValidationError answers an adapter-side validation failure with
+// an OpenAI-shaped body that names the reason, and reports whether it handled
+// the error. The status stays 502 because these checks are specific to one
+// deployment, and virtual models fall back to their next target on a 502.
+func writeRequestValidationError(w http.ResponseWriter, err error) bool {
+	var validationErr *requestValidationError
+	if !errors.As(err, &validationErr) {
+		return false
+	}
+
+	body, marshalErr := json.Marshal(map[string]any{
+		"error": map[string]any{
+			"message": validationErr.Error(),
+			"type":    "invalid_request_error",
+		},
+	})
+	if marshalErr != nil {
+		http.Error(w, validationErr.Error(), http.StatusBadGateway)
+
+		return true
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadGateway)
+
+	if _, writeErr := w.Write(body); writeErr != nil {
+		log.Printf("write request validation error failed: %v", writeErr)
+	}
+
+	return true
 }
 
 func readBufferedProviderBody(body io.Reader, contentLength int64) ([]byte, error) {

@@ -138,7 +138,7 @@ func (h *ChatCompletionHandler) prepareChatRequest(
 		}
 
 		setGuardrailOverrides(c, guardrailOverrides)
-		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(request, guardrailSelection, guardrailOverrides)
+		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(c.Context(), request, guardrailSelection, guardrailOverrides)
 		h.recordGuardrailChecks(c, inputResult.Checks)
 
 		if inputErr != nil {
