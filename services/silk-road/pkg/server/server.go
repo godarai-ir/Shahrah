@@ -236,7 +236,9 @@ func NewHandler(client *http.Client) http.Handler {
 }
 
 // writeRequestValidationError answers an adapter-side validation failure with
-// an OpenAI-shaped 400 body and reports whether it handled the error.
+// an OpenAI-shaped body that names the reason, and reports whether it handled
+// the error. The status stays 502 because these checks are specific to one
+// deployment, and virtual models fall back to their next target on a 502.
 func writeRequestValidationError(w http.ResponseWriter, err error) bool {
 	var validationErr *requestValidationError
 	if !errors.As(err, &validationErr) {
@@ -250,13 +252,13 @@ func writeRequestValidationError(w http.ResponseWriter, err error) bool {
 		},
 	})
 	if marshalErr != nil {
-		http.Error(w, validationErr.Error(), http.StatusBadRequest)
+		http.Error(w, validationErr.Error(), http.StatusBadGateway)
 
 		return true
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
+	w.WriteHeader(http.StatusBadGateway)
 
 	if _, writeErr := w.Write(body); writeErr != nil {
 		log.Printf("write request validation error failed: %v", writeErr)

@@ -2881,11 +2881,11 @@ func TestTokenBazaarGenerateContentNeverForwardsGodarAIAuthorizationHeader(t *te
 	}
 }
 
-// TestRawDispatchReturnsBadRequestForTokenBazaarValidationFailure covers a
-// request the TokenBazaar adapter rejects before contacting the upstream. The
-// raw dispatch endpoint must answer with a 400 that names the reason, not a
-// generic 502 that hides it.
-func TestRawDispatchReturnsBadRequestForTokenBazaarValidationFailure(t *testing.T) {
+// TestRawDispatchNamesTokenBazaarValidationFailure covers a request the
+// TokenBazaar adapter rejects before contacting the upstream. The raw dispatch
+// endpoint must name the reason in its body, and keep the 502 status so
+// virtual models still fall back to their next target.
+func TestRawDispatchNamesTokenBazaarValidationFailure(t *testing.T) {
 	t.Parallel()
 
 	var upstreamCalls atomic.Int32
@@ -2918,8 +2918,8 @@ func TestRawDispatchReturnsBadRequestForTokenBazaarValidationFailure(t *testing.
 	recorder := httptest.NewRecorder()
 	NewHandler(client).ServeHTTP(recorder, req)
 
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadGateway, recorder.Code, recorder.Body.String())
 	}
 
 	var body struct {

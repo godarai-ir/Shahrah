@@ -25,8 +25,8 @@ type adapterResponse struct {
 }
 
 // requestValidationError marks a request that an adapter rejected before
-// contacting the upstream provider, so the server answers with a 400 that
-// names the reason instead of a generic 502.
+// contacting the upstream provider, so the server answers with a body that
+// names the reason instead of a generic "raw provider operation failed".
 type requestValidationError struct {
 	err error
 }
