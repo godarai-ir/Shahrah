@@ -142,11 +142,12 @@ func TestJudgeOpensCircuitAfterRepeatedFailures(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls.Add(1)
-		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.WriteHeader(http.StatusBadGateway)
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server.URL, nil)
+	// A 502 is retried once, so each Judge call makes two attempts.
 
 	for range 2 {
 		if _, err := client.Judge(context.Background(), testRequest()); !errors.Is(err, errStatus) {
@@ -154,8 +155,8 @@ func TestJudgeOpensCircuitAfterRepeatedFailures(t *testing.T) {
 		}
 	}
 
-	if _, err := client.Judge(context.Background(), testRequest()); !errors.Is(err, ErrCircuitOpen) || calls.Load() != 2 {
-		t.Fatalf("expected an open circuit without a third call, calls=%d err=%v", calls.Load(), err)
+	if _, err := client.Judge(context.Background(), testRequest()); !errors.Is(err, ErrCircuitOpen) || calls.Load() != 4 {
+		t.Fatalf("expected an open circuit without another call, calls=%d err=%v", calls.Load(), err)
 	}
 
 	client.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
@@ -169,5 +170,29 @@ func TestNewRejectsIncompleteConfig(t *testing.T) {
 
 	if _, err := New(nil, nil, Config{BaseURL: "https://api.typesafe.ai", Model: "jev", Timeout: time.Second}); !errors.Is(err, errInvalidConfig) {
 		t.Fatalf("expected errInvalidConfig without an API key, got %v", err)
+	}
+}
+
+func TestRejectedRequestsDoNotOpenTheCircuit(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL, nil)
+
+	for range 5 {
+		if _, err := client.Judge(context.Background(), testRequest()); !errors.Is(err, errRejected) {
+			t.Fatalf("expected a rejected-request error, got %v", err)
+		}
+	}
+
+	if calls.Load() != 5 {
+		t.Fatalf("a 422 must neither be retried nor open the circuit, calls=%d", calls.Load())
 	}
 }

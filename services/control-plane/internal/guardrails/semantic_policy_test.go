@@ -82,6 +82,8 @@ func TestParseSemanticPolicyConfigRejectsInvalidConfigs(t *testing.T) {
 		"unknown pack rule": {"pack": SecurityBaselinePack, "rules": []interface{}{map[string]interface{}{"key": "nope"}}},
 		"bad severity":      {"rules": []interface{}{rule(nil)}, "severity": map[string]interface{}{"enabled": true, "block_at": 4}},
 		"bad finglish":      {"rules": []interface{}{rule(nil)}, "finglish_thresholds": map[string]interface{}{"review": 0.9, "block": 0.1}},
+		"partial finglish":  {"rules": []interface{}{rule(nil)}, "finglish_thresholds": map[string]interface{}{"review": 0.2}},
+		"empty finglish":    {"rules": []interface{}{rule(nil)}, "finglish_thresholds": map[string]interface{}{}},
 		"too many examples": {"rules": []interface{}{rule(map[string]interface{}{"examples": map[string]interface{}{"false": []interface{}{"a", "b", "c", "d", "e", "f"}}})}},
 	}
 

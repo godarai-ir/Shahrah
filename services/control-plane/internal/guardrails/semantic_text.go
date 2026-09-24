@@ -36,18 +36,19 @@ var persianNormalizer = strings.NewReplacer(
 	"\ufeff", "", // Byte order mark.
 )
 
-// finglishTokens are frequent Persian words in Latin script that are not common English words.
+// finglishTokens are frequent Persian words in Latin script. Words that are also English (age, ba, ye, dare, pool,
+// hast, chi) are left out, because two such hits would move an English message to the lower Finglish thresholds.
 var finglishTokens = map[string]bool{
-	"ro": true, "va": true, "ke": true, "az": true, "baraye": true, "bara": true, "chi": true, "chie": true, "chiye": true,
+	"ro": true, "va": true, "ke": true, "az": true, "baraye": true, "bara": true, "chie": true, "chiye": true,
 	"chetori": true, "chera": true, "kon": true, "bokon": true, "bede": true, "begoo": true, "begu": true, "bego": true,
-	"mikham": true, "mikhay": true, "mikhad": true, "nist": true, "hast": true, "hastam": true, "hasti": true, "dare": true,
+	"mikham": true, "mikhay": true, "mikhad": true, "nist": true, "hastam": true, "hasti": true,
 	"daram": true, "nadare": true, "nadaram": true, "khob": true, "lotfan": true, "salam": true, "mishe": true, "mitoonam": true,
-	"mitooni": true, "kheili": true, "kheyli": true, "ye": true, "inja": true, "alan": true, "faghat": true, "hame": true,
+	"mitooni": true, "kheili": true, "kheyli": true, "inja": true, "alan": true, "faghat": true, "hame": true,
 	"chizi": true, "midam": true, "midi": true, "konam": true, "koni": true, "kardam": true, "kardi": true, "shode": true,
-	"bashe": true, "bashi": true, "ghabli": true, "dige": true, "age": true, "vali": true, "hamin": true, "hamoon": true,
-	"javab": true, "soal": true, "dastoor": true, "dastoorat": true, "ghanoon": true, "ghavanin": true, "pool": true,
+	"bashe": true, "bashi": true, "ghabli": true, "dige": true, "vali": true, "hamin": true, "hamoon": true,
+	"javab": true, "soal": true, "dastoor": true, "dastoorat": true, "ghanoon": true, "ghavanin": true,
 	"poolet": true, "hesab": true, "ramz": true, "chand": true, "chande": true, "koja": true, "nemitoonam": true, "behet": true,
-	"befrest": true, "bekhoon": true, "benevis": true, "bikhial": true, "ba": true,
+	"befrest": true, "bekhoon": true, "benevis": true, "bikhial": true,
 }
 
 // semanticState is the text a semantic batch evaluates, before it is wrapped for the judge.

@@ -32,6 +32,8 @@ var (
 
 	errInvalidConfig = errors.New("invalid semantic judge config")
 	errStatus        = errors.New("semantic judge returned a non-success status")
+	// errRejected marks a 4xx answer about this request's content or rules; it says nothing about judge health.
+	errRejected = errors.New("semantic judge rejected the request")
 )
 
 // Config is the typed runtime configuration loaded by bootstrap.
@@ -238,7 +240,11 @@ func (c *Client) call(ctx context.Context, body []byte) (guardrails.JudgeRespons
 		retryable := httpResponse.StatusCode == http.StatusTooManyRequests || httpResponse.StatusCode == statusOverloaded ||
 			httpResponse.StatusCode >= http.StatusInternalServerError
 
-		return guardrails.JudgeResponse{}, retryable, fmt.Errorf("%w: %d", errStatus, httpResponse.StatusCode)
+		if !retryable {
+			return guardrails.JudgeResponse{}, false, fmt.Errorf("%w: %w: %d", errStatus, errRejected, httpResponse.StatusCode)
+		}
+
+		return guardrails.JudgeResponse{}, true, fmt.Errorf("%w: %d", errStatus, httpResponse.StatusCode)
 	}
 
 	var decoded apiResponse
@@ -309,7 +315,13 @@ func (c *Client) circuitOpen() bool {
 	return c.now().Before(c.openUntil)
 }
 
+// recordResult feeds the shared breaker. A rejected request is one tenant's problem, so it must not open the circuit
+// for every tenant.
 func (c *Client) recordResult(err error) {
+	if errors.Is(err, errRejected) {
+		return
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

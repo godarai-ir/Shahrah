@@ -84,12 +84,18 @@ type semanticSeverityConfig struct {
 	BlockAt *float64 `json:"block_at"`
 }
 
+// semanticThresholdsConfig uses pointers so a missing value is rejected instead of silently becoming 0.
+type semanticThresholdsConfig struct {
+	Review *float64 `json:"review"`
+	Block  *float64 `json:"block"`
+}
+
 type semanticPolicyConfig struct {
-	Target             string                  `json:"target"`
-	Pack               string                  `json:"pack"`
-	Rules              []semanticRuleConfig    `json:"rules"`
-	Severity           *semanticSeverityConfig `json:"severity"`
-	FinglishThresholds *SemanticThresholds     `json:"finglish_thresholds"`
+	Target             string                    `json:"target"`
+	Pack               string                    `json:"pack"`
+	Rules              []semanticRuleConfig      `json:"rules"`
+	Severity           *semanticSeverityConfig   `json:"severity"`
+	FinglishThresholds *semanticThresholdsConfig `json:"finglish_thresholds"`
 }
 
 // ParseSemanticPolicyConfig validates a semantic_policy config and fills defaults. Pack rules take their wording
@@ -128,11 +134,15 @@ func ParseSemanticPolicyConfig(config map[string]interface{}) (SemanticPolicy, e
 	}
 
 	if parsed.FinglishThresholds != nil {
-		if thresholdErr := validateThresholds("finglish_thresholds", *parsed.FinglishThresholds); thresholdErr != nil {
+		if parsed.FinglishThresholds.Review == nil || parsed.FinglishThresholds.Block == nil {
+			return SemanticPolicy{}, invalidSemanticPolicy("finglish_thresholds requires both review and block")
+		}
+
+		finglish := SemanticThresholds{Review: *parsed.FinglishThresholds.Review, Block: *parsed.FinglishThresholds.Block}
+		if thresholdErr := validateThresholds("finglish_thresholds", finglish); thresholdErr != nil {
 			return SemanticPolicy{}, thresholdErr
 		}
 
-		finglish := *parsed.FinglishThresholds
 		policy.Finglish = &finglish
 	}
 
