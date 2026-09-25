@@ -90,6 +90,14 @@ type EvaluationInput struct {
 	Hook     Hook
 	Selector string
 	Texts    []string
+	// Attachments is set only for guardrails that judge attachments on their own, such as document_confidentiality.
+	Attachments []AttachmentText
+}
+
+// AttachmentText is the extracted text of one attachment, as guardrails see it.
+type AttachmentText struct {
+	Name string
+	Text string
 }
 
 type EvaluationResult struct {
@@ -153,14 +161,17 @@ func NewFromTenantGuardrail(item platform.TenantGuardrail) Guardrail {
 		return newInlineImageURLsGuardrail(item.Slug, enforcement, item.Config)
 	case SemanticPolicyType:
 		return newSemanticPolicyGuardrail(item.Slug, enforcement, item.Config)
+	case DocumentConfidentialityType:
+		return newDocumentConfidentialityGuardrail(item.Slug, enforcement, item.Config)
 	default:
 		return nil
 	}
 }
 
 type Engine struct {
-	registry map[string]Guardrail
-	judge    SemanticJudge
+	registry    map[string]Guardrail
+	judge       SemanticJudge
+	extractions *extractionCache
 }
 
 // EngineOption configures optional engine collaborators.
@@ -174,7 +185,7 @@ func WithSemanticJudge(judge SemanticJudge) EngineOption {
 }
 
 func NewDefaultEngine(options ...EngineOption) *Engine {
-	e := &Engine{registry: map[string]Guardrail{}}
+	e := &Engine{registry: map[string]Guardrail{}, extractions: newExtractionCache(defaultExtractionCacheBytes)}
 	for _, option := range options {
 		option(e)
 	}
@@ -263,7 +274,7 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 	if enforcement, ok := e.attachmentEnforcement(sel.LLMInput, overrides); ok {
 		var failures []attachmentFailure
 
-		attachments, failures = inputAttachments(req, sel.Scope, docextract.DefaultLimits())
+		attachments, failures = inputAttachments(req, sel.Scope, docextract.DefaultLimits(), e.extractions)
 		if len(failures) > 0 {
 			check := attachmentFailureCheck(failures, enforcement)
 			result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
@@ -277,7 +288,7 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 		}
 	}
 
-	fileTexts := attachmentTexts(attachments)
+	files := attachmentInputs(attachments)
 
 	var semantic []semanticItem
 
@@ -290,7 +301,7 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 			continue
 		}
 
-		g, check, eval, redactedFiles, err := e.evaluateInput(selector, outTexts, fileTexts, overrides)
+		g, check, eval, redactedFiles, err := e.evaluateInput(selector, outTexts, files, overrides)
 		result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
 
 		if err != nil {
@@ -316,7 +327,7 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 			applyInputTexts(&result.Request, refs, outTexts)
 
 			// The forwarded file cannot change, but later guardrails and the judge see the redacted copy.
-			fileTexts = redactedFiles
+			files = redactedFiles
 		}
 	}
 
@@ -325,10 +336,14 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 	}
 
 	for i := range attachments {
-		attachments[i].Text = fileTexts[i]
+		attachments[i].Text = files[i].Text
 	}
 
-	checks, blocking := e.applySemantic(ctx, HookLLMInput, semantic, semanticInputState(result.Request, sel.Scope, attachmentBlocks(attachments)))
+	blocks, sampled := attachmentBlocks(attachments)
+	state := semanticInputState(result.Request, sel.Scope, blocks)
+	state.Truncated = state.Truncated || sampled
+
+	checks, blocking := e.applySemantic(ctx, HookLLMInput, semantic, state)
 	result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], checks...)
 
 	if blocking >= 0 {
@@ -342,30 +357,44 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 }
 
 // evaluateInput runs one deterministic guardrail on the typed texts and, for content guardrails, on the attachment
-// texts too. The returned evaluation only carries the typed texts, and the attachment texts are returned separately with
+// texts too. The returned evaluation only carries the typed texts, and the attachments are returned separately with
 // any redaction applied. A redaction that would touch an attachment cannot be applied to the forwarded file, so it is
-// reported as a block.
-func (e *Engine) evaluateInput(selector string, texts []string, fileTexts []string, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, []string, error) {
+// reported as a block. Guardrails that judge attachments on their own receive them as separate input.
+func (e *Engine) evaluateInput(selector string, texts []string, files []AttachmentText, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, []AttachmentText, error) {
 	g := e.resolve(selector, overrides)
-	if len(fileTexts) == 0 || g == nil || !inspectsAttachments(g) {
-		resolved, check, eval, err := e.evaluate(selector, HookLLMInput, texts, overrides)
+	if len(files) == 0 || g == nil || !inspectsAttachments(g) {
+		resolved, check, eval, err := e.evaluate(selector, EvaluationInput{Hook: HookLLMInput, Texts: texts}, overrides)
 
-		return resolved, check, eval, fileTexts, err
+		return resolved, check, eval, files, err
+	}
+
+	if _, ok := g.(*documentConfidentialityGuardrail); ok {
+		resolved, check, eval, err := e.evaluate(selector, EvaluationInput{Hook: HookLLMInput, Texts: texts, Attachments: files}, overrides)
+
+		return resolved, check, eval, files, err
+	}
+
+	fileTexts := make([]string, 0, len(files))
+	for _, file := range files {
+		fileTexts = append(fileTexts, file.Text)
 	}
 
 	combined := make([]string, 0, len(texts)+len(fileTexts))
 	combined = append(combined, texts...)
 	combined = append(combined, fileTexts...)
 
-	g, check, eval, err := e.evaluate(selector, HookLLMInput, combined, overrides)
+	g, check, eval, err := e.evaluate(selector, EvaluationInput{Hook: HookLLMInput, Texts: combined}, overrides)
 	if err != nil {
-		return g, check, eval, fileTexts, err
+		return g, check, eval, files, err
 	}
 
-	redactedFiles := fileTexts
+	redactedFiles := files
 
 	if len(eval.Texts) == len(combined) {
-		redactedFiles = eval.Texts[len(texts):]
+		redactedFiles = make([]AttachmentText, len(files))
+		for i, file := range files {
+			redactedFiles[i] = AttachmentText{Name: file.Name, Text: eval.Texts[len(texts)+i]}
+		}
 
 		if eval.Mutated && attachmentsChanged(fileTexts, eval.Texts[len(texts):]) {
 			eval.Blocked = true
@@ -408,7 +437,7 @@ func (e *Engine) ApplyOutputWithGuardrails(ctx context.Context, resp contractsop
 			continue
 		}
 
-		g, check, eval, err := e.evaluate(selector, HookLLMOutput, outTexts, overrides)
+		g, check, eval, err := e.evaluate(selector, EvaluationInput{Hook: HookLLMOutput, Texts: outTexts}, overrides)
 		if err != nil {
 			result.Checks["llm_output_guardrails"] = append(result.Checks["llm_output_guardrails"], check)
 			if shouldBlockOnError(g) {
@@ -452,7 +481,7 @@ func (e *Engine) ApplyOutputWithGuardrails(ctx context.Context, resp contractsop
 	return result, nil
 }
 
-func (e *Engine) evaluate(selector string, hook Hook, texts []string, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, error) {
+func (e *Engine) evaluate(selector string, input EvaluationInput, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, error) {
 	start := time.Now()
 
 	g := e.resolve(selector, overrides)
@@ -463,7 +492,8 @@ func (e *Engine) evaluate(selector string, hook Hook, texts []string, overrides 
 		return nil, check, EvaluationResult{}, fmt.Errorf("unknown guardrail selector %q", selector)
 	}
 
-	eval, err := g.Evaluate(EvaluationInput{Hook: hook, Selector: selector, Texts: texts})
+	input.Selector = selector
+	eval, err := g.Evaluate(input)
 
 	check := Check{Selector: selector, Operation: g.Operation(), Enforcement: g.Enforcement(), LatencyMS: time.Since(start).Milliseconds(), Mutated: eval.Mutated}
 	if err != nil {

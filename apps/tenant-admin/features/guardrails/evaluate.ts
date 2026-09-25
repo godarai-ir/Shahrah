@@ -1,5 +1,6 @@
 import { operationForType } from "./catalog";
-import { compilePattern, lines } from "./form";
+import { detectConfidentiality } from "./confidentiality";
+import { compilePattern, CONFIDENTIALITY_LEVELS, lines } from "./form";
 import type { GuardrailFormInput } from "./types";
 
 export type EvaluationStatus = "pass" | "mutate" | "flag" | "block" | "blockNoLog" | "na";
@@ -14,6 +15,7 @@ export type EvaluationDetailKey =
   | "codeFound" | "codeNone"
   | "jsonInvalid" | "notObject" | "missingKeys" | "schemaOk"
   | "noKeys" | "keysPresent"
+  | "markingFound" | "markingNone"
   | "na";
 
 export type EvaluationDetail = {
@@ -166,6 +168,15 @@ function checkJSONKeys(form: GuardrailFormInput, text: string): Check {
   return { violated, detail: { key: "keysPresent", count: present, total: keys.length } };
 }
 
+/** The sample stands in for an attachment's text. */
+function checkConfidentiality(form: GuardrailFormInput, text: string): Check {
+  const finding = detectConfidentiality(text, lines(form.customMarkings), form.confidentialityLevel);
+  if (!finding) return { violated: false, detail: { key: "markingNone" } };
+  const violated = CONFIDENTIALITY_LEVELS.indexOf(finding.level) >= CONFIDENTIALITY_LEVELS.indexOf(form.confidentialityLevel);
+
+  return { violated, detail: { key: "markingFound", items: [finding.marking] } };
+}
+
 function checkSample(form: GuardrailFormInput, text: string): Check | null {
   switch (form.type) {
     case "keyword_blocklist":
@@ -192,6 +203,8 @@ function checkSample(form: GuardrailFormInput, text: string): Check | null {
       return checkJSONSchema(form, text);
     case "json_keys":
       return checkJSONKeys(form, text);
+    case "document_confidentiality":
+      return checkConfidentiality(form, text);
     default:
       // JWT validation and image inlining depend on services outside the text.
       return null;

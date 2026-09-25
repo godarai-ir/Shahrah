@@ -1,6 +1,6 @@
 import { operationForType } from "./catalog";
 import { emptySemanticFields, semanticBehaviorError, semanticConfig, semanticConfigError, semanticFieldsFromConfig } from "./semantic";
-import type { GuardrailFormInput, GuardrailPayload, GuardrailType, JwtVerifier, TenantGuardrail } from "./types";
+import type { ConfidentialityLevel, GuardrailFormInput, GuardrailPayload, GuardrailType, JwtVerifier, TenantGuardrail } from "./types";
 
 /** A form whose type has not been picked yet, as the create wizard starts. */
 export type GuardrailDraft = Omit<GuardrailFormInput, "type"> & { type: GuardrailType | null };
@@ -22,6 +22,18 @@ const jwtVerifierField = {
 } as const satisfies Record<JwtVerifier, keyof GuardrailFormInput>;
 
 const SLUG_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,95}$/;
+
+/** Ordered from least to most sensitive; mirrors ConfidentialityLevel in the gateway. */
+export const CONFIDENTIALITY_LEVELS: readonly ConfidentialityLevel[] = ["internal", "confidential", "highly_confidential", "secret", "top_secret"];
+export const DEFAULT_CONFIDENTIALITY_LEVEL: ConfidentialityLevel = "confidential";
+export const MAX_CUSTOM_MARKINGS = 50;
+export const MAX_CUSTOM_MARKING_LENGTH = 100;
+
+function confidentialityLevelFromConfig(config: Record<string, unknown>): ConfidentialityLevel {
+  const value = config.block_level;
+
+  return CONFIDENTIALITY_LEVELS.find((level) => level === value) ?? DEFAULT_CONFIDENTIALITY_LEVEL;
+}
 
 export const emptyForm: GuardrailFormInput = {
   slug: "",
@@ -57,6 +69,9 @@ export const emptyForm: GuardrailFormInput = {
   timeoutMs: "3000",
   allowPrivateNetworks: false,
   ...emptySemanticFields(),
+  confidentialityLevel: DEFAULT_CONFIDENTIALITY_LEVEL,
+  customMarkings: "",
+  includeMessageText: false,
 };
 
 export function lines(value: string) {
@@ -145,6 +160,9 @@ export function formFromGuardrail(item: TenantGuardrail): GuardrailFormInput {
     timeoutMs: numberStringFromConfig(item.config, "timeout_ms") || "3000",
     allowPrivateNetworks: item.config.allow_private_networks === true,
     ...(item.type === "semantic_policy" ? semanticFieldsFromConfig(item.config) : emptySemanticFields()),
+    confidentialityLevel: confidentialityLevelFromConfig(item.config),
+    customMarkings: listStringFromConfig(item.config, "custom_markings"),
+    includeMessageText: item.config.include_message_text === true,
   };
 }
 
@@ -153,6 +171,10 @@ export function buildPayload(form: GuardrailFormInput, mode: "create" | "edit"):
   let config: Record<string, unknown> = {};
   if (type === "semantic_policy") {
     config = semanticConfig(form);
+  } else if (type === "document_confidentiality") {
+    config.block_level = form.confidentialityLevel;
+    config.custom_markings = lines(form.customMarkings);
+    config.include_message_text = form.includeMessageText;
   } else if (type === "keyword_blocklist") {
     config.terms = lines(form.terms);
   } else if (type === "regex") {
@@ -293,6 +315,12 @@ function validateConfig(form: GuardrailDraft, t: GuardrailTranslator) {
   if (type === "semantic_policy") {
     const error = semanticConfigError(form);
     if (error) return t(`validation.${error}`);
+  }
+  if (type === "document_confidentiality") {
+    const markings = lines(form.customMarkings);
+    if (markings.length > MAX_CUSTOM_MARKINGS || markings.some((marking) => [...marking].length > MAX_CUSTOM_MARKING_LENGTH)) {
+      return t("validation.customMarkings", { max: MAX_CUSTOM_MARKINGS, length: MAX_CUSTOM_MARKING_LENGTH });
+    }
   }
 
   return "";

@@ -3,7 +3,7 @@ import { z } from "zod";
 export const guardrailTypeSchema = z.enum([
   "keyword_blocklist", "regex", "secrets_detection", "basic_pii", "jwt_validation",
   "regex_replace", "sentence_count", "word_count", "character_count", "json_schema",
-  "json_keys", "contains_code", "not_null", "inline_image_urls", "semantic_policy",
+  "json_keys", "contains_code", "not_null", "inline_image_urls", "semantic_policy", "document_confidentiality",
 ]);
 export const guardrailOperationSchema = z.enum(["validate", "mutate"]);
 export const guardrailEnforcementSchema = z.enum(["audit", "enforce", "enforce_ignore_error"]);
@@ -38,7 +38,10 @@ export type SemanticTarget = "input" | "output";
 export type SemanticSource = "pack" | "custom";
 
 /** A built-in pack's versioned ID, as the gateway names it. */
-export type SemanticPackId = "security-baseline@1" | "banking@1" | "healthcare@1" | "hr@1";
+export type SemanticPackId = "security-baseline@1" | "banking@1" | "healthcare@1" | "hr@1" | "confidentiality@1";
+
+/** The lowest classification marking a document confidentiality guardrail blocks, ordered from least sensitive. */
+export type ConfidentialityLevel = "internal" | "confidential" | "highly_confidential" | "secret" | "top_secret";
 
 /** Threshold fields stay strings while editing, like every other numeric form field. */
 export type SemanticThresholdInput = { review: string; block: string };
@@ -98,6 +101,9 @@ export type GuardrailFormInput = {
   semanticFinglishThresholds: SemanticThresholdInput;
   semanticSeverity: boolean;
   semanticSeverityBlockAt: string;
+  confidentialityLevel: ConfidentialityLevel;
+  customMarkings: string;
+  includeMessageText: boolean;
 };
 
 export const guardrailPayloadSchema = z.object({

@@ -7,6 +7,7 @@ import { CircleAlert, CircleCheck, Info, Plus } from "lucide-react";
 import { AppCard } from "@/components/app-ui/AppCard";
 import { AppCodeTextareaField } from "@/components/app-ui/AppCodeTextareaField";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
 import { AppTextField, AppTextareaField } from "@/components/app-ui/AppTextField";
 import { OptionCardGroup } from "@/components/app-ui/OptionCardGroup";
@@ -18,7 +19,7 @@ import { useNumberFormatter } from "@/hooks/use-locale-format";
 import { cn } from "@/lib/utils";
 
 import { catalogEntry } from "../catalog";
-import { JWT_VERIFIERS, lines, parseJSONOrEmpty } from "../form";
+import { CONFIDENTIALITY_LEVELS, JWT_VERIFIERS, lines, MAX_CUSTOM_MARKINGS, parseJSONOrEmpty } from "../form";
 import type { GuardrailFormInput } from "../types";
 import { SemanticPolicyConfig } from "./SemanticPolicyConfig";
 
@@ -283,6 +284,40 @@ function ConfigFields({ form, dir, onChange }: Omit<StepConfigProps, "headingRef
     }
     case "semantic_policy":
       return <SemanticPolicyConfig form={form} dir={dir} onChange={onChange} />;
+    case "document_confidentiality":
+      return (
+        <>
+          <AppSelectField
+            id="guardrail-confidentiality-level"
+            label={t("wizard.config.confidentiality.levelLabel")}
+            description={t(`wizard.config.confidentiality.levels.${form.confidentialityLevel}.description`)}
+            dir={dir}
+            value={form.confidentialityLevel}
+            onValueChange={(value) => onChange({ confidentialityLevel: CONFIDENTIALITY_LEVELS.find((level) => level === value) ?? form.confidentialityLevel })}
+            options={CONFIDENTIALITY_LEVELS.map((level) => ({ value: level, label: t(`wizard.config.confidentiality.levels.${level}.title`) }))}
+          />
+          <AppTextareaField
+            id="guardrail-custom-markings"
+            label={t("wizard.config.optionalLabel", { label: t("wizard.config.confidentiality.markingsLabel") })}
+            description={t("wizard.config.confidentiality.markingsHint", { max: MAX_CUSTOM_MARKINGS })}
+            className="min-h-24"
+            value={form.customMarkings}
+            placeholder={t("wizard.config.confidentiality.markingsPlaceholder")}
+            onChange={(event) => onChange({ customMarkings: event.target.value })}
+          />
+          <AppSwitchField
+            id="guardrail-include-message-text"
+            label={t("wizard.config.confidentiality.messageTextLabel")}
+            description={t("wizard.config.confidentiality.messageTextHint")}
+            checked={form.includeMessageText}
+            onCheckedChange={(includeMessageText) => onChange({ includeMessageText })}
+          />
+          <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+            <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {t("wizard.config.confidentiality.scopeNote")}
+          </p>
+        </>
+      );
     case "not_null":
       return (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
