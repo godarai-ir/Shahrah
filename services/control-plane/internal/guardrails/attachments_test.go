@@ -182,3 +182,19 @@ func TestApplyInputSendsAttachmentTextToSemanticJudge(t *testing.T) {
 	require.Len(t, judge.calls, 1)
 	require.Equal(t, "[Attachment: plan.txt]\nسند خیلی محرمانه\n\nsummarize this", judge.calls[0].State["untrusted_content"])
 }
+
+func TestApplyInputSendsRedactedAttachmentTextToJudgeUnderAudit(t *testing.T) {
+	judge := &fakeJudge{}
+	engine := NewDefaultEngine(WithSemanticJudge(judge))
+	overrides := map[string]Guardrail{
+		"pii": tenantGuardrail("pii", "basic_pii", platform.GuardrailOperationMutate, platform.GuardrailEnforcementAudit, nil),
+		"g":   semanticTenantGuardrail("g", platform.GuardrailEnforcementEnforce, customRuleConfig("input", "rule_a")),
+	}
+	req := requestWithParts(textPart("hi"), filePart("contacts.txt", "text/plain", []byte("ceo@example.com")))
+
+	result, err := engine.ApplyInputWithGuardrails(context.Background(), req, RequestSelection{LLMInput: []string{"pii", "g"}}, overrides)
+	require.NoError(t, err)
+	require.Equal(t, "flagged", result.Checks["llm_input_guardrails"][0].Status)
+	require.Len(t, judge.calls, 1)
+	require.Equal(t, "[Attachment: contacts.txt]\n[REDACTED]\n\nhi", judge.calls[0].State["untrusted_content"])
+}

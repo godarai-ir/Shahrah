@@ -27,7 +27,8 @@ const (
 	DefaultMaxTextBytes = 2 << 20
 	// DefaultMaxPDFPages bounds the pages read from one PDF.
 	DefaultMaxPDFPages = 500
-	// DefaultMaxUnzippedBytes bounds the total uncompressed bytes read from one DOCX, so a zip bomb cannot exhaust memory.
+	// DefaultMaxUnzippedBytes bounds the total decompressed bytes read from one DOCX or PDF, so a compression bomb cannot
+	// exhaust memory.
 	DefaultMaxUnzippedBytes = 64 << 20
 	// DefaultMaxZipEntries bounds the number of parts a DOCX archive may declare.
 	DefaultMaxZipEntries = 2000

@@ -3,6 +3,7 @@ package docextract
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding/charmap"
@@ -13,7 +14,9 @@ func hasUTF16BOM(data []byte) bool {
 	return bytes.HasPrefix(data, []byte{0xFF, 0xFE}) || bytes.HasPrefix(data, []byte{0xFE, 0xFF})
 }
 
-// decodeText reads UTF-8, UTF-16 with a byte order mark, and falls back to Windows-1256, the legacy Persian code page.
+// decodeText reads UTF-8 and UTF-16 with a byte order mark. Other text is read both as UTF-8 with invalid bytes dropped
+// and as Windows-1256, the legacy Persian code page, because a few stray invalid bytes must not turn UTF-8 Persian into
+// unmatchable mojibake, and a Windows-1256 file must still be readable.
 func decodeText(data []byte) (string, error) {
 	if hasUTF16BOM(data) {
 		decoded, err := unicode.UTF16(unicode.BigEndian, unicode.UseBOM).NewDecoder().Bytes(data)
@@ -34,5 +37,5 @@ func decodeText(data []byte) (string, error) {
 		return "", fmt.Errorf("%w: undecodable text: %w", ErrMalformed, err)
 	}
 
-	return string(decoded), nil
+	return strings.ToValidUTF8(string(data), "") + "\n\n" + string(decoded), nil
 }

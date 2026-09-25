@@ -38,9 +38,20 @@ func TestExtractPlainTextEncodings(t *testing.T) {
 			doc, err := Extract(data, "text/plain", "note.txt", Limits{})
 			require.NoError(t, err)
 			assert.Equal(t, KindText, doc.Kind)
-			assert.Equal(t, persian, doc.Text)
+			assert.Contains(t, doc.Text, persian)
 		})
 	}
+}
+
+func TestExtractKeepsUTF8WithStrayInvalidBytes(t *testing.T) {
+	t.Parallel()
+
+	data := append([]byte("سند محر"), 0xFF)
+	data = append(data, []byte("مانه")...)
+
+	doc, err := Extract(append(data, 0xFF), "text/plain", "note.txt", Limits{})
+	require.NoError(t, err)
+	assert.Contains(t, doc.Text, "سند محرمانه")
 }
 
 func TestExtractDetectsFormatFromContentNotName(t *testing.T) {
@@ -64,6 +75,9 @@ func TestExtractPDFPages(t *testing.T) {
 	assert.Contains(t, doc.Text, "INTERNAL ONLY")
 
 	_, err = Extract(minimalPDF(t, "one", "two"), "application/pdf", "report.pdf", Limits{MaxPDFPages: 1})
+	require.ErrorIs(t, err, ErrTooLarge)
+
+	_, err = Extract(minimalPDF(t, "content longer than the budget"), "application/pdf", "report.pdf", Limits{MaxUnzippedBytes: 16})
 	require.ErrorIs(t, err, ErrTooLarge)
 }
 
