@@ -49,12 +49,12 @@ func TestSemanticInputStateKeepsOnlyConversationTurns(t *testing.T) {
 		{Role: "user", Content: "latest question"},
 	}}
 
-	last := semanticInputState(request, ScopeLast)
+	last := semanticInputState(request, ScopeLast, nil)
 	if last.Content != "latest question" || len(last.PriorTurns) != 0 {
 		t.Fatalf("last scope state = %+v", last)
 	}
 
-	all := semanticInputState(request, ScopeAll)
+	all := semanticInputState(request, ScopeAll, nil)
 	if len(all.PriorTurns) != 2 || all.PriorTurns[0].Text != "first question" || all.PriorTurns[1].Role != "assistant" {
 		t.Fatalf("all scope state = %+v", all)
 	}

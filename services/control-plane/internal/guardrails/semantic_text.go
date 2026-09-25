@@ -109,8 +109,9 @@ func ClassifyLanguage(text string) LanguageClass {
 }
 
 // semanticInputState evaluates the last user message. With the all scope, earlier user and assistant turns go along as
-// context; system and tool messages never leave the gateway.
-func semanticInputState(request contractsopenai.ChatCompletionRequest, scope Scope) semanticState {
+// context; system and tool messages never leave the gateway. Attachment text, keyed by message index, is placed before
+// the typed text of its message, so tail truncation keeps the user's own words.
+func semanticInputState(request contractsopenai.ChatCompletionRequest, scope Scope, attachments map[int]string) semanticState {
 	last := -1
 
 	for i := len(request.Messages) - 1; i >= 0; i-- {
@@ -126,7 +127,7 @@ func semanticInputState(request contractsopenai.ChatCompletionRequest, scope Sco
 	}
 
 	state := semanticState{Role: "user"}
-	state.Content, state.Truncated = truncateTail(NormalizeSemanticText(contractsopenai.ChatContentText(request.Messages[last].Content)))
+	state.Content, state.Truncated = truncateTail(NormalizeSemanticText(messageTextWithAttachments(request.Messages[last].Content, attachments[last])))
 
 	if scope != ScopeAll {
 		return state
@@ -138,7 +139,7 @@ func semanticInputState(request contractsopenai.ChatCompletionRequest, scope Sco
 			continue
 		}
 
-		text, truncated := truncateTail(NormalizeSemanticText(contractsopenai.ChatContentText(message.Content)))
+		text, truncated := truncateTail(NormalizeSemanticText(messageTextWithAttachments(message.Content, attachments[i])))
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
@@ -148,6 +149,19 @@ func semanticInputState(request contractsopenai.ChatCompletionRequest, scope Sco
 	}
 
 	return state
+}
+
+func messageTextWithAttachments(content interface{}, attachments string) string {
+	text := contractsopenai.ChatContentText(content)
+	if attachments == "" {
+		return text
+	}
+
+	if text == "" {
+		return attachments
+	}
+
+	return attachments + "\n\n" + text
 }
 
 func semanticOutputState(response *contractsopenai.ChatCompletionResponse) semanticState {
