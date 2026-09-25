@@ -153,7 +153,9 @@
     "stopped": "Stopped",
     "error": "Failed",
     "previous": "Previous response",
-    "cacheHit": "Cache hit"
+    "cacheHit": "Cache hit",
+    "cacheBypass": "Cache bypassed",
+    "guardrailsChecked": "{count, plural, one {# guardrail checked} other {# guardrails checked}}"
   },
   "billable": "Each column is a separate billable request.",
   "shortcutHint": "Run shortcut: Ctrl/Cmd + Enter",
@@ -232,7 +234,11 @@
     "metadata": "Allowed request metadata",
     "metadataKey": "Key",
     "metadataValue": "Value",
-    "noGuardrails": "No guardrails are available to select."
+    "noGuardrails": "No guardrails are available to select.",
+    "cacheBypassTitle": "This request will skip the cache",
+    "cacheBypassStream": "GodarAI does not cache streaming responses. Turn off streaming to read from and write to the cache.",
+    "cacheBypassThinking": "GodarAI does not cache requests with thinking or reasoning effort enabled. Turn them off in parameters to use the cache.",
+    "guardrailScopeHint": "Input guardrails check the selected messages only. With “Last message”, the system prompt and earlier messages are not checked."
   },
   "telemetry": {
     "inputTokens": "Input tokens",
@@ -251,7 +257,9 @@
     "imageQuality": "Requested quality",
     "imageMimeType": "Image MIME type",
     "trace": "Trace ID",
-    "unavailable": "—"
+    "unavailable": "—",
+    "guardrails": "Guardrails",
+    "guardrailCheck": "{hook}: {slug} ({status})"
   },
   "save": {
     "titleNew": "Save to prompt registry",

@@ -46,6 +46,7 @@ import {
 import {
   createPlaygroundMetadataRow,
   createPlaygroundTool,
+  getCacheBypassReason,
   type PlaygroundColumnDraft,
   type PlaygroundMode,
 } from "./domain";
@@ -106,6 +107,10 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
     config.cacheType === "simple" && cacheLimits.simpleTTLDays !== null
       ? cacheLimits.simpleTTLDays * 86_400
       : undefined;
+
+  const cacheBypassReason = config.cacheEnabled
+    ? getCacheBypassReason(column)
+    : null;
 
   function changeConfig(patch: Partial<typeof config>) {
     props.onChange({ ...column, config: { ...config, ...patch }, dirty: true });
@@ -616,6 +621,31 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                     changeConfig({ cacheEnabled })
                   }
                 />
+                {cacheBypassReason ? (
+                  <Alert variant="warning">
+                    <AlertTitle>{props.t("settings.cacheBypassTitle")}</AlertTitle>
+                    <AlertDescription className="flex flex-col items-start gap-2">
+                      <span>
+                        {props.t(
+                          cacheBypassReason === "stream"
+                            ? "settings.cacheBypassStream"
+                            : "settings.cacheBypassThinking",
+                        )}
+                      </span>
+                      {cacheBypassReason === "stream" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={props.readOnly}
+                          onClick={() => changeConfig({ stream: false })}
+                        >
+                          {props.t("settings.disableStream")}
+                        </Button>
+                      ) : null}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
                 {config.cacheEnabled ? (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <AppSelectField
@@ -684,14 +714,15 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                 </h3>
                 <AppSelectField
                   label={props.t("settings.guardrailScope")}
+                  description={props.t("settings.guardrailScopeHint")}
                   value={config.guardrailScope}
                   disabled={props.readOnly}
                   onValueChange={(value) =>
                     changeConfig({ guardrailScope: value as "all" | "last" })
                   }
                   options={[
-                    { value: "last", label: props.t("settings.scopeLast") },
                     { value: "all", label: props.t("settings.scopeAll") },
+                    { value: "last", label: props.t("settings.scopeLast") },
                   ]}
                 />
                 {props.guardrailsLoading ? (

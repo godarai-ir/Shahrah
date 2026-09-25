@@ -21,6 +21,7 @@ const OPERATIONAL_HEADERS = [
   "x-godarai-cache-similarity-score",
   "x-godarai-cost-usd",
   "x-godarai-cost-irr",
+  "x-godarai-guardrail-checks",
   "x-request-id",
 ];
 

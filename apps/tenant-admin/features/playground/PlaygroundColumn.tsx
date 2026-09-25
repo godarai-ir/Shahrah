@@ -55,6 +55,7 @@ import {
   applyColumnJSON,
   createPlaygroundMediaInput,
   createPlaygroundMessage,
+  parseGuardrailChecks,
   serializeColumnJSON,
   type PlaygroundColumnDraft,
   type PlaygroundGeneratedImage,
@@ -756,6 +757,12 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
     error: "error",
   } as const;
   const telemetryItems = buildTelemetryItems(result, props.locale, props.t);
+  const guardrailChecks = parseGuardrailChecks(
+    result.telemetry?.guardrailStatus,
+  );
+  const guardrailsIntervened = guardrailChecks.some(
+    (check) => check.status !== "passed",
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
@@ -772,6 +779,18 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
         {result.telemetry?.cacheStatus === "hit" ? (
           <StatusBadge status="neutral">
             {props.t("status.cacheHit")}
+          </StatusBadge>
+        ) : null}
+        {result.telemetry?.cacheStatus === "bypass" ? (
+          <StatusBadge status="warning">
+            {props.t("status.cacheBypass")}
+          </StatusBadge>
+        ) : null}
+        {guardrailChecks.length ? (
+          <StatusBadge status={guardrailsIntervened ? "warning" : "neutral"}>
+            {props.t("status.guardrailsChecked", {
+              count: guardrailChecks.length,
+            })}
           </StatusBadge>
         ) : null}
         <div className="ms-auto flex items-center gap-1">
@@ -1173,6 +1192,21 @@ function buildTelemetryItems(
         telemetry.cacheSimilarity === undefined
           ? null
           : number.format(telemetry.cacheSimilarity),
+    },
+    {
+      key: "guardrails",
+      label: t("telemetry.guardrails"),
+      value:
+        parseGuardrailChecks(telemetry.guardrailStatus)
+          .map((check) =>
+            t("telemetry.guardrailCheck", {
+              hook: check.hook,
+              slug: check.slug,
+              status: check.status,
+            }),
+          )
+          .join(" · ") || null,
+      technical: true,
     },
     {
       key: "finish",

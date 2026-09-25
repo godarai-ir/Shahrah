@@ -6,9 +6,11 @@ import {
   clonePlaygroundColumn,
   createPlaygroundColumn,
   createPlaygroundTool,
+  getCacheBypassReason,
   getColumnVariables,
   hydratePlaygroundColumn,
   normalizeImageGenerationResponse,
+  parseGuardrailChecks,
   serializeColumnJSON,
   validateAndBuildRunPayload,
 } from "./domain";
@@ -456,5 +458,50 @@ describe("playground domain", () => {
     ]);
     expect(JSON.stringify(normalized.rawResponse)).not.toContain("YWJj");
     expect(JSON.stringify(normalized.rawResponse)).toContain("base64 omitted");
+  });
+
+  it("checks every message with guardrails by default, matching the API", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "openai:gpt-4o-mini";
+    column.messages[1].content = "Hello";
+    column.config.inputGuardrails = ["guardrails/pii-redaction"];
+
+    const built = validateAndBuildRunPayload(column, "comparison");
+
+    if (!built.ok || !("godarai" in built.payload))
+      throw new Error("expected a chat payload");
+    expect(built.payload.godarai.guardrails.scope).toBe("all");
+  });
+
+  it("explains why the control plane will bypass the response cache", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "openai:gpt-4o-mini";
+    expect(getCacheBypassReason(column)).toBe("stream");
+
+    column.config.stream = false;
+    expect(getCacheBypassReason(column)).toBeNull();
+
+    column.config.reasoningEffort = "high";
+    expect(getCacheBypassReason(column)).toBe("thinking");
+
+    column.config.reasoningEffort = "";
+    column.selectedModel = "zai:default:glm-5.2";
+    column.selectedProvider = "zai";
+    expect(getCacheBypassReason(column)).toBe("thinking");
+
+    column.config.thinkingEnabled = false;
+    expect(getCacheBypassReason(column)).toBeNull();
+  });
+
+  it("parses the guardrail checks summary header", () => {
+    expect(
+      parseGuardrailChecks(
+        "input:pii-redaction=mutated,output:secrets-detection=passed,bogus",
+      ),
+    ).toEqual([
+      { hook: "input", slug: "pii-redaction", status: "mutated" },
+      { hook: "output", slug: "secrets-detection", status: "passed" },
+    ]);
+    expect(parseGuardrailChecks(undefined)).toEqual([]);
   });
 });

@@ -115,6 +115,43 @@ func (h *ChatCompletionHandler) recordGuardrailChecks(c *fiber.Ctx, checks map[s
 	}
 
 	setGuardrailReviewHeader(c, checks)
+	setGuardrailChecksHeader(c, checks)
+}
+
+// guardrailCheckHooks orders hooks so the checks header is deterministic.
+var guardrailCheckHooks = []struct {
+	key   string
+	label string
+}{
+	{key: "llm_input_guardrails", label: "input"},
+	{key: "llm_output_guardrails", label: "output"},
+}
+
+// setGuardrailChecksHeader summarizes every executed check as hook:slug=status so clients can show
+// that guardrails ran even when the request passed or was mutated. Reasons and payloads are never included.
+func setGuardrailChecksHeader(c *fiber.Ctx, checks map[string][]guardrails.Check) {
+	var entries []string
+
+	for _, hook := range guardrailCheckHooks {
+		for _, check := range checks[hook.key] {
+			slug := guardrailSlugFromSelector(check.Selector)
+			if slug == "" || check.Status == "" {
+				continue
+			}
+
+			entries = append(entries, hook.label+":"+slug+"="+check.Status)
+		}
+	}
+
+	if len(entries) == 0 {
+		return
+	}
+
+	if existing := strings.TrimSpace(string(c.Response().Header.Peek(apiheaders.HeaderGuardrailChecks))); existing != "" {
+		entries = append(strings.Split(existing, ","), entries...)
+	}
+
+	c.Set(apiheaders.HeaderGuardrailChecks, strings.Join(uniqueNonEmpty(entries), ","))
 }
 
 // addSemanticTraceAttributes records rule probabilities on the trace only; API responses never carry them.

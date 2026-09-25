@@ -1013,6 +1013,7 @@ function telemetryFromHeaders(headers: Headers, requestedModel: string, startedA
     cacheSimilarity: numeric("x-godarai-cache-similarity-score"),
     costUSD: numeric("x-godarai-cost-usd"),
     costIRR: numeric("x-godarai-cost-irr"),
+    guardrailStatus: headers.get("x-godarai-guardrail-checks") ?? undefined,
     durationMs: Math.round(performance.now() - startedAt),
   };
 }
