@@ -34,8 +34,11 @@ export type JwtVerifier = "jwks" | "inline" | "shared" | "introspection";
 /** Which message a semantic policy judges: the user's request or the model's reply. */
 export type SemanticTarget = "input" | "output";
 
-/** A semantic policy starts from the built-in pack or from the tenant's own rules. UI-only; only one is sent. */
+/** A semantic policy starts from a built-in pack or from the tenant's own rules. UI-only; only one is sent. */
 export type SemanticSource = "pack" | "custom";
+
+/** A built-in pack's versioned ID, as the gateway names it. */
+export type SemanticPackId = "security-baseline@1" | "banking@1" | "healthcare@1" | "hr@1";
 
 /** Threshold fields stay strings while editing, like every other numeric form field. */
 export type SemanticThresholdInput = { review: string; block: string };
@@ -87,6 +90,7 @@ export type GuardrailFormInput = {
   timeoutMs: string;
   allowPrivateNetworks: boolean;
   semanticSource: SemanticSource;
+  semanticPack: SemanticPackId;
   semanticTarget: SemanticTarget;
   semanticPackRules: SemanticPackRuleInput[];
   semanticRules: SemanticRuleInput[];

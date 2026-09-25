@@ -9,7 +9,7 @@ import { OptionCardGroup } from "@/components/app-ui/OptionCardGroup";
 
 import { catalogEntry, operationForType } from "../catalog";
 import type { GuardrailEnforcement, GuardrailFormInput, GuardrailOperation } from "../types";
-import { SemanticFailureNote, SemanticThresholds } from "./SemanticThresholds";
+import { SemanticBetaPackNote, SemanticFailureNote, SemanticThresholds } from "./SemanticThresholds";
 import type { WizardMode } from "./state";
 
 type StepBehaviorProps = {
@@ -81,6 +81,7 @@ export function StepBehavior({ form, mode, dir, headingRef, onChange }: StepBeha
           }))}
         />
         {form.type === "semantic_policy" ? <SemanticFailureNote enforcement={form.enforcement} /> : null}
+        {form.type === "semantic_policy" ? <SemanticBetaPackNote form={form} /> : null}
       </section>
 
       {form.type === "semantic_policy" ? <SemanticThresholds form={form} onChange={onChange} /> : null}

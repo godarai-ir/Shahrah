@@ -93,6 +93,35 @@ describe("semantic policy wizard", () => {
     expect(screen.getByText(en.wizard.behavior.semantic.failure.audit)).toBeInTheDocument();
   });
 
+  it("picks an industry pack and its output rules", async () => {
+    openSemanticSettings();
+    const semantic = en.wizard.config.semantic;
+
+    expect(screen.getByRole("radio", { name: semantic.targets.output })).toBeDisabled();
+    expect(screen.getByText(semantic.packTargetLocked)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: semantic.packs.banking.title }));
+    expect(screen.getByText(semantic.packRules.social_engineering.title)).toBeInTheDocument();
+    expect(screen.getByText(semantic.packBetaNote)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: semantic.targets.output }));
+    expect(screen.getByText(semantic.packRules.personal_financial_advice.title)).toBeInTheDocument();
+    expect(screen.getByText(semantic.packRuleReviewOnly)).toBeInTheDocument();
+    expect(screen.queryByText(semantic.packRules.jailbreak.title)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: en.wizard.test.semantic.run }));
+
+    await waitFor(() => expect(api.testSemanticGuardrail).toHaveBeenCalled());
+    expect(api.testSemanticGuardrail).toHaveBeenCalledWith(
+      expect.objectContaining({ config: expect.objectContaining({ pack: "banking@1", target: "output" }) }),
+      expect.any(AbortSignal),
+    );
+
+    clickContinue();
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(en.enforcement.enforce) }));
+    expect(screen.getByText(en.wizard.behavior.semantic.betaPackAudit)).toBeInTheDocument();
+  });
+
   it("requires a statement for custom rules and blocks inverted thresholds", () => {
     openSemanticSettings();
 

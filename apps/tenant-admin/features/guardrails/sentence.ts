@@ -1,5 +1,6 @@
 import { catalogEntry, operationForType } from "./catalog";
 import { type GuardrailTranslator, lines } from "./form";
+import { SEMANTIC_PACKS } from "./semantic";
 import type { GuardrailFormInput } from "./types";
 
 export type SentenceFormat = {
@@ -39,7 +40,11 @@ function conditionPhrase(form: GuardrailFormInput, { t, formatNumber }: Sentence
   }
   if (type === "contains_code") return t(`sentence.cond.contains_code.${form.codeMode}`);
   if (type === "semantic_policy") {
-    if (form.semanticSource === "pack") return t("sentence.cond.semantic_pack");
+    if (form.semanticSource === "pack") {
+      const pack = t(`wizard.config.semantic.packs.${SEMANTIC_PACKS[form.semanticPack].family}.title`);
+
+      return t(`sentence.cond.semantic_pack.${form.semanticTarget}`, { pack });
+    }
     const count = form.semanticRules.length;
 
     return t(`sentence.cond.semantic_policy.${form.semanticTarget}`, { n: count, count: formatNumber(count) });

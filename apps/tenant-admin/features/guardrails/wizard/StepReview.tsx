@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { catalogEntry } from "../catalog";
 import { isValidSlug, lines, type WizardStep } from "../form";
-import { semanticCostPerThousand, semanticRuleCount } from "../semantic";
+import { SEMANTIC_PACKS, semanticCostPerThousand, semanticRuleCount } from "../semantic";
 import type { SentenceFormat } from "../sentence";
 import type { GuardrailFormInput } from "../types";
 import type { WizardMode } from "./state";
@@ -82,11 +82,13 @@ function configSummary(form: GuardrailFormInput, { t, formatNumber }: SentenceFo
       return { value: t("wizard.review.configSummary.none"), technical: false };
     case "semantic_policy": {
       const count = semanticRuleCount(form);
+      const target = t(`wizard.config.semantic.targets.${form.semanticTarget}`);
       if (form.semanticSource === "pack") {
-        return { value: t("wizard.review.configSummary.semanticPack", { n: count, count: formatNumber(count) }), technical: false };
+        const pack = t(`wizard.config.semantic.packs.${SEMANTIC_PACKS[form.semanticPack].family}.title`);
+
+        return { value: t("wizard.review.configSummary.semanticPack", { n: count, count: formatNumber(count), pack, target }), technical: false };
       }
       const keys = form.semanticRules.map((rule) => rule.key.trim()).join(separator);
-      const target = t(`wizard.config.semantic.targets.${form.semanticTarget}`);
 
       return { value: t("wizard.review.configSummary.semanticCustom", { n: count, count: formatNumber(count), target, keys }), technical: false };
     }

@@ -16,6 +16,12 @@ const (
 
 	// SecurityBaselinePack is the built-in pack of attack-detection rules.
 	SecurityBaselinePack = "security-baseline@1"
+	// BankingPack adds social engineering, verification bypass, commitments, and personal investment advice.
+	BankingPack = "banking@1"
+	// HealthcarePack adds self-harm risk, diagnosis, dosage, and self-harm instructions.
+	HealthcarePack = "healthcare@1"
+	// HRPack adds discrimination in hiring and guessing protected characteristics.
+	HRPack = "hr@1"
 
 	maxSemanticRules          = 20
 	maxSemanticStatementRunes = 500
@@ -159,8 +165,9 @@ func semanticRules(policy SemanticPolicy, configured []semanticRuleConfig) ([]Se
 		return nil, invalidSemanticPolicy("unknown pack " + policy.Pack)
 	}
 
-	if pack.target != policy.Target {
-		return nil, invalidSemanticPolicy("pack " + policy.Pack + " only supports the " + targetName(pack.target) + " target")
+	packRules := pack.rules[policy.Target]
+	if len(packRules) == 0 {
+		return nil, invalidSemanticPolicy("pack " + policy.Pack + " has no " + targetName(policy.Target) + " rules")
 	}
 
 	overrides := make(map[string]semanticRuleConfig, len(configured))
@@ -168,9 +175,9 @@ func semanticRules(policy SemanticPolicy, configured []semanticRuleConfig) ([]Se
 		overrides[rule.Key] = rule
 	}
 
-	rules := make([]SemanticRule, 0, len(pack.rules))
+	rules := make([]SemanticRule, 0, len(packRules))
 
-	for _, base := range pack.rules {
+	for _, base := range packRules {
 		rule := base
 
 		override, found := overrides[rule.Key]
@@ -189,7 +196,7 @@ func semanticRules(policy SemanticPolicy, configured []semanticRuleConfig) ([]Se
 	}
 
 	for key := range overrides {
-		return nil, invalidSemanticPolicy("pack " + policy.Pack + " has no rule " + key)
+		return nil, invalidSemanticPolicy("pack " + policy.Pack + " has no " + targetName(policy.Target) + " rule " + key)
 	}
 
 	return rules, nil

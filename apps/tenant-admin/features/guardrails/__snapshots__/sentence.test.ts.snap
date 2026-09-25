@@ -506,43 +506,43 @@ exports[`guardrailSentence > describes 'secrets_detection' · 'validate' · 'enf
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'mutate' · 'audit' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it passes and is flagged in the log.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+  "en": "If the request matches a rule of the Security baseline pack, it passes and is flagged in the log.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
 }
 `;
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'mutate' · 'enforce' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it is blocked and logged; borderline cases pass with a review flag.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، مسدود و در لاگ ثبت می‌شود؛ موارد مرزی با نشانه‌ی بازبینی عبور می‌کنند.",
+  "en": "If the request matches a rule of the Security baseline pack, it is blocked and logged; borderline cases pass with a review flag.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، مسدود و در لاگ ثبت می‌شود؛ موارد مرزی با نشانه‌ی بازبینی عبور می‌کنند.",
 }
 `;
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it is blocked; if the evaluator is unavailable, it passes.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، مسدود می‌شود؛ اگر ارزیاب در دسترس نباشد، عبور می‌کند.",
+  "en": "If the request matches a rule of the Security baseline pack, it is blocked; if the evaluator is unavailable, it passes.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، مسدود می‌شود؛ اگر ارزیاب در دسترس نباشد، عبور می‌کند.",
 }
 `;
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'validate' · 'audit' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it passes and is flagged in the log.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+  "en": "If the request matches a rule of the Security baseline pack, it passes and is flagged in the log.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
 }
 `;
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'validate' · 'enforce' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it is blocked and logged; borderline cases pass with a review flag.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، مسدود و در لاگ ثبت می‌شود؛ موارد مرزی با نشانه‌ی بازبینی عبور می‌کنند.",
+  "en": "If the request matches a rule of the Security baseline pack, it is blocked and logged; borderline cases pass with a review flag.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، مسدود و در لاگ ثبت می‌شود؛ موارد مرزی با نشانه‌ی بازبینی عبور می‌کنند.",
 }
 `;
 
 exports[`guardrailSentence > describes 'semantic_policy' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
 {
-  "en": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter, it is blocked; if the evaluator is unavailable, it passes.",
-  "fa": "اگر درخواست شبیه جیلبریک، استخراج پرامپت سیستمی یا پیامی خطاب به فیلتر باشد، مسدود می‌شود؛ اگر ارزیاب در دسترس نباشد، عبور می‌کند.",
+  "en": "If the request matches a rule of the Security baseline pack, it is blocked; if the evaluator is unavailable, it passes.",
+  "fa": "اگر درخواست با یکی از قاعده‌های پک امنیت پایه منطبق باشد، مسدود می‌شود؛ اگر ارزیاب در دسترس نباشد، عبور می‌کند.",
 }
 `;
 

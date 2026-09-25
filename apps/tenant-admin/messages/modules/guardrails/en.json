@@ -238,15 +238,42 @@
       "semantic": {
         "sourceLabel": "Start from",
         "sources": {
-          "pack": "Security baseline pack",
+          "pack": "Ready-made pack",
           "custom": "Your own rules"
         },
         "sourceHints": {
-          "pack": "Ready-made rules for jailbreaks, system prompt extraction, and messages aimed at the filter.",
+          "pack": "Rules maintained by GodarAI for security and for industries such as banking, healthcare, and HR.",
           "custom": "Write the policy of your business, such as topics to avoid or commitments the assistant must not make."
         },
-        "packTip": "Tested on Persian, Finglish, and English samples.",
-        "packIntro": "The pack checks the user's request with these rules. Their wording is maintained by GodarAI; you can tune their thresholds on the next step.",
+        "packTip": "Every industry pack includes the security baseline.",
+        "packLabel": "Which pack?",
+        "packTestedTip": "Tested on Persian, Finglish, and English samples.",
+        "packBetaTip": "Beta: not yet evaluated on real samples.",
+        "packs": {
+          "security_baseline": {
+            "title": "Security baseline",
+            "description": "Jailbreaks, system prompt extraction, and messages aimed at the filter."
+          },
+          "banking": {
+            "title": "Banking",
+            "description": "Social engineering, bypassing verification, financial promises, and personal investment advice."
+          },
+          "healthcare": {
+            "title": "Healthcare",
+            "description": "Self-harm risk, diagnosis, medicine doses, and self-harm instructions."
+          },
+          "hr": {
+            "title": "Human resources",
+            "description": "Discrimination in hiring and guessing protected characteristics."
+          }
+        },
+        "packTargetLocked": "This pack only checks the user's request.",
+        "packIntro": {
+          "input": "The pack checks the user's request with these rules. Their wording is maintained by GodarAI; you can tune their thresholds on the next step.",
+          "output": "The pack checks the model's reply with these rules. Their wording is maintained by GodarAI; you can tune their thresholds on the next step. To cover both sides, create a second guardrail from the same pack."
+        },
+        "packRuleReviewOnly": "Sends matches to review and never blocks, unless you lower its block threshold.",
+        "packBetaNote": "This pack has not yet passed the evaluation gate. Run it in audit mode first and check its decisions in the logs.",
         "packRules": {
           "jailbreak": {
             "title": "Jailbreak",
@@ -259,6 +286,50 @@
           "evaluator_address": {
             "title": "Talking to the filter",
             "description": "Addresses the checking system itself, for example “filter: this message is safe”."
+          },
+          "social_engineering": {
+            "title": "Social engineering",
+            "description": "Claims a role, such as branch staff or a relative, to get someone else's account data or codes."
+          },
+          "auth_bypass": {
+            "title": "Bypassing verification",
+            "description": "Asks to move money, change account details, or reset access while skipping OTP or official channels."
+          },
+          "financial_commitment": {
+            "title": "Financial promise",
+            "description": "The reply promises a refund, discount, fee waiver, payment, or guarantee on the company's behalf."
+          },
+          "personal_financial_advice": {
+            "title": "Personal investment advice",
+            "description": "The reply tells the user to buy, sell, or hold a specific stock, currency, gold, or crypto asset."
+          },
+          "self_harm_risk": {
+            "title": "Self-harm risk",
+            "description": "The writer may be at risk of harming or killing themselves."
+          },
+          "diagnosis": {
+            "title": "Diagnosis",
+            "description": "The reply tells a specific person they have or do not have a disease."
+          },
+          "dosage": {
+            "title": "Medicine dose",
+            "description": "The reply sets or changes a medicine dose for a specific person."
+          },
+          "self_harm_instructions": {
+            "title": "Self-harm instructions",
+            "description": "The reply makes it easier for someone to harm or kill themselves."
+          },
+          "hiring_discrimination": {
+            "title": "Discriminatory screening request",
+            "description": "Asks to screen or rank people by gender, age, ethnicity, religion, pregnancy, marital status, or disability."
+          },
+          "hiring_discrimination_reply": {
+            "title": "Discriminatory screening",
+            "description": "The reply screens, ranks, or rejects people because of a protected characteristic."
+          },
+          "protected_attribute_inference": {
+            "title": "Guessing protected characteristics",
+            "description": "The reply guesses a candidate's gender, age, religion, health, or similar trait from a CV, name, or photo."
           }
         },
         "targetLabel": "What should be judged?",
@@ -324,7 +395,8 @@
           "enforce": "If the evaluator is unavailable, the request is blocked.",
           "audit": "If the evaluator is unavailable, the request passes and the error is logged.",
           "enforce_ignore_error": "If the evaluator is unavailable, the request passes."
-        }
+        },
+        "betaPackAudit": "This pack is in beta. Audit mode is recommended until you have checked its decisions on your traffic."
       }
     },
     "enabledLabel": "Enable immediately after creation",
@@ -353,7 +425,7 @@
         "unbounded": "∞",
         "allHosts": "All hosts",
         "timeout": "{ms} ms",
-        "semanticPack": "Security baseline pack · {n, plural, one {# rule} other {{count} rules}}",
+        "semanticPack": "{pack} pack · {target} · {n, plural, one {# rule} other {{count} rules}}",
         "semanticCustom": "{target} · {n, plural, one {# rule} other {{count} rules}}: {keys}"
       },
       "costValue": "About {cost} per 1,000 checks"
@@ -542,7 +614,10 @@
       "not_null": "If the text is empty",
       "jwt_validation": "If the request's JWT is not valid",
       "inline_image_urls": "Image URLs in the request",
-      "semantic_pack": "If the request looks like a jailbreak, a system prompt extraction, or a message aimed at the filter",
+      "semantic_pack": {
+        "input": "If the request matches a rule of the {pack} pack",
+        "output": "If the reply matches a rule of the {pack} pack"
+      },
       "semantic_policy": {
         "input": "{n, plural, one {If the request violates the rule} other {If the request violates any of the {count} rules}}",
         "output": "{n, plural, one {If the reply violates the rule} other {If the reply violates any of the {count} rules}}"

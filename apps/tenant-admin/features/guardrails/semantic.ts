@@ -1,13 +1,60 @@
 import type {
   GuardrailFormInput,
+  SemanticPackId,
   SemanticPackRuleInput,
   SemanticRuleInput,
+  SemanticTarget,
   SemanticThresholdInput,
 } from "./types";
 
-/** The built-in pack. Its wording lives on the gateway; the form only carries threshold overrides. */
-export const SECURITY_BASELINE_PACK = "security-baseline@1";
-export const SEMANTIC_PACK_RULE_KEYS = ["jailbreak", "system_prompt_extraction", "evaluator_address"] as const;
+/** The security baseline, the default pack. Every industry pack includes its rules on the input side. */
+export const SECURITY_BASELINE_PACK: SemanticPackId = "security-baseline@1";
+export const SEMANTIC_PACK_IDS: readonly SemanticPackId[] = [SECURITY_BASELINE_PACK, "banking@1", "healthcare@1", "hr@1"];
+
+type PackRuleDefinition = {
+  key: string;
+  /** The gateway ships this rule with a block threshold of 1, so it only reaches review unless the tenant lowers it. */
+  reviewOnly?: boolean;
+};
+
+type SemanticPackDefinition = {
+  /** The translation key of the pack's title and description. */
+  family: "security_baseline" | "banking" | "healthcare" | "hr";
+  /** Not yet through the evaluation gate, so the wizard suggests audit mode. */
+  beta: boolean;
+  rules: Record<SemanticTarget, readonly PackRuleDefinition[]>;
+};
+
+const BASELINE_RULES: readonly PackRuleDefinition[] = [{ key: "jailbreak" }, { key: "system_prompt_extraction" }, { key: "evaluator_address" }];
+
+/** Mirrors semanticPacks in the gateway. The wording lives there; the form only carries threshold overrides. */
+export const SEMANTIC_PACKS: Record<SemanticPackId, SemanticPackDefinition> = {
+  "security-baseline@1": { family: "security_baseline", beta: false, rules: { input: BASELINE_RULES, output: [] } },
+  "banking@1": {
+    family: "banking",
+    beta: true,
+    rules: {
+      input: [...BASELINE_RULES, { key: "social_engineering" }, { key: "auth_bypass" }],
+      output: [{ key: "financial_commitment" }, { key: "personal_financial_advice", reviewOnly: true }],
+    },
+  },
+  "healthcare@1": {
+    family: "healthcare",
+    beta: true,
+    rules: {
+      input: [...BASELINE_RULES, { key: "self_harm_risk", reviewOnly: true }],
+      output: [{ key: "diagnosis", reviewOnly: true }, { key: "dosage" }, { key: "self_harm_instructions" }],
+    },
+  },
+  "hr@1": {
+    family: "hr",
+    beta: true,
+    rules: {
+      input: [...BASELINE_RULES, { key: "hiring_discrimination" }],
+      output: [{ key: "hiring_discrimination_reply" }, { key: "protected_attribute_inference", reviewOnly: true }],
+    },
+  },
+};
 
 export const MAX_SEMANTIC_RULES = 20;
 export const MAX_SEMANTIC_STATEMENT = 500;
@@ -19,6 +66,8 @@ export const MAX_SEMANTIC_SEVERITY = 3;
 const RULE_KEY_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
 
 export const DEFAULT_SEMANTIC_THRESHOLDS: SemanticThresholdInput = { review: "0.35", block: "0.7" };
+/** A block threshold of 1 turns blocking off on the gateway, so a match only reaches review. */
+export const REVIEW_ONLY_THRESHOLDS: SemanticThresholdInput = { review: "0.35", block: "1" };
 /** Phase 0 showed Finglish scores run lower than Persian for the same meaning, so it gets lower cut points. */
 export const DEFAULT_FINGLISH_THRESHOLDS: SemanticThresholdInput = { review: "0.3", block: "0.5" };
 export const DEFAULT_SEVERITY_BLOCK_AT = "2";
@@ -46,8 +95,34 @@ export function newSemanticRule(key: string): SemanticRuleInput {
   };
 }
 
-export function defaultPackRules(): SemanticPackRuleInput[] {
-  return SEMANTIC_PACK_RULE_KEYS.map((key) => ({ key, ...DEFAULT_SEMANTIC_THRESHOLDS }));
+export function isSemanticPackId(value: unknown): value is SemanticPackId {
+  return typeof value === "string" && (SEMANTIC_PACK_IDS as readonly string[]).includes(value);
+}
+
+/** The hooks a pack has rules for, in display order. */
+export function packTargets(pack: SemanticPackId): SemanticTarget[] {
+  return (["input", "output"] as const).filter((target) => SEMANTIC_PACKS[pack].rules[target].length > 0);
+}
+
+/** The pack's rules for one hook, or for its first hook when it has none for the requested one. */
+export function packRuleDefinitions(pack: SemanticPackId, target: SemanticTarget) {
+  const rules = SEMANTIC_PACKS[pack].rules;
+
+  return rules[target].length > 0 ? rules[target] : rules[packTargets(pack)[0]];
+}
+
+export function defaultPackRules(pack: SemanticPackId = SECURITY_BASELINE_PACK, target: SemanticTarget = "input"): SemanticPackRuleInput[] {
+  return packRuleDefinitions(pack, target).map((rule) => ({
+    key: rule.key,
+    ...(rule.reviewOnly ? REVIEW_ONLY_THRESHOLDS : DEFAULT_SEMANTIC_THRESHOLDS),
+  }));
+}
+
+/** Picking a pack or a hook resets the rule rows and moves to a hook the pack supports. */
+export function packSelection(pack: SemanticPackId, target: SemanticTarget) {
+  const semanticTarget = packTargets(pack).includes(target) ? target : packTargets(pack)[0];
+
+  return { semanticPack: pack, semanticTarget, semanticPackRules: defaultPackRules(pack, semanticTarget) };
 }
 
 /** The next unused `rule_N` key, so a new rule is valid before the user renames it. */
@@ -93,6 +168,7 @@ function record(value: unknown): Record<string, unknown> {
 type SemanticFormFields = Pick<
   GuardrailFormInput,
   | "semanticSource"
+  | "semanticPack"
   | "semanticTarget"
   | "semanticPackRules"
   | "semanticRules"
@@ -105,6 +181,7 @@ type SemanticFormFields = Pick<
 export function emptySemanticFields(): SemanticFormFields {
   return {
     semanticSource: "pack",
+    semanticPack: SECURITY_BASELINE_PACK,
     semanticTarget: "input",
     semanticPackRules: defaultPackRules(),
     semanticRules: [newSemanticRule("rule_1")],
@@ -134,14 +211,17 @@ export function semanticFieldsFromConfig(config: Record<string, unknown>): Seman
 
   if (typeof config.pack === "string" && config.pack) {
     const overrides = new Map(configuredRules.map((rule) => [stringValue(rule.key), rule]));
+    const selection = packSelection(isSemanticPackId(config.pack) ? config.pack : SECURITY_BASELINE_PACK, fields.semanticTarget);
     fields.semanticSource = "pack";
-    fields.semanticPackRules = SEMANTIC_PACK_RULE_KEYS.map((key) => {
-      const override = overrides.get(key) ?? {};
+    fields.semanticPack = selection.semanticPack;
+    fields.semanticTarget = selection.semanticTarget;
+    fields.semanticPackRules = selection.semanticPackRules.map((rule) => {
+      const override = overrides.get(rule.key) ?? {};
 
       return {
-        key,
-        review: thresholdString(override.review_threshold, DEFAULT_SEMANTIC_THRESHOLDS.review),
-        block: thresholdString(override.block_threshold, DEFAULT_SEMANTIC_THRESHOLDS.block),
+        key: rule.key,
+        review: thresholdString(override.review_threshold, rule.review),
+        block: thresholdString(override.block_threshold, rule.block),
       };
     });
 
@@ -178,9 +258,11 @@ export function semanticConfig(form: SemanticFormFields): Record<string, unknown
   const config: Record<string, unknown> = {};
 
   if (form.semanticSource === "pack") {
-    config.pack = SECURITY_BASELINE_PACK;
-    config.target = "input";
-    config.rules = form.semanticPackRules.map((rule) => ({ key: rule.key, ...thresholdConfig(rule) }));
+    const { semanticPack, semanticTarget } = packSelection(form.semanticPack, form.semanticTarget);
+    const keys = new Set(packRuleDefinitions(semanticPack, semanticTarget).map((rule) => rule.key));
+    config.pack = semanticPack;
+    config.target = semanticTarget;
+    config.rules = form.semanticPackRules.filter((rule) => keys.has(rule.key)).map((rule) => ({ key: rule.key, ...thresholdConfig(rule) }));
   } else {
     config.target = form.semanticTarget;
     config.rules = form.semanticRules.map((rule) => {
