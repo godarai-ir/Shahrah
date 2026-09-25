@@ -134,6 +134,19 @@ func TestSemanticDecisionBands(t *testing.T) {
 	}
 }
 
+func TestSemanticBlockThresholdOfOneOnlyReviews(t *testing.T) {
+	t.Parallel()
+
+	thresholds := SemanticThresholds{Review: 0.35, Block: 1}
+	if got := bandDecision(1, thresholds); got != platform.SemanticDecisionReview {
+		t.Fatalf("probability 1 with block threshold 1: got %s, want review", got)
+	}
+
+	if got := bandDecision(0.2, thresholds); got != platform.SemanticDecisionPass {
+		t.Fatalf("probability 0.2: got %s, want pass", got)
+	}
+}
+
 func TestSemanticJudgeErrorsFollowEnforcement(t *testing.T) {
 	t.Parallel()
 

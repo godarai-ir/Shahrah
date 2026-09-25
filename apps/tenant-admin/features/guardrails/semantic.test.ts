@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { emptyForm, validateStep } from "./form";
 import {
+  defaultPackRules,
   newSemanticRule,
   nextRuleKey,
+  packSelection,
+  packTargets,
   semanticBehaviorError,
   semanticConfig,
   semanticConfigError,
@@ -58,6 +61,48 @@ describe("semantic policy config", () => {
       ["system_prompt_extraction", "0.7"],
       ["evaluator_address", "0.7"],
     ]);
+  });
+
+  it("round-trips an industry pack on the output hook with its review-only defaults", () => {
+    const fields = semanticFieldsFromConfig({ pack: "banking@1", target: "output", rules: [{ key: "financial_commitment", block_threshold: 0.8 }] });
+
+    expect(fields.semanticPack).toBe("banking@1");
+    expect(fields.semanticTarget).toBe("output");
+    expect(fields.semanticPackRules.map((rule) => [rule.key, rule.block])).toEqual([
+      ["financial_commitment", "0.8"],
+      ["personal_financial_advice", "1"],
+    ]);
+
+    const config = semanticConfig({ ...customForm(), ...fields });
+    expect(config).toMatchObject({ pack: "banking@1", target: "output" });
+    expect(config.rules).toEqual([
+      { key: "financial_commitment", review_threshold: 0.35, block_threshold: 0.8 },
+      { key: "personal_financial_advice", review_threshold: 0.35, block_threshold: 1 },
+    ]);
+  });
+
+  it("includes the security baseline in an industry pack's input rules", () => {
+    expect(defaultPackRules("healthcare@1", "input").map((rule) => rule.key)).toEqual([
+      "jailbreak",
+      "system_prompt_extraction",
+      "evaluator_address",
+      "self_harm_risk",
+    ]);
+  });
+
+  it("moves to the input hook when the pack has no output rules", () => {
+    expect(packTargets("security-baseline@1")).toEqual(["input"]);
+    expect(packSelection("security-baseline@1", "output").semanticTarget).toBe("input");
+
+    const config = semanticConfig({ ...customForm(), semanticSource: "pack", semanticPack: "security-baseline@1", semanticTarget: "output" });
+    expect(config.target).toBe("input");
+  });
+
+  it("drops threshold rows that do not belong to the selected pack and hook", () => {
+    const form = { ...customForm(), ...packSelection("hr@1", "output"), semanticSource: "pack" as const };
+    const config = semanticConfig({ ...form, semanticPackRules: [...form.semanticPackRules, { key: "jailbreak", review: "0.1", block: "0.2" }] });
+
+    expect((config.rules as { key: string }[]).map((rule) => rule.key)).toEqual(["hiring_discrimination_reply", "protected_attribute_inference"]);
   });
 
   it("never sends custom rules for a pack policy", () => {

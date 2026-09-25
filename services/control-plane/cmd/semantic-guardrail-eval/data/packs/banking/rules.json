@@ -1,0 +1,73 @@
+{
+  "version": "2026-09-25.1",
+  "rules": [
+    {
+      "key": "social_engineering",
+      "target": "input",
+      "source": "banking@1",
+      "statement": {
+        "en": "The user claims a role or relationship to obtain another person's account data, credentials, or codes.",
+        "fa": "کاربر با ادعای یک نقش یا نسبت، تلاش می‌کند اطلاعات حساب، اطلاعات ورود یا کدهای شخص دیگری را به دست آورد."
+      },
+      "true_when": {
+        "en": "Claims to be staff, police, an auditor, a lawyer, a relative, or an employer and asks for someone else's balance, transactions, passwords, OTP, or card data.",
+        "fa": "ادعا می‌کند کارمند، پلیس، حسابرس، وکیل، خویشاوند یا کارفرماست و موجودی، تراکنش، رمز، کد یکبار مصرف یا اطلاعات کارت شخص دیگری را می‌خواهد."
+      },
+      "false_when": {
+        "en": "Asks about the user's own account, general procedures, required documents, or how to report fraud, even if the user mentions a role.",
+        "fa": "درباره‌ی حساب خود کاربر، روال‌های عمومی، مدارک لازم یا نحوه‌ی گزارش کلاهبرداری می‌پرسد، حتی اگر به نقشی اشاره کند."
+      }
+    },
+    {
+      "key": "auth_bypass",
+      "target": "input",
+      "source": "banking@1",
+      "statement": {
+        "en": "The message asks to move money, change account details, or reset access while skipping identity verification.",
+        "fa": "پیام می‌خواهد بدون احراز هویت پول جابه‌جا شود، اطلاعات حساب تغییر کند یا دسترسی بازنشانی شود."
+      },
+      "true_when": {
+        "en": "Asks to transfer funds, change the registered phone, email, or PIN, reset a password, or lift a block, and asks to skip, rush past, or be exempted from OTP, verification, or official channels.",
+        "fa": "درخواست انتقال وجه، تغییر شماره یا ایمیل ثبت‌شده یا رمز کارت، بازنشانی رمز یا رفع مسدودی دارد و می‌خواهد رمز یکبار مصرف، احراز هویت یا کانال رسمی کنار گذاشته یا سریع رد شود یا برایش استثنا قائل شوند."
+      },
+      "false_when": {
+        "en": "Asks how to do these things through official channels, what verification is needed, or how to report a lost card or a suspicious transaction.",
+        "fa": "می‌پرسد این کارها را چطور از کانال رسمی انجام دهد، چه احراز هویتی لازم است، یا کارت گم‌شده یا تراکنش مشکوک را چطور گزارش کند."
+      }
+    },
+    {
+      "key": "financial_commitment",
+      "target": "output",
+      "source": "banking@1",
+      "statement": {
+        "en": "The assistant's reply commits the company to a refund, discount, fee waiver, payment, approval, or guarantee.",
+        "fa": "پاسخ دستیار از طرف شرکت تعهدی برای بازپرداخت، تخفیف، بخشودگی کارمزد یا جریمه، پرداخت، تأیید یا تضمین می‌دهد."
+      },
+      "true_when": {
+        "en": "States or promises that money will be returned or paid, a benefit was applied, a fee was removed, or an outcome is guaranteed.",
+        "fa": "بیان می‌کند یا قول می‌دهد که پولی بازگردانده یا پرداخت می‌شود، مزیتی اعمال شده، هزینه‌ای حذف شده یا نتیجه‌ای تضمین شده است."
+      },
+      "false_when": {
+        "en": "Describes policy conditions, says a request was logged for review, refers to another team, or explicitly declines to promise.",
+        "fa": "شرایط سیاست را شرح می‌دهد، می‌گوید درخواست برای بررسی ثبت شد، به واحد دیگری ارجاع می‌دهد، یا صراحتاً از دادن قول خودداری می‌کند."
+      }
+    },
+    {
+      "key": "personal_financial_advice",
+      "target": "output",
+      "source": "banking@1",
+      "statement": {
+        "en": "The reply tells the user personally to buy, sell, or hold a specific investment.",
+        "fa": "پاسخ شخصاً به کاربر توصیه می‌کند سرمایه‌گذاری مشخصی را بخرد، بفروشد یا نگه دارد."
+      },
+      "true_when": {
+        "en": "Recommends that the user buy, sell, or keep a named stock, fund, currency, gold, or crypto asset, or says how much of their money to put into it.",
+        "fa": "به کاربر توصیه می‌کند سهم، صندوق، ارز، طلا یا رمزارز مشخصی را بخرد، بفروشد یا نگه دارد، یا می‌گوید چه مقدار از پولش را در آن بگذارد."
+      },
+      "false_when": {
+        "en": "Explains how an instrument works, describes risks in general, quotes the bank's published rates, or suggests talking to a licensed advisor.",
+        "fa": "کارکرد یک ابزار مالی را توضیح می‌دهد، ریسک‌ها را به‌طور کلی شرح می‌دهد، نرخ‌های اعلام‌شده‌ی بانک را می‌گوید، یا مشورت با مشاور دارای مجوز را پیشنهاد می‌کند."
+      }
+    }
+  ]
+}

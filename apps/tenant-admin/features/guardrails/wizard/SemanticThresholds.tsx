@@ -2,13 +2,14 @@
 
 import { useId } from "react";
 import { useTranslations } from "next-intl";
+import { TriangleAlert } from "lucide-react";
 
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
 import { useNumberFormatter } from "@/hooks/use-locale-format";
 import { cn } from "@/lib/utils";
 
-import { MAX_SEMANTIC_SEVERITY, validThresholds } from "../semantic";
+import { MAX_SEMANTIC_SEVERITY, SEMANTIC_PACKS, validThresholds } from "../semantic";
 import type { GuardrailEnforcement, GuardrailFormInput, SemanticThresholdInput } from "../types";
 
 type SemanticThresholdPatch = Partial<
@@ -176,6 +177,19 @@ export function SemanticThresholds({ form, onChange }: SemanticThresholdsProps) 
         />
       ) : null}
     </section>
+  );
+}
+
+/** A beta pack has not been through the evaluation gate, so enforcing it right away risks blocking good traffic. */
+export function SemanticBetaPackNote({ form }: { form: GuardrailFormInput }) {
+  const t = useTranslations("guardrails");
+  if (form.semanticSource !== "pack" || !SEMANTIC_PACKS[form.semanticPack].beta || form.enforcement === "audit") return null;
+
+  return (
+    <p className="flex items-start gap-2 text-xs leading-5 text-warning-soft-foreground">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      {t("wizard.behavior.semantic.betaPackAudit")}
+    </p>
   );
 }
 

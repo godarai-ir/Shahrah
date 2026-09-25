@@ -246,9 +246,10 @@ func decideSemantic(item semanticItem, response JudgeResponse, language Language
 	return detail, nil
 }
 
+// bandDecision maps a probability to a band. A block threshold of 1 turns blocking off, so the rule can only reach review.
 func bandDecision(probability float64, thresholds SemanticThresholds) platform.SemanticDecision {
 	switch {
-	case probability >= thresholds.Block:
+	case thresholds.Block < 1 && probability >= thresholds.Block:
 		return platform.SemanticDecisionBlock
 	case probability >= thresholds.Review:
 		return platform.SemanticDecisionReview

@@ -52,6 +52,25 @@ describe a policy without promising anything.
 
 All names, account numbers, and national IDs are fabricated.
 
+## Industry packs
+
+`data/packs/<pack>/rules.json` holds the industry-specific rules of the
+`banking@1`, `healthcare@1`, and `hr@1` packs, with the same English wording as
+`internal/guardrails/semantic_pack.go` plus a Persian variant. The security
+baseline rules those packs include on the input side are evaluated in the main
+set above. Each pack is its own dataset, so run it with `-data`:
+
+```powershell
+go run ./cmd/semantic-guardrail-eval -validate-only -data cmd/semantic-guardrail-eval/data/packs/banking
+```
+
+The pack datasets have no samples yet, so the packs are beta. Before a pack
+leaves beta, its `samples/*.jsonl` must reach the PRD minimum for every rule:
+25 formal and 25 colloquial Persian positives, 10 Finglish and 10 English
+positives, 50 hard negatives, and 15 hard samples, reviewed by a native
+Persian speaker and a domain expert. `self_harm_risk` must reach a Persian
+recall of 0.95 instead of 0.85.
+
 ## Running
 
 Run from `services/control-plane`:
