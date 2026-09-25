@@ -4,7 +4,6 @@ import {
   ACCESS_NAV_ITEM_KEYS,
   ADMIN_NAV_SECTIONS,
   BILLING_TAB_KEYS,
-  GATEWAY_POLICY_TAB_KEYS,
   OBSERVE_TAB_KEYS,
   ROOT_NAV_ITEM_KEYS,
   buildAdminNavItems,
@@ -76,9 +75,9 @@ describe("admin access navigation items", () => {
 });
 
 describe("admin sidebar sections", () => {
-  it("keeps the sidebar at nine first-level entries", () => {
+  it("keeps the sidebar at ten first-level entries", () => {
     const itemCount = ADMIN_NAV_SECTIONS.reduce((sum, section) => sum + section.itemKeys.length, 0);
-    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(9);
+    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(10);
   });
 
   it("only references keys that buildAdminNavItems produces", () => {
@@ -97,7 +96,8 @@ describe("admin sidebar sections", () => {
 
   it("marks parent entries active on their legacy routes", () => {
     const activeKeys = (path: string) => buildAdminNavItems(path, t).filter((item) => item.isActive).map((item) => item.key);
-    expect(activeKeys("/guardrails")).toContain("gatewayPolicies");
+    expect(activeKeys("/guardrails")).toContain("guardrails");
+    expect(activeKeys("/guardrails")).not.toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies/budget-limiting-rules")).toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
@@ -107,8 +107,8 @@ describe("admin sidebar sections", () => {
   });
 
   it("keeps every retired key reachable as a tab key", () => {
-    const tabKeys = [...ACCESS_NAV_ITEM_KEYS, ...OBSERVE_TAB_KEYS, ...GATEWAY_POLICY_TAB_KEYS, ...BILLING_TAB_KEYS];
-    for (const key of ["users", "orgStructure", "logs", "metrics", "guardrails", "topup", "plan"] as const) {
+    const tabKeys = [...ACCESS_NAV_ITEM_KEYS, ...OBSERVE_TAB_KEYS, ...BILLING_TAB_KEYS];
+    for (const key of ["users", "orgStructure", "logs", "metrics", "topup", "plan"] as const) {
       expect(tabKeys).toContain(key);
     }
   });
@@ -136,7 +136,30 @@ describe("admin sidebar sections", () => {
   it("keeps plain hrefs on observe tabs without a query and on other tab groups", () => {
     const visible = filterVisibleNavItems(buildAdminNavItems("/logs", t), ["logs:read_metadata", "settings:list", "policy:list"]);
     expect(resolveNavTabs("/logs", visible, new URLSearchParams())?.tabs.map((tab) => tab.href)).toEqual(["/logs", "/traces", "/metrics"]);
-    expect(resolveNavTabs("/guardrails", visible, new URLSearchParams("model=m1"))?.tabs.map((tab) => tab.href)).toEqual(["/gateway-policies", "/guardrails"]);
+    expect(resolveNavTabs("/guardrails", visible, new URLSearchParams("model=m1"))).toBeNull();
+  });
+
+  it("gives guardrails its own sidebar entry in operations", () => {
+    const ops = ADMIN_NAV_SECTIONS.find((section) => section.key === "operations");
+    expect(ops?.itemKeys).toEqual(["observe", "gatewayPolicies", "guardrails"]);
+  });
+
+  it("keeps the guardrails entry active across the wizard routes", () => {
+    for (const path of ["/guardrails", "/guardrails/new", "/guardrails/pii-mask/edit"]) {
+      const active = buildAdminNavItems(path, t).filter((item) => item.isActive).map((item) => item.key);
+      expect(active).toContain("guardrails");
+      expect(active).not.toContain("gatewayPolicies");
+    }
+  });
+
+  it("shows no tab strip on gateway policies", () => {
+    const visible = filterVisibleNavItems(buildAdminNavItems("/gateway-policies", t), ["policy:list"]);
+    expect(resolveNavTabs("/gateway-policies", visible)).toBeNull();
+  });
+
+  it("hides gateway policies from callers who can manage but not list policies", () => {
+    const visible = filterVisibleNavItems(buildAdminNavItems("/", t), ["policy:manage"]).map((item) => item.key);
+    expect(visible).not.toContain("gatewayPolicies");
   });
 
   it("sends users without user:list to their first permitted access tab", () => {

@@ -14,13 +14,13 @@ import { HelpLink } from "@/components/app-ui/HelpLink";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { SearchField } from "@/components/app-ui/SearchField";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 import { deleteGuardrail, listGuardrails } from "./api";
+import { GUARDRAIL_CATALOG } from "./catalog";
 import { localizedError } from "./errors";
 import { formFromGuardrail } from "./form";
 import { guardrailSentence } from "./sentence";
@@ -130,6 +130,14 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               variant="inline"
               density="compact"
               title={hasSearchQuery ? t("emptySearch") : t("empty")}
+              primaryAction={!hasSearchQuery ? (
+                <Button asChild size="sm">
+                  <Link href="/guardrails/new">
+                    <Plus data-icon="inline-start" aria-hidden="true" />
+                    {t("actions.new")}
+                  </Link>
+                </Button>
+              ) : undefined}
               secondaryAction={!hasSearchQuery ? <HelpLink href={docsHref} /> : undefined}
             />
           ) : (
@@ -146,7 +154,9 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tableItems.map((item) => (
+                  {tableItems.map((item) => {
+                    const TypeIcon = GUARDRAIL_CATALOG.find((entry) => entry.type === item.type)?.icon;
+                    return (
                     <TableRow key={item.id} data-highlighted={item.slug === justSaved || undefined} className={cn(item.slug === justSaved && "bg-primary-soft hover:bg-primary-soft")}>
                       <TableCell className={GUARDRAIL_COLUMN_CLASS.name}>
                         <div className="flex min-w-0 flex-col gap-1">
@@ -160,18 +170,21 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                         </div>
                       </TableCell>
                       <TableCell className={GUARDRAIL_COLUMN_CLASS.type}>
-                        <Badge variant="outline">{t(`types.${item.type}`)}</Badge>
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          {TypeIcon ? <TypeIcon className="size-4 shrink-0 text-primary" aria-hidden="true" data-guardrail-type-icon={item.type} /> : null}
+                          <span className="truncate">{t(`types.${item.type}`)}</span>
+                        </span>
                       </TableCell>
-                      <TableCell className={GUARDRAIL_COLUMN_CLASS.execution}>
-                        <div className="flex flex-wrap gap-1">
-                          <Badge variant="secondary">{t(`operations.${item.operation}`)}</Badge>
-                          <Badge variant="secondary">{t(`enforcement.${item.enforcement}`)}</Badge>
-                        </div>
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.execution} title={guardrailSentence(formFromGuardrail(item), format)}>
+                        <span className="block truncate text-muted-foreground">
+                          {t(`operations.${item.operation}`)} · {t(`enforcement.${item.enforcement}`)}
+                        </span>
                       </TableCell>
                       <TableCell className={GUARDRAIL_COLUMN_CLASS.status}>
-                        <Badge variant={item.enabled ? "default" : "secondary"}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={cn("size-2 shrink-0 rounded-full", item.enabled ? "bg-success" : "bg-input-border")} aria-hidden="true" />
                           {item.enabled ? t("status.enabled") : t("status.disabled")}
-                        </Badge>
+                        </span>
                       </TableCell>
                       <TableCell className={GUARDRAIL_COLUMN_CLASS.updatedAt}><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }} /></TableCell>
                       <TableCell className={GUARDRAIL_COLUMN_CLASS.actions}>
@@ -187,7 +200,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -79,7 +79,6 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const GATEWAY_POLICY_TAB_KEYS: AdminNavKey[] = ["gatewayRules", "guardrails"];
 export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "bankTransfer", "billingReports", "billingDocuments", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
@@ -93,7 +92,7 @@ export type AdminNavSection = {
 /** The three always-open sidebar sections. Array order is display order. */
 export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   { key: "build", labelKey: "navSections.build", itemKeys: ["providerAccounts", "virtualModels", "prompts", "playground"] },
-  { key: "operations", labelKey: "navSections.operations", itemKeys: ["observe", "gatewayPolicies"] },
+  { key: "operations", labelKey: "navSections.operations", itemKeys: ["observe", "gatewayPolicies", "guardrails"] },
   { key: "organization", labelKey: "navSections.organization", itemKeys: ["accessAndUsers", "billing"] },
 ];
 
@@ -111,7 +110,6 @@ export type AdminNavTabGroup = {
 /** Former sidebar entries now reachable as tabs. Each tab keeps its own route as a deep link. */
 export const ADMIN_NAV_TAB_GROUPS: AdminNavTabGroup[] = [
   { parentKey: "observe", rootHref: "/observe", tabKeys: OBSERVE_TAB_KEYS },
-  { parentKey: "gatewayPolicies", rootHref: "/gateway-policies", tabKeys: GATEWAY_POLICY_TAB_KEYS },
   { parentKey: "accessAndUsers", rootHref: "/users", tabKeys: ACCESS_NAV_ITEM_KEYS },
   { parentKey: "billing", rootHref: "/billing", tabKeys: BILLING_TAB_KEYS },
 ];
@@ -390,12 +388,13 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["logs:read_metadata", "logs:read_content", "settings:list"],
     },
     {
+      // Holds only rate and budget rules now that guardrails have their own entry, so it shares their label.
       key: "gatewayPolicies",
       href: "/gateway-policies",
-      title: t("nav.gatewayPolicies"),
-      icon: ShieldCheck,
-      isActive: pathname.startsWith("/gateway-policies") || pathname.startsWith("/guardrails"),
-      requiredPermissions: ["policy:list", "policy:manage"],
+      title: t("nav.gatewayRules"),
+      icon: Gauge,
+      isActive: pathname.startsWith("/gateway-policies"),
+      requiredPermissions: ["policy:list"],
     },
     {
       key: "accessAndUsers",
