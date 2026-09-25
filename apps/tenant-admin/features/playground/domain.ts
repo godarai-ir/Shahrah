@@ -241,7 +241,7 @@ export function createDefaultConfig(): PlaygroundConfig {
     cacheSimilarity: "0.9",
     inputGuardrails: [],
     outputGuardrails: [],
-    guardrailScope: "last",
+    guardrailScope: "all",
     structuredEnabled: false,
     structuredFormat: "json_schema",
     structuredName: "playground_output",
@@ -888,7 +888,7 @@ export function hydratePlaygroundColumn(
   );
   hydratedConfig.inputGuardrails = manifest.guardrails?.input ?? [];
   hydratedConfig.outputGuardrails = manifest.guardrails?.output ?? [];
-  hydratedConfig.guardrailScope = manifest.guardrails?.scope ?? "last";
+  hydratedConfig.guardrailScope = manifest.guardrails?.scope ?? "all";
   hydratedConfig.structuredEnabled =
     manifest.structured_output?.enabled ?? false;
   hydratedConfig.structuredFormat =
@@ -943,6 +943,48 @@ export function hydratePlaygroundColumn(
   };
   column.jsonDraft = serializeColumnJSON(column);
   return column;
+}
+
+export type PlaygroundCacheBypassReason = "stream" | "thinking";
+
+/**
+ * Mirrors the control-plane rule that skips the response cache for streaming
+ * and extended-thinking requests, so the UI can explain a `bypass` status.
+ */
+export function getCacheBypassReason(
+  column: PlaygroundColumnDraft,
+): PlaygroundCacheBypassReason | null {
+  const config = column.config;
+  if (config.stream) return "stream";
+  const effort = config.reasoningEffort.trim().toLowerCase();
+  if (effort && effort !== "none") return "thinking";
+  if (isZAIColumn(column) && config.thinkingEnabled) return "thinking";
+  return null;
+}
+
+export type PlaygroundGuardrailCheck = {
+  hook: "input" | "output";
+  slug: string;
+  status: string;
+};
+
+/** Parses the `x-godarai-guardrail-checks` summary (`hook:slug=status,...`). */
+export function parseGuardrailChecks(
+  value: string | undefined,
+): PlaygroundGuardrailCheck[] {
+  if (!value) return [];
+  return value.split(",").flatMap((entry) => {
+    const match = /^(input|output):([^=]+)=(.+)$/.exec(entry.trim());
+    return match
+      ? [
+          {
+            hook: match[1] as "input" | "output",
+            slug: match[2],
+            status: match[3],
+          },
+        ]
+      : [];
+  });
 }
 
 function buildParameters(

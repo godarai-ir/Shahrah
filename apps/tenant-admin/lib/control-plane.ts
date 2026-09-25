@@ -55,6 +55,7 @@ const SAFE_OPERATIONAL_RESPONSE_HEADERS = new Set([
   "x-godarai-cache-similarity-score",
   "x-godarai-cost-usd",
   "x-godarai-cost-irr",
+  "x-godarai-guardrail-checks",
   "x-request-id",
 ]);
 

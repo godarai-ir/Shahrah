@@ -22,6 +22,7 @@ const (
 	HeaderGuardrails              = "x-godarai-guardrails"
 	HeaderGuardrailsScope         = "x-godarai-guardrails-scope"
 	HeaderGuardrailReview         = "x-godarai-guardrail-review"
+	HeaderGuardrailChecks         = "x-godarai-guardrail-checks"
 	HeaderUserID                  = "x-godarai-user-id"
 	LegacyHeaderUserID            = "x-shahrah-user-id"
 )

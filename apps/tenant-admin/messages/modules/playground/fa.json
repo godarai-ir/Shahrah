@@ -153,7 +153,9 @@
     "stopped": "متوقف",
     "error": "ناموفق",
     "previous": "پاسخ قبلی",
-    "cacheHit": "پاسخ کش‌شده"
+    "cacheHit": "پاسخ کش‌شده",
+    "cacheBypass": "بدون کش",
+    "guardrailsChecked": "{count, plural, other {# گاردریل بررسی شد}}"
   },
   "billable": "هر ستون یک درخواست جدا و قابل‌صورتحساب است.",
   "shortcutHint": "میانبر اجرا: Ctrl/Cmd + Enter",
@@ -232,7 +234,11 @@
     "metadata": "فراداده مجاز درخواست",
     "metadataKey": "کلید",
     "metadataValue": "مقدار",
-    "noGuardrails": "گاردریلی برای انتخاب در دسترس نیست."
+    "noGuardrails": "گاردریلی برای انتخاب در دسترس نیست.",
+    "cacheBypassTitle": "این درخواست از کش استفاده نمی‌کند",
+    "cacheBypassStream": "گدارAI پاسخ‌های جریانی را کش نمی‌کند. برای خواندن و ذخیره در کش، پاسخ جریانی را خاموش کنید.",
+    "cacheBypassThinking": "گدارAI درخواست‌هایی را که تفکر یا سطح استدلال در آن‌ها فعال است کش نمی‌کند. برای استفاده از کش، آن‌ها را در پارامترها خاموش کنید.",
+    "guardrailScopeHint": "گاردریل‌های ورودی فقط پیام‌های انتخاب‌شده را بررسی می‌کنند. با «آخرین پیام»، پرامپت سیستمی و پیام‌های قبلی بررسی نمی‌شوند."
   },
   "telemetry": {
     "inputTokens": "توکن ورودی",
@@ -251,7 +257,9 @@
     "imageQuality": "کیفیت درخواستی",
     "imageMimeType": "نوع MIME تصویر",
     "trace": "شناسه رد",
-    "unavailable": "—"
+    "unavailable": "—",
+    "guardrails": "گاردریل‌ها",
+    "guardrailCheck": "{hook}: {slug} ({status})"
   },
   "save": {
     "titleNew": "ذخیره در مخزن پرامپت",
