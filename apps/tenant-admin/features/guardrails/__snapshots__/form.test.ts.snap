@@ -99,6 +99,39 @@ exports[`buildPayload > keeps the contains_code payload stable > edit 1`] = `
 }
 `;
 
+exports[`buildPayload > keeps the document_confidentiality payload stable > create 1`] = `
+{
+  "config": {
+    "block_level": "confidential",
+    "custom_markings": [],
+    "include_message_text": false,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "slug": "pii-guard",
+  "type": "document_confidentiality",
+}
+`;
+
+exports[`buildPayload > keeps the document_confidentiality payload stable > edit 1`] = `
+{
+  "config": {
+    "block_level": "confidential",
+    "custom_markings": [],
+    "include_message_text": false,
+  },
+  "description": "Masks personal data",
+  "enabled": false,
+  "enforcement": "audit",
+  "name": "PII guard",
+  "operation": "validate",
+  "type": "document_confidentiality",
+}
+`;
+
 exports[`buildPayload > keeps the inline_image_urls payload stable > create 1`] = `
 {
   "config": {

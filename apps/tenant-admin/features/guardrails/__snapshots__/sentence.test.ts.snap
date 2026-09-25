@@ -126,6 +126,48 @@ exports[`guardrailSentence > describes 'contains_code' · 'validate' · 'enforce
 }
 `;
 
+exports[`guardrailSentence > describes 'document_confidentiality' · 'mutate' · 'audit' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request passes and is flagged in the log.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'document_confidentiality' · 'mutate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request is stopped and logged.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'document_confidentiality' · 'mutate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request is stopped without being logged.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'document_confidentiality' · 'validate' · 'audit' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request passes and is flagged in the log.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست عبور می‌کند و در لاگ نشانه‌گذاری می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'document_confidentiality' · 'validate' · 'enforce' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request is stopped and logged.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست متوقف و در لاگ ثبت می‌شود.",
+}
+`;
+
+exports[`guardrailSentence > describes 'document_confidentiality' · 'validate' · 'enforce_ignore_error' in both locales 1`] = `
+{
+  "en": "If an attached document is marked Confidential or higher, the request is stopped without being logged.",
+  "fa": "اگر سند پیوست برچسب محرمانه یا بالاتر داشته باشد، درخواست متوقف می‌شود و در لاگ ثبت نمی‌شود.",
+}
+`;
+
 exports[`guardrailSentence > describes 'inline_image_urls' · 'mutate' · 'audit' in both locales 1`] = `
 {
   "en": "Image URLs in the request are downloaded and embedded inline in the request.",

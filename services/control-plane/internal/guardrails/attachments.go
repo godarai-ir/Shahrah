@@ -15,6 +15,10 @@ const (
 	AttachmentSelector = "attachment_inspection"
 
 	maxInspectedAttachments = 20
+
+	// maxAttachmentJudgeRunes leaves room for the typed message and the attachment labels within
+	// maxSemanticContentRunes. It is split evenly, so every attachment keeps its head and tail.
+	maxAttachmentJudgeRunes = 36000
 )
 
 // attachment is the extracted text of one inline file part.
@@ -51,7 +55,7 @@ func inputMessageRange(req contractsopenai.ChatCompletionRequest, scope Scope) (
 
 // inputAttachments extracts the text of every inline file part in the scope. File IDs and remote URLs are not
 // resolved here, and non-document formats such as images are skipped because other guardrails own them.
-func inputAttachments(req contractsopenai.ChatCompletionRequest, scope Scope, limits docextract.Limits) ([]attachment, []attachmentFailure) {
+func inputAttachments(req contractsopenai.ChatCompletionRequest, scope Scope, limits docextract.Limits, cache *extractionCache) ([]attachment, []attachmentFailure) {
 	var (
 		attachments []attachment
 		failures    []attachmentFailure
@@ -76,7 +80,7 @@ func inputAttachments(req contractsopenai.ChatCompletionRequest, scope Scope, li
 				continue
 			}
 
-			text, err := extractDataURL(dataURL, name, limits)
+			text, err := cachedExtract(cache, dataURL, name, limits)
 
 			switch {
 			case errors.Is(err, docextract.ErrUnsupported):
@@ -110,6 +114,20 @@ func inlineFilePart(part contractsopenai.ChatContentPart, partIndex int) (string
 	}
 }
 
+// cachedExtract returns the cached result for identical attachment bytes, so a document resent on every turn of a
+// conversation is parsed once.
+func cachedExtract(cache *extractionCache, dataURL string, name string, limits docextract.Limits) (string, error) {
+	key := extractionCacheKey(dataURL)
+	if text, err, ok := cache.get(key); ok {
+		return text, err
+	}
+
+	text, err := extractDataURL(dataURL, name, limits)
+	cache.put(key, text, err)
+
+	return text, err
+}
+
 func extractDataURL(dataURL string, name string, limits docextract.Limits) (string, error) {
 	mediaType, encoded, err := contractsopenai.ParseFileDataURL(dataURL)
 	if err != nil {
@@ -137,7 +155,7 @@ func extractDataURL(dataURL string, name string, limits docextract.Limits) (stri
 // Count, JSON, code, and token checks describe the typed message and would misfire on document text.
 func inspectsAttachments(g Guardrail) bool {
 	switch g.(type) {
-	case *patternGuardrail, *keywordBlocklistGuardrail, *regexReplaceGuardrail, *semanticPolicyGuardrail:
+	case *patternGuardrail, *keywordBlocklistGuardrail, *regexReplaceGuardrail, *semanticPolicyGuardrail, *documentConfidentialityGuardrail:
 		return true
 	default:
 		return false
@@ -186,14 +204,14 @@ func attachmentFailureCheck(failures []attachmentFailure, enforcement Enforcemen
 	}
 }
 
-// attachmentTexts returns the attachment texts in order, for deterministic guardrails.
-func attachmentTexts(attachments []attachment) []string {
-	texts := make([]string, 0, len(attachments))
+// attachmentInputs returns the attachments in order, for deterministic guardrails.
+func attachmentInputs(attachments []attachment) []AttachmentText {
+	files := make([]AttachmentText, 0, len(attachments))
 	for _, item := range attachments {
-		texts = append(texts, item.Text)
+		files = append(files, AttachmentText{Name: item.Name, Text: item.Text})
 	}
 
-	return texts
+	return files
 }
 
 // attachmentsChanged reports whether a mutating guardrail rewrote attachment text. Attachments are forwarded as the
@@ -212,15 +230,26 @@ func attachmentsChanged(before []string, after []string) bool {
 	return false
 }
 
-// attachmentBlocks groups the attachment texts of each message under a label, for the semantic judge.
-func attachmentBlocks(attachments []attachment) map[int]string {
+// attachmentBlocks groups the attachment texts of each message under a label, for the semantic judge. A long attachment
+// keeps its head and tail within a per-attachment share of the judge budget, because classification stamps, titles,
+// and signatures sit at the ends of a document. It reports whether any attachment was shortened.
+func attachmentBlocks(attachments []attachment) (map[int]string, bool) {
 	blocks := map[int]string{}
+	sampled := false
+
+	budget := maxAttachmentJudgeRunes
+	if len(attachments) > 0 {
+		budget = maxAttachmentJudgeRunes / len(attachments)
+	}
 
 	for _, item := range attachments {
 		text := strings.TrimSpace(item.Text)
 		if text == "" {
 			continue
 		}
+
+		text, shortened := sampleHeadTail(text, budget)
+		sampled = sampled || shortened
 
 		block := fmt.Sprintf("[Attachment: %s]\n%s", item.Name, text)
 		if existing := blocks[item.MessageIndex]; existing != "" {
@@ -230,5 +259,19 @@ func attachmentBlocks(attachments []attachment) map[int]string {
 		blocks[item.MessageIndex] = block
 	}
 
-	return blocks
+	return blocks, sampled
+}
+
+// sampleHeadTail keeps two thirds of the budget from the start of the text and one third from the end.
+func sampleHeadTail(text string, budget int) (string, bool) {
+	runes := []rune(text)
+	if len(runes) <= budget {
+		return text, false
+	}
+
+	head := budget * 2 / 3
+	tail := budget - head
+	omitted := len(runes) - head - tail
+
+	return fmt.Sprintf("%s\n[... %d characters omitted ...]\n%s", string(runes[:head]), omitted, string(runes[len(runes)-tail:])), true
 }

@@ -39,6 +39,7 @@ const expected: Record<GuardrailType, { operation: "validate" | "mutate"; status
   inline_image_urls: { operation: "mutate", status: "na" },
   // Semantic policies are judged on the gateway, never in the browser.
   semantic_policy: { operation: "validate", status: "na" },
+  document_confidentiality: { operation: "validate", status: "block" },
 };
 
 describe("evaluateSample", () => {
@@ -70,6 +71,21 @@ describe("evaluateSample", () => {
 
     expect(result.status).toBe("block");
     expect(result.detail.items).toEqual(["09123456789"]);
+  });
+
+  it("previews document confidentiality like the gateway", () => {
+    const form = { ...configured, type: "document_confidentiality" as const, operation: "validate" as const };
+
+    expect(evaluateSample(form, "گزارش\nخیلی محرمانه\nمتن").status).toBe("block");
+    expect(evaluateSample(form, "Classification: Secret").status).toBe("block");
+    expect(evaluateSample(form, "به‌کلی سری").detail.items).toEqual(["به کلی سری"]);
+    expect(evaluateSample(form, "For internal use only").status).toBe("pass");
+    expect(evaluateSample({ ...form, confidentialityLevel: "internal" }, "For internal use only").status).toBe("block");
+    expect(evaluateSample(form, "سری\nمحصولات سری جدید").detail.key).toBe("markingNone");
+    expect(evaluateSample(form, "Level\nPublic\nInternal\nConfidential\nSecret").status).toBe("pass");
+    expect(evaluateSample(form, "Public\nInternal\nClassification: Confidential\nSecret").status).toBe("block");
+    expect(evaluateSample(form, "This email is confidential and intended for the addressee.").status).toBe("pass");
+    expect(evaluateSample({ ...form, customMarkings: "Project Falcon" }, "notes on project falcon").status).toBe("block");
   });
 
   it("honors a leading (?i) in patterns", () => {
