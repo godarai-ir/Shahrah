@@ -127,6 +127,20 @@ var labeledOnlyMarkings = map[string]ConfidentialityLevel{
 	"internal":   LevelInternal,
 }
 
+// schemeOnlyTerms name levels that are never a stamp on their own. They only help recognize a listing of the
+// classification scheme, such as the level table of a security policy.
+var schemeOnlyTerms = map[string]bool{
+	"public": true, "general": true, "unclassified": true, "عمومی": true, "عادی": true, "طبقه بندی نشده": true,
+}
+
+const (
+	maxMarkingLineRunes = 120
+	// schemeWindow is how many nearby lines on each side are searched for other level names.
+	schemeWindow = 3
+	// schemeNeighbors is how many other distinct level names nearby turn a bare line into a scheme listing.
+	schemeNeighbors = 2
+)
+
 var (
 	classificationLabel = regexp.MustCompile(`^(?:طبقه ?بندی(?: حفاظتی)?|درجه(?: حفاظتی| طبقه ?بندی)?|سطح(?: محرمانگی| دسترسی)|` +
 		`classification|security classification|sensitivity(?: label)?|data classification)\s*[:：\-]\s*`)
@@ -152,9 +166,17 @@ func DetectConfidentiality(text string, custom []string, customLevel Confidentia
 		}
 	}
 
-	for _, line := range strings.Split(normalized, "\n") {
-		line = trimMarkingDecoration(line)
-		if line == "" || len([]rune(line)) > 120 {
+	lines := markingLines(normalized)
+	terms := make([]string, len(lines))
+
+	for i, line := range lines {
+		if isSchemeTerm(line) {
+			terms[i] = line
+		}
+	}
+
+	for i, line := range lines {
+		if len([]rune(line)) > maxMarkingLineRunes {
 			continue
 		}
 
@@ -162,6 +184,12 @@ func DetectConfidentiality(text string, custom []string, customLevel Confidentia
 		if loc := classificationLabel.FindStringIndex(line); loc != nil {
 			labeled = true
 			line = trimMarkingDecoration(line[loc[1]:])
+		}
+
+		// A bare level name next to other level names lists the scheme, like a policy's level table, rather than
+		// stamping this document. Labeled lines such as "Classification: Confidential" always count.
+		if !labeled && terms[i] != "" && inSchemeListing(terms, i) {
+			continue
 		}
 
 		for _, segment := range markingSeparators.Split(line, -1) {
@@ -179,6 +207,39 @@ func DetectConfidentiality(text string, custom []string, customLevel Confidentia
 	}
 
 	return best
+}
+
+// markingLines returns the non-empty lines without decoration, so blank lines do not separate neighbors.
+func markingLines(normalized string) []string {
+	var lines []string
+
+	for _, line := range strings.Split(normalized, "\n") {
+		if line = trimMarkingDecoration(line); line != "" {
+			lines = append(lines, line)
+		}
+	}
+
+	return lines
+}
+
+func isSchemeTerm(line string) bool {
+	_, marking := confidentialityMarkings[line]
+	_, labeledOnly := labeledOnlyMarkings[line]
+
+	return marking || labeledOnly || schemeOnlyTerms[line]
+}
+
+// inSchemeListing reports whether enough other distinct level names stand on nearby lines.
+func inSchemeListing(terms []string, index int) bool {
+	others := map[string]bool{}
+
+	for j := max(0, index-schemeWindow); j <= min(len(terms)-1, index+schemeWindow); j++ {
+		if j != index && terms[j] != "" && terms[j] != terms[index] {
+			others[terms[j]] = true
+		}
+	}
+
+	return len(others) >= schemeNeighbors
 }
 
 // normalizeMarkingText lowercases, maps Arabic letter forms to Persian, and collapses spaces and zero-width non-joiners

@@ -82,6 +82,8 @@ describe("evaluateSample", () => {
     expect(evaluateSample(form, "For internal use only").status).toBe("pass");
     expect(evaluateSample({ ...form, confidentialityLevel: "internal" }, "For internal use only").status).toBe("block");
     expect(evaluateSample(form, "سری\nمحصولات سری جدید").detail.key).toBe("markingNone");
+    expect(evaluateSample(form, "Level\nPublic\nInternal\nConfidential\nSecret").status).toBe("pass");
+    expect(evaluateSample(form, "Public\nInternal\nClassification: Confidential\nSecret").status).toBe("block");
     expect(evaluateSample(form, "This email is confidential and intended for the addressee.").status).toBe("pass");
     expect(evaluateSample({ ...form, customMarkings: "Project Falcon" }, "notes on project falcon").status).toBe("block");
   });

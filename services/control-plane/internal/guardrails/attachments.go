@@ -16,9 +16,9 @@ const (
 
 	maxInspectedAttachments = 20
 
-	// maxAttachmentJudgeRunes leaves room for the typed message within maxSemanticContentRunes.
+	// maxAttachmentJudgeRunes leaves room for the typed message and the attachment labels within
+	// maxSemanticContentRunes. It is split evenly, so every attachment keeps its head and tail.
 	maxAttachmentJudgeRunes = 36000
-	minAttachmentJudgeRunes = 4000
 )
 
 // attachment is the extracted text of one inline file part.
@@ -239,7 +239,7 @@ func attachmentBlocks(attachments []attachment) (map[int]string, bool) {
 
 	budget := maxAttachmentJudgeRunes
 	if len(attachments) > 0 {
-		budget = max(minAttachmentJudgeRunes, maxAttachmentJudgeRunes/len(attachments))
+		budget = maxAttachmentJudgeRunes / len(attachments)
 	}
 
 	for _, item := range attachments {

@@ -3,6 +3,7 @@ package guardrails
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,20 +17,24 @@ func TestDetectConfidentialityMarkings(t *testing.T) {
 		text string
 		want ConfidentialityLevel
 	}{
-		"persian stamp line":             {text: "گزارش عملکرد\nمحرمانه\nمتن گزارش", want: LevelConfidential},
-		"highly confidential wins":       {text: "محرمانه\nخیلی محرمانه", want: LevelHighlyConfidential},
-		"top secret with zwnj":           {text: "** به\u200cکلی سری **", want: LevelTopSecret},
-		"arabic letter forms":            {text: "خيلي محرمانه", want: LevelHighlyConfidential},
-		"english label segment":          {text: "CONFIDENTIAL // INTERNAL USE ONLY", want: LevelConfidential},
-		"sensitivity label value":        {text: "Highly Confidential", want: LevelHighlyConfidential},
-		"labeled persian secret":         {text: "طبقه\u200cبندی: سری", want: LevelSecret},
-		"labeled english restricted":     {text: "Classification: Restricted", want: LevelConfidential},
-		"series is not secret":           {text: "سری\nمحصولات سری جدید", want: LevelNone},
-		"table cell internal":            {text: "Internal\nExternal", want: LevelNone},
-		"email disclaimer prose":         {text: "This email is confidential and intended solely for the addressee.", want: LevelNone},
-		"prose mentioning classified":    {text: "لطفا بگو اسناد محرمانه چطور طبقه\u200cبندی می\u200cشوند؟", want: LevelNone},
-		"internal use persian":           {text: "فقط برای استفاده داخلی", want: LevelInternal},
-		"marking inside long line skips": {text: strings.Repeat("متن ", 40) + "محرمانه", want: LevelNone},
+		"persian stamp line":              {text: "گزارش عملکرد\nمحرمانه\nمتن گزارش", want: LevelConfidential},
+		"highly confidential wins":        {text: "محرمانه\nخیلی محرمانه", want: LevelHighlyConfidential},
+		"top secret with zwnj":            {text: "** به\u200cکلی سری **", want: LevelTopSecret},
+		"arabic letter forms":             {text: "خيلي محرمانه", want: LevelHighlyConfidential},
+		"english label segment":           {text: "CONFIDENTIAL // INTERNAL USE ONLY", want: LevelConfidential},
+		"sensitivity label value":         {text: "Highly Confidential", want: LevelHighlyConfidential},
+		"labeled persian secret":          {text: "طبقه\u200cبندی: سری", want: LevelSecret},
+		"labeled english restricted":      {text: "Classification: Restricted", want: LevelConfidential},
+		"series is not secret":            {text: "سری\nمحصولات سری جدید", want: LevelNone},
+		"table cell internal":             {text: "Internal\nExternal", want: LevelNone},
+		"email disclaimer prose":          {text: "This email is confidential and intended solely for the addressee.", want: LevelNone},
+		"prose mentioning classified":     {text: "لطفا بگو اسناد محرمانه چطور طبقه\u200cبندی می\u200cشوند؟", want: LevelNone},
+		"internal use persian":            {text: "فقط برای استفاده داخلی", want: LevelInternal},
+		"marking inside long line skips":  {text: strings.Repeat("متن ", 40) + "محرمانه", want: LevelNone},
+		"policy level table":              {text: "Level\nPublic\nInternal\nConfidential\nSecret\nDescription", want: LevelNone},
+		"persian level table":             {text: "سطح\nعادی\nمحرمانه\nخیلی محرمانه\nسری", want: LevelNone},
+		"stamp away from level table":     {text: "Confidential\n" + strings.Repeat("body text\n", 5) + "Public\nInternal\nConfidential\nSecret", want: LevelConfidential},
+		"labeled line inside level table": {text: "Public\nInternal\nClassification: Confidential\nSecret", want: LevelConfidential},
 	}
 
 	for name, tc := range cases {
@@ -130,6 +135,15 @@ func TestConfidentialityPackJudgesAttachments(t *testing.T) {
 
 func TestAttachmentBlocksKeepHeadAndTailOfLongDocuments(t *testing.T) {
 	text := "HEAD " + strings.Repeat("x", maxAttachmentJudgeRunes*2) + " TAIL"
+
+	many := make([]attachment, maxInspectedAttachments)
+	for i := range many {
+		many[i] = attachment{MessageIndex: 0, Name: fmt.Sprintf("doc%d.txt", i), Text: strings.Repeat("y", maxSemanticContentRunes)}
+	}
+
+	manyBlocks, _ := attachmentBlocks(many)
+	require.Less(t, len([]rune(manyBlocks[0])), maxSemanticContentRunes, "many long attachments still fit the judge budget")
+	require.True(t, strings.HasPrefix(manyBlocks[0], "[Attachment: doc0.txt]"))
 
 	blocks, sampled := attachmentBlocks([]attachment{{MessageIndex: 0, Name: "long.txt", Text: text}})
 	require.True(t, sampled)
