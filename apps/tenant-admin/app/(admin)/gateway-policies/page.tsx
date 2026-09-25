@@ -2,22 +2,17 @@ import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/features/admin-shell/AdminShell";
-import { resolveSectionLandingTab } from "@/features/admin-shell/section-landing";
 import { GatewayPolicyRulesPage } from "@/features/gateway-policies/GatewayPolicyRulesPage";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
-import GuardrailsPage from "../guardrails/page";
 import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
-/** Rate and budget rules in one list. Falls through to guardrails for callers who cannot list rules. */
+/** Rate and budget rules in one list. */
 export default async function GatewayPoliciesPage() {
   const auth = await requireAuth("/login?next=/gateway-policies");
-  const tab = await resolveSectionLandingTab("/gateway-policies", auth.tenantSlug, auth.user.id);
-
-  if (tab === "guardrails") return <GuardrailsPage />;
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:list"]);
 
   const t = await getTranslations("gatewayPolicies");
