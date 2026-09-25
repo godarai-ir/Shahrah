@@ -1,0 +1,83 @@
+# Routing mirrors the production ingress rules in shahrah-gitops
+# (helm/shahrah/values.production.yaml).
+#
+# TLS uses a wildcard certificate mounted from ./certs because tenant
+# workspaces live on arbitrary subdomains (*.DEMO_DOMAIN).
+
+(wildcard_tls) {
+	tls /certs/fullchain.pem /certs/privkey.pem
+}
+
+(control_plane) {
+	request_body {
+		max_size 512MB
+	}
+	reverse_proxy control-plane:4000 {
+		# Stream SSE / chunked completions without buffering.
+		flush_interval -1
+		transport http {
+			response_header_timeout 330s
+		}
+	}
+}
+
+{$DEMO_DOMAIN} {
+	import wildcard_tls
+	encode zstd gzip
+
+	@website_api path /api/contact* /api/build-guild-survey* /api/on-premise-request* /api/login-discovery* /api/onboarding* /api/signup* /api/proxy/wallet*
+	handle @website_api {
+		reverse_proxy website:3000
+	}
+
+	handle /api/* {
+		import control_plane
+	}
+
+	handle /catalog* {
+		reverse_proxy model-discovery-web:3000
+	}
+
+	handle /blog* {
+		reverse_proxy blog:3000
+	}
+
+	handle /docs* {
+		reverse_proxy docs:3000
+	}
+
+	handle {
+		reverse_proxy website:3000
+	}
+}
+
+auth.{$DEMO_DOMAIN} {
+	import wildcard_tls
+	encode zstd gzip
+	reverse_proxy website:3000
+}
+
+admin.{$DEMO_DOMAIN} {
+	import wildcard_tls
+	encode zstd gzip
+	reverse_proxy support-admin:3000
+}
+
+# Tenant workspaces: <tenant>.DEMO_DOMAIN
+*.{$DEMO_DOMAIN} {
+	import wildcard_tls
+
+	handle /v1/* {
+		import control_plane
+	}
+
+	handle {
+		encode zstd gzip
+		request_body {
+			max_size 30MB
+		}
+		reverse_proxy tenant-admin:3000 {
+			flush_interval -1
+		}
+	}
+}
