@@ -10,6 +10,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/docextract"
 )
 
 type Hook string
@@ -247,7 +248,8 @@ func (e *Engine) ApplyInput(req contractsopenai.ChatCompletionRequest, sel Reque
 }
 
 // ApplyInputWithGuardrails runs deterministic guardrails in selection order, then every semantic guardrail in one
-// judge call on the already-mutated request, so redacted values never reach the judge.
+// judge call on the already-mutated request, so redacted values never reach the judge. Inline document attachments are
+// extracted to text first and inspected by the content guardrails alongside the typed text.
 func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopenai.ChatCompletionRequest, sel RequestSelection, overrides map[string]Guardrail) (Result, error) {
 	result := Result{Request: req, Checks: map[string][]Check{}}
 	if e == nil || len(sel.LLMInput) == 0 {
@@ -255,6 +257,27 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 	}
 
 	texts, refs := inputTexts(req, sel.Scope)
+
+	var attachments []attachment
+
+	if enforcement, ok := e.attachmentEnforcement(sel.LLMInput, overrides); ok {
+		var failures []attachmentFailure
+
+		attachments, failures = inputAttachments(req, sel.Scope, docextract.DefaultLimits())
+		if len(failures) > 0 {
+			check := attachmentFailureCheck(failures, enforcement)
+			result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
+
+			if enforcement == EnforcementEnforce {
+				result.Blocked = true
+				result.Reason = check.Reason
+
+				return result, &ViolationError{Message: "Request blocked by GodarAI guardrail", Checks: result.Checks}
+			}
+		}
+	}
+
+	fileTexts := attachmentTexts(attachments)
 
 	var semantic []semanticItem
 
@@ -267,9 +290,10 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 			continue
 		}
 
-		g, check, eval, err := e.evaluate(selector, HookLLMInput, outTexts, overrides)
+		g, check, eval, err := e.evaluateInput(selector, outTexts, fileTexts, overrides)
+		result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
+
 		if err != nil {
-			result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
 			if shouldBlockOnError(g) {
 				result.Blocked = true
 				result.Reason = check.Reason
@@ -280,7 +304,6 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 			continue
 		}
 
-		result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], check)
 		if shouldBlockOnViolation(g, eval) {
 			result.Blocked = true
 			result.Reason = check.Reason
@@ -298,7 +321,7 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 		return result, nil
 	}
 
-	checks, blocking := e.applySemantic(ctx, HookLLMInput, semantic, semanticInputState(result.Request, sel.Scope))
+	checks, blocking := e.applySemantic(ctx, HookLLMInput, semantic, semanticInputState(result.Request, sel.Scope, attachmentBlocks(attachments)))
 	result.Checks["llm_input_guardrails"] = append(result.Checks["llm_input_guardrails"], checks...)
 
 	if blocking >= 0 {
@@ -309,6 +332,42 @@ func (e *Engine) ApplyInputWithGuardrails(ctx context.Context, req contractsopen
 	}
 
 	return result, nil
+}
+
+// evaluateInput runs one deterministic guardrail on the typed texts and, for content guardrails, on the attachment
+// texts too. The returned evaluation only carries the typed texts. A redaction that would touch an attachment cannot be
+// applied to the forwarded file, so it is reported as a block.
+func (e *Engine) evaluateInput(selector string, texts []string, fileTexts []string, overrides map[string]Guardrail) (Guardrail, Check, EvaluationResult, error) {
+	g := e.resolve(selector, overrides)
+	if len(fileTexts) == 0 || g == nil || !inspectsAttachments(g) {
+		return e.evaluate(selector, HookLLMInput, texts, overrides)
+	}
+
+	combined := make([]string, 0, len(texts)+len(fileTexts))
+	combined = append(combined, texts...)
+	combined = append(combined, fileTexts...)
+
+	g, check, eval, err := e.evaluate(selector, HookLLMInput, combined, overrides)
+	if err != nil {
+		return g, check, eval, err
+	}
+
+	if len(eval.Texts) == len(combined) {
+		if eval.Mutated && attachmentsChanged(fileTexts, eval.Texts[len(texts):]) {
+			eval.Blocked = true
+			eval.Reason = "Attachment contains content that must be redacted; attachments cannot be modified"
+			check.Status = "blocked"
+			check.Reason = eval.Reason
+
+			if g.Enforcement() == EnforcementAudit {
+				check.Status = "flagged"
+			}
+		}
+
+		eval.Texts = eval.Texts[:len(texts)]
+	}
+
+	return g, check, eval, nil
 }
 
 func (e *Engine) ApplyOutput(resp contractsopenai.ChatCompletionResponse, sel RequestSelection) (Result, error) {

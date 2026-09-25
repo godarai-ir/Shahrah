@@ -15,21 +15,11 @@ type choiceRef struct {
 }
 
 func inputTexts(req contractsopenai.ChatCompletionRequest, scope Scope) ([]string, []messageRef) {
-	start := 0
-	if scope == ScopeLast {
-		start = len(req.Messages) - 1
-		for i := len(req.Messages) - 1; i >= 0; i-- {
-			if req.Messages[i].Role == "user" {
-				start = i
-				break
-			}
-		}
-	}
-
 	texts := []string{}
 	refs := []messageRef{}
 
-	for i := start; i < len(req.Messages); i++ {
+	start, end := inputMessageRange(req, scope)
+	for i := start; i < end; i++ {
 		msg := req.Messages[i]
 		switch content := msg.Content.(type) {
 		case string:
@@ -49,10 +39,6 @@ func inputTexts(req contractsopenai.ChatCompletionRequest, scope Scope) ([]strin
 				texts = append(texts, part.Text)
 				refs = append(refs, messageRef{MessageIndex: i, PartIndex: partIndex, PartContent: true})
 			}
-		}
-
-		if scope == ScopeLast {
-			break
 		}
 	}
 
