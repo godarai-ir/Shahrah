@@ -80,6 +80,13 @@ function configSummary(form: GuardrailFormInput, { t, formatNumber }: SentenceFo
     }
     case "not_null":
       return { value: t("wizard.review.configSummary.none"), technical: false };
+    case "document_confidentiality": {
+      const level = t(`wizard.config.confidentiality.levels.${form.confidentialityLevel}.title`);
+      const markings = lines(form.customMarkings);
+      const custom = markings.length > 0 ? ` · ${t("wizard.review.configSummary.customMarkings", { markings: markings.join(separator) })}` : "";
+
+      return { value: `${t("wizard.review.configSummary.confidentiality", { level })}${custom}`, technical: false };
+    }
     case "semantic_policy": {
       const count = semanticRuleCount(form);
       const target = t(`wizard.config.semantic.targets.${form.semanticTarget}`);

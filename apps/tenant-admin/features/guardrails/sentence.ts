@@ -39,6 +39,11 @@ function conditionPhrase(form: GuardrailFormInput, { t, formatNumber }: Sentence
     return t(`sentence.cond.json_keys.${form.keyMode}`, { keys: keyList });
   }
   if (type === "contains_code") return t(`sentence.cond.contains_code.${form.codeMode}`);
+  if (type === "document_confidentiality") {
+    const level = t(`wizard.config.confidentiality.levels.${form.confidentialityLevel}.title`);
+
+    return t(form.includeMessageText ? "sentence.cond.document_confidentiality.withMessage" : "sentence.cond.document_confidentiality.attachments", { level });
+  }
   if (type === "semantic_policy") {
     if (form.semanticSource === "pack") {
       const pack = t(`wizard.config.semantic.packs.${SEMANTIC_PACKS[form.semanticPack].family}.title`);

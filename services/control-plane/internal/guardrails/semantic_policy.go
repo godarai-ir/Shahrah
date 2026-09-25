@@ -22,6 +22,8 @@ const (
 	HealthcarePack = "healthcare@1"
 	// HRPack adds discrimination in hiring and guessing protected characteristics.
 	HRPack = "hr@1"
+	// ConfidentialityPack adds classified documents, non-public business data, personal records, and security internals.
+	ConfidentialityPack = "confidentiality@1"
 
 	maxSemanticRules          = 20
 	maxSemanticStatementRunes = 500

@@ -219,7 +219,8 @@ func validateTenantGuardrailType(value string) error {
 	switch value {
 	case "keyword_blocklist", "regex", "secrets_detection", "basic_pii",
 		"jwt_validation", "regex_replace", "sentence_count", "word_count", "character_count",
-		"json_schema", "json_keys", "contains_code", "not_null", "inline_image_urls", guardrails.SemanticPolicyType:
+		"json_schema", "json_keys", "contains_code", "not_null", "inline_image_urls", guardrails.SemanticPolicyType,
+		guardrails.DocumentConfidentialityType:
 		return nil
 	default:
 		return errors.New("unsupported guardrail type")
@@ -239,7 +240,7 @@ func validateTenantGuardrailOperation(value platform.GuardrailOperation, guardra
 
 	switch guardrailType {
 	case "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation",
-		guardrails.SemanticPolicyType:
+		guardrails.SemanticPolicyType, guardrails.DocumentConfidentialityType:
 		if value != platform.GuardrailOperationValidate {
 			return errors.New("this guardrail type only supports validate operation")
 		}
@@ -345,6 +346,10 @@ func validateTenantGuardrailConfig(guardrailType string, config map[string]inter
 		}
 	case guardrails.SemanticPolicyType:
 		if _, err := guardrails.ParseSemanticPolicyConfig(config); err != nil {
+			return err
+		}
+	case guardrails.DocumentConfidentialityType:
+		if err := guardrails.ValidateDocumentConfidentialityConfig(config); err != nil {
 			return err
 		}
 	}

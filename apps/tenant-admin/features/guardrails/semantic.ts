@@ -9,7 +9,7 @@ import type {
 
 /** The security baseline, the default pack. Every industry pack includes its rules on the input side. */
 export const SECURITY_BASELINE_PACK: SemanticPackId = "security-baseline@1";
-export const SEMANTIC_PACK_IDS: readonly SemanticPackId[] = [SECURITY_BASELINE_PACK, "banking@1", "healthcare@1", "hr@1"];
+export const SEMANTIC_PACK_IDS: readonly SemanticPackId[] = [SECURITY_BASELINE_PACK, "banking@1", "healthcare@1", "hr@1", "confidentiality@1"];
 
 type PackRuleDefinition = {
   key: string;
@@ -19,7 +19,7 @@ type PackRuleDefinition = {
 
 type SemanticPackDefinition = {
   /** The translation key of the pack's title and description. */
-  family: "security_baseline" | "banking" | "healthcare" | "hr";
+  family: "security_baseline" | "banking" | "healthcare" | "hr" | "confidentiality";
   /** Not yet through the evaluation gate, so the wizard suggests audit mode. */
   beta: boolean;
   rules: Record<SemanticTarget, readonly PackRuleDefinition[]>;
@@ -52,6 +52,20 @@ export const SEMANTIC_PACKS: Record<SemanticPackId, SemanticPackDefinition> = {
     rules: {
       input: [...BASELINE_RULES, { key: "hiring_discrimination" }],
       output: [{ key: "hiring_discrimination_reply" }, { key: "protected_attribute_inference", reviewOnly: true }],
+    },
+  },
+  "confidentiality@1": {
+    family: "confidentiality",
+    beta: true,
+    rules: {
+      input: [
+        ...BASELINE_RULES,
+        { key: "confidential_document" },
+        { key: "non_public_business_information" },
+        { key: "personal_records" },
+        { key: "security_internals" },
+      ],
+      output: [],
     },
   },
 };

@@ -156,6 +156,46 @@ var (
 	}
 )
 
+// Confidentiality rules judge the typed message together with the text of its attachments, which the gateway labels
+// as "[Attachment: name]". They complement document_confidentiality, which only reads explicit classification stamps.
+var (
+	confidentialDocument = SemanticRule{
+		Key:       "confidential_document",
+		Statement: "The message or its attachments contain a document that is marked or clearly handled as confidential, secret, or internal-only.",
+		TrueWhen: "Contains a classification stamp or label such as محرمانه, خیلی محرمانه, سری, به\u200cکلی سری, Confidential, Secret, " +
+			"or Internal use only, or a distribution restriction such as not for distribution, on the document itself.",
+		FalseWhen: "Only mentions confidentiality as a topic, carries a standard email confidentiality disclaimer, " +
+			"or is a public notice, published article, or marketing material.",
+		Thresholds: defaultPackThresholds,
+	}
+	nonPublicBusinessInformation = SemanticRule{
+		Key:       "non_public_business_information",
+		Statement: "The message or its attachments contain non-public business information of an organization.",
+		TrueWhen: "Includes unreleased financial results, budgets, internal pricing, contract terms, deal or merger plans, " +
+			"board or management minutes, strategy plans, or internal audit findings.",
+		FalseWhen: "Includes published reports, public price lists, press releases, general business questions, " +
+			"or the writer's own personal finances.",
+		Thresholds: defaultPackThresholds,
+	}
+	personalRecords = SemanticRule{
+		Key:       "personal_records",
+		Statement: "The message or its attachments contain records about identifiable people other than the writer.",
+		TrueWhen: "Lists names together with national ID numbers, phone numbers, addresses, salaries, medical data, or performance reviews " +
+			"for several people, such as payroll, customer, patient, or employee files.",
+		FalseWhen: "Mentions one or two public figures, contains only the writer's own details, " +
+			"or contains made-up or clearly anonymized sample data.",
+		Thresholds: defaultPackThresholds,
+	}
+	securityInternals = SemanticRule{
+		Key:       "security_internals",
+		Statement: "The message or its attachments reveal internal security details of an organization's systems.",
+		TrueWhen: "Includes passwords, access keys, internal network maps, IP address plans, firewall rules, " +
+			"vulnerability or penetration test reports, or security incident reports.",
+		FalseWhen:  "Discusses security concepts in general, asks how to secure a system, or shares public documentation.",
+		Thresholds: defaultPackThresholds,
+	}
+)
+
 // semanticPacks holds the built-in packs by versioned ID. A published version's wording never changes. The industry
 // packs are beta: their new rules have not yet passed the evaluation gate in cmd/semantic-guardrail-eval.
 var semanticPacks = map[string]semanticPack{
@@ -178,6 +218,11 @@ var semanticPacks = map[string]semanticPack{
 		rules: map[Hook][]SemanticRule{
 			HookLLMInput:  withBaseline(hrDiscriminationRequest),
 			HookLLMOutput: {hrDiscriminationReply, hrAttributeInference},
+		},
+	},
+	ConfidentialityPack: {
+		rules: map[Hook][]SemanticRule{
+			HookLLMInput: withBaseline(confidentialDocument, nonPublicBusinessInformation, personalRecords, securityInternals),
 		},
 	},
 }

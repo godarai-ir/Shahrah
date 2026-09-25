@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  FileLock2,
   Info,
   Landmark,
   PencilRuler,
@@ -47,7 +48,7 @@ const SOURCES: SemanticSource[] = ["pack", "custom"];
 const SOURCE_ICONS = { pack: ShieldCheck, custom: PencilRuler } as const;
 const TARGETS: SemanticTarget[] = ["input", "output"];
 const TARGET_ICONS = { input: ArrowDownToLine, output: ArrowUpFromLine } as const;
-const PACK_ICONS = { security_baseline: ShieldCheck, banking: Landmark, healthcare: Stethoscope, hr: UsersRound } as const;
+const PACK_ICONS = { security_baseline: ShieldCheck, banking: Landmark, healthcare: Stethoscope, hr: UsersRound, confidentiality: FileLock2 } as const;
 
 type TargetPickerProps = {
   value: SemanticTarget;

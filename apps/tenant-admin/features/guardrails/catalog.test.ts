@@ -32,7 +32,7 @@ describe("GUARDRAIL_CATALOG", () => {
   });
 
   it("matches the operation lock the form enforced before the catalog existed", () => {
-    const validateOnly = ["keyword_blocklist", "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation", "semantic_policy"];
+    const validateOnly = ["keyword_blocklist", "sentence_count", "word_count", "character_count", "json_schema", "json_keys", "contains_code", "not_null", "jwt_validation", "semantic_policy", "document_confidentiality"];
     const mutateOnly = ["regex_replace", "inline_image_urls"];
 
     for (const { type } of GUARDRAIL_CATALOG) {
