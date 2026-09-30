@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/shopspring/decimal"
 )
@@ -68,13 +69,14 @@ const (
 const RenewalWindow = 7 * 24 * time.Hour
 
 // PeriodEnd is the end of a seat subscription period of the interval that
-// starts at start.
+// starts at start. Periods follow the Jalali calendar in Tehran, so a monthly
+// period bought on 8 Mehr ends on 8 Aban.
 func PeriodEnd(start time.Time, interval string) (time.Time, error) {
 	switch NormalizeInterval(interval) {
 	case "monthly":
-		return start.AddDate(0, 1, 0), nil
+		return billing.AddJalaliMonths(start, 1)
 	case "yearly":
-		return start.AddDate(1, 0, 0), nil
+		return billing.AddJalaliMonths(start, 12)
 	default:
 		return time.Time{}, ErrIntervalNotSupported
 	}

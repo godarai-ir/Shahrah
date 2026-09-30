@@ -156,15 +156,16 @@ func TestKeys(t *testing.T) {
 }
 
 func TestPeriodEnd(t *testing.T) {
+	// 30 Mehr 1405, 12:30 in Tehran.
 	start := time.Date(2026, time.October, 22, 9, 0, 0, 0, time.UTC)
 
 	monthly, err := PeriodEnd(start, "monthly")
 	require.NoError(t, err)
-	require.Equal(t, time.Date(2026, time.November, 22, 9, 0, 0, 0, time.UTC), monthly)
+	require.Equal(t, time.Date(2026, time.November, 21, 9, 0, 0, 0, time.UTC), monthly, "30 Aban 1405, not 22 November")
 
 	yearly, err := PeriodEnd(start, "annual")
 	require.NoError(t, err)
-	require.Equal(t, time.Date(2027, time.October, 22, 9, 0, 0, 0, time.UTC), yearly)
+	require.Equal(t, time.Date(2027, time.October, 22, 9, 0, 0, 0, time.UTC), yearly, "30 Mehr 1406")
 
 	_, err = PeriodEnd(start, "quarterly")
 	require.ErrorIs(t, err, ErrIntervalNotSupported)
@@ -180,11 +181,12 @@ func TestRenewalOpen(t *testing.T) {
 }
 
 func TestNextPeriod(t *testing.T) {
+	// 1 Azar 1405 in Tehran; the next monthly period ends on 1 Dey.
 	end := time.Date(2026, time.November, 22, 0, 0, 0, 0, time.UTC)
 
 	next, renewed := NextPeriod(end, end.AddDate(0, 1, 0), "monthly")
 	require.True(t, renewed)
-	require.Equal(t, end.AddDate(0, 1, 0), next)
+	require.Equal(t, time.Date(2026, time.December, 22, 0, 0, 0, 0, time.UTC), next)
 
 	_, renewed = NextPeriod(end, end, "monthly")
 	require.False(t, renewed, "seats paid only to the period end are not renewed")

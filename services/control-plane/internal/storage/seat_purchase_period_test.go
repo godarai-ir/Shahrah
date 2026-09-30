@@ -23,11 +23,12 @@ func TestSeatPurchasePeriod(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, period.starts)
 		require.Equal(t, now, period.start)
-		require.Equal(t, now.AddDate(0, 1, 0), period.end)
+		// 30 Mehr to 30 Aban 1405: one Jalali month of 30 days.
+		require.Equal(t, time.Date(2026, time.November, 21, 18, 0, 0, 0, time.UTC), period.end)
 
 		proration := seats.Prorate(1_000_000, period.start, period.end, now)
-		require.Equal(t, 31, proration.PeriodDays)
-		require.Equal(t, 31, proration.RemainingDays)
+		require.Equal(t, 30, proration.PeriodDays)
+		require.Equal(t, 30, proration.RemainingDays)
 	})
 
 	t.Run("running seat subscription keeps its period", func(t *testing.T) {

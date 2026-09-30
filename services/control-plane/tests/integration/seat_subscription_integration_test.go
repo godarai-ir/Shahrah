@@ -124,7 +124,9 @@ func TestIntegration_SeatSubscriptionFirstPaidSeatStartsIt(t *testing.T) {
 	require.True(t, quote.StartsSubscription)
 	require.Equal(t, "yearly", quote.BillingInterval)
 	require.Equal(t, quote.UnitPeriodPriceIRR, quote.PriceIRR, "the first purchase pays a whole period")
-	require.WithinDuration(t, now.AddDate(1, 0, 0), quote.PeriodEnd, time.Second)
+	yearEnd, err := seats.PeriodEnd(now, "yearly")
+	require.NoError(t, err)
+	require.WithinDuration(t, yearEnd, quote.PeriodEnd, time.Second)
 
 	paySeatOrder(t, store, tenantID, platform.CreateSeatOrderRequest{
 		Seat: "pro", Quantity: 1, BillingInterval: "yearly", AssignUserID: member,
@@ -133,7 +135,7 @@ func TestIntegration_SeatSubscriptionFirstPaidSeatStartsIt(t *testing.T) {
 	slug, interval, periodEnd := currentPlanSlug(t, pool, tenantID)
 	require.Equal(t, seats.SeatsPlanSlug, slug)
 	require.Equal(t, "yearly", interval)
-	require.WithinDuration(t, now.AddDate(1, 0, 0), periodEnd, time.Second)
+	require.WithinDuration(t, yearEnd, periodEnd, time.Second)
 
 	seat, err := store.GetSeatMember(ctx, tenantID, member, now)
 	require.NoError(t, err)
@@ -211,9 +213,12 @@ func TestIntegration_SeatSubscriptionRenewalRollsThePeriod(t *testing.T) {
 	_, err = store.QuoteSeatRenewal(ctx, tenantID, early)
 	require.ErrorIs(t, err, seats.ErrRenewalNotDue, "renewal opens a week before the period ends")
 
+	nextEnd, err := seats.PeriodEnd(end, "monthly")
+	require.NoError(t, err)
+
 	renewal, err := store.QuoteSeatRenewal(ctx, tenantID, now)
 	require.NoError(t, err)
-	require.Equal(t, end.AddDate(0, 1, 0).UTC(), renewal.PeriodEnd.UTC())
+	require.Equal(t, nextEnd.UTC(), renewal.PeriodEnd.UTC())
 	require.Len(t, renewal.Lines, 1)
 	require.Equal(t, 2, renewal.Lines[0].Quantity)
 
@@ -231,5 +236,5 @@ func TestIntegration_SeatSubscriptionRenewalRollsThePeriod(t *testing.T) {
 
 	slug, _, periodEnd := currentPlanSlug(t, pool, tenantID)
 	require.Equal(t, seats.SeatsPlanSlug, slug)
-	require.Equal(t, end.AddDate(0, 1, 0).UTC(), periodEnd.UTC())
+	require.Equal(t, nextEnd.UTC(), periodEnd.UTC())
 }
