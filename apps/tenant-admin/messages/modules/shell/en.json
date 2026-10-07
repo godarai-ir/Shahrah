@@ -69,6 +69,7 @@
     "accessManagement": "Access Management",
     "roles": "Roles",
     "personalAccessTokens": "API keys",
+    "oidcClients": "Connected apps",
     "users": "Members",
     "logs": "Request Logs",
     "traces": "Request Trace",

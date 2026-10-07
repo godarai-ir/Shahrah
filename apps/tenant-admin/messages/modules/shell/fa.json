@@ -69,6 +69,7 @@
     "accessManagement": "مدیریت دسترسی",
     "roles": "نقش‌ها",
     "personalAccessTokens": "کلیدهای API",
+    "oidcClients": "برنامه‌های متصل",
     "users": "اعضا",
     "logs": "لاگ درخواست‌ها",
     "orgUnits": "واحدهای سازمانی",

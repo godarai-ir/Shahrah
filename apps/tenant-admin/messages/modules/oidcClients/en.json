@@ -1,0 +1,116 @@
+{
+  "title": "Connected apps",
+  "description": "Let applications such as LibreChat sign members in with their Godar account. Each member reaches only the models Godar allows them.",
+  "alerts": {
+    "success": "Done",
+    "error": "Error"
+  },
+  "integration": {
+    "title": "Integration details",
+    "description": "Enter these values in the application's OpenID Connect settings, together with the client ID and secret of the app you register below.",
+    "issuer": "Issuer URL",
+    "discovery": "Discovery document",
+    "gateway": "Gateway base URL"
+  },
+  "table": {
+    "name": "Name",
+    "clientID": "Client ID",
+    "redirectURIs": "Redirect URIs",
+    "secretRotatedAt": "Secret changed",
+    "status": "Status",
+    "actions": "Actions",
+    "moreURIs": "+{count} more",
+    "searchPlaceholder": "Search by name, client ID, or URI",
+    "empty": "No connected apps yet",
+    "emptyDescription": "Register an application to let members sign in to it with Godar.",
+    "noResults": "No apps match your search"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "fields": {
+    "name": "App name",
+    "namePlaceholder": "LibreChat",
+    "nameHelp": "Members see this name on the Godar sign-in page.",
+    "redirectURIs": "Redirect URIs",
+    "redirectURIsHelp": "One per line. Sign-in only returns to these exact addresses. For LibreChat use https://chat.example.com/oauth/openid/callback, replacing the domain with yours.",
+    "logoutURIs": "Post-logout redirect URIs (optional)",
+    "logoutURIsHelp": "One per line. Where the app may send members after they sign out.",
+    "active": "Active",
+    "activeHelp": "An inactive app cannot sign anyone in or refresh its tokens. Access tokens already issued stop working when they expire."
+  },
+  "form": {
+    "createTitle": "Register an app",
+    "createDescription": "The client secret is shown once, right after you register the app.",
+    "editTitle": "Edit app",
+    "editDescription": "Changes apply to the next sign-in."
+  },
+  "actions": {
+    "create": "Register app",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "edit": "Edit",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "rotateSecret": "Generate new secret",
+    "delete": "Delete",
+    "menu": "Actions for {name}",
+    "copy": "Copy",
+    "copying": "Copying…",
+    "copied": "Copied",
+    "copyClientID": "Copy client ID"
+  },
+  "secret": {
+    "createdTitle": "App registered: copy the client secret now",
+    "rotatedTitle": "New client secret: copy it now",
+    "description": "{name} (client ID {clientID}). The secret cannot be shown again.",
+    "warning": "Store the secret in the application's configuration before closing this dialog. If it is lost, generate a new one.",
+    "valueLabel": "Client secret"
+  },
+  "rotateDialog": {
+    "title": "Generate a new client secret?",
+    "description": "The current secret of \"{name}\" stops working immediately. Update the application with the new secret, or members cannot sign in to it.",
+    "confirm": "Generate new secret",
+    "pending": "Generating…"
+  },
+  "deleteDialog": {
+    "title": "Delete this app?",
+    "description": "\"{name}\" can no longer sign anyone in, and every member is signed out of it when their current access token expires. This cannot be undone.",
+    "inputLabel": "Type {name} to confirm",
+    "confirm": "Delete app",
+    "pending": "Deleting…"
+  },
+  "messages": {
+    "loadError": "Connected apps could not be loaded. Try again.",
+    "createError": "The app could not be registered. Try again.",
+    "updateError": "The app could not be updated. Try again.",
+    "updateSuccess": "The app was updated.",
+    "activateSuccess": "The app was activated.",
+    "deactivateSuccess": "The app was deactivated.",
+    "rotateError": "A new secret could not be generated. Try again.",
+    "deleteError": "The app could not be deleted. Try again.",
+    "deleteSuccess": "The app was deleted.",
+    "copyError": "Copying failed. Select the value and copy it manually."
+  },
+  "errors": {
+    "invalid_payload": "Check the form and try again.",
+    "name_required": "Enter a name for the app.",
+    "name_too_long": "The name must be 120 characters or fewer.",
+    "redirect_required": "Enter at least one redirect URI.",
+    "redirect_invalid": "\"{value}\" is not allowed. Use a full https address without a # fragment. http is accepted only for localhost.",
+    "redirect_too_many": "Enter at most 10 addresses."
+  },
+  "apiErrors": {
+    "oidc_client_invalid": "Godar rejected this configuration. Check the redirect URIs and try again.",
+    "oidc_client_not_found": "This app no longer exists. The list has been refreshed.",
+    "oidc_client_conflict": "An app with the same client ID already exists. Try again.",
+    "forbidden": "Only tenant admins can manage connected apps."
+  },
+  "forbidden": {
+    "title": "Tenant admin access required",
+    "description": "Only tenant admins can register applications that sign members in with Godar."
+  }
+}
