@@ -16,6 +16,7 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/oidc"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
@@ -62,6 +63,7 @@ type builder struct {
 	policyApplication          *policies.Service
 	modelApplication           *virtualmodels.Service
 	providerAccountApplication *provideraccounts.Service
+	oidcApplication            *oidc.Service
 	tracingMiddleware          fiber.Handler
 	traceHealth                *tracing.ReliableExporter
 	serverDependencies         server.Dependencies

@@ -110,6 +110,11 @@ func (b *builder) buildManagement() error {
 		},
 	), admin.AuthHandlersConfig{ExposeDebugOTP: b.cfg.Admin.ExposeDebugOTP})
 
+	oidcRoutes, err := b.oidcRoutes()
+	if err != nil {
+		return err
+	}
+
 	managementRoutes, err := management.New(management.Dependencies{
 		Auth:          authHandlers,
 		Billing:       adminHandlers,
@@ -118,6 +123,7 @@ func (b *builder) buildManagement() error {
 		Observability: adminHandlers,
 		Onboarding:    adminHandlers,
 		Support:       adminHandlers,
+		OIDC:          oidcRoutes,
 	})
 	if err != nil {
 		return err

@@ -3,6 +3,10 @@ package server
 import "github.com/gofiber/fiber/v2"
 
 func registerProtectedRoutes(app *fiber.App, deps Dependencies) {
+	if deps.ManagementRoutes != nil {
+		deps.ManagementRoutes.RegisterOIDCProvider(app)
+	}
+
 	registerProxyRoutes(app, deps)
 	registerTenantAdminRoutes(app, deps)
 }

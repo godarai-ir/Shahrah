@@ -64,8 +64,21 @@ type KeyInfo struct {
 type AuthMiddleware struct {
 	keyStore        KeyStore
 	runtimeProfiles RuntimeProfileLookup
+	accessTokens    AccessTokenAuthenticator
 	masterKey       string
 	logger          *zap.Logger
+}
+
+// AccessTokenAuthenticator resolves gateway auth contexts from OIDC access tokens.
+type AccessTokenAuthenticator interface {
+	AuthenticateAccessToken(ctx context.Context, tenantID, token string) (*platform.AuthContext, error)
+}
+
+// AuthMiddlewareOptions holds optional authentication collaborators.
+type AuthMiddlewareOptions struct {
+	RuntimeProfiles RuntimeProfileLookup
+	// AccessTokens enables OIDC bearer access tokens on gateway routes when non-nil.
+	AccessTokens AccessTokenAuthenticator
 }
 
 // RuntimeProfileLookup resolves compiled authentication state.
@@ -85,9 +98,15 @@ func NewAuthMiddlewareWithRuntimeProfiles(
 	logger *zap.Logger,
 	runtimeProfiles RuntimeProfileLookup,
 ) *AuthMiddleware {
+	return NewAuthMiddlewareWithOptions(keyStore, masterKey, logger, AuthMiddlewareOptions{RuntimeProfiles: runtimeProfiles})
+}
+
+// NewAuthMiddlewareWithOptions creates auth middleware with optional collaborators.
+func NewAuthMiddlewareWithOptions(keyStore KeyStore, masterKey string, logger *zap.Logger, options AuthMiddlewareOptions) *AuthMiddleware {
 	return &AuthMiddleware{
 		keyStore:        keyStore,
-		runtimeProfiles: runtimeProfiles,
+		runtimeProfiles: options.RuntimeProfiles,
+		accessTokens:    options.AccessTokens,
 		masterKey:       masterKey,
 		logger:          logger,
 	}
@@ -110,6 +129,10 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 			return m.handleMasterKeyRequest(c)
 		}
 
+		if m.accessTokens != nil && looksLikeJWT(apiKey) {
+			return m.authenticateAccessToken(c, apiKey)
+		}
+
 		return m.authenticateAPIKey(c, apiKey)
 	}
 }
@@ -118,6 +141,8 @@ func shouldSkipAuth(path string) bool {
 	return path == "/health" ||
 		path == "/ready" ||
 		path == "/metrics" ||
+		path == "/.well-known/openid-configuration" ||
+		strings.HasPrefix(path, "/oidc/") ||
 		strings.HasPrefix(path, "/api/v1/onboarding/") ||
 		strings.HasPrefix(path, "/api/v1/wallet/topup/callback/")
 }
