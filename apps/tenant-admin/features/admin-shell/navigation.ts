@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   BadgeCheck,
   BarChart3,
   BookOpen,
@@ -47,6 +48,7 @@ export type AdminNavKey =
   | "tracePrivacySettings"
   | "accessManagement"
   | "personalAccessTokens"
+  | "oidcClients"
   | "orgStructure"
   | "users"
   | "logs"
@@ -73,6 +75,7 @@ export type AdminNavItem = {
 export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "users",
   "personalAccessTokens",
+  "oidcClients",
   "accessManagement",
   "orgStructure",
   "virtualUsers",
@@ -323,6 +326,15 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: [],
     },
     {
+      // Registering an app lets it sign in any member, so it stays with tenant administrators.
+      key: "oidcClients",
+      href: "/oidc-clients",
+      title: t("nav.oidcClients"),
+      icon: AppWindow,
+      isActive: pathname.startsWith("/oidc-clients"),
+      requiredPermissions: ["settings:manage"],
+    },
+    {
       key: "users",
       href: "/users",
       title: t("nav.users"),
@@ -401,7 +413,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/users",
       title: t("nav.accessAndUsers"),
       icon: Users,
-      isActive: ["/users", "/org-structure", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/users", "/org-structure", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
       // Personal access tokens are open to everyone; the individual tabs gate themselves.
       requiredPermissions: [],
     },

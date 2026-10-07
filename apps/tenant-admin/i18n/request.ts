@@ -30,6 +30,7 @@ const MESSAGE_NAMESPACES = [
   "teams",
   "orgStructure",
   "personalAccessTokens",
+  "oidcClients",
   "traces",
   "logs",
   "metrics",

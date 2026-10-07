@@ -40,10 +40,21 @@ describe("admin access navigation items", () => {
     expect(ACCESS_NAV_ITEM_KEYS).toEqual([
       "users",
       "personalAccessTokens",
+      "oidcClients",
       "accessManagement",
       "orgStructure",
       "virtualUsers",
     ]);
+  });
+
+  it("shows connected apps only to members who can manage settings", () => {
+    const keysFor = (permissions: string[]) =>
+      filterVisibleNavItems(buildAdminNavItems("/oidc-clients", t), permissions).map((item) => item.key);
+
+    expect(keysFor(["settings:list"])).not.toContain("oidcClients");
+    expect(keysFor(["settings:manage"])).toContain("oidcClients");
+    const active = buildAdminNavItems("/oidc-clients", t).filter((item) => item.isActive).map((item) => item.key);
+    expect(active).toEqual(expect.arrayContaining(["oidcClients", "accessAndUsers"]));
   });
 
   it("shows the org structure item for team:read only", () => {

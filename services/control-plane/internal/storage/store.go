@@ -19,6 +19,7 @@ type Store struct {
 	*SupportRepository
 	*ProviderAccountRepository
 	*PromptRepository
+	*OIDCRepository
 	*IAMRepository
 	*TenantRepository
 	*AuthRepository
@@ -132,6 +133,7 @@ func NewStore(
 		storageConfig,
 	)
 	store.PromptRepository = newPromptRepository(pool)
+	store.OIDCRepository = newOIDCRepository(pool)
 	store.IAMRepository = newIAMRepository(pool, dependencies.RuntimeProfileInvalidator)
 	store.TenantRepository = newTenantRepository(pool)
 	store.AuthRepository = newAuthRepository(

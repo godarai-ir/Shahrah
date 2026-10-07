@@ -31,6 +31,7 @@ type Config struct {
 	Credentials      CredentialSettings      `mapstructure:"-"`
 	SupportFiles     SupportFileSettings     `mapstructure:"-"`
 	ProviderFeatures ProviderFeatureSettings `mapstructure:"-"`
+	OIDC             OIDCSettings            `mapstructure:"-"`
 }
 
 // ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
@@ -276,6 +277,7 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	cfg.ProviderFeatures = LoadProviderFeatureSettings()
 	cfg.Observability = LoadObservabilitySettings()
 	cfg.Admin = LoadAdminSettings()
+	cfg.OIDC = LoadOIDCSettings()
 
 	return cfg, nil
 }

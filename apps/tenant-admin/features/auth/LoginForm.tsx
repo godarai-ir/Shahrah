@@ -44,6 +44,9 @@ type LoginFormProps = {
   initialCaptcha: CaptchaChallenge;
   redirectTo: string;
   initialIdentifier?: string;
+  /** Name of the application waiting for this sign-in, when it came through OIDC. */
+  oidcClientName?: string;
+  oidcError?: "expired" | "unavailable";
 };
 
 type LoginFieldErrors = {
@@ -56,7 +59,13 @@ type LoginTranslator = (key: string, values?: Record<string, string | number>) =
 const ANIMATED_HERO_INTERVAL_MS = 2200;
 const ANIMATED_HERO_TRANSITION_MS = 220;
 
-export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifier = "" }: LoginFormProps) {
+export default function LoginForm({
+  initialCaptcha,
+  redirectTo,
+  initialIdentifier = "",
+  oidcClientName,
+  oidcError,
+}: LoginFormProps) {
   const t = useTranslations("login");
   const common = useTranslations("common");
 
@@ -212,6 +221,16 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                 {!otpRequest ? <SocialLoginButtons redirectTo={redirectTo} labels={{
                   title: t("social.title"), google: t("social.google"), github: t("social.github"), microsoft: t("social.microsoft"), divider: t("social.divider"),
                 }} /> : null}
+                {oidcClientName && (
+                  <Alert variant="info" icon={<ShieldCheck aria-hidden="true" />}>
+                    <AlertDescription>{t("oidc.continueTo", { client: oidcClientName })}</AlertDescription>
+                  </Alert>
+                )}
+                {oidcError && (
+                  <Alert variant="destructive" icon={<AlertCircle aria-hidden="true" />}>
+                    <AlertDescription>{t(`oidc.errors.${oidcError}`)}</AlertDescription>
+                  </Alert>
+                )}
                 {notice && (
                   <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
                     <AlertDescription>{notice}</AlertDescription>

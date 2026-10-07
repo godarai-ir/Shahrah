@@ -199,11 +199,18 @@ func (b *builder) buildStorage() error {
 
 	b.router = applicationRouter
 
-	b.authMiddleware = auth.NewAuthMiddlewareWithRuntimeProfiles(
+	if err := b.buildOIDC(); err != nil {
+		return err
+	}
+
+	b.authMiddleware = auth.NewAuthMiddlewareWithOptions(
 		b.iamApplication,
 		b.cfg.GeneralSettings.MasterKey,
 		b.logger,
-		b.runtimeProfiles,
+		auth.AuthMiddlewareOptions{
+			RuntimeProfiles: b.runtimeProfiles,
+			AccessTokens:    b.oidcAccessTokens(),
+		},
 	)
 	b.tenantMiddleware = tenant.NewMiddlewareWithCache(store.TenantRepository, sharedCache, tenant.MiddlewareConfig{
 		AllowHeaderHint: b.cfg.TenantSettings.AllowHeaderHint,

@@ -72,5 +72,12 @@
     "devCode": "Development code",
     "back": "Back"
   },
-  "logoAlt": "GodarAI logo"
+  "logoAlt": "GodarAI logo",
+  "oidc": {
+    "continueTo": "Sign in with your Godar account to continue to {client}.",
+    "errors": {
+      "expired": "This sign-in request has expired or was already used. Return to the application and start signing in again.",
+      "unavailable": "Sign-in to the application is temporarily unavailable. Please try again in a few minutes."
+    }
+  }
 }
