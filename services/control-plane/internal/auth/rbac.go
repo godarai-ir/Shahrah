@@ -686,17 +686,23 @@ func normalizeRole(role string) string {
 	}
 }
 
+// normalizeRoute canonicalizes a request path so RBAC rules match the same
+// requests the Fiber router does. The router is case-insensitive and ignores
+// trailing slashes (CaseSensitive and StrictRouting are off), so the path is
+// lowercased and trailing slashes are trimmed. Any query string is preserved.
 func normalizeRoute(route string) string {
-	trimmed := strings.TrimSpace(route)
-	if trimmed == "" {
-		return "/"
+	path, query, hasQuery := strings.Cut(strings.TrimSpace(route), "?")
+
+	path = strings.ToLower(strings.TrimRight(path, "/"))
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
 
-	if !strings.HasPrefix(trimmed, "/") {
-		return "/" + trimmed
+	if hasQuery {
+		return path + "?" + query
 	}
 
-	return trimmed
+	return path
 }
 
 func isProviderAccountDeleteRoute(route string) bool {

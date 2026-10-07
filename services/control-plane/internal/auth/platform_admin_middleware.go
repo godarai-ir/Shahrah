@@ -52,6 +52,9 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 }
 
 func RequiredPlatformScope(method, path string) string {
+	// Fiber routes case-insensitively, so scope selection must too.
+	path = strings.ToLower(path)
+
 	if strings.Contains(path, "/support/tickets") || strings.Contains(path, "/support/ticket-attachments") {
 		if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 			return PlatformScopeSupportTicketRead

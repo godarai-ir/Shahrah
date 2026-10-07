@@ -177,19 +177,31 @@ func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// authRejection describes an authentication or authorization failure that must
+// terminate the request. Helpers return it instead of writing the response so a
+// rejection can never be mistaken for "continue" and fall through to c.Next().
+type authRejection struct {
+	status  int
+	message string
+	errType string
+}
+
+func rejectAuth(status int, message, errType string) *authRejection {
+	return &authRejection{status: status, message: message, errType: errType}
+}
+
+func (r *authRejection) write(c *fiber.Ctx) error {
+	return writeAuthError(c, r.status, r.message, r.errType)
+}
+
 func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
-	keyInfo, err := m.lookupAuthContext(c, apiKey)
-	if err != nil {
-		return err
+	keyInfo, rejection := m.lookupAuthContext(c, apiKey)
+	if rejection != nil {
+		return rejection.write(c)
 	}
 
-	if keyInfo == nil {
-		// lookupAuthContext already wrote the response for handled auth failures.
-		return nil
-	}
-
-	if err := m.authorizeAndStoreAuthContext(c, keyInfo); err != nil {
-		return err
+	if rejection := m.authorizeAndStoreAuthContext(c, keyInfo); rejection != nil {
+		return rejection.write(c)
 	}
 
 	m.logger.Debug("Authentication successful",
@@ -202,34 +214,41 @@ func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
 	return c.Next()
 }
 
-func (m *AuthMiddleware) lookupAuthContext(c *fiber.Ctx, apiKey string) (*platform.AuthContext, error) {
+// lookupAuthContext resolves the auth context for an API key. It returns either a
+// non-nil auth context or a non-nil rejection, never both and never neither.
+func (m *AuthMiddleware) lookupAuthContext(c *fiber.Ctx, apiKey string) (*platform.AuthContext, *authRejection) {
 	hash := HashKey(apiKey)
 
-	if keyInfo, handled, err := m.lookupRuntimeProfileAuthContext(c, hash); handled || err != nil {
-		return keyInfo, err
+	keyInfo, handled, rejection := m.lookupRuntimeProfileAuthContext(c, hash)
+	if rejection != nil {
+		return nil, rejection
 	}
 
-	keyInfo, err := m.keyStore.GetKeyByHash(c.Context(), hash)
-	if err != nil {
-		if isInvalidAPIKeyLookup(err) {
-			return nil, writeAuthError(c, fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
+	if !handled {
+		var err error
+
+		keyInfo, err = m.keyStore.GetKeyByHash(c.Context(), hash)
+		if err != nil {
+			if isInvalidAPIKeyLookup(err) {
+				return nil, rejectAuth(fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
+			}
+
+			m.logger.Error("API key lookup failed", zap.Error(err))
+
+			return nil, rejectAuth(fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
 		}
-
-		m.logger.Error("API key lookup failed", zap.Error(err))
-
-		return nil, writeAuthError(c, fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
 	}
 
 	if keyInfo == nil {
 		m.logger.Error("API key lookup returned nil auth context")
 
-		return nil, writeAuthError(c, fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
+		return nil, rejectAuth(fiber.StatusInternalServerError, "Authentication lookup failed", "server_error")
 	}
 
 	return keyInfo, nil
 }
 
-func (m *AuthMiddleware) lookupRuntimeProfileAuthContext(c *fiber.Ctx, hash string) (*platform.AuthContext, bool, error) {
+func (m *AuthMiddleware) lookupRuntimeProfileAuthContext(c *fiber.Ctx, hash string) (*platform.AuthContext, bool, *authRejection) {
 	if m.runtimeProfiles == nil {
 		return nil, false, nil
 	}
@@ -245,27 +264,27 @@ func (m *AuthMiddleware) lookupRuntimeProfileAuthContext(c *fiber.Ctx, hash stri
 	}
 
 	if errors.Is(err, runtimeprofile.ErrAuthNotFound) {
-		return nil, true, writeAuthError(c, fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
+		return nil, true, rejectAuth(fiber.StatusUnauthorized, "Invalid API key", "authentication_error")
 	}
 
 	m.logger.Warn("runtime profile auth lookup unavailable", zap.Error(err), zap.String("tenant_id", currentTenant.ID))
 
-	return nil, true, writeAuthError(c, fiber.StatusServiceUnavailable, "Tenant runtime profile unavailable", "server_error")
+	return nil, true, rejectAuth(fiber.StatusServiceUnavailable, "Tenant runtime profile unavailable", "server_error")
 }
 
-func (m *AuthMiddleware) authorizeAndStoreAuthContext(c *fiber.Ctx, keyInfo *platform.AuthContext) error {
+func (m *AuthMiddleware) authorizeAndStoreAuthContext(c *fiber.Ctx, keyInfo *platform.AuthContext) *authRejection {
 	if keyInfo.Blocked {
-		return writeAuthError(c, fiber.StatusForbidden, "API key has been blocked", "authorization_error")
+		return rejectAuth(fiber.StatusForbidden, "API key has been blocked", "authorization_error")
 	}
 
 	if keyInfo.ExpiresAt != nil && time.Now().After(*keyInfo.ExpiresAt) {
-		return writeAuthError(c, fiber.StatusUnauthorized, "API key has expired", "authentication_error")
+		return rejectAuth(fiber.StatusUnauthorized, "API key has expired", "authentication_error")
 	}
 
 	c.Locals(AuthContextKey{}, keyInfo)
 
 	if err := CheckRouteAuthorization(c.Method(), c.Path(), keyInfo); err != nil {
-		return writeAuthError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+		return rejectAuth(fiber.StatusForbidden, err.Error(), "authorization_error")
 	}
 
 	return nil
