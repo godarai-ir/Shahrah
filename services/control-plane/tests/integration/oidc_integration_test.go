@@ -148,11 +148,16 @@ func TestIntegration_OIDCProviderPersistsTheFullGrantLifecycle(t *testing.T) {
 	_, err = service.Token(ctx, tenant, refresh)
 	require.True(t, oidc.IsProtocolError(err), "replaying the code revoked its refresh token")
 
-	_, err = pool.Exec(ctx, `UPDATE users SET active = false WHERE user_id = $1::uuid`, userID)
+	// Deactivation goes through the tenant-admin path, which drops the member's sessions and
+	// this replica's authorization cache, so the outstanding access token stops working.
+	_, err = store.SetTenantAdminUserActive(ctx, slug, userID, false)
 	require.NoError(t, err)
 
 	_, err = service.AuthenticateAccessToken(ctx, tenantID, tokens.AccessToken)
 	require.True(t, oidc.IsProtocolError(err), "deactivated members lose gateway access")
+
+	_, err = service.AcceptLogin(ctx, slug, "missing-request", session.ID)
+	require.ErrorIs(t, err, oidc.ErrRequestNotFound)
 }
 
 func TestIntegration_OIDCRefreshRotationRevokesTheGrantOnReplay(t *testing.T) {
