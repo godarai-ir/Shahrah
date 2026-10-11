@@ -232,5 +232,19 @@
       "createdAt": "Submitted",
       "empty": "No discount has been used yet."
     }
+  },
+  "credits": {
+    "title": "Usage in credits (preview)",
+    "description": "What this month's usage would have been if billing were in credits. These figures are for comparison only and are not deducted from the wallet.",
+    "badge": "Shadow mode",
+    "unit": "credits",
+    "total": "Credits used this month",
+    "cacheSaved": "Credits saved by cache",
+    "byModel": "Top models",
+    "byTeam": "Top teams",
+    "noTeam": "No team",
+    "emptyTitle": "No usage yet",
+    "emptyDescription": "Once a request is sent this month, its credit equivalent appears here.",
+    "requestCount": "{count} requests"
   }
 }

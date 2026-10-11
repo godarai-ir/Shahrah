@@ -4,6 +4,8 @@ import {
   buildBankTransferPayload,
   buildBillingMonthlyPath,
   buildBillingSummaryPath,
+  buildControlPlaneCreditSummaryPath,
+  formatCreditAmount,
   formatDateOnly,
   getCurrentJalaliDateValue,
   getCurrentJalaliMonthRange,
@@ -25,6 +27,18 @@ describe("billing jalali helpers", () => {
   it("builds explicit Jalali billing report queries", () => {
     expect(buildBillingSummaryPath("current_month")).toBe("/api/billing/reports/summary?preset=current_month");
     expect(buildBillingMonthlyPath({ year: 1405, month: 4 })).toBe("/api/billing/reports/monthly?jalali_year=1405&jalali_month=4");
+  });
+
+  it("builds the credit summary query", () => {
+    expect(buildControlPlaneCreditSummaryPath("current_month")).toBe("/api/v1/billing/credits/summary?preset=current_month");
+  });
+
+  it("formats credit amounts with two decimals and locale digits", () => {
+    expect(formatCreditAmount("4.5", "en")).toBe("4.50");
+    expect(formatCreditAmount("190000", "en")).toBe("190,000.00");
+    expect(formatCreditAmount("4.50", "fa")).toBe("۴٫۵۰");
+    expect(formatCreditAmount("not-a-number", "en")).toBe("0.00");
+    expect(formatCreditAmount(undefined, "en")).toBe("0.00");
   });
 
   it("normalizes Jalali bank transfer payloads", () => {

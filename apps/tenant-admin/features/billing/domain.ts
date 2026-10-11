@@ -163,6 +163,16 @@ function financialNumberFormatter(locale: string) {
   return cached(numberFormatters, intlLocale, () => new Intl.NumberFormat(intlLocale));
 }
 
+const creditNumberFormatters = new Map<string, Intl.NumberFormat>();
+
+function creditNumberFormatter(locale: string) {
+  const intlLocale = getIntlLocale(locale);
+  return cached(creditNumberFormatters, intlLocale, () => new Intl.NumberFormat(intlLocale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }));
+}
+
 function financialDateTimeFormatter(locale: string) {
   const calendarLocale = financialCalendarLocale(locale);
   return cached(dateTimeFormatters, calendarLocale, () => new Intl.DateTimeFormat(calendarLocale, {
@@ -273,6 +283,19 @@ export function buildBillingSummaryPath(preset: BillingSummaryPreset) {
 
 export function buildControlPlaneBillingSummaryPath(preset: BillingSummaryPreset) {
   return `/api/v1/billing/reports/summary?preset=${encodeURIComponent(preset)}`;
+}
+
+export function buildControlPlaneCreditSummaryPath(preset: BillingSummaryPreset) {
+  return `/api/v1/billing/credits/summary?preset=${encodeURIComponent(preset)}`;
+}
+
+/**
+ * Formats a decimal credit amount (wire format "4.50") with exactly two
+ * decimals and locale digits; callers append the localized unit.
+ */
+export function formatCreditAmount(value: string | number | undefined | null, locale: AppLocale = DEFAULT_LOCALE) {
+  const amount = Number(value ?? 0);
+  return creditNumberFormatter(locale).format(Number.isFinite(amount) ? amount : 0);
 }
 
 export function buildBillingMonthlyPath(selection: JalaliMonthSelection) {
