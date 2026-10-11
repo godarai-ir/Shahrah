@@ -35,3 +35,27 @@ const (
 	CreditRatePer1KToken = "1k_tokens"
 	CreditRatePer1KChars = "1k_characters"
 )
+
+// CreditUsageSummary reports credit consumption for a tenant over a report
+// window. In shadow mode credits are computed but not charged.
+type CreditUsageSummary struct {
+	Available         bool              `json:"available"`
+	ShadowMode        bool              `json:"shadow_mode"`
+	Preset            string            `json:"preset"`
+	PeriodStart       time.Time         `json:"period_start"`
+	PeriodEnd         time.Time         `json:"period_end"`
+	TotalCredits      string            `json:"total_credits"`
+	CacheSavedCredits string            `json:"cache_saved_credits"`
+	RequestCount      int64             `json:"request_count"`
+	ByModel           []CreditUsageItem `json:"by_model"`
+	ByTeam            []CreditUsageItem `json:"by_team"`
+	ByProduct         []CreditUsageItem `json:"by_product"`
+}
+
+// CreditUsageItem is one grouped row of a credit usage summary.
+type CreditUsageItem struct {
+	Key          string `json:"key"`
+	Label        string `json:"label,omitempty"`
+	Credits      string `json:"credits"`
+	RequestCount int64  `json:"request_count"`
+}
