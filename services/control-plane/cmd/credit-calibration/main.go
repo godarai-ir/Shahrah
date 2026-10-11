@@ -36,7 +36,7 @@ const calibrationQuery = `
 `
 
 func main() {
-	dsn := flag.String("dsn", os.Getenv("CLICKHOUSE_DSN"), "ClickHouse DSN (defaults to CLICKHOUSE_DSN)")
+	dsn := flag.String("dsn", "", "ClickHouse DSN, for example clickhouse://127.0.0.1:9000 (required)")
 	days := flag.Int("days", 90, "look-back window in days")
 	outDir := flag.String("out", "output/credit-calibration", "output directory")
 
@@ -49,7 +49,7 @@ func main() {
 
 func run(dsn string, days int, outDir string) error {
 	if strings.TrimSpace(dsn) == "" {
-		return errors.New("a ClickHouse DSN is required (--dsn or CLICKHOUSE_DSN)")
+		return errors.New("a ClickHouse DSN is required (--dsn)")
 	}
 
 	if days < 31 {

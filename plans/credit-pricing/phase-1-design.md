@@ -1,6 +1,6 @@
 # Phase 1 Design: Credit Core, Rate Card, Shadow Mode
 
-Status: in progress · Branch: `feat/credits-phase-1-core`
+Status: implemented except on-behalf-of (awaiting decisions) · Branch: `feat/credits-phase-1-core`
 Prompt: `plans/credit-pricing-execution-prompt.md` §6 Phase 1
 
 ## Goal
@@ -170,12 +170,55 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
 
 ## Decisions Made
 
-1. On-behalf-of is a VAT capability, not a new key type (see above).
+1. On-behalf-of is a VAT capability, not a new key type (see above). **Not implemented
+   yet**: see Open Issues.
 2. Rate-card version = multiplier set + changelog. Provider prices stay versioned by
    `PricingRevision`.
-3. The `float_fallback` source is allowed in shadow mode only.
+3. The `float_fallback` source is allowed in shadow mode only. A zero-cost request
+   with no breakdown (cache hit, blocked request) is labelled `no_cost`, so it does
+   not inflate the fallback ratio used by Gate 1.
+4. Multiplier key = canonical `provider/model-id` (lower-case, `tenant:account:` prefix
+   and duplicated provider prefix stripped). The DB check constraint enforces the
+   normalized form.
+5. Two credit grades:
+   - **Ledger grade**, on `spend_logs`: computed from decimal cost components by
+     `CreditShadowSpendLogger`.
+   - **Analytics grade**, on ClickHouse `gateway_model_events`: computed from the
+     event's `cost_usd` in the metrics emitter, which avoids touching ~20 metric
+     call sites.
+
+   They agree except for float rounding of `cost_usd`, and Phase 2 consume entries
+   use the ledger grade. `request_logs_ch` is unchanged.
+6. The ClickHouse credit columns are optional. The control plane detects them at
+   startup and writes them only when present, so the rollout order is not a hard
+   dependency.
+7. The response credit surface is a `/v1` middleware that puts the rate-card
+   provider in `fiber` Locals. That avoids changing the signature of
+   `setCostHeaders` (17 call sites) and avoids global state. Stream handlers
+   capture the provider before the body stream writer starts.
+8. The tenant summary endpoint is `GET /api/v1/billing/credits/summary?preset=`. It
+   reuses the Jalali `BillingReportWindow` presets and sits next to the existing
+   billing reports, instead of the `/api/v1/credits/shadow-summary` path planned
+   above.
+9. OIDC `sub` is the GodarAI `user_id` (`internal/oidc/access.go`). This resolves
+   prompt §8.2: on-behalf-of carries a user id.
+10. Calibration months are calendar months in Asia/Tehran (not Jalali). Partial months
+    are excluded.
+
+## Measurements
+
+- `BenchmarkFromBreakdown` (5 components plus a multiplier): about 16 µs/op, 72
+  allocs. At most three computations per request (header, spend log, metric), so
+  roughly 50 µs, well inside the 1 ms Gate 1 budget.
 
 ## Open Issues
 
-- OIDC `sub` ↔ LibreChat `OPENIDID` (prompt §8.2). It does not block Phase 1 math or
-  shadow work.
+- **On-behalf-of** needs three product decisions before it is built:
+  1. Who may enable the capability on a VAT.
+  2. Whose model allowlist applies: the service key's, the user's, or the
+     intersection.
+  3. How to attribute a team when the user belongs to several teams.
+- The gitops `migrate-clickhouse` job must include `006_gateway_model_event_credits.sql`.
+- Pre-existing, not addressed here: the `registerProxyRoutes` gocyclo limit (53 > 50),
+  gofmt drift in `pricing_strategy_catalog_tokens.go`, tenant-admin cross-feature
+  import violations, and duplicate `@types/react` copies breaking `tsc`.
