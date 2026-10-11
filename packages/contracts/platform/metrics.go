@@ -38,6 +38,10 @@ type ModelMetricEvent struct {
 	AvoidedCostIRR       float64                `json:"avoided_cost_irr"`
 	EmbeddingCostUSD     float64                `json:"embedding_cost_usd"`
 	PricingVersion       string                 `json:"pricing_version,omitempty"`
+	CreditsMC            int64                  `json:"credits_mc,omitempty"`
+	CreditsAvoidedMC     int64                  `json:"credits_avoided_mc,omitempty"`
+	CreditProduct        string                 `json:"credit_product,omitempty"`
+	RateCardVersion      int                    `json:"rate_card_version,omitempty"`
 	Metadata             map[string]interface{} `json:"metadata,omitempty"`
 }
 

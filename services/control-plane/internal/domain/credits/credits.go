@@ -32,6 +32,8 @@ const (
 	// SourceFloatFallback means the breakdown had no components and the float
 	// USD total was used. It is acceptable for shadow mode only.
 	SourceFloatFallback Source = "float_fallback"
+	// SourceNoCost means the request carried no billable cost (for example a cache hit).
+	SourceNoCost Source = "no_cost"
 )
 
 // creditsPerUSD is the fixed conversion factor. It is internal and must not be
@@ -78,9 +80,13 @@ func RoundUp(exact decimal.Decimal) Millicredits {
 
 // FromBreakdown computes the credit charge for a priced usage breakdown.
 func FromBreakdown(breakdown platform.UsageCostBreakdown, card RateCard) (Charge, error) {
-	multiplier := card.Multiplier(breakdown.Model)
+	multiplier := card.Multiplier(breakdownModelKey(breakdown))
 
 	if len(breakdown.Components) == 0 {
+		if breakdown.TotalCostUSD == 0 {
+			return Charge{Exact: decimal.Zero, Source: SourceNoCost, RateCardVersion: card.Version}, nil
+		}
+
 		if breakdown.TotalCostUSD < 0 {
 			return Charge{}, fmt.Errorf("%w: negative total cost", ErrInvalidCost)
 		}
@@ -108,6 +114,15 @@ func FromBreakdown(breakdown platform.UsageCostBreakdown, card RateCard) (Charge
 		Source:          SourceComponents,
 		RateCardVersion: card.Version,
 	}, nil
+}
+
+// breakdownModelKey returns the multiplier key for a priced breakdown.
+func breakdownModelKey(breakdown platform.UsageCostBreakdown) string {
+	if breakdown.PricingSnapshot != nil && breakdown.PricingSnapshot.Provider != "" {
+		return ModelKey(breakdown.PricingSnapshot.Provider, breakdown.Model)
+	}
+
+	return NormalizeModel(breakdown.Model)
 }
 
 // ComponentsUSD sums the decimal USD cost of every usage component.

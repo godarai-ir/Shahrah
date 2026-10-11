@@ -6,6 +6,7 @@
 3. `003_mv_gateway_model_metrics_1m.sql`
 4. `004_observability_runtime_schema.sql`
 5. `005_gateway_model_event_id.sql`
+6. `006_gateway_model_event_credits.sql` (shadow credit columns; optional for control-plane startup, written only once present)
 
 ## Rollback Notes
 - Safest rollback order:

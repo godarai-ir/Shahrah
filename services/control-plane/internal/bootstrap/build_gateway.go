@@ -156,6 +156,8 @@ func (b *builder) buildGateway() error {
 		PlatformServiceAccounts:           b.store.PlatformServiceAccountRepository,
 		ExchangeRates:                     b.store.ExchangeRateRepository,
 		GatewayMaxInFlight:                &b.cfg.Runtime.GatewayMaxInFlight,
+		CreditSurface:                     b.creditSurfaceMiddleware(),
+		RateCardHandler:                   proxy.NewRateCardHandler(b.billing, b.creditRateCards),
 	}
 
 	return nil

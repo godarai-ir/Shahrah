@@ -35,8 +35,18 @@ func (s *MetricsRepository) ensureClickHouseMetricsSchema(ctx context.Context) e
 		return err
 	}
 
-	return s.validateClickHouseObject(ctx, "mv_gateway_model_metrics_1m")
+	if err := s.validateClickHouseObject(ctx, "mv_gateway_model_metrics_1m"); err != nil {
+		return err
+	}
+
+	// Credit columns are optional so the control plane can roll out before the
+	// ClickHouse credit migration; events are written without credits until then.
+	s.clickhouseMetricCredits = s.validateClickHouseColumns(ctx, "gateway_model_events", modelMetricCreditColumns) == nil
+
+	return nil
 }
+
+var modelMetricCreditColumns = []string{"credits_mc", "credits_avoided_mc", "credit_product", "rate_card_version"}
 
 const modelMetricInsertColumns = `
 	event_id, ts, tenant_id, request_id, model_name, virtual_model_name, provider_name, provider_model_name,
@@ -55,17 +65,28 @@ func (s *MetricsRepository) insertModelMetricEvents(ctx context.Context, events 
 		return nil
 	}
 
+	columns, placeholders, argCount := modelMetricInsertColumns, modelMetricInsertPlaceholders, modelMetricInsertArgCount
+	if s.clickhouseMetricCredits {
+		columns += ", " + strings.Join(modelMetricCreditColumns, ", ")
+		placeholders = strings.TrimSuffix(placeholders, ")") + ", ?, ?, ?, ?)"
+		argCount += len(modelMetricCreditColumns)
+	}
+
 	values := make([]string, 0, len(events))
 
-	args := make([]interface{}, 0, len(events)*modelMetricInsertArgCount)
+	args := make([]interface{}, 0, len(events)*argCount)
 	for _, ev := range events {
-		values = append(values, modelMetricInsertPlaceholders)
+		values = append(values, placeholders)
 		args = append(args, modelMetricInsertArgs(ev)...)
+
+		if s.clickhouseMetricCredits {
+			args = append(args, ev.CreditsMC, ev.CreditsAvoidedMC, ev.CreditProduct, uint32(max(ev.RateCardVersion, 0)))
+		}
 	}
 
 	insertSQL := fmt.Sprintf(
 		"INSERT INTO gateway_model_events (%s) VALUES %s",
-		modelMetricInsertColumns,
+		columns,
 		strings.Join(values, ", "),
 	)
 

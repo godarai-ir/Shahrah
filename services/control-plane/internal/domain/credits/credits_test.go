@@ -188,6 +188,43 @@ func TestFromBreakdownAppliesModelMultiplier(t *testing.T) {
 	}
 }
 
+func TestFromBreakdownMultiplierUsesCanonicalKey(t *testing.T) {
+	t.Parallel()
+
+	card := RateCard{Version: 2, Multipliers: map[string]decimal.Decimal{"xai/grok-4.7": decimal.RequireFromString("2")}}
+	breakdown := platform.UsageCostBreakdown{
+		Model:           "tenant:account:grok-4.7",
+		PricingSnapshot: &platform.UsagePricingSnapshot{Provider: "xai"},
+		Components:      []platform.UsageCostComponent{{Dimension: "input_tokens", CostUSD: "0.01"}},
+	}
+
+	charge, err := FromBreakdown(breakdown, card)
+	if err != nil {
+		t.Fatalf("FromBreakdown: %v", err)
+	}
+
+	if charge.Millicredits != 10000 {
+		t.Fatalf("charge = %d mc, want 10000 (multiplier 2)", charge.Millicredits)
+	}
+}
+
+func TestModelKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct{ provider, model, want string }{
+		{provider: "anthropic", model: "claude-sonnet-5", want: "anthropic/claude-sonnet-5"},
+		{provider: "Anthropic", model: "anthropic/Claude-Sonnet-5", want: "anthropic/claude-sonnet-5"},
+		{provider: "xai", model: "t:a:grok-4.7", want: "xai/grok-4.7"},
+		{provider: "", model: " M ", want: "m"},
+	}
+
+	for _, tt := range tests {
+		if got := ModelKey(tt.provider, tt.model); got != tt.want {
+			t.Fatalf("ModelKey(%q, %q) = %q, want %q", tt.provider, tt.model, got, tt.want)
+		}
+	}
+}
+
 func TestFromBreakdownFloatFallback(t *testing.T) {
 	t.Parallel()
 
@@ -198,6 +235,19 @@ func TestFromBreakdownFloatFallback(t *testing.T) {
 
 	if charge.Source != SourceFloatFallback || charge.Millicredits != 9000 {
 		t.Fatalf("charge = %+v, want float fallback of 9000 mc", charge)
+	}
+}
+
+func TestFromBreakdownNoCost(t *testing.T) {
+	t.Parallel()
+
+	charge, err := FromBreakdown(platform.UsageCostBreakdown{}, IdentityRateCard())
+	if err != nil {
+		t.Fatalf("FromBreakdown: %v", err)
+	}
+
+	if charge.Source != SourceNoCost || charge.Millicredits != 0 {
+		t.Fatalf("charge = %+v, want zero no_cost charge", charge)
 	}
 }
 

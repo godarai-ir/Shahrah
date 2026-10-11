@@ -1150,6 +1150,7 @@ func (h *ChatCompletionHandler) handleStream(
 	tenantSlug string,
 ) error {
 	includeStreamTelemetry := strings.EqualFold(strings.TrimSpace(c.Get(apiheaders.HeaderStreamTelemetry)), "true")
+	streamCreditRateCards := creditSurface(c)
 	providerStart := time.Now()
 
 	stream, tunnelReq, estimated, err := h.dispatchChatStream(c, authInfo.TenantID, req, estimated, tunnelReq)
@@ -1365,7 +1366,7 @@ func (h *ChatCompletionHandler) handleStream(
 			if completionCapture.Completed() {
 				finalCost := finalizeAndLogSuccess()
 				if includeStreamTelemetry {
-					if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
+					if writeErr := writeStreamTelemetryEvent(w, finalCost, creditsUsed(streamCreditRateCards, finalCost)); writeErr != nil {
 						h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 					}
 				}
@@ -1445,7 +1446,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(streamData) {
 						finalCost := finalizeAndLogSuccess()
-						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
+						if writeErr := writeStreamTelemetryEvent(w, finalCost, creditsUsed(streamCreditRateCards, finalCost)); writeErr != nil {
 							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							return
 						}
@@ -1881,12 +1882,13 @@ func isStreamDoneMarker(data []byte) bool {
 	return trimmed == "[DONE]" || trimmed == "data: [DONE]"
 }
 
-func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown) error {
+func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown, creditsText string) error {
 	payload, err := json.Marshal(struct {
 		Object  string                `json:"object"`
 		Usage   contractsopenai.Usage `json:"usage"`
 		CostUSD float64               `json:"cost_usd"`
 		CostIRR float64               `json:"cost_irr"`
+		Credits string                `json:"credits,omitempty"`
 	}{
 		Object: "godarai.telemetry",
 		Usage: contractsopenai.Usage{
@@ -1896,6 +1898,7 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 		},
 		CostUSD: cost.TotalCostUSD,
 		CostIRR: cost.TotalCostIRR,
+		Credits: creditsText,
 	})
 	if err != nil {
 		return err

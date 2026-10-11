@@ -182,9 +182,31 @@ type SpendLog struct {
 	RequestMetadata map[string]interface{} `json:"request_metadata,omitempty"`
 	UsageBreakdown  *UsageCostBreakdown    `json:"usage_breakdown,omitempty"`
 	PricingSnapshot *UsagePricingSnapshot  `json:"pricing_snapshot,omitempty"`
+	Credits         *SpendLogCredits       `json:"credits,omitempty"`
 	CompletionStart time.Time              `json:"completion_start_time"`
 	CompletionEnd   time.Time              `json:"completion_end_time"`
 }
+
+// SpendLogCredits is the credit computation attached to one spend log.
+type SpendLogCredits struct {
+	Millicredits        int64  `json:"credits_mc"`
+	AvoidedMillicredits int64  `json:"credits_avoided_mc,omitempty"`
+	RateCardVersion     int    `json:"rate_card_version"`
+	Product             string `json:"product"`
+	BillingMode         string `json:"billing_mode,omitempty"`
+	Source              string `json:"credit_source"`
+}
+
+// Credit product labels identify which GodarAI surface produced usage.
+const (
+	CreditProductGateway       = "gateway"
+	CreditProductLibreChat     = "librechat"
+	CreditProductGuardrail     = "guardrail"
+	CreditProductSemanticCache = "semantic_cache"
+	CreditProductEmbeddings    = "embeddings"
+	CreditProductOCR           = "ocr"
+	CreditProductPlayground    = "playground"
+)
 
 // UsageCostBreakdown captures estimated or final cost.
 type UsageCostComponent struct {

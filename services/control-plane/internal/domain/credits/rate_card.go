@@ -47,6 +47,22 @@ func NormalizeModel(model string) string {
 	return strings.ToLower(strings.TrimSpace(model))
 }
 
+// ModelKey returns the canonical "provider/model" multiplier key. It strips a
+// "tenant:account:" deployment prefix and a duplicated provider prefix.
+func ModelKey(provider, model string) string {
+	value := NormalizeModel(model)
+	if strings.Count(value, ":") == 2 {
+		value = value[strings.LastIndex(value, ":")+1:]
+	}
+
+	provider = NormalizeModel(provider)
+	if provider == "" {
+		return value
+	}
+
+	return provider + "/" + strings.TrimPrefix(value, provider+"/")
+}
+
 // RatePer1K converts a per-token USD price into exact millicredits per 1,000 tokens.
 func (r RateCard) RatePer1K(model string, unitPriceUSD decimal.Decimal) decimal.Decimal {
 	return ExactFromUSD(unitPriceUSD.Mul(decimal.NewFromInt(1000)), r.Multiplier(model))
