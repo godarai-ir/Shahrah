@@ -29,20 +29,20 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DataTable } from "@/components/ui/data-table";
 import { useCalendarLocale } from "@/hooks/use-locale-format";
-import { listTenantKeys, type TenantKey } from "@/features/access-keys/api";
-import type { PermissionItem } from "@/features/roles/contracts";
-import { hiddenRolesInUI, resolveRoleDisplayName } from "@/features/roles/role-display";
+import { listTenantKeys, type TenantKey } from "@/lib/api/access-keys";
+import type { PermissionItem } from "@/lib/contracts/roles";
+import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { hiddenRolesInUI, resolveRoleDisplayName } from "@/lib/access/role-display";
+import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 import { MemberDetailSheet } from "./member-detail-sheet";
 import {
   filterMembers,
-  guessDisplayName,
   hasTenantAdminRole,
   isUserActive,
   listUserRoleNames,
-  resolveIdentity,
 } from "./member-filters";
 import { parseUsersURLState, patchUsersURL, type MemberStatusFilter } from "./url-state";
 import {
@@ -54,7 +54,6 @@ import {
   setUserActive,
   type EffectiveEntitlements,
   type RoleDefinition,
-  type TenantAdminUser,
 } from "./api";
 
 type Banner = {

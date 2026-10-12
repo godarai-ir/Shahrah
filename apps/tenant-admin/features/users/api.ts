@@ -1,19 +1,7 @@
 import { z } from "zod";
 
+import { tenantAdminUserSchema } from "@/lib/contracts/tenant-users";
 import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
-
-const tenantAdminUserSchema = z.object({
-  id: z.string(),
-  tenant_slug: z.string(),
-  email: z.string().optional(),
-  mobile: z.string().optional(),
-  role: z.string(),
-  roles: z.array(z.string()).optional(),
-  active: z.boolean(),
-  last_login_at: z.string().optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
 
 const userListSchema = z.object({
   data: z.array(tenantAdminUserSchema).optional(),
@@ -46,7 +34,6 @@ const effectiveEntitlementsSchema = z.object({
   features: z.record(z.string(), z.unknown()).optional(),
 }).nullable();
 
-export type TenantAdminUser = z.infer<typeof tenantAdminUserSchema>;
 export type RoleDefinition = z.infer<typeof roleDefinitionSchema>;
 export type EffectiveEntitlements = z.infer<typeof effectiveEntitlementsSchema>;
 

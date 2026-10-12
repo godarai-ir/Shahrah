@@ -25,10 +25,10 @@ import {
   getPermissionEditorLabels,
   getPermissionSummaryLabels,
   translatePermissionDescription,
-  translatePermissionGroup,
 } from "./permissions";
+import { translatePermissionGroup } from "@/lib/access/permission-groups";
 import { updateRole } from "./api";
-import type { PermissionItem, RoleDefinition } from "./contracts";
+import type { PermissionItem, RoleDefinition } from "@/lib/contracts/roles";
 import { getLocaleDirection } from "@/lib/locale-direction";
 
 type RoleEditManagementProps = {

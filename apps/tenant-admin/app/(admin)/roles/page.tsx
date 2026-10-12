@@ -2,7 +2,7 @@ import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import RolesPermissionsManagement from "@/features/roles/RolesPermissionsManagement";
-import { mePermissionsResponseSchema, roleListSchema } from "@/features/roles/contracts";
+import { mePermissionsResponseSchema, roleListSchema } from "@/lib/contracts/roles";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";

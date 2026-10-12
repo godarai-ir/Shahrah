@@ -26,7 +26,7 @@ import {
   revokeAllPersonalAccessTokens,
   revokePersonalAccessToken,
   type PersonalAccessToken as PAT,
-} from "./api";
+} from "@/lib/api/personal-access-tokens";
 
 type Banner = { kind: "success" | "error"; message: string };
 type DeleteIntent =

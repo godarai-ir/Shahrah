@@ -7,7 +7,7 @@ import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { parseUserListPayload } from "@/features/users/api";
-import { mePermissionsResponseSchema } from "@/features/roles/contracts";
+import { mePermissionsResponseSchema } from "@/lib/contracts/roles";
 import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";

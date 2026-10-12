@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AccessKeysManagement from "./AccessKeysManagement";
-import type { TenantKey } from "./api";
+import type { TenantKey } from "@/lib/api/access-keys";
 
 const tMock = (key: string, values?: Record<string, unknown>) => {
   if (!values) return key;

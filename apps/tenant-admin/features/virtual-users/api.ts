@@ -1,19 +1,7 @@
 import { z } from "zod";
 
+import { virtualUserSchema } from "@/lib/contracts/virtual-users";
 import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
-
-const virtualUserSchema = z.object({
-  id: z.string(),
-  tenant_id: z.string(),
-  alias: z.string(),
-  display_name: z.string().optional(),
-  org_unit_id: z.string().optional(),
-  team_id: z.string().optional(),
-  active: z.boolean(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
 
 const vatTokenSchema = z.object({
   id: z.string(),
@@ -38,7 +26,6 @@ const vatTokenListSchema = z.object({ data: z.array(vatTokenSchema).optional(), 
 const allowedModelListSchema = z.object({ data: z.array(z.object({ id: z.string() })).optional() });
 const entitlementSchema = z.object({ features: z.record(z.string(), z.unknown()).optional() }).nullable();
 
-export type VirtualUser = z.infer<typeof virtualUserSchema>;
 export type VATToken = z.infer<typeof vatTokenSchema>;
 export type EffectiveEntitlements = z.infer<typeof entitlementSchema>;
 export type VirtualUserPayload = {

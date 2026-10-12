@@ -1,4 +1,4 @@
-import type { PermissionItem } from "./contracts";
+import type { PermissionItem } from "@/lib/contracts/roles";
 
 export type PermissionGrant = {
   key: string;

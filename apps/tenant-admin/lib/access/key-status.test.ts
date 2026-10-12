@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { TenantKey } from "./api";
+import type { TenantKey } from "@/lib/api/access-keys";
 import {
   countActiveKeys,
   listKeysOwnedByMember,

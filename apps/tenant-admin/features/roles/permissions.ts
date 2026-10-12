@@ -1,25 +1,8 @@
 import { type PermissionEditorLabels, type PermissionOption } from "@/components/app-ui/PermissionEditor";
 import { type PermissionSummaryLabels } from "@/components/app-ui/PermissionSummary";
-
-/** Translator bound to the `accessManagement` namespace. */
-export type AccessTranslator = (key: string, values?: Record<string, string | number>) => string;
+import type { AccessTranslator } from "@/lib/access/permission-groups";
 
 const REMOVED_PERMISSIONS = new Set(["provider_account:use_integrations"]);
-
-const PERMISSION_GROUPS = new Set([
-  "policies",
-  "roles",
-  "users",
-  "teams",
-  "organization_units",
-  "virtual_accounts",
-  "provider_accounts",
-  "settings",
-  "logs",
-  "billing",
-  "support",
-  "other",
-]);
 
 const PERMISSION_RESOURCES = new Set([
   "policy",
@@ -82,11 +65,6 @@ export function getPermissionSummaryLabels(t: AccessTranslator): PermissionSumma
     clearAll: t("permissionSummary.clearAll"),
     empty: t("permissionSummary.empty"),
   };
-}
-
-/** Falls back to the raw group name when the control plane adds a new group. */
-export function translatePermissionGroup(group: string, t: AccessTranslator): string {
-  return PERMISSION_GROUPS.has(group) ? t(`permissionGroups.${group}`) : group.replaceAll("_", " ");
 }
 
 /**

@@ -13,15 +13,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCalendarLocale } from "@/hooks/use-locale-format";
-import { collectEffectivePermissions } from "@/features/roles/effective-permissions";
-import { resolveRoleDisplayName } from "@/features/roles/role-display";
-import { translatePermissionGroup } from "@/features/roles/permissions";
-import type { PermissionItem } from "@/features/roles/contracts";
-import { countActiveKeys, listKeysOwnedByMember, resolveLastKeyUse } from "@/features/access-keys/key-status";
-import type { TenantKey } from "@/features/access-keys/api";
+import { collectEffectivePermissions } from "@/lib/access/effective-permissions";
+import { resolveRoleDisplayName } from "@/lib/access/role-display";
+import { translatePermissionGroup } from "@/lib/access/permission-groups";
+import type { PermissionItem } from "@/lib/contracts/roles";
+import { countActiveKeys, listKeysOwnedByMember, resolveLastKeyUse } from "@/lib/access/key-status";
+import type { TenantKey } from "@/lib/api/access-keys";
 
-import type { RoleDefinition, TenantAdminUser } from "./api";
-import { guessDisplayName, isUserActive, listUserRoleNames, resolveIdentity } from "./member-filters";
+import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
+
+import type { RoleDefinition } from "./api";
+import { isUserActive, listUserRoleNames } from "./member-filters";
 
 export type MemberDetailSheetProps = {
   member: TenantAdminUser | null;

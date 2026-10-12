@@ -1,6 +1,6 @@
 import AdminShell from "@/features/admin-shell/AdminShell";
 import AccessKeysManagement from "@/features/access-keys/AccessKeysManagement";
-import { parseTenantKeyListPayload } from "@/features/access-keys/api";
+import { parseTenantKeyListPayload } from "@/lib/api/access-keys";
 import { parseUserListPayload } from "@/features/users/api";
 import { parseVirtualUserListPayload } from "@/features/virtual-users/api";
 import { requireAuth } from "@/lib/auth/session";
