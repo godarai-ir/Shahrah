@@ -98,7 +98,12 @@ describe("OIDCClientManagement", () => {
     expect(calls[0]).toEqual({
       url: "/api/oidc-clients",
       method: "POST",
-      body: { name: "Docs bot", redirect_uris: ["https://docs.acme.example/cb"], post_logout_redirect_uris: [] },
+      body: {
+        name: "Docs bot",
+        redirect_uris: ["https://docs.acme.example/cb"],
+        post_logout_redirect_uris: [],
+        credit_product: "oidc_app",
+      },
     });
 
     fireEvent.click(screen.getAllByRole("button", { name: "actions.close" }).at(-1)!);

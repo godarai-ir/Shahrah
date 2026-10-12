@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { AppCodeTextareaField } from "@/components/app-ui/AppCodeTextareaField";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { FormSheet } from "@/components/app-ui/FormSheet";
@@ -13,11 +14,18 @@ import { FieldGroup } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 
 import type { OIDCClient } from "./api";
-import { MAX_CLIENT_NAME_LENGTH, parseOIDCClientInput, splitURIList, type OIDCClientInput } from "./input";
+import {
+  DEFAULT_OIDC_CLIENT_PRODUCT,
+  MAX_CLIENT_NAME_LENGTH,
+  OIDC_CLIENT_PRODUCTS,
+  parseOIDCClientInput,
+  splitURIList,
+  type OIDCClientInput,
+} from "./input";
 
 const FORM_ID = "oidc-client-form";
 
-type FieldErrors = Partial<Record<"name" | "redirect_uris" | "post_logout_redirect_uris", string>>;
+type FieldErrors = Partial<Record<"name" | "redirect_uris" | "post_logout_redirect_uris" | "credit_product", string>>;
 
 export type OIDCClientFormProps = {
   open: boolean;
@@ -35,6 +43,7 @@ export function OIDCClientForm({ open, client, pending, notice, onOpenChange, on
   const [name, setName] = useState(client?.name ?? "");
   const [redirectURIs, setRedirectURIs] = useState((client?.redirect_uris ?? []).join("\n"));
   const [logoutURIs, setLogoutURIs] = useState((client?.post_logout_redirect_uris ?? []).join("\n"));
+  const [product, setProduct] = useState(client?.credit_product ?? DEFAULT_OIDC_CLIENT_PRODUCT);
   const [active, setActive] = useState(client?.active ?? true);
   const [errors, setErrors] = useState<FieldErrors>({});
 
@@ -46,6 +55,7 @@ export function OIDCClientForm({ open, client, pending, notice, onOpenChange, on
         name,
         redirect_uris: splitURIList(redirectURIs),
         post_logout_redirect_uris: splitURIList(logoutURIs),
+        credit_product: product,
         ...(client ? { active } : {}),
       },
       { partial: Boolean(client) },
@@ -120,6 +130,14 @@ export function OIDCClientForm({ open, client, pending, notice, onOpenChange, on
             rows={2}
             error={errors.post_logout_redirect_uris}
             aria-invalid={Boolean(errors.post_logout_redirect_uris)}
+          />
+          <AppSelectField
+            label={t("fields.creditProduct")}
+            description={t("fields.creditProductHelp")}
+            value={product}
+            onValueChange={setProduct}
+            options={OIDC_CLIENT_PRODUCTS.map((value) => ({ value, label: t(`products.${value}`) }))}
+            error={errors.credit_product}
           />
           {client ? (
             <AppSwitchField

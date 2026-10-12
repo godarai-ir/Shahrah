@@ -11,6 +11,7 @@ const oidcClientSchema = z.object({
   redirect_uris: z.array(z.string()).nullish().transform((value) => value ?? []),
   post_logout_redirect_uris: z.array(z.string()).nullish().transform((value) => value ?? []),
   active: z.boolean(),
+  credit_product: z.string().optional(),
   created_by: z.string().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
