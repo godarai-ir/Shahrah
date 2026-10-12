@@ -1,6 +1,6 @@
 # Phase 2 Design: Ledger, Lots, Plans, Purchases, Expiry, Price Policy
 
-Status: PR 2a (ledger core) implemented; 2b–2d to follow · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
+Status: 2a (ledger core) and 2b (plans, grants, user cap) implemented; 2c–2d to follow · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
 
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 2. Phase 1 design:
 `plans/credit-pricing/phase-1-design.md`.
@@ -243,16 +243,22 @@ and the projections, all in one transaction.
   - `credits.trial_grant` (integer, 500), `credits.trial_days` (integer, 14).
   - `users.max` is reused for `users.max_active`. It already has that meaning, so there
     is no second key to keep in sync.
-- Plan grant worker:
+- Plan grant worker (runs with expiry, every `BILLING_CREDIT_EXPIRY_INTERVAL_SECONDS`):
   - For each current subscription of a credit tenant, it grants the monthly slice that
     contains `now`. Slices are calendar months from `current_period_start`, so annual
-    plans deliver monthly.
+    plans deliver monthly. Only `active` subscriptions get plan credits; `past_due` does
+    not, and `trialing` gets the trial grant instead.
+  - The monthly amount is `credits.monthly_grant`: a tenant override first, then the
+    subscription's plan version.
   - Each slice lot expires at the earlier of the slice end and the period end.
   - Subscriptions do not auto-renew today. A renewal or plan change is a new period,
     and the same worker covers it.
 - Trial:
   - `commercial_signup_settings` gains `trial_credit_mc` (500,000), `trial_credit_days`
     (14), and `trial_max_users` (3).
+  - Trial credits expire at the trial's end, capped at `trial_credit_days` after it started.
+  - `trial_max_users` caps trialing **credit** tenants only. Trials of IRR tenants keep
+    their plan's cap, so no existing tenant's quota changes (prompt §8.4).
   - `signup_credit_irr` stays for IRR tenants until Phase 4.
 - Rollover (Enterprise only) is **deferred to Phase 3**. No Enterprise tenant is on
   credits in Phase 2, and the condition ("renews at the same or higher tier") is only
@@ -261,7 +267,8 @@ and the projections, all in one transaction.
 ## User Cap (PR 2b)
 
 - Count active human members plus pending, unexpired invitations. Virtual users, PATs,
-  and service keys are excluded.
+  and service keys are excluded. This applies to every tenant, so IRR tenants now also
+  count pending invitations and get the race-free check.
 - Check it inside the same transaction as the write, under
   `pg_advisory_xact_lock(hashtext('users_cap:' || tenant))`, at every entry point:
   - invite
@@ -270,12 +277,24 @@ and the projections, all in one transaction.
   - direct create
   - SSO/OIDC just-in-time provisioning, if that creates members
 - Error: 403 `{"error":{"code":"plan_user_limit_reached"}}`, replacing the generic
-  "feature users.max limit exceeded" message on these paths.
+  "feature users.max limit exceeded" message on these paths. The message carries no
+  counts. `GET /api/v1/users/seats` (`user:list`) reports used, active, pending, and the
+  limit.
+- Entry points covered:
+  - invite
+  - invitation accept (the pending invitation already holds the seat)
+  - activate
+  - role assignment, which also reactivates a deactivated member
+- New-tenant onboarding and social sign-up create the first member of a new tenant and
+  need no check. There is no other create-member path.
 - Downgrades below the current count are refused in `PrepareTenantSubscriptionChange`
   and `ChangeTenantSubscription`.
 - Tenants already over the cap are grandfathered: nothing is removed. They simply cannot
   add users.
-- Tenant-admin shows used/max on the users page.
+- Tenant-admin shows used/max seats on the users page. It reads the seats endpoint, so
+  pending invitations count there too. The invite button opens the upgrade dialog when the
+  plan is full, and refused invites, activations, and role changes show a localized message.
+- Support-admin `UpsertTenantSubscription` is not guarded: it is an operator override.
 
 ## Add-on Packs and Overage (PR 2c)
 
@@ -357,8 +376,14 @@ and the projections, all in one transaction.
    revision moves them automatically.
 9. Rollover is deferred to Phase 3.
 10. FX samples come from the pricing engine's existing source.
+11. Business copies Growth's non-credit entitlements, with `users.max` set to 100.
+12. On a mid-period plan change, the old plan's lot is kept until its own slice ends.
+    This is conservative: it charges less.
 
 ## Open Issues
+
+- Tenant admins cannot revoke a pending invitation, so a mistaken invitation holds a seat
+  until it expires after 7 days. A revoke action is a small follow-up.
 
 - Rollover rules for Enterprise (Phase 3).
 - The FX adjustment clause for annual plans is contract text; finance and legal own it.

@@ -49,6 +49,7 @@ type Handler interface {
 	UpdateRole(*fiber.Ctx) error
 	GetCurrentUserPermissions(*fiber.Ctx) error
 	ListTenantUsers(*fiber.Ctx) error
+	GetTenantUserSeats(*fiber.Ctx) error
 	UpdateUserRoles(*fiber.Ctx) error
 	InviteTenantUser(*fiber.Ctx) error
 	AcceptTenantUserInvitation(*fiber.Ctx) error
@@ -112,6 +113,7 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Patch("/roles/:roleID", r.handler.UpdateRole)
 	router.Get("/me/permissions", r.handler.GetCurrentUserPermissions)
 	router.Get("/users", r.handler.ListTenantUsers)
+	router.Get("/users/seats", r.handler.GetTenantUserSeats)
 	router.Patch("/users/roles", r.handler.UpdateUserRoles)
 	router.Post("/users/invite", r.handler.InviteTenantUser)
 	router.Post("/users/invitations", r.handler.InviteTenantUser)

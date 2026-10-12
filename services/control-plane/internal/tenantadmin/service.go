@@ -53,6 +53,7 @@ type membershipRepository interface {
 	InviteTenantAdminUser(context.Context, string, string, platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
 	AcceptTenantAdminInvitation(context.Context, string, string, string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
 	SetTenantAdminUserActive(context.Context, string, string, bool) (*platform.TenantAdminUser, error)
+	GetTenantSeatUsage(context.Context, string) (*platform.TenantSeatUsage, error)
 }
 
 type repository interface {
@@ -206,6 +207,11 @@ func (s *Service) InviteTenantAdminUser(ctx context.Context, tenantID, tenantSlu
 // AcceptTenantAdminInvitation accepts a tenant-member invitation.
 func (s *Service) AcceptTenantAdminInvitation(ctx context.Context, tenantID, tenantSlug, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error) {
 	return s.memberships.AcceptTenantAdminInvitation(ctx, tenantID, tenantSlug, token)
+}
+
+// GetTenantSeatUsage reports the tenant's user seats against its plan cap.
+func (s *Service) GetTenantSeatUsage(ctx context.Context, tenantID string) (*platform.TenantSeatUsage, error) {
+	return s.memberships.GetTenantSeatUsage(ctx, tenantID)
 }
 
 // SetTenantAdminUserActive changes a tenant member status.

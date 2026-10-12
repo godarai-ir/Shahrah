@@ -908,3 +908,13 @@ type UpdateVirtualModelRequest struct {
 	Targets         []VirtualModelTarget                `json:"targets,omitempty"`
 	Access          *TenantProviderAccountAccessControl `json:"access,omitempty"`
 }
+
+// TenantSeatUsage reports how many of the plan's user seats a tenant uses.
+// Seats are active members plus pending, unexpired invitations. Limit is nil
+// when the plan has no user cap.
+type TenantSeatUsage struct {
+	Used               int  `json:"used"`
+	ActiveMembers      int  `json:"active_members"`
+	PendingInvitations int  `json:"pending_invitations"`
+	Limit              *int `json:"limit"`
+}

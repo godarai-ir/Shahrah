@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { fetchControlPlaneJSON, readUpstreamErrorCode } from "@/lib/control-plane";
 import { sendInvitationEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
             message:
               upstream.errorMessage ??
               `Control-plane request failed (${upstream.status})`,
+            code: readUpstreamErrorCode(upstream.payload),
           },
           details: upstream.payload,
         },

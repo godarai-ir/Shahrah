@@ -145,6 +145,7 @@ type userStore interface {
 	InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
 	AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
+	GetTenantSeatUsage(ctx context.Context, tenantID string) (*platform.TenantSeatUsage, error)
 }
 
 type roleStore interface {
@@ -249,12 +250,10 @@ type planStore interface {
 	UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error)
 	UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error)
 	DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type entitlementResolverStore interface {
 	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type supportTenantOperationsStore interface {

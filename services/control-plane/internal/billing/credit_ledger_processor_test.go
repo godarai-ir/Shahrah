@@ -17,6 +17,7 @@ type fakeCreditLedgerStore struct {
 	sweepSince    time.Time
 	expireNow     time.Time
 	partitions    int
+	grantNow      time.Time
 	reconciled    int
 	diffs         []credits.ReconciliationDiff
 }
@@ -47,6 +48,12 @@ func (f *fakeCreditLedgerStore) ExpireCreditLots(_ context.Context, now time.Tim
 	f.expireNow = now
 
 	return credits.ExpiryResult{}, nil
+}
+
+func (f *fakeCreditLedgerStore) GrantDuePlanCredits(_ context.Context, now time.Time) (credits.GrantResult, error) {
+	f.grantNow = now
+
+	return credits.GrantResult{Granted: 1, GrantedMC: 5_000_000}, nil
 }
 
 func (f *fakeCreditLedgerStore) EnsureCreditLedgerPartitions(_ context.Context, _ time.Time, monthsAhead int) (int, error) {
@@ -96,7 +103,8 @@ func TestCreditLedgerProcessorExpiresAndReconciles(t *testing.T) {
 	fixed := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
 	processor.now = func() time.Time { return fixed }
 
-	processor.Expire(context.Background())
+	processor.GrantAndExpire(context.Background())
+	require.Equal(t, fixed, store.grantNow)
 	require.Equal(t, fixed, store.expireNow)
 	require.Equal(t, creditPartitionMonthsAhead, store.partitions)
 

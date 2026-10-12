@@ -23,6 +23,7 @@ type creditLedgerStore interface {
 	SettleCreditConsumption(ctx context.Context, batchSize int, settleDelay time.Duration) (credits.SettlementResult, error)
 	SweepCreditConsumption(ctx context.Context, since time.Time) (credits.SettlementResult, error)
 	ExpireCreditLots(ctx context.Context, now time.Time, limit int) (credits.ExpiryResult, error)
+	GrantDuePlanCredits(ctx context.Context, now time.Time) (credits.GrantResult, error)
 	EnsureCreditLedgerPartitions(ctx context.Context, now time.Time, monthsAhead int) (int, error)
 	ReconcileCreditLedger(ctx context.Context) ([]credits.ReconciliationDiff, error)
 }
@@ -36,7 +37,8 @@ type CreditLedgerConfig struct {
 	// lower id is never passed over.
 	SettleDelay time.Duration
 	BatchSize   int
-	// ExpiryInterval is how often expired lots are closed and partitions are kept ahead.
+	// ExpiryInterval is how often plan and trial credits are granted, expired lots
+	// are closed, and partitions are kept ahead.
 	ExpiryInterval time.Duration
 	// ReconcileInterval is how often the ledger is reconciled and recently settled
 	// spend logs are swept for gaps.
@@ -93,7 +95,7 @@ func (p *CreditLedgerProcessor) Start() {
 	p.cancel = cancel
 
 	p.loop(ctx, p.cfg.SettlementInterval, p.Settle)
-	p.loop(ctx, p.cfg.ExpiryInterval, p.Expire)
+	p.loop(ctx, p.cfg.ExpiryInterval, p.GrantAndExpire)
 	p.loop(ctx, p.cfg.ReconcileInterval, p.Reconcile)
 }
 
@@ -162,6 +164,29 @@ func (p *CreditLedgerProcessor) Settle(ctx context.Context) {
 		if !result.Locked || result.Scanned < p.cfg.BatchSize {
 			return
 		}
+	}
+}
+
+// GrantAndExpire grants due plan and trial credits, then expires lots. Grants
+// run first so a renewal's new slice is spendable before the old one expires.
+func (p *CreditLedgerProcessor) GrantAndExpire(ctx context.Context) {
+	p.Grant(ctx)
+	p.Expire(ctx)
+}
+
+// Grant gives credit tenants the plan slice or trial credits they are due.
+func (p *CreditLedgerProcessor) Grant(ctx context.Context) {
+	result, err := p.store.GrantDuePlanCredits(ctx, p.now().UTC())
+	metricsobs.ObserveCreditGrants(result)
+
+	if err != nil {
+		p.fail("grants", err)
+
+		return
+	}
+
+	if result.Granted > 0 {
+		p.logger.Info("credit plan grants written", zap.Int("grants", result.Granted), zap.Int64("granted_mc", result.GrantedMC))
 	}
 }
 

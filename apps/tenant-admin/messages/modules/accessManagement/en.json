@@ -28,7 +28,7 @@
       "cancel": "Not now",
       "action": "Upgrade or buy a plan"
     },
-    "headerUsage": "{used} of {limit} members"
+    "headerUsage": "{used} of {limit} seats (active members and pending invitations)"
   },
   "inviteUser": "Invite User",
   "inviteTitle": "Invite User",
@@ -107,7 +107,8 @@
     "roleCreated": "Role created successfully.",
     "roleCreateError": "Failed to create role.",
     "roleUpdated": "Role updated successfully.",
-    "roleUpdateError": "Failed to update role."
+    "roleUpdateError": "Failed to update role.",
+    "planUserLimitReached": "Your plan's user limit is reached. Upgrade the plan, or remove a member or pending invitation, to add someone."
   },
   "rolesPage": {
     "createTitle": "Create Custom Role",

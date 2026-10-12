@@ -42,16 +42,20 @@ const roleDefinitionSchema = z.object({
 });
 
 const roleListSchema = z.object({ data: z.array(roleDefinitionSchema).optional() });
-const effectiveEntitlementsSchema = z.object({
-  features: z.record(z.string(), z.unknown()).optional(),
-}).nullable();
+
+const seatUsageSchema = z.object({
+  used: z.number(),
+  active_members: z.number().optional(),
+  pending_invitations: z.number().optional(),
+  limit: z.number().nullable(),
+});
 
 export type TenantAdminUser = z.infer<typeof tenantAdminUserSchema>;
+export type SeatUsage = z.infer<typeof seatUsageSchema>;
 export type RoleDefinition = z.infer<typeof roleDefinitionSchema>;
-export type EffectiveEntitlements = z.infer<typeof effectiveEntitlementsSchema>;
 
-export function getUserEntitlements() {
-  return requestParsedJSON(effectiveEntitlementsSchema, "/api/entitlements");
+export function getUserSeats() {
+  return requestParsedJSON(seatUsageSchema, "/api/users/seats");
 }
 
 export function listUsers(params: URLSearchParams) {
@@ -85,4 +89,10 @@ export async function assignUserRole(email: string, role: string): Promise<void>
 export function parseUserListPayload(payload: unknown) {
   const parsed = userListSchema.safeParse(payload);
   return parsed.success ? parsed.data : { data: [], total: 0 };
+}
+
+/** Parses `/api/v1/users/seats`; a malformed payload hides the usage instead of guessing. */
+export function parseSeatUsage(payload: unknown): SeatUsage | null {
+  const parsed = seatUsageSchema.safeParse(payload);
+  return parsed.success ? parsed.data : null;
 }

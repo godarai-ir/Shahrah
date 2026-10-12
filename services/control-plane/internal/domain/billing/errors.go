@@ -12,6 +12,7 @@ var (
 	ErrPlanPriceUnavailable              = errors.New("plan price is not configured")
 	ErrPlanVersionNotFound               = errors.New("plan version not found")
 	ErrPlanVersionPublished              = errors.New("published plan versions are immutable")
+	ErrPlanUserLimitReached              = errors.New("plan user limit reached")
 	ErrSubscriptionNotFound              = errors.New("tenant subscription not found")
 	ErrSubscriptionPaymentIntentNotFound = errors.New("subscription payment intent not found")
 	ErrTenantQuotaExceeded               = errors.New("tenant quota exceeded")

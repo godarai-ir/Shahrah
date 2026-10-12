@@ -8,6 +8,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
@@ -197,6 +198,8 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "one or more roles not found")
 		case errors.Is(err, iam.ErrUserNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		case errors.Is(err, billingdomain.ErrPlanUserLimitReached):
+			return planUserLimitReached(c)
 		default:
 			return err
 		}
@@ -317,15 +320,9 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	if h.entitlements != nil {
-		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
-		if err != nil {
-			return err
-		}
-
-		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
-			return err
-		}
+	// The seat cap itself is enforced atomically by the store.
+	if err := h.requireActiveSubscription(c, currentTenant.ID); err != nil {
+		return err
 	}
 
 	var req platform.InviteTenantAdminUserRequest
@@ -361,6 +358,8 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusConflict, "This user is deactivated and cannot receive an invitation.")
 		case errors.Is(err, tenantadmin.ErrInvitationAlreadyPending):
 			return fiber.NewError(fiber.StatusConflict, "An invitation has already been sent to this email.")
+		case errors.Is(err, billingdomain.ErrPlanUserLimitReached):
+			return planUserLimitReached(c)
 		default:
 			return err
 		}
@@ -383,15 +382,9 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	if h.entitlements != nil {
-		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
-		if err != nil {
-			return err
-		}
-
-		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
-			return err
-		}
+	// The seat cap itself is enforced atomically by the store.
+	if err := h.requireActiveSubscription(c, currentTenant.ID); err != nil {
+		return err
 	}
 
 	var req platform.AcceptTenantAdminInvitationRequest
@@ -481,8 +474,51 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
+		if errors.Is(err, billingdomain.ErrPlanUserLimitReached) {
+			return planUserLimitReached(c)
+		}
+
 		return err
 	}
 
 	return c.JSON(user)
 }
+
+// GetTenantUserSeats reports the tenant's user seats against its plan cap.
+func (h *Handlers) GetTenantUserSeats(c *fiber.Ctx) error {
+	if err := requireUserListOrManage(c); err != nil {
+		return err
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	seats, err := h.users.GetTenantSeatUsage(c.Context(), currentTenant.ID)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "tenant not found")
+		}
+
+		return err
+	}
+
+	return c.JSON(seats)
+}
+
+// planUserLimitReached is the client-safe error for a full user cap. It names
+// no counts or limits; the seats endpoint reports those to authorized readers.
+func planUserLimitReached(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": fiber.Map{
+		"code":    planUserLimitReachedCode,
+		"type":    "plan_limit",
+		"message": "The plan's user limit is reached. Upgrade the plan or remove a member or pending invitation first.",
+	}})
+}
+
+const planUserLimitReachedCode = "plan_user_limit_reached"

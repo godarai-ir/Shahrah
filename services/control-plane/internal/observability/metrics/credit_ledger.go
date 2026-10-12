@@ -27,6 +27,10 @@ var (
 		Name: "shahrah_credit_ledger_job_failures_total",
 		Help: "Credit ledger background job failures by job.",
 	}, []string{"job"})
+	creditGrantedMCTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "shahrah_credit_plan_granted_millicredits_total",
+		Help: "Plan and trial credits granted by the grant worker.",
+	})
 	creditExpiredMCTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "shahrah_credit_expired_millicredits_total",
 		Help: "Credits expired from lots.",
@@ -53,6 +57,11 @@ func ObserveCreditSettlement(result credits.SettlementResult, sweep bool) {
 	if !sweep {
 		creditSettlementKeyConflictsTotal.Add(float64(result.KeyConflicts))
 	}
+}
+
+// ObserveCreditGrants records one plan and trial grant pass.
+func ObserveCreditGrants(result credits.GrantResult) {
+	creditGrantedMCTotal.Add(float64(result.GrantedMC))
 }
 
 // ObserveCreditExpiry records one expiry pass.

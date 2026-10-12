@@ -1396,6 +1396,19 @@ func (s *integrationModelStore) AcceptTenantAdminInvitation(ctx context.Context,
 	return nil, nil, pgx.ErrNoRows
 }
 
+// GetTenantSeatUsage counts the fake's active users; it has no plan cap.
+func (s *integrationModelStore) GetTenantSeatUsage(_ context.Context, _ string) (*platform.TenantSeatUsage, error) {
+	active := 0
+
+	for _, user := range s.users {
+		if user.Active {
+			active++
+		}
+	}
+
+	return &platform.TenantSeatUsage{Used: active, ActiveMembers: active}, nil
+}
+
 func (s *integrationModelStore) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
 	for i := range s.users {
 		if s.users[i].TenantSlug != tenantSlug || s.users[i].ID != userID {

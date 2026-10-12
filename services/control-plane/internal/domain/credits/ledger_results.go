@@ -25,6 +25,13 @@ type ExpiryResult struct {
 	TenantIDs   []string
 }
 
+// GrantResult summarizes one plan and trial grant pass.
+type GrantResult struct {
+	Granted    int
+	GrantedMC  int64
+	Duplicates int
+}
+
 // ReconciliationDiff is one failed reconciliation check.
 type ReconciliationDiff struct {
 	TenantID   string
