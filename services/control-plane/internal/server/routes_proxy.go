@@ -8,9 +8,23 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// registerProxyRoutes registers the gateway routes. Registration order matters
+// for Fiber matching, so the helpers below must stay in this sequence; the
+// route table is pinned by TestProxyRouteTableIsStable.
 func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
 
+	registerGeminiNativeRoutes(app, deps)
+	registerOpenAICoreRoutes(app, v1, deps)
+	registerMediaRoutes(app, v1, deps)
+	registerMistralNativeRoutes(v1, deps)
+	registerModelCatalogRoutes(v1, deps)
+	registerAnthropicRoutes(v1, deps)
+	registerFileRoutes(v1, deps)
+}
+
+// registerGeminiNativeRoutes registers Gemini-native and TokenBazaar generateContent routes.
+func registerGeminiNativeRoutes(app *fiber.App, deps Dependencies) {
 	// "/v1beta/models/*" is routed through a thin shim
 	// (proxy.NewGeminiGenerateContentRouter): a
 	// generateContent/streamGenerateContent request whose {model} path
@@ -54,7 +68,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1beta.All("/batches/*", gemini)
 		app.Post("/upload/v1beta/files", gemini)
 	}
+}
 
+// registerOpenAICoreRoutes registers chat, completions, responses, batches, embeddings, moderation and rerank routes.
+func registerOpenAICoreRoutes(app *fiber.App, v1 fiber.Router, deps Dependencies) {
 	if deps.ProxyHandler != nil {
 		v1.Post("/chat/completions", deps.ProxyHandler.Handle)
 		app.Post("/api/paas/v4/chat/completions", deps.ProxyHandler.Handle)
@@ -96,7 +113,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	if deps.RerankHandler != nil {
 		v1.Post("/rerank", deps.RerankHandler.Handle)
 	}
+}
 
+// registerMediaRoutes registers image, audio, layout-parsing and OCR routes.
+func registerMediaRoutes(app *fiber.App, v1 fiber.Router, deps Dependencies) {
 	if deps.ImagesHandler != nil {
 		v1.Post("/images/generations", deps.ImagesHandler.HandleGenerations)
 		v1.Post("/images/edits", deps.ImagesHandler.HandleEdits)
@@ -134,7 +154,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			return deps.MistralOCRHandler.Handle(c)
 		})
 	}
+}
 
+// registerMistralNativeRoutes registers Mistral-native batch, agent and conversation routes.
+func registerMistralNativeRoutes(v1 fiber.Router, deps Dependencies) {
 	if deps.MistralNativeHandler != nil {
 		native := deps.MistralNativeHandler.Handle
 		v1.Post("/batch/jobs", native)
@@ -157,7 +180,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Get("/conversations/:id/messages", native)
 		v1.Post("/conversations/:id/restart", native)
 	}
+}
 
+// registerModelCatalogRoutes registers model listing and xAI catalog routes.
+func registerModelCatalogRoutes(v1 fiber.Router, deps Dependencies) {
 	if deps.ModelsHandler != nil || deps.ResponsesHandler != nil {
 		v1.Get("/models", func(c *fiber.Ctx) error {
 			if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
@@ -184,7 +210,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/files\\:initialize", deps.ResponsesHandler.HandleXAIFileInitialize)
 		v1.Post("/files\\:uploadChunks", deps.ResponsesHandler.HandleXAIFileUploadChunks)
 	}
+}
 
+// registerAnthropicRoutes registers Anthropic Messages, batch and model detail routes.
+func registerAnthropicRoutes(v1 fiber.Router, deps Dependencies) {
 	// POST /v1/messages is routed through a thin shim
 	// (proxy.NewAnthropicMessagesRouter): a request whose body "model" is an
 	// explicit "tokenbazaar:<account>:<model-id>" FQN is dispatched to
@@ -238,7 +267,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			return deps.ResponsesHandler.HandleXAIModelsGet(c)
 		})
 	}
+}
 
+// registerFileRoutes registers the provider-dispatched file routes.
+func registerFileRoutes(v1 fiber.Router, deps Dependencies) {
 	if deps.ResponsesHandler != nil || deps.AnthropicNativeHandler != nil || deps.MistralNativeHandler != nil {
 		fileHandler := func(openAI fiber.Handler) fiber.Handler {
 			return func(c *fiber.Ctx) error {
