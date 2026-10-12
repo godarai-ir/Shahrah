@@ -184,6 +184,14 @@ jobs:
           fi
           pnpm install --frozen-lockfile "${filters[@]}"
 
+      - name: Lint tenant-admin (architecture, source encoding, ESLint)
+        if: needs.changes.outputs.tenant == 'true'
+        run: pnpm --filter @shahrah/tenant-admin run lint
+
+      - name: Type-check tenant-admin
+        if: needs.changes.outputs.tenant == 'true'
+        run: pnpm --filter @shahrah/tenant-admin exec tsc --noEmit
+
       - name: Run tenant-admin node tests
         if: needs.changes.outputs.tenant == 'true'
         run: pnpm --filter @shahrah/tenant-admin test:node

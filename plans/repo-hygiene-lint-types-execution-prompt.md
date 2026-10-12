@@ -86,8 +86,14 @@ Rules:
 
 ## Stage 5: Keep It Fixed in CI
 
-- Re-enable the golangci-lint job as its own comment instructs
-  (`if: needs.changes.outputs.go == 'true'`).
+Found during execution: `ci.yml` runs only on `workflow_dispatch`, and **all four**
+jobs (lint, test, javascript-checks, tenant-dom) are switched off with
+`if: ${{ false }}`. Turning CI back on is a team decision, so the agent changes
+only what is safe to land now and asks about the rest.
+
+- Re-enabling the golangci-lint job as its own comment instructs
+  (`if: needs.changes.outputs.go == 'true'`) **requires approval**, together with
+  the other disabled jobs and the trigger.
 - Add tenant-admin `pnpm --filter @shahrah/tenant-admin exec tsc --noEmit` and
   `pnpm --filter @shahrah/tenant-admin run lint` to the "JavaScript checks" job,
   under the existing tenant scope condition.
