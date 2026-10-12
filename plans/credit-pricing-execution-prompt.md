@@ -182,14 +182,15 @@ issues contain anything listed in §8, stop and ask before you code.
 5. **Response surface (additive):** an `x-godarai-credits-used` header on non-stream
    responses and a `credits` field (string) in the `godarai.telemetry` stream event. Add
    the constants to `apiheaders`. IRR headers stay unchanged.
-6. **Service identity for delegated callers:** a new key type (for example
-   `KeyTypeService`) that is allowed to send `x-godarai-on-behalf-of: <GodarAI OIDC sub>`.
-   - The user, team, and org_unit are resolved from the GodarAI directory. That value
-     is what LibreChat sends as `{{LIBRECHAT_USER_OPENIDID}}`; confirm it equals the
-     `sub` issued by the new OIDC provider (`060_oidc_provider.sql`).
-   - Any other key type sending the header gets 403 `on_behalf_of_not_allowed`.
-   - Requests from a service key set `product=librechat` (or the key's configured
-     product).
+6. **Delegated identity through users' OIDC access tokens** (product decision; it
+   replaces an on-behalf-of service-key design):
+   - Delegated callers such as LibreChat send the signed-in member's GodarAI OIDC
+     access token as the bearer credential. The gateway already authenticates these
+     tokens with a user-scoped model policy and blocks management APIs.
+   - Add a per-client `credit_product` (`oidc_app` default, or `librechat`) that tenant
+     admins choose in "Connected apps". Stamp it into access tokens at issuance and
+     carry it to spend logs as a trusted product label.
+   - Attribute usage to the user and tenant only; do not derive a team.
    - The existing master-key `x-godarai-user-id` path is unchanged.
 7. **`GET /v1/rate-card`:**
    - Public, cacheable with `ETag`; when authenticated, filtered to the tenant's
@@ -372,7 +373,7 @@ with a small set of internal and friendly tenants.
    - The tenant-admin usage breakdown must show `guardrail` and `semantic_cache` as
      separate products so customers can see what cache and guardrails cost them.
 7. **`GET /v1/budget/me` (FR-14):**
-   - For the caller's identity, including `on-behalf-of`, return each matching rule:
+   - For the caller's identity, including members calling with OIDC access tokens, return each matching rule:
      `rule_id`, `name`, `scope`, `limit`, `spent`, `remaining`, `window_end`, `on_exceed`,
      plus `unit: "credit"`.
    - The tenant pool appears only when the caller has billing-read permission.
@@ -456,7 +457,8 @@ behind a flag, ready for removal.
 Stop and ask the product owner when any of these come up:
 
 1. There is no reusable outbound notification channel for budget alerts.
-2. The LibreChat `OPENIDID` turns out to differ from the GodarAI OIDC `sub`.
+2. LibreChat cannot forward a usable member access token for some request path (for
+   example background jobs without a user session).
 3. The policy for tenants that never approve their conversion by the cutover date.
 4. Anything that would change an existing tenant's effective price, quota, or balance
    beyond what this prompt defines.

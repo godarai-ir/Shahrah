@@ -8,7 +8,7 @@ Use this prompt with a coding agent working in the LibreChat fork at
 
 | LibreChat phase | Needs from Shahrah |
 | --- | --- |
-| A | Shahrah Phase 1: `x-godarai-credits-used`, `credits` in `godarai.telemetry`, `GET /v1/rate-card`, service key + `x-godarai-on-behalf-of` |
+| A | Shahrah Phase 1: `x-godarai-credits-used`, `credits` in `godarai.telemetry`, `GET /v1/rate-card`, OIDC access tokens with a per-client `credit_product` |
 | B | Shahrah Phase 3: `GET /v1/budget/me`, 402 `budget_exceeded`, `x-godarai-model-substituted` |
 
 ---
@@ -58,10 +58,18 @@ exchange rates, or blocks on its own balance when the feature is on.
 ## 4. Phase A: Identity, Recording, Rate Card
 
 1. **Identity:** document and ship the `librechat.yaml` example for the GodarAI endpoint.
-   - Authenticate with a GodarAI **service key**.
-   - Send `headers: { x-godarai-on-behalf-of: "{{LIBRECHAT_USER_OPENIDID}}", x-godarai-include-stream-telemetry: "true" }`.
-   - Users sign in with GodarAI OIDC.
-   - Confirm `OPENIDID` equals the GodarAI OIDC `sub`. If it does not, **stop and ask**.
+   - Users sign in with GodarAI OIDC. The GodarAI "Connected apps" entry for LibreChat
+     has its product set to `librechat`.
+   - Set `OPENID_REUSE_TOKENS=true` and request the `offline_access` scope, so
+     LibreChat keeps and refreshes each user's tokens. GodarAI access tokens last
+     10 minutes.
+   - Authenticate the GodarAI custom endpoint with the **member's access token**:
+     `apiKey: "{{LIBRECHAT_OPENID_ACCESS_TOKEN}}"`. Send
+     `headers: { x-godarai-include-stream-telemetry: "true" }`.
+   - Do not use a shared service key and do not send user identifiers in headers. The
+     gateway takes the identity from the verified token.
+   - When the token cannot be refreshed, surface LibreChat's existing re-authentication
+     flow. Never fall back to a shared credential.
 2. **Recording module** (`packages/api`, used when `costSource: gateway`):
    - Non-stream: read `x-godarai-credits-used`.
    - Stream: read `credits` from the `godarai.telemetry` event.
@@ -80,8 +88,7 @@ exchange rates, or blocks on its own balance when the feature is on.
 ## 5. Phase B: Budget Display, Exceed Handling, Reconciliation
 
 1. **Balance display:** replace the balance widget, when `costSource: gateway` is set,
-   with data from `GET /v1/budget/me`, called server-side with the service key and
-   on-behalf-of.
+   with data from `GET /v1/budget/me`, called server-side with the member's access token.
    - Use React Query, with loading, error, and empty states.
    - Show the most restrictive remaining rule, with the others in a popover or list.
    - Refresh after each completed response.
@@ -111,7 +118,8 @@ exchange rates, or blocks on its own balance when the feature is on.
 
 ## 7. Stop and Ask
 
-- `OPENIDID` ≠ GodarAI OIDC `sub`.
+- A request path has no user session, and so no member access token (for example
+  scheduled agents or background title generation).
 - The GodarAI log API does not support filtering by `metadata.messageId`.
 - Any need to compute or estimate a price locally.
 

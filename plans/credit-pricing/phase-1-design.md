@@ -1,6 +1,6 @@
 # Phase 1 Design: Credit Core, Rate Card, Shadow Mode
 
-Status: implemented except on-behalf-of (awaiting decisions) · Branch: `feat/credits-phase-1-core`
+Status: implemented · Branch: `feat/credits-phase-1-core`
 Prompt: `plans/credit-pricing-execution-prompt.md` §6 Phase 1
 
 ## Goal
@@ -88,8 +88,8 @@ skipped with a warning, so the deploy order is not a hard outage.
 
 1. Guardrail judge calls → `guardrail`.
 2. Semantic-cache embedding calls → `semantic_cache`.
-3. The request's auth key has on-behalf-of capability → the key's configured product
-   (default `librechat`).
+3. The request was authenticated with an OIDC access token → the OIDC client's
+   configured product (`librechat` or the default `oidc_app`), stamped into the token.
 4. Playground (`x-godarai-playground-observability` present) → `playground`.
 5. Request type `embeddings` → `embeddings`. `ocr` / layout parsing → `ocr`.
 6. Otherwise → `gateway`.
@@ -103,21 +103,31 @@ priced as separate events. They are wired in Phase 3, where they become billable
   `credits.shadow_enabled` is on.
 - The telemetry event gets `"credits": "4.50"`. The existing fields are unchanged.
 
-## Service Identity (`x-godarai-on-behalf-of`)
+## Delegated Identity: Users' OIDC Access Tokens
 
-Decision: implement this as a **capability on VAT keys** (`on_behalf_of_enabled` plus a
-`product` label) rather than a brand-new key type. VATs are already the service-account
-key class, with lifecycle, UI, and RBAC. A new type would duplicate all of that. The
-contract still behaves as specified:
+Product decision: delegated callers such as LibreChat send **the signed-in member's
+GodarAI OIDC access token** (`Authorization: Bearer <access_token>`). A shared service
+key with an on-behalf-of header was considered and dropped. The gateway already
+accepted OIDC access tokens (`internal/auth/access_token.go`):
+- Tokens are tenant-bound and last 10 minutes; refresh tokens are 14-day and
+  rotating, with the `offline_access` scope.
+- Management APIs are blocked.
+- The model policy is user-scoped, exactly like the member's own PAT.
 
-- Only keys with the capability may send the header. Anyone else gets 403
-  `on_behalf_of_not_allowed`.
-- The value is the GodarAI OIDC `sub`. It is resolved through the same directory lookup
-  as master-key delegation (`ResolveTenantUserAuth`), scoped to the key's tenant.
-- An unknown or inactive user gets 403 `on_behalf_of_user_not_found`, with no detail.
+What Phase 1 adds:
+- `oidc_clients.credit_product` (migration 062; `oidc_app` default or `librechat`,
+  check constraint), chosen by tenant admins in "Connected apps".
+- The product is stamped into each access token at issuance (claim `gdp`), so the
+  gateway hot path needs no client lookup. A change takes effect within one access-token
+  lifetime. Tokens without the claim, or with an unknown value, fall back to `oidc_app`.
+- `AuthContext.CreditProduct` carries it into spend logs as a `credits.TrustedProduct`,
+  which client-supplied metadata cannot spoof.
+- Usage is attributed to the user and tenant only. No team is set, by product
+  decision. Team rules do not match OIDC traffic.
 
-Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
-`060_oidc_provider.sql` and the OIDC token issuer during implementation.
+LibreChat side: set `OPENID_REUSE_TOKENS=true` and use `{{LIBRECHAT_OPENID_ACCESS_TOKEN}}`
+as the custom endpoint key. The fork resolves the placeholder per user and handles
+expiry and re-authentication.
 
 ## `GET /v1/rate-card`
 
@@ -170,8 +180,8 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
 
 ## Decisions Made
 
-1. On-behalf-of is a VAT capability, not a new key type (see above). **Not implemented
-   yet**: see Open Issues.
+1. Delegated identity uses members' OIDC access tokens, not an on-behalf-of service key
+   (see above). A first on-behalf-of implementation was reverted in this branch.
 2. Rate-card version = multiplier set + changelog. Provider prices stay versioned by
    `PricingRevision`.
 3. The `float_fallback` source is allowed in shadow mode only. A zero-cost request
@@ -200,8 +210,8 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
    reuses the Jalali `BillingReportWindow` presets and sits next to the existing
    billing reports, instead of the `/api/v1/credits/shadow-summary` path planned
    above.
-9. OIDC `sub` is the GodarAI `user_id` (`internal/oidc/access.go`). This resolves
-   prompt §8.2: on-behalf-of carries a user id.
+9. OIDC `sub` is the GodarAI `user_id` (`internal/oidc/access.go`). Prompt §8.2 no
+   longer applies, because the gateway reads the identity from the verified token.
 10. Calibration months are calendar months in Asia/Tehran (not Jalali). Partial months
     are excluded.
 
@@ -213,11 +223,8 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
 
 ## Open Issues
 
-- **On-behalf-of** needs three product decisions before it is built:
-  1. Who may enable the capability on a VAT.
-  2. Whose model allowlist applies: the service key's, the user's, or the
-     intersection.
-  3. How to attribute a team when the user belongs to several teams.
+- ClickHouse metric events still label OIDC usage `gateway`; the trusted product is on
+  spend logs only. Fix this with FR-13 in Phase 3.
 - The gitops `migrate-clickhouse` job must include `006_gateway_model_event_credits.sql`.
 - Pre-existing, not addressed here: the `registerProxyRoutes` gocyclo limit (53 > 50),
   gofmt drift in `pricing_strategy_catalog_tokens.go`, tenant-admin cross-feature
