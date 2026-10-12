@@ -27,6 +27,12 @@
   "devDependencies": {
     "turbo": "^2.9.6"
   },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.17",
+      "@types/react-dom": "19.2.3"
+    }
+  },
   "version": "1.0.0",
   "description": "Shahrah is now organized as a monorepo for the full platform: control plane, tunnel services, admin panels, docs, blog, SDKs, shared contracts, and infrastructure.",
   "main": "index.js",
