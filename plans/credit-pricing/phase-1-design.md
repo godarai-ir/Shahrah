@@ -1,6 +1,6 @@
 # Phase 1 Design: Credit Core, Rate Card, Shadow Mode
 
-Status: implemented · Branch: `feat/credits-phase-1-core`
+Status: implemented except on-behalf-of (awaiting decisions) · Branch: `feat/credits-phase-1-core`
 Prompt: `plans/credit-pricing-execution-prompt.md` §6 Phase 1
 
 ## Goal
@@ -170,17 +170,8 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
 
 ## Decisions Made
 
-1. On-behalf-of is a VAT capability, not a new key type. The product owner decided:
-   - **Grant:** only tenant admins can change it, through
-     `PUT /api/v1/virtual-users/:id/tokens/:tokenID/on-behalf-of`.
-   - **Models:** the exact intersection of the key and member allowlists, always
-     enforced.
-   - **Team:** attributed only when the member belongs to exactly one team.
-
-   The capability lives in dedicated `verification_tokens` columns (migration 062),
-   **not** in token `metadata`, because VAT updates overwrite metadata wholesale.
-   The header is accepted only on `/v1/` routes. Master keys and OIDC access tokens
-   that send it are rejected.
+1. On-behalf-of is a VAT capability, not a new key type (see above). **Not implemented
+   yet**: see Open Issues.
 2. Rate-card version = multiplier set + changelog. Provider prices stay versioned by
    `PricingRevision`.
 3. The `float_fallback` source is allowed in shadow mode only. A zero-cost request
@@ -222,12 +213,11 @@ Open: confirm the format of the OIDC `sub` (prompt §8.2). It is checked against
 
 ## Open Issues
 
-- The product label for on-behalf-of usage is trusted on spend logs: it is a
-  `credits.TrustedProduct` value, so client metadata cannot spoof it. ClickHouse
-  metric events still label it `gateway`, because the ~32 metric emit sites do not
-  carry the auth product. Fix this in Phase 3 with FR-13 (usage by product).
-- There is no general IAM audit table. On-behalf-of changes record
-  `on_behalf_of_updated_by` and `on_behalf_of_updated_at` on the token row.
+- **On-behalf-of** needs three product decisions before it is built:
+  1. Who may enable the capability on a VAT.
+  2. Whose model allowlist applies: the service key's, the user's, or the
+     intersection.
+  3. How to attribute a team when the user belongs to several teams.
 - The gitops `migrate-clickhouse` job must include `006_gateway_model_event_credits.sql`.
 - Pre-existing, not addressed here: the `registerProxyRoutes` gocyclo limit (53 > 50),
   gofmt drift in `pricing_strategy_catalog_tokens.go`, tenant-admin cross-feature
