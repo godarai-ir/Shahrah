@@ -18,12 +18,10 @@ import (
 // GetKeyByHash retrieves a key by its hashed token.
 func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error) {
 	var (
-		auth              platform.AuthContext
-		expiresAt         *time.Time
-		keyModels         []string
-		rawMetadata       []byte
-		onBehalfOfEnabled bool
-		onBehalfOfProduct string
+		auth        platform.AuthContext
+		expiresAt   *time.Time
+		keyModels   []string
+		rawMetadata []byte
 	)
 
 	err := s.pool.QueryRow(ctx, `
@@ -40,9 +38,7 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 		       COALESCE(vt.expires, NULL),
 		       COALESCE(vt.blocked, false),
 		       COALESCE(vt.key_type, CASE WHEN vt.team_id IS NULL THEN 'pat' ELSE 'vat' END),
-		       COALESCE(vt.metadata, '{}'::jsonb),
-		       COALESCE(vt.on_behalf_of_enabled, false),
-		       COALESCE(vt.on_behalf_of_product, '')
+		       COALESCE(vt.metadata, '{}'::jsonb)
 		FROM verification_tokens vt
 		LEFT JOIN virtual_users vu
 		  ON vu.virtual_user_id = vt.virtual_user_id
@@ -67,8 +63,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 		&auth.Blocked,
 		&auth.KeyType,
 		&rawMetadata,
-		&onBehalfOfEnabled,
-		&onBehalfOfProduct,
 	)
 	if err != nil {
 		return nil, err
@@ -82,7 +76,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 	auth.OrgUnitID = auth.OrganizationID
 	auth.ExpiresAt = expiresAt
 	auth.VirtualModelSnapshots = parseVirtualModelSnapshots(rawMetadata)
-	applyOnBehalfOfCapability(&auth, onBehalfOfEnabled, onBehalfOfProduct)
 
 	if err := s.applyRuntimeModelPolicy(ctx, &auth, keyModels); err != nil {
 		return nil, err
@@ -763,17 +756,7 @@ func (s *AuthRepository) ListVATTokens(ctx context.Context, tenantID string, vir
 		items = append(items, *item)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
-	}
-
-	rows.Close()
-
-	if err := s.attachVATOnBehalfOf(ctx, tenantID, items); err != nil {
-		return nil, 0, err
-	}
-
-	return items, total, nil
+	return items, total, rows.Err()
 }
 
 func (s *AuthRepository) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {

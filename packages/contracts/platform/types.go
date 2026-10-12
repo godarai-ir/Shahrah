@@ -40,9 +40,6 @@ type AuthContext struct {
 	Role                        string                          `json:"role"`
 	Permissions                 []string                        `json:"permissions,omitempty"`
 	KeyType                     string                          `json:"key_type,omitempty"`
-	OnBehalfOfEnabled           bool                            `json:"on_behalf_of_enabled,omitempty"`
-	OnBehalfOfKeyID             string                          `json:"on_behalf_of_key_id,omitempty"`
-	CreditProduct               string                          `json:"credit_product,omitempty"`
 	TeamMemberPermissions       []string                        `json:"team_member_permissions,omitempty"`
 	AllowedModels               []string                        `json:"allowed_models,omitempty"`
 	AllowedModelTypes           map[string][]string             `json:"allowed_model_types,omitempty"`
@@ -415,22 +412,6 @@ type CreatedKey struct {
 	RevokedAt       *time.Time `json:"revoked_at,omitempty"`
 	CreatedByUserID string     `json:"created_by_user_id,omitempty"`
 	TokenHash       string     `json:"token_hash,omitempty"`
-	// OnBehalfOf is set on VAT listings; nil when the capability state was not loaded.
-	OnBehalfOf *VATOnBehalfOf `json:"on_behalf_of,omitempty"`
-}
-
-// VATOnBehalfOf is the on-behalf-of capability state of a VAT.
-type VATOnBehalfOf struct {
-	Enabled   bool       `json:"enabled"`
-	Product   string     `json:"product,omitempty"`
-	UpdatedBy string     `json:"updated_by,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
-}
-
-// UpdateVATOnBehalfOfRequest enables or disables on-behalf-of for a VAT.
-type UpdateVATOnBehalfOfRequest struct {
-	Enabled bool   `json:"enabled"`
-	Product string `json:"product,omitempty"`
 }
 
 type ListPATResponse struct {

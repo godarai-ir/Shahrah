@@ -80,7 +80,6 @@ type personalTokenRepository interface {
 type virtualTokenRepository interface {
 	ListVATTokens(context.Context, string, string, string, int, int) ([]platform.CreatedKey, int, error)
 	UpdateVATToken(context.Context, string, string, string, platform.UpdateVATTokenRequest) (*platform.CreatedKey, error)
-	SetVATOnBehalfOf(context.Context, string, string, string, platform.UpdateVATOnBehalfOfRequest, string) (*platform.VATOnBehalfOf, error)
 	RevokeVATToken(context.Context, string, string, string, string, string) (bool, error)
 	RotateVATToken(context.Context, string, string, string, string, string) (*platform.CreatedKey, error)
 }
@@ -320,16 +319,6 @@ func (s *Service) ListVATTokens(ctx context.Context, tenantID, virtualUserID, qu
 // UpdateVATToken updates a virtual access token.
 func (s *Service) UpdateVATToken(ctx context.Context, tenantID, virtualUserID, keyID string, request platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
 	return s.virtualTokens.UpdateVATToken(ctx, tenantID, virtualUserID, keyID, request)
-}
-
-// SetVATOnBehalfOf enables or disables the on-behalf-of capability of a virtual access token.
-func (s *Service) SetVATOnBehalfOf(
-	ctx context.Context,
-	tenantID, virtualUserID, keyID string,
-	request platform.UpdateVATOnBehalfOfRequest,
-	actor string,
-) (*platform.VATOnBehalfOf, error) {
-	return s.virtualTokens.SetVATOnBehalfOf(ctx, tenantID, virtualUserID, keyID, request, actor)
 }
 
 // RevokeVATToken revokes a virtual access token.

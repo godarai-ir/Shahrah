@@ -485,10 +485,6 @@ func (publicLoginDiscoveryStore) UpdateVATToken(context.Context, string, string,
 	return nil, errors.New("not implemented")
 }
 
-func (publicLoginDiscoveryStore) SetVATOnBehalfOf(context.Context, string, string, string, platform.UpdateVATOnBehalfOfRequest, string) (*platform.VATOnBehalfOf, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (publicLoginDiscoveryStore) RevokeVATToken(context.Context, string, string, string, string, string) (bool, error) {
 	return false, errors.New("not implemented")
 }

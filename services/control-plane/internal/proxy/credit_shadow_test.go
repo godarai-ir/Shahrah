@@ -130,15 +130,10 @@ func TestCreditProduct(t *testing.T) {
 		{
 			name: "explicit product wins",
 			log: platform.SpendLog{RequestMetadata: map[string]interface{}{
-				credits.ProductMetadataKey: credits.TrustedProduct(platform.CreditProductLibreChat),
+				credits.ProductMetadataKey: platform.CreditProductLibreChat,
 				"playground_source":        "tenant_admin_playground",
 			}},
 			want: platform.CreditProductLibreChat,
-		},
-		{
-			name: "client supplied string cannot relabel usage",
-			log:  platform.SpendLog{RequestMetadata: map[string]interface{}{credits.ProductMetadataKey: platform.CreditProductGuardrail}},
-			want: platform.CreditProductGateway,
 		},
 		{
 			name: "playground",
@@ -165,20 +160,5 @@ func TestCreditProduct(t *testing.T) {
 				t.Fatalf("creditProduct = %s, want %s", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestEnrichPricingMetadataCarriesTrustedProduct(t *testing.T) {
-	t.Parallel()
-
-	auth := &platform.AuthContext{CreditProduct: platform.CreditProductLibreChat, OnBehalfOfKeyID: "key-1"}
-	metadata := enrichPricingMetadata(map[string]interface{}{"billing_mode": "wallet_billed"}, auth, "m")
-
-	if got := creditProduct(platform.SpendLog{RequestMetadata: metadata}); got != platform.CreditProductLibreChat {
-		t.Fatalf("creditProduct = %s, want librechat", got)
-	}
-
-	if metadata["on_behalf_of_key_id"] != "key-1" {
-		t.Fatalf("on_behalf_of_key_id = %v", metadata["on_behalf_of_key_id"])
 	}
 }
