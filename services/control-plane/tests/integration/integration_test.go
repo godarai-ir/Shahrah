@@ -1665,6 +1665,10 @@ func (noopKeyStore) UpdateVATToken(ctx context.Context, tenantID string, virtual
 	return nil, pgx.ErrNoRows
 }
 
+func (noopKeyStore) SetVATOnBehalfOf(context.Context, string, string, string, platform.UpdateVATOnBehalfOfRequest, string) (*platform.VATOnBehalfOf, error) {
+	return nil, pgx.ErrNoRows
+}
+
 func (noopKeyStore) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
 	return false, nil
 }
@@ -1980,6 +1984,10 @@ func (s *integrationKeyStore) ListVATTokens(ctx context.Context, tenantID string
 	}
 
 	return filtered[offset:end], total, nil
+}
+
+func (s *integrationKeyStore) SetVATOnBehalfOf(context.Context, string, string, string, platform.UpdateVATOnBehalfOfRequest, string) (*platform.VATOnBehalfOf, error) {
+	return nil, pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {

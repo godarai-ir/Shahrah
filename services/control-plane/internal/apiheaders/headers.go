@@ -25,6 +25,7 @@ const (
 	HeaderGuardrailReview         = "x-godarai-guardrail-review"
 	HeaderGuardrailChecks         = "x-godarai-guardrail-checks"
 	HeaderUserID                  = "x-godarai-user-id"
+	HeaderOnBehalfOf              = "x-godarai-on-behalf-of"
 	LegacyHeaderUserID            = "x-shahrah-user-id"
 )
 
@@ -52,6 +53,11 @@ func GetTenant(c *fiber.Ctx) string {
 // GetUserID returns the delegated tenant-admin user id.
 func GetUserID(c *fiber.Ctx) string {
 	return GetFirst(c, HeaderUserID, LegacyHeaderUserID)
+}
+
+// GetOnBehalfOf returns the end-user identifier sent by an on-behalf-of service key.
+func GetOnBehalfOf(c *fiber.Ctx) string {
+	return GetFirst(c, HeaderOnBehalfOf)
 }
 
 // GetCacheConfig returns the cache configuration header value.

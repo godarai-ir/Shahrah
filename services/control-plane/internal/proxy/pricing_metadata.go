@@ -1,6 +1,11 @@
 package proxy
 
-import "github.com/Delpak/shahrah/packages/contracts/platform"
+import (
+	"strings"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
+)
 
 func enrichPricingMetadata(input map[string]interface{}, authInfo *platform.AuthContext, model string) map[string]interface{} {
 	out := map[string]interface{}{}
@@ -19,6 +24,14 @@ func enrichPricingMetadata(input map[string]interface{}, authInfo *platform.Auth
 	if resolved, ok := authInfo.AllowedModelPricingResolved[model]; ok {
 		out["pricing_resolved"] = resolved
 		out["pricing_unresolved"] = !resolved
+	}
+
+	if product := strings.TrimSpace(authInfo.CreditProduct); product != "" {
+		out[credits.ProductMetadataKey] = credits.TrustedProduct(product)
+	}
+
+	if authInfo.OnBehalfOfKeyID != "" {
+		out["on_behalf_of_key_id"] = authInfo.OnBehalfOfKeyID
 	}
 
 	return out

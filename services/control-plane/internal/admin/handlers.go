@@ -24,6 +24,7 @@ type keyStore interface {
 	RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error)
 	ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error)
 	UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error)
+	SetVATOnBehalfOf(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATOnBehalfOfRequest, actor string) (*platform.VATOnBehalfOf, error)
 	RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error)
 	RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error)
 }

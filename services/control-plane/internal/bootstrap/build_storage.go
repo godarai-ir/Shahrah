@@ -210,6 +210,7 @@ func (b *builder) buildStorage() error {
 		auth.AuthMiddlewareOptions{
 			RuntimeProfiles: b.runtimeProfiles,
 			AccessTokens:    b.oidcAccessTokens(),
+			OnBehalfOf:      store.AuthRepository,
 		},
 	)
 	b.tenantMiddleware = tenant.NewMiddlewareWithCache(store.TenantRepository, sharedCache, tenant.MiddlewareConfig{

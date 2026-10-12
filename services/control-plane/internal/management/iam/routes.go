@@ -43,6 +43,7 @@ type Handler interface {
 	UpdateVirtualUserToken(*fiber.Ctx) error
 	RevokeVirtualUserToken(*fiber.Ctx) error
 	RotateVirtualUserToken(*fiber.Ctx) error
+	UpdateVirtualUserTokenOnBehalfOf(*fiber.Ctx) error
 	ListAccessPrincipals(*fiber.Ctx) error
 	ListRoles(*fiber.Ctx) error
 	CreateRole(*fiber.Ctx) error
@@ -106,6 +107,7 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Patch("/virtual-users/:virtualUserID/tokens/:tokenID", r.handler.UpdateVirtualUserToken)
 	router.Post("/virtual-users/:virtualUserID/tokens/:tokenID/revoke", r.handler.RevokeVirtualUserToken)
 	router.Post("/virtual-users/:virtualUserID/tokens/:tokenID/rotate", r.handler.RotateVirtualUserToken)
+	router.Put("/virtual-users/:virtualUserID/tokens/:tokenID/on-behalf-of", r.handler.UpdateVirtualUserTokenOnBehalfOf)
 	router.Get("/access-principals", r.handler.ListAccessPrincipals)
 	router.Get("/roles", r.handler.ListRoles)
 	router.Post("/roles", r.handler.CreateRole)

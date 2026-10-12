@@ -65,6 +65,7 @@ type AuthMiddleware struct {
 	keyStore        KeyStore
 	runtimeProfiles RuntimeProfileLookup
 	accessTokens    AccessTokenAuthenticator
+	onBehalfOf      OnBehalfOfResolver
 	masterKey       string
 	logger          *zap.Logger
 }
@@ -79,6 +80,8 @@ type AuthMiddlewareOptions struct {
 	RuntimeProfiles RuntimeProfileLookup
 	// AccessTokens enables OIDC bearer access tokens on gateway routes when non-nil.
 	AccessTokens AccessTokenAuthenticator
+	// OnBehalfOf enables x-godarai-on-behalf-of for VATs with the capability when non-nil.
+	OnBehalfOf OnBehalfOfResolver
 }
 
 // RuntimeProfileLookup resolves compiled authentication state.
@@ -107,6 +110,7 @@ func NewAuthMiddlewareWithOptions(keyStore KeyStore, masterKey string, logger *z
 		keyStore:        keyStore,
 		runtimeProfiles: options.RuntimeProfiles,
 		accessTokens:    options.AccessTokens,
+		onBehalfOf:      options.OnBehalfOf,
 		masterKey:       masterKey,
 		logger:          logger,
 	}
@@ -125,11 +129,19 @@ func (m *AuthMiddleware) Middleware() fiber.Handler {
 			return writeAuthError(c, fiber.StatusUnauthorized, "Missing API key. Pass it using the `Authorization` header", "authentication_error")
 		}
 
-		if m.masterKey != "" && apiKey == m.masterKey {
+		isMasterKey := m.masterKey != "" && apiKey == m.masterKey
+		isAccessToken := !isMasterKey && m.accessTokens != nil && looksLikeJWT(apiKey)
+
+		// Only service keys may act on behalf of a user; other credentials already carry an identity.
+		if (isMasterKey || isAccessToken) && apiheaders.GetOnBehalfOf(c) != "" {
+			return writeAuthError(c, fiber.StatusForbidden, "This credential is not allowed to act on behalf of users", onBehalfOfNotAllowedType)
+		}
+
+		if isMasterKey {
 			return m.handleMasterKeyRequest(c)
 		}
 
-		if m.accessTokens != nil && looksLikeJWT(apiKey) {
+		if isAccessToken {
 			return m.authenticateAccessToken(c, apiKey)
 		}
 
@@ -223,6 +235,16 @@ func (m *AuthMiddleware) authenticateAPIKey(c *fiber.Ctx, apiKey string) error {
 	keyInfo, rejection := m.lookupAuthContext(c, apiKey)
 	if rejection != nil {
 		return rejection.write(c)
+	}
+
+	// Clone the header value to avoid retaining mutable fasthttp buffer data.
+	if onBehalfOf := strings.Clone(apiheaders.GetOnBehalfOf(c)); onBehalfOf != "" {
+		delegated, delegationRejection := m.resolveOnBehalfOf(c, keyInfo, onBehalfOf)
+		if delegationRejection != nil {
+			return delegationRejection.write(c)
+		}
+
+		keyInfo = delegated
 	}
 
 	if rejection := m.authorizeAndStoreAuthContext(c, keyInfo); rejection != nil {
