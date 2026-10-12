@@ -111,6 +111,10 @@ func (b *builder) buildBillingWorkers() error {
 		return err
 	}
 
+	if err := b.buildCreditLedgerWorker(); err != nil {
+		return err
+	}
+
 	settlementCfg := billing.WalletSettlementConfig{
 		Enabled:   b.cfg.Runtime.WalletSettlementEnabled,
 		Interval:  b.cfg.Runtime.WalletSettlementInterval,
@@ -140,6 +144,33 @@ func (b *builder) buildBillingWorkers() error {
 		return nil
 	}, func(context.Context) error {
 		settlement.Stop()
+
+		return nil
+	})
+}
+
+func (b *builder) buildCreditLedgerWorker() error {
+	settings := b.cfg.Runtime.BillingCreditLedger
+	if !settings.Enabled || b.store == nil || b.store.WalletRepository == nil {
+		return nil
+	}
+
+	processor := billing.NewCreditLedgerProcessor(billing.CreditLedgerConfig{
+		Enabled:            true,
+		SettlementInterval: settings.SettlementInterval,
+		SettleDelay:        settings.SettleDelay,
+		BatchSize:          settings.BatchSize,
+		ExpiryInterval:     settings.ExpiryInterval,
+		ReconcileInterval:  settings.ReconcileInterval,
+		Timeout:            settings.Timeout,
+	}, b.store.CreditLedgerRepository, b.logger)
+
+	return b.lifecycle.AddWorker("credit ledger processor", func(context.Context) error {
+		processor.Start()
+
+		return nil
+	}, func(context.Context) error {
+		processor.Stop()
 
 		return nil
 	})

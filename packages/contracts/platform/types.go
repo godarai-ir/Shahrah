@@ -172,6 +172,8 @@ type SpendLog struct {
 	TenantID        string                 `json:"tenant_id"`
 	OrganizationID  string                 `json:"organization_id,omitempty"`
 	TeamID          string                 `json:"team_id,omitempty"`
+	UserID          string                 `json:"user_id,omitempty"`
+	OrgUnitID       string                 `json:"org_unit_id,omitempty"`
 	Model           string                 `json:"model"`
 	InputTokens     int                    `json:"input_tokens"`
 	OutputTokens    int                    `json:"output_tokens"`
