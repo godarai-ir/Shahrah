@@ -12,12 +12,6 @@ import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
-/** Mirrors the control-plane role normalization; the backend still enforces the check. */
-function isTenantAdminRole(role: string | undefined) {
-  const normalized = role?.trim().toLowerCase();
-  return normalized === "tenant_admin" || normalized === "admin";
-}
-
 export default async function VirtualUsersPage() {
   const auth = await requireAuth("/login?next=/virtual-users");
   const t = await getTranslations("virtualUsers");
@@ -77,7 +71,6 @@ export default async function VirtualUsersPage() {
         initialError={virtualUsersResult.ok ? null : virtualUsersResult.errorMessage ?? "Request failed."}
         teams={teamsResult.ok ? teamsPayload.data ?? [] : []}
         orgUnits={orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : []}
-        canManageOnBehalfOf={isTenantAdminRole(auth.user.role)}
       />
     </AdminShell>
   );

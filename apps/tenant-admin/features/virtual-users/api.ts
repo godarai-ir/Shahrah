@@ -31,10 +31,7 @@ const vatTokenSchema = z.object({
   last_used_at: z.string().optional(),
   revoked_at: z.string().optional(),
   blocked: z.boolean().optional(),
-  on_behalf_of: z.object({ enabled: z.boolean(), product: z.string().optional() }).optional(),
 });
-
-const vatOnBehalfOfSchema = z.object({ enabled: z.boolean(), product: z.string().optional() });
 
 const virtualUserListSchema = z.object({ data: z.array(virtualUserSchema).optional(), total: z.number().optional() });
 const vatTokenListSchema = z.object({ data: z.array(vatTokenSchema).optional(), total: z.number().optional() });
@@ -105,15 +102,6 @@ export async function revokeVATToken(virtualUserID: string, tokenID: string): Pr
   await requestJSON(
     `/api/virtual-users/${encodeURIComponent(virtualUserID)}/tokens/${encodeURIComponent(tokenID)}/revoke`,
     { method: "POST", body: JSON.stringify({ reason: "tenant_admin_ui" }) },
-  );
-}
-
-/** Enables or disables on-behalf-of for a service token (tenant admins only). */
-export function setVATOnBehalfOf(virtualUserID: string, tokenID: string, enabled: boolean) {
-  return requestParsedJSON(
-    vatOnBehalfOfSchema,
-    `/api/virtual-users/${encodeURIComponent(virtualUserID)}/tokens/${encodeURIComponent(tokenID)}/on-behalf-of`,
-    { method: "PUT", body: JSON.stringify({ enabled }) },
   );
 }
 

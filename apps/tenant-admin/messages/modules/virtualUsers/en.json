@@ -18,9 +18,7 @@
     "createToken": "Create VAT",
     "rotate": "Rotate",
     "revoke": "Revoke",
-    "saving": "Saving...",
-    "enableOnBehalfOf": "Enable acting on behalf of users",
-    "disableOnBehalfOf": "Disable acting on behalf of users"
+    "saving": "Saving..."
   },
   "common": {
     "notSet": "Not set"
@@ -65,8 +63,7 @@
     "active": "Active",
     "inactive": "Inactive",
     "blocked": "Blocked",
-    "revoked": "Revoked",
-    "onBehalfOf": "Acts for users"
+    "revoked": "Revoked"
   },
   "fields": {
     "alias": "Technical ID",
@@ -112,11 +109,7 @@
     "revokeTitle": "Revoke access token",
     "revokeDescription": "Revoke access key \"{name}\"? Existing applications using it will stop authenticating.",
     "cancel": "Cancel",
-    "confirm": "Confirm",
-    "enableOnBehalfOfTitle": "Enable acting on behalf of users?",
-    "enableOnBehalfOfDescription": "VAT “{name}” will be able to send requests for any workspace member with the x-godarai-on-behalf-of header. Usage is recorded for that member, and only models allowed for both this VAT and the member are available. Enable this only for trusted services such as LibreChat.",
-    "disableOnBehalfOfTitle": "Disable acting on behalf of users?",
-    "disableOnBehalfOfDescription": "After this, requests from VAT “{name}” that include the x-godarai-on-behalf-of header are rejected."
+    "confirm": "Confirm"
   },
   "oneTime": {
     "title": "Copy VAT now",
@@ -150,8 +143,6 @@
     "aliasPattern": "Technical ID must start with a letter or number and use only letters, numbers, underscores, or hyphens.",
     "tokenNameRequired": "Token name is required.",
     "teamRequiredTitle": "Team scope required",
-    "teamRequired": "Assign this virtual user to a team before issuing a VAT.",
-    "onBehalfOfEnabled": "This VAT can now act on behalf of users.",
-    "onBehalfOfDisabled": "This VAT can no longer act on behalf of users."
+    "teamRequired": "Assign this virtual user to a team before issuing a VAT."
   }
 }
