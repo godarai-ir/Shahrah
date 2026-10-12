@@ -224,7 +224,9 @@ func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInf
 
 	totalExact, inputExact, outputExact, components, err := accumulateUsageCostDimensions(
 		quantities,
-		func(dimension string) bool { return dimension == outputDimension || strings.Contains(dimension, "output") },
+		func(dimension string) bool {
+			return dimension == outputDimension || strings.Contains(dimension, "output")
+		},
 		func(dimension string, _ int64) (normalizedPricingRate, error) {
 			rate, rateErr := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, "", conditions)
 			if rateErr != nil {
