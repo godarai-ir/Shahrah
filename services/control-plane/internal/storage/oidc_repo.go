@@ -23,14 +23,14 @@ func newOIDCRepository(pool *pgxpool.Pool) *OIDCRepository {
 
 const oidcClientColumns = `
 	id::text, tenant_id::text, client_id, name, secret_hash, redirect_uris, post_logout_redirect_uris,
-	active, created_by, created_at, updated_at, secret_rotated_at`
+	active, credit_product, created_by, created_at, updated_at, secret_rotated_at`
 
 func scanOIDCClient(row pgx.Row) (*oidc.Client, error) {
 	var client oidc.Client
 
 	err := row.Scan(
 		&client.ID, &client.TenantID, &client.ClientID, &client.Name, &client.SecretHash,
-		&client.RedirectURIs, &client.PostLogoutRedirectURIs, &client.Active, &client.CreatedBy,
+		&client.RedirectURIs, &client.PostLogoutRedirectURIs, &client.Active, &client.CreditProduct, &client.CreatedBy,
 		&client.CreatedAt, &client.UpdatedAt, &client.SecretRotatedAt,
 	)
 	if err != nil {
@@ -83,11 +83,13 @@ func (r *OIDCRepository) ListOIDCClients(ctx context.Context, tenantID string) (
 // CreateOIDCClient inserts a client registration.
 func (r *OIDCRepository) CreateOIDCClient(ctx context.Context, client oidc.Client) (*oidc.Client, error) {
 	created, err := scanOIDCClient(r.pool.QueryRow(ctx, `
-		INSERT INTO oidc_clients (tenant_id, client_id, name, secret_hash, redirect_uris, post_logout_redirect_uris, active, created_by)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO oidc_clients (
+			tenant_id, client_id, name, secret_hash, redirect_uris, post_logout_redirect_uris, active, created_by, credit_product
+		)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, COALESCE(NULLIF($9, ''), 'oidc_app'))
 		RETURNING `+oidcClientColumns,
 		client.TenantID, client.ClientID, client.Name, client.SecretHash,
-		client.RedirectURIs, client.PostLogoutRedirectURIs, client.Active, client.CreatedBy,
+		client.RedirectURIs, client.PostLogoutRedirectURIs, client.Active, client.CreatedBy, client.CreditProduct,
 	))
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -113,10 +115,11 @@ func (r *OIDCRepository) UpdateOIDCClient(ctx context.Context, tenantID, id stri
 		    redirect_uris = COALESCE($4, redirect_uris),
 		    post_logout_redirect_uris = COALESCE($5, post_logout_redirect_uris),
 		    active = COALESCE($6, active),
+		    credit_product = COALESCE($7, credit_product),
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND id = $2::uuid
 		RETURNING `+oidcClientColumns,
-		tenantID, id, update.Name, update.RedirectURIs, update.PostLogoutRedirectURIs, update.Active,
+		tenantID, id, update.Name, update.RedirectURIs, update.PostLogoutRedirectURIs, update.Active, update.CreditProduct,
 	))
 }
 

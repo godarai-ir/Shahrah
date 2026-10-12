@@ -41,6 +41,7 @@ func (s *Service) VerifyAccessToken(token string) (*AccessTokenClaims, error) {
 		ClientID:  claims.ClientID,
 		GrantID:   claims.GrantID,
 		Scope:     claims.Scope,
+		Product:   claims.Product,
 		ExpiresAt: time.Unix(claims.ExpiresAt, 0).UTC(),
 	}, nil
 }
@@ -74,6 +75,7 @@ func (s *Service) AuthenticateAccessToken(ctx context.Context, tenantID, token s
 	resolved.KeyID = claims.GrantID
 	resolved.KeyAlias = "oidc:" + claims.ClientID
 	resolved.KeyType = KeyType
+	resolved.CreditProduct = accessTokenProduct(claims.Product)
 
 	return resolved, nil
 }
@@ -178,4 +180,15 @@ func (s *Service) Logout(ctx context.Context, tenant Tenant, params LogoutParams
 	}
 
 	return appendQuery(redirectURI, url.Values{"state": {params.State}})
+}
+
+// accessTokenProduct is the trusted product label for gateway usage made with an
+// access token. Tokens issued before clients carried a product use the default.
+func accessTokenProduct(product string) string {
+	switch product {
+	case platform.CreditProductLibreChat, platform.CreditProductOIDCApp:
+		return product
+	default:
+		return platform.CreditProductOIDCApp
+	}
 }

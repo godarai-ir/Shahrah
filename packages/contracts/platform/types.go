@@ -40,6 +40,7 @@ type AuthContext struct {
 	Role                        string                          `json:"role"`
 	Permissions                 []string                        `json:"permissions,omitempty"`
 	KeyType                     string                          `json:"key_type,omitempty"`
+	CreditProduct               string                          `json:"credit_product,omitempty"`
 	TeamMemberPermissions       []string                        `json:"team_member_permissions,omitempty"`
 	AllowedModels               []string                        `json:"allowed_models,omitempty"`
 	AllowedModelTypes           map[string][]string             `json:"allowed_model_types,omitempty"`
@@ -206,6 +207,7 @@ const (
 	CreditProductEmbeddings    = "embeddings"
 	CreditProductOCR           = "ocr"
 	CreditProductPlayground    = "playground"
+	CreditProductOIDCApp       = "oidc_app"
 )
 
 // UsageCostBreakdown captures estimated or final cost.

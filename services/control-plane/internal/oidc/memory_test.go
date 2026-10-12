@@ -123,6 +123,10 @@ func (m *memoryRepository) UpdateOIDCClient(_ context.Context, tenantID, id stri
 		client.Active = *update.Active
 	}
 
+	if update.CreditProduct != nil {
+		client.CreditProduct = *update.CreditProduct
+	}
+
 	copied := *client
 
 	return &copied, nil

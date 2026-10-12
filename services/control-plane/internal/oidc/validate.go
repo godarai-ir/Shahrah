@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 const (
@@ -175,6 +177,26 @@ func isDevelopmentHost(host string) bool {
 	ip := net.ParseIP(host)
 
 	return ip != nil && ip.IsLoopback()
+}
+
+// normalizeCreditProduct returns the product label for a client; empty means the generic default.
+func normalizeCreditProduct(raw string) (string, error) {
+	product := strings.ToLower(strings.TrimSpace(raw))
+	if product == "" {
+		return platform.CreditProductOIDCApp, nil
+	}
+
+	switch product {
+	case platform.CreditProductOIDCApp, platform.CreditProductLibreChat:
+		return product, nil
+	default:
+		return "", fmt.Errorf(
+			"%w: credit_product must be %s or %s",
+			ErrInvalidClientConfig,
+			platform.CreditProductOIDCApp,
+			platform.CreditProductLibreChat,
+		)
+	}
 }
 
 func normalizeClientName(raw string) (string, error) {

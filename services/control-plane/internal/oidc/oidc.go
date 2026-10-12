@@ -175,6 +175,7 @@ type Client struct {
 	RedirectURIs           []string  `json:"redirect_uris"`
 	PostLogoutRedirectURIs []string  `json:"post_logout_redirect_uris"`
 	Active                 bool      `json:"active"`
+	CreditProduct          string    `json:"credit_product"`
 	CreatedBy              string    `json:"created_by,omitempty"`
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
@@ -192,6 +193,7 @@ type CreateClientRequest struct {
 	Name                   string   `json:"name"`
 	RedirectURIs           []string `json:"redirect_uris"`
 	PostLogoutRedirectURIs []string `json:"post_logout_redirect_uris"`
+	CreditProduct          string   `json:"credit_product,omitempty"`
 }
 
 // UpdateClientRequest changes mutable client fields; nil fields are unchanged.
@@ -200,6 +202,7 @@ type UpdateClientRequest struct {
 	RedirectURIs           *[]string `json:"redirect_uris"`
 	PostLogoutRedirectURIs *[]string `json:"post_logout_redirect_uris"`
 	Active                 *bool     `json:"active"`
+	CreditProduct          *string   `json:"credit_product"`
 }
 
 // AuthorizationRequest is a pending or completed authorization-code request.
@@ -331,6 +334,7 @@ type AccessTokenClaims struct {
 	ClientID  string
 	GrantID   string
 	Scope     string
+	Product   string
 	ExpiresAt time.Time
 }
 
