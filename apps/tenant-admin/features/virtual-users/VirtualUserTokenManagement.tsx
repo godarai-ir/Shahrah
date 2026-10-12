@@ -10,6 +10,7 @@ import {
   RotateCw,
   ShieldCheck,
   Trash2,
+  UserCog,
 } from "lucide-react";
 
 import { AppCard } from "@/components/app-ui/AppCard";
@@ -52,6 +53,7 @@ import {
   listVirtualUsers,
   revokeVATToken,
   rotateVATToken,
+  setVATOnBehalfOf,
   updateVirtualUser as updateVirtualUserRequest,
   type EffectiveEntitlements,
   type VATToken,
@@ -86,7 +88,7 @@ type TokenForm = {
 };
 
 type Banner = { kind: "success" | "error" | "warning"; message: string };
-type TokenAction = { type: "revoke" | "rotate"; token: VATToken };
+type TokenAction = { type: "revoke" | "rotate" | "enableOnBehalfOf" | "disableOnBehalfOf"; token: VATToken };
 
 const PAGE_SIZE = 25;
 const FEATURE_VAT_ENABLED = "auth.vat.enabled";
@@ -125,12 +127,15 @@ export default function VirtualUserTokenManagement({
   initialError,
   teams,
   orgUnits,
+  canManageOnBehalfOf = false,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
   orgUnits: OrgUnit[];
+  /** Tenant admins may let a service VAT act on behalf of members. */
+  canManageOnBehalfOf?: boolean;
 }) {
   const t = useTranslations("virtualUsers");
   const locale = useLocale();
@@ -369,6 +374,14 @@ export default function VirtualUserTokenManagement({
       if (actionIntent.type === "revoke") {
         await revokeVATToken(selectedVirtualUser.id, actionIntent.token.id);
         showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.revokeSuccess") });
+      } else if (actionIntent.type === "enableOnBehalfOf" || actionIntent.type === "disableOnBehalfOf") {
+        const enabled = actionIntent.type === "enableOnBehalfOf";
+        await setVATOnBehalfOf(selectedVirtualUser.id, actionIntent.token.id, enabled);
+        showFeedbackToast({
+          kind: "success",
+          title: t("alerts.success"),
+          description: enabled ? t("messages.onBehalfOfEnabled") : t("messages.onBehalfOfDisabled"),
+        });
       } else {
         const rotated = await rotateVATToken(selectedVirtualUser.id, actionIntent.token.id);
         setNewSecret(rotated.key ?? null);
@@ -668,10 +681,31 @@ export default function VirtualUserTokenManagement({
                           <TableCell className={VAT_COLUMN_CLASS.lastUsed}><DateTimeValue value={token.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
                           <TableCell className={VAT_COLUMN_CLASS.expiresAt}><DateTimeValue value={token.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
                           <TableCell className={VAT_COLUMN_CLASS.status}>
-                            <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
+                              {token.on_behalf_of?.enabled && !token.revoked_at ? (
+                                <AppStatusBadge status="info">{t("status.onBehalfOf")}</AppStatusBadge>
+                              ) : null}
+                            </div>
                           </TableCell>
                           <TableCell className={VAT_COLUMN_CLASS.actions}>
                             <div className="flex flex-nowrap justify-end gap-2">
+                              {canManageOnBehalfOf ? (
+                                <Button
+                                  variant="outline"
+                                  size="icon-sm"
+                                  aria-label={token.on_behalf_of?.enabled ? t("actions.disableOnBehalfOf") : t("actions.enableOnBehalfOf")}
+                                  title={token.on_behalf_of?.enabled ? t("actions.disableOnBehalfOf") : t("actions.enableOnBehalfOf")}
+                                  aria-pressed={Boolean(token.on_behalf_of?.enabled)}
+                                  onClick={() => {
+                                    setActionIntent({ type: token.on_behalf_of?.enabled ? "disableOnBehalfOf" : "enableOnBehalfOf", token });
+                                    setConfirmOpen(true);
+                                  }}
+                                  disabled={Boolean(token.revoked_at)}
+                                >
+                                  <UserCog />
+                                </Button>
+                              ) : null}
                               <Button
                                 variant="outline"
                                 size="icon-sm"
@@ -796,10 +830,8 @@ export default function VirtualUserTokenManagement({
             setActionNotice(null);
           }
         }}
-        title={actionIntent?.type === "rotate" ? t("confirm.rotateTitle") : t("confirm.revokeTitle")}
-        description={actionIntent?.type === "rotate"
-          ? t("confirm.rotateDescription", { name: actionIntent.token.key_alias })
-          : t("confirm.revokeDescription", { name: actionIntent?.token.key_alias ?? "" })}
+        title={tokenActionTitle(actionIntent, t)}
+        description={tokenActionDescription(actionIntent, t)}
         cancelLabel={t("confirm.cancel")}
         confirmLabel={t("confirm.confirm")}
         pendingLabel={t("actions.saving")}
@@ -972,4 +1004,33 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
     if (value.trim().toLowerCase() === "false") return false;
   }
   return fallback;
+}
+
+type Translate = ReturnType<typeof useTranslations>;
+
+function tokenActionTitle(action: TokenAction | null, t: Translate) {
+  switch (action?.type) {
+    case "rotate":
+      return t("confirm.rotateTitle");
+    case "enableOnBehalfOf":
+      return t("confirm.enableOnBehalfOfTitle");
+    case "disableOnBehalfOf":
+      return t("confirm.disableOnBehalfOfTitle");
+    default:
+      return t("confirm.revokeTitle");
+  }
+}
+
+function tokenActionDescription(action: TokenAction | null, t: Translate) {
+  const name = action?.token.key_alias ?? "";
+  switch (action?.type) {
+    case "rotate":
+      return t("confirm.rotateDescription", { name });
+    case "enableOnBehalfOf":
+      return t("confirm.enableOnBehalfOfDescription", { name });
+    case "disableOnBehalfOf":
+      return t("confirm.disableOnBehalfOfDescription", { name });
+    default:
+      return t("confirm.revokeDescription", { name });
+  }
 }

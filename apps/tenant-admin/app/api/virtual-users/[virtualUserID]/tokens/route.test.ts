@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "./route";
 import { POST as REVOKE } from "./[tokenID]/revoke/route";
 import { POST as ROTATE } from "./[tokenID]/rotate/route";
+import { PUT as SET_ON_BEHALF_OF } from "./[tokenID]/on-behalf-of/route";
 
 const readAuthFromRequestMock = vi.hoisted(() => vi.fn());
 const proxyToControlPlaneMock = vi.hoisted(() => vi.fn());
@@ -87,6 +88,23 @@ describe("virtual user token routes", () => {
       path: "/api/v1/virtual-users/vu-1/tokens/key-1/rotate",
       userID: "user-1",
       body: { grace_period: "10m" },
+    });
+  });
+
+  it("proxies the on-behalf-of toggle and forwards only the enabled flag", async () => {
+    const req = new NextRequest("http://localhost/api/virtual-users/vu-1/tokens/key-1/on-behalf-of", {
+      method: "PUT",
+      body: JSON.stringify({ enabled: true, product: "guardrail", extra: "ignored" }),
+    });
+
+    await SET_ON_BEHALF_OF(req, { params: Promise.resolve({ virtualUserID: "vu-1", tokenID: "key-1" }) });
+
+    expect(proxyToControlPlaneMock).toHaveBeenCalledWith({
+      request: req,
+      method: "PUT",
+      path: "/api/v1/virtual-users/vu-1/tokens/key-1/on-behalf-of",
+      userID: "user-1",
+      body: { enabled: true },
     });
   });
 });
