@@ -71,4 +71,10 @@ describe("CreditShadowCard", () => {
     expect(screen.getByText("No usage yet")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Top models" })).not.toBeInTheDocument();
   });
+
+  it("links the public pricing changelog when given one", () => {
+    render(<CreditShadowCard summary={summary()} labels={labels} locale="en" changelog={{ href: "https://godarai.ir/pricing/changelog", label: "Changelog" }} />);
+
+    expect(screen.getByRole("link", { name: "Changelog" })).toHaveAttribute("href", "https://godarai.ir/pricing/changelog");
+  });
 });
