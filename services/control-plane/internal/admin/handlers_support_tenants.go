@@ -78,15 +78,6 @@ func (h *Handlers) GetPlatformTenant(c *fiber.Ctx) error {
 		if entitlementsErr == nil {
 			detail.Entitlements = entitlements
 		}
-
-		if detail.Entitlements != nil {
-			for _, counter := range detail.Entitlements.UsageCounters {
-				if counter.FeatureKey == platform.FeatureGatewayRequestsMonthly {
-					detail.Tenant.UsageUsed = counter.Used
-					detail.Tenant.UsageLimit = counter.Limit
-				}
-			}
-		}
 	}
 
 	return c.JSON(detail)

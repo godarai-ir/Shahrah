@@ -47,16 +47,9 @@ func (b *builder) buildWorkers() error {
 	}
 
 	tokenUsage := b.store.TokenUsageRepository
-	if err := b.lifecycle.AddWorker("token usage flusher", func(ctx context.Context) error {
+
+	return b.lifecycle.AddWorker("token usage flusher", func(ctx context.Context) error {
 		tokenUsage.StartTokenUsageFlusher(ctx)
-
-		return nil
-	}, nil); err != nil {
-		return err
-	}
-
-	return b.lifecycle.AddWorker("usage counter flusher", func(ctx context.Context) error {
-		b.store.StartUsageCounterFlusher(ctx)
 
 		return nil
 	}, nil)

@@ -26,11 +26,9 @@
       "label": "هزینه امروز",
       "average": "میانگین ۷ روز"
     },
-    "quota": {
-      "label": "مصرف سقف دوره",
-      "daysRemaining": "{days} روز مانده",
-      "progressHint": "{used} از {limit} درخواست",
-      "forecast": "پیش‌بینی پایان {value}"
+    "planPeriod": {
+      "label": "دوره پلن",
+      "daysRemaining": "روز مانده"
     }
   },
   "onboarding": {

@@ -75,6 +75,6 @@ describe("TenantAdminDashboard", () => {
     await waitFor(() => expect(screen.getByText("dashboard.metrics.errorRate.label")).toBeInTheDocument());
     expect(screen.queryByText("dashboard.overviewEyebrow")).not.toBeInTheDocument();
     expect(screen.queryByText("dashboard.metrics.latencyP95.label")).not.toBeInTheDocument();
-    expect(screen.getByText("dashboard.metrics.quota.label")).toBeInTheDocument();
+    expect(screen.getByText("dashboard.metrics.planPeriod.label")).toBeInTheDocument();
   });
 });

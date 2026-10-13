@@ -317,12 +317,6 @@ func storageConfig(settings config.StorageSettings) *storage.Config {
 			DeltaTTL:         settings.TokenUsageDeltaTTL,
 			LastUsedInterval: settings.LastUsedFlushInterval,
 			LastUsedTTL:      settings.LastUsedTTL,
-			UsageCounters:    settings.UsageCountersEnabled,
-			CountersFailOpen: settings.UsageCountersFailOpen,
-			CounterKeyPrefix: settings.UsageCounterKeyPrefix,
-			CounterInterval:  settings.UsageCounterFlushInterval,
-			CounterBatchSize: settings.UsageCounterFlushBatchSize,
-			CounterTTLBuffer: settings.UsageCounterTTLBuffer,
 		},
 		HotPath: storage.HotPathConfig{
 			RequestLoggingModeTTL:        settings.RequestLoggingModeTTL,

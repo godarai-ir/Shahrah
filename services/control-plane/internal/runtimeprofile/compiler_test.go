@@ -32,7 +32,7 @@ func TestCompilerBuildsProfileAndRedactsProviderSecrets(t *testing.T) {
 				TenantID: "tenant-1",
 				Status:   "active",
 			},
-			Features: map[string]interface{}{platform.FeatureGatewayRequestsMonthly: float64(1000)},
+			Features: map[string]interface{}{platform.FeatureUsersMax: float64(10)},
 		},
 		rateRules:   []platform.RateLimitRule{{RuleID: "rpm", Enabled: true}},
 		budgetRules: []platform.BudgetLimitRule{{RuleID: "daily", Enabled: true}},

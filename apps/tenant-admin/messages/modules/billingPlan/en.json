@@ -23,7 +23,6 @@
     "empty": "No features are registered for this plan."
   },
   "features": {
-    "gatewayRequestsMonthly": "Monthly gateway requests",
     "usersMax": "Active users",
     "teamsEnabled": "Team management",
     "cacheSimpleEnabled": "Exact request cache",
@@ -60,7 +59,6 @@
     "disabled": "Unavailable",
     "none": "No items",
     "unknown": "Unknown",
-    "usage": "{used} of {limit}",
     "custom": "Custom agreement",
     "unlimited": "Unlimited",
     "days": "{count} days",

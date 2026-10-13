@@ -20,21 +20,12 @@ type TenantSubscription = {
 type EffectiveEntitlements = {
   features?: Record<string, unknown>;
   overrides?: Record<string, unknown>;
-  usage_counters?: UsageCounter[];
-};
-
-type UsageCounter = {
-  feature_key: string;
-  used: number;
-  limit?: number | null;
-  window_end?: string;
 };
 
 type EntitlementRow = {
   key: string;
   title: string;
   value: unknown;
-  usageCounter?: UsageCounter | null;
   overridden: boolean;
   docsHref?: string | null;
 };
@@ -47,7 +38,6 @@ type PlanManagementProps = {
 };
 
 const featureOrder = [
-  "gateway.requests.monthly",
   "users.max",
   "teams.enabled",
   "cache.simple.enabled",
@@ -81,7 +71,6 @@ const featureOrder = [
 ] as const;
 
 const docsPathByFeature: Record<string, string> = {
-  "gateway.requests.monthly": "/making-llm-requests-via-gateway",
   "users.max": "/guides/users-access-overview",
   "teams.enabled": "/guides/team-management",
   "cache.simple.enabled": "/guides/caching",
@@ -122,7 +111,7 @@ export default function PlanManagement({
   const features = entitlements?.features ?? {};
   const overrides = entitlements?.overrides ?? {};
   const currentPlanTitle = subscription?.plan_display_name ?? currentSlug;
-  const rows = buildEntitlementRows(features, overrides, entitlements?.usage_counters ?? [], t, docsBaseHref);
+  const rows = buildEntitlementRows(features, overrides, t, docsBaseHref);
 
   return (
     <div className="flex flex-col gap-6">
@@ -212,11 +201,9 @@ function formatLimit(value: unknown, locale: string, common: ReturnType<typeof u
 function buildEntitlementRows(
   features: Record<string, unknown>,
   overrides: Record<string, unknown>,
-  usageCounters: UsageCounter[],
   t: ReturnType<typeof useTranslations>,
   docsBaseHref: string,
 ): EntitlementRow[] {
-  const usageByKey = new Map(usageCounters.map((counter) => [counter.feature_key, counter]));
   const orderedKeys = [
     ...featureOrder.filter((key) => Object.prototype.hasOwnProperty.call(features, key)),
     ...Object.keys(features)
@@ -228,7 +215,6 @@ function buildEntitlementRows(
     key,
     title: getFeatureTitle(key, t),
     value: features[key],
-    usageCounter: usageByKey.get(key),
     overridden: Object.prototype.hasOwnProperty.call(overrides, key),
     docsHref: getFeatureDocsHref(key, docsBaseHref),
   }));
@@ -284,11 +270,6 @@ function formatEntitlementValue(
   if (row.key === "support.tier" || row.key === "support.sla") {
     return formatSupportValue(row.key, row.value, t, common);
   }
-  if (row.usageCounter) {
-    const used = formatCount(row.usageCounter.used, locale);
-    const limit = row.usageCounter.limit ?? row.value;
-    return t("values.usage", { used, limit: formatLimit(limit, locale, common, t) });
-  }
   if (row.key.endsWith(".ttl_days") || row.key.endsWith(".retention_days")) {
     return formatDayLimit(row.value, locale, common, t);
   }
@@ -340,8 +321,6 @@ function formatSupportValue(
 
 function getFeatureTitle(key: string, t: ReturnType<typeof useTranslations>): string {
   switch (key) {
-    case "gateway.requests.monthly":
-      return t("features.gatewayRequestsMonthly");
     case "users.max":
       return t("features.usersMax");
     case "teams.enabled":

@@ -6,8 +6,6 @@ export const DAY_MS = 24 * HOUR_MS;
 export const ERROR_RATE_ALERT_THRESHOLD = 0.05;
 export const ERROR_RATE_SPIKE_FACTOR = 2;
 export const SPARKLINE_POINTS = 9;
-const FORECAST_MIN_COMPLETE_DAYS = 7;
-const FORECAST_MAX_SAMPLE_DAYS = 14;
 
 export type AnalyticsRangeKey = "24h" | "7d" | "30d";
 
@@ -68,55 +66,6 @@ export function orderPoints(points: AnalyticsPoint[]): DatedPoint[] {
 
 const requests = (point: AnalyticsPoint) => Math.max(0, Number(point.request_count ?? 0));
 const errors = (point: AnalyticsPoint) => Math.max(0, Math.min(requests(point), Number(point.error_count ?? 0)));
-
-/**
- * Median pairwise slope of cumulative daily requests (Theil–Sen), over the last
- * 14 complete days. Returns null with fewer than 7 complete days.
- */
-export function calculateTheilSenDailyRate(points: AnalyticsPoint[], now = new Date()): number | null {
-  const completeDays = orderPoints(points)
-    .filter((item) => item.date.getTime() + DAY_MS <= now.getTime())
-    .slice(-FORECAST_MAX_SAMPLE_DAYS);
-  if (completeDays.length < FORECAST_MIN_COMPLETE_DAYS) return null;
-
-  let cumulative = 0;
-  const samples = completeDays.map(({ point, date }) => {
-    cumulative += requests(point);
-    return { timestamp: date.getTime(), cumulative };
-  });
-  const slopes: number[] = [];
-
-  for (let startIndex = 0; startIndex < samples.length - 1; startIndex += 1) {
-    for (let endIndex = startIndex + 1; endIndex < samples.length; endIndex += 1) {
-      const start = samples[startIndex];
-      const end = samples[endIndex];
-      const elapsedDays = (end.timestamp - start.timestamp) / DAY_MS;
-      if (elapsedDays <= 0) continue;
-      slopes.push((end.cumulative - start.cumulative) / elapsedDays);
-    }
-  }
-
-  if (slopes.length === 0) return null;
-  slopes.sort((a, b) => a - b);
-  const middle = Math.floor(slopes.length / 2);
-  const median = slopes.length % 2 === 0 ? (slopes[middle - 1] + slopes[middle]) / 2 : slopes[middle];
-  return Number.isFinite(median) ? Math.max(0, median) : null;
-}
-
-/** Projected request usage at period end, or null when there is not enough history. */
-export function forecastPeriodEndUsage(input: {
-  dailyPoints: AnalyticsPoint[];
-  currentUsage: number | null;
-  periodEnd: Date | null;
-  now?: Date;
-}): number | null {
-  const now = input.now ?? new Date();
-  if (input.currentUsage === null || !input.periodEnd || input.periodEnd.getTime() <= now.getTime()) return null;
-  const dailyRate = calculateTheilSenDailyRate(input.dailyPoints, now);
-  if (dailyRate === null) return null;
-  const remainingDays = (input.periodEnd.getTime() - now.getTime()) / DAY_MS;
-  return Math.max(input.currentUsage, Math.round(input.currentUsage + dailyRate * remainingDays));
-}
 
 /** Split a series into `count` contiguous chunks and fold each chunk. */
 function chunk<T>(items: T[], count: number): T[][] {

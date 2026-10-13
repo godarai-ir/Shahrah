@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   DAY_MS,
   HOUR_MS,
-  calculateTheilSenDailyRate,
-  forecastPeriodEndUsage,
   summarizeDailyCost,
   summarizeErrorRate,
 } from "./dashboard-metrics";
@@ -28,23 +26,6 @@ function hourlySeries(errorRates: number[]) {
     error_count: Math.round(rate * 1_000),
   }));
 }
-
-describe("calculateTheilSenDailyRate", () => {
-  it("returns null with fewer than 7 complete days", () => {
-    expect(calculateTheilSenDailyRate(dailySeries(6, 100), now)).toBeNull();
-  });
-
-  it("returns the steady daily rate", () => {
-    expect(calculateTheilSenDailyRate(dailySeries(10, 100), now)).toBe(100);
-  });
-});
-
-describe("forecastPeriodEndUsage", () => {
-  it("projects forward from current usage", () => {
-    const periodEnd = new Date(now.getTime() + 5 * DAY_MS);
-    expect(forecastPeriodEndUsage({ dailyPoints: dailySeries(10, 100), currentUsage: 1_000, periodEnd, now })).toBe(1_500);
-  });
-});
 
 describe("summarizeErrorRate", () => {
   it("flags a spike above threshold and twice the baseline", () => {

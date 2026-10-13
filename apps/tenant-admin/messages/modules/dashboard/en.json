@@ -26,11 +26,9 @@
       "label": "Cost today",
       "average": "7-day avg"
     },
-    "quota": {
-      "label": "Period quota used",
-      "daysRemaining": "{days} days left",
-      "progressHint": "{used} of {limit} requests",
-      "forecast": "forecast at period end {value}"
+    "planPeriod": {
+      "label": "Plan period",
+      "daysRemaining": "days left"
     }
   },
   "onboarding": {

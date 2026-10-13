@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/app-ui/PageHeader";
 import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
+import { formatCompactCurrency } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 import {
   getDashboardEntitlements,
@@ -25,8 +25,6 @@ import {
   DAY_MS,
   DEFAULT_ANALYTICS_RANGE,
   HOUR_MS,
-  forecastPeriodEndUsage,
-  parseValidDate,
   readStoredAnalyticsRange,
   storeAnalyticsRange,
   summarizeDailyCost,
@@ -61,8 +59,6 @@ type SignalsState =
   | { status: "failed" }
   | { status: "ready"; hourly: AnalyticsPoint[]; daily: AnalyticsPoint[] };
 
-const REQUESTS_FEATURE_KEY = "gateway.requests.monthly";
-const QUOTA_WARNING_RATIO = 0.85;
 /** Daily history for the cost card (9 days) and the Theil–Sen forecast (14 complete days). */
 const DAILY_HISTORY_DAYS = 15;
 const ERROR_LOGS_HREF = "/logs?status=4xx,5xx";
@@ -75,7 +71,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const [subscription, setSubscription] = useState<TenantSubscription | null>(
     props.initialSubscription ?? props.initialEntitlements?.subscription ?? null,
   );
-  const [entitlements, setEntitlements] = useState<EffectiveEntitlements | null>(props.initialEntitlements);
   const [loadError, setLoadError] = useState<string | null>(props.initialError);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -104,22 +99,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       ? subscription?.trial_ends_at?.trim() || subscription?.current_period_end?.trim() || ""
       : subscription?.current_period_end?.trim() || "";
   const daysRemaining = useMemo(() => calculateDaysRemaining(planDeadlineISO), [planDeadlineISO]);
-  const planMonths = billingIntervalToMonths(subscription?.billing_interval);
-  const requestsPerMonthLimit = useMemo(
-    () => coerceNumericEntitlement(entitlements?.features?.[REQUESTS_FEATURE_KEY]),
-    [entitlements?.features],
-  );
-  const currentRequestCounter = useMemo(
-    () => entitlements?.usage_counters?.find((item) => item.feature_key === REQUESTS_FEATURE_KEY) ?? null,
-    [entitlements?.usage_counters],
-  );
-  const requestLimit =
-    typeof currentRequestCounter?.limit === "number"
-      ? currentRequestCounter.limit
-      : requestsPerMonthLimit === null
-        ? null
-        : requestsPerMonthLimit * planMonths;
-  const requestUsage = currentRequestCounter?.used ?? null;
   const planActionLabel =
     planStatus === "trialing"
       ? t("plan.actions.upgrade")
@@ -135,7 +114,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         getDashboardEntitlements(),
       ]);
       setSubscription(subscriptionData ?? entitlementsData.subscription ?? null);
-      setEntitlements(entitlementsData);
       setLoadError(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : common("requestError"));
@@ -157,18 +135,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     () => (signals.status === "ready" ? summarizeDailyCost(signals.daily) : null),
     [signals],
   );
-  const projectedUsage = useMemo(
-    () =>
-      signals.status === "ready"
-        ? forecastPeriodEndUsage({
-            dailyPoints: signals.daily,
-            currentUsage: requestUsage,
-            periodEnd: parseValidDate(subscription?.current_period_end),
-          })
-        : null,
-    [requestUsage, signals, subscription?.current_period_end],
-  );
-
   const percentFormatter = useMemo(
     () => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
     [locale],
@@ -193,7 +159,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     return items;
   }, [errorRate, loadError, percentFormatter, t]);
 
-  const quotaRatio = requestLimit && requestUsage !== null ? clampRatio(requestUsage / requestLimit) : null;
   const signalsLoading = signals.status === "loading";
   const kpiCount = (signalsLoading || errorRate ? 1 : 0) + (latency ? 1 : 0) + (signalsLoading || dailyCost ? 1 : 0) + 1;
 
@@ -287,10 +252,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         ) : null}
 
         <MetricCard
-          label={t("metrics.quota.label")}
+          label={t("metrics.planPeriod.label")}
           value={
             <span dir="ltr" className="tabular-nums">
-              {quotaRatio === null ? compactNumber(requestUsage ?? 0) : `${percentFormatter.format(quotaRatio * 100)}%`}
+              {daysRemaining === null ? "—" : numberFormatter.format(daysRemaining)}
             </span>
           }
           delta={
@@ -298,39 +263,11 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               ? undefined
               : {
                   tone: daysRemaining <= 3 ? "negative" : "muted",
-                  label: t("metrics.quota.daysRemaining", { days: numberFormatter.format(daysRemaining) }),
+                  label: t("metrics.planPeriod.daysRemaining"),
                 }
           }
-          sparkline={
-            <div className="flex flex-col gap-1.5">
-              {quotaRatio !== null ? (
-                <div
-                  className="h-2 overflow-hidden rounded-full bg-muted"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(quotaRatio * 100)}
-                  aria-label={t("metrics.quota.label")}
-                >
-                  <div
-                    className={cn("h-full rounded-full", quotaRatio >= QUOTA_WARNING_RATIO ? "bg-warning" : "bg-chart-2")}
-                    style={{ width: `${quotaRatio * 100}%` }}
-                  />
-                </div>
-              ) : null}
-              <p className="text-[11px] leading-5 text-muted-foreground">
-                {t("metrics.quota.progressHint", {
-                  used: compactNumber(requestUsage ?? 0),
-                  limit: requestLimit === null ? "∞" : compactNumber(requestLimit),
-                })}
-                {projectedUsage !== null ? (
-                  <> · {t("metrics.quota.forecast", { value: compactNumber(projectedUsage) })}</>
-                ) : null}
-              </p>
-            </div>
-          }
           description={`${planName} · ${planStatusLabel}`}
-          tone={quotaRatio !== null && quotaRatio >= QUOTA_WARNING_RATIO ? "warning" : "muted"}
+          tone={daysRemaining !== null && daysRemaining <= 3 ? "warning" : "muted"}
         />
       </section>
 
@@ -468,38 +405,8 @@ function calculateDaysRemaining(deadlineISO?: string): number | null {
   return Math.max(0, Math.ceil((deadline - Date.now()) / DAY_MS));
 }
 
-function billingIntervalToMonths(interval?: string): number {
-  switch ((interval ?? "").trim().toLowerCase()) {
-    case "quarterly":
-      return 3;
-    case "yearly":
-      return 12;
-    case "monthly":
-    default:
-      return 1;
-  }
-}
-
-function coerceNumericEntitlement(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function clampRatio(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
 function normalizePlanStatus(status: string): "active" | "trialing" | "past_due" | "inactive" {
   return status === "active" || status === "trialing" || status === "past_due" ? status : "inactive";
-}
-
-function compactNumber(value: number) {
-  return formatCompactNumber(value, { locale: "en-US", compactThreshold: 1_000, maximumFractionDigits: 1 }).value;
 }
 
 function compactCurrency(value: number) {

@@ -68,19 +68,6 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, effective.Features[platform.FeatureUsersMax])
 	assert.EqualValues(t, 10, effective.Overrides[platform.FeatureUsersMax])
-
-	january := time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
-	_, allowed, err := store.CheckAndIncrementTenantUsageCounter(ctx, tenant.ID, platform.FeatureGatewayRequestsMonthly, 1, 1, january)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-	_, allowed, err = store.CheckAndIncrementTenantUsageCounter(ctx, tenant.ID, platform.FeatureGatewayRequestsMonthly, 1, 1, january)
-	require.NoError(t, err)
-	assert.False(t, allowed)
-
-	february := time.Date(2026, time.February, 1, 0, 0, 1, 0, time.UTC)
-	_, allowed, err = store.CheckAndIncrementTenantUsageCounter(ctx, tenant.ID, platform.FeatureGatewayRequestsMonthly, 1, 1, february)
-	require.NoError(t, err)
-	assert.True(t, allowed, "yearly subscriptions must still use monthly quota windows")
 }
 
 func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {

@@ -9,7 +9,7 @@ import {
   controlPlaneRequest, formatDate, formatIRR, type SubscriptionPaymentIntent, type TenantDetail, type TenantEvent, type WalletTransaction,
 } from '@/lib/support-tenants';
 
-const tabs = ['overview', 'subscription', 'usage', 'wallet', 'events', 'controls'] as const;
+const tabs = ['overview', 'subscription', 'wallet', 'events', 'controls'] as const;
 type Tab = typeof tabs[number];
 
 export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
@@ -94,7 +94,6 @@ export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
   if (loading && !detail) return <p className="text-sm text-zinc-400">Loading tenant workspace…</p>;
   if (!detail) return <p role="alert" className="text-sm text-red-300">{error || 'Tenant unavailable'}</p>;
   const tenant = detail.tenant;
-  const usagePercent = tenant.usage_limit ? Math.min(100, (tenant.usage_used / tenant.usage_limit) * 100) : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,11 +107,10 @@ export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
         {tabs.map((item) => <button key={item} className={`rounded-md px-3 py-2 text-sm capitalize ${tab === item ? 'bg-cyan-500 text-black' : 'bg-zinc-900 text-zinc-300'}`} onClick={() => setTab(item)}>{item === 'wallet' ? 'Wallet & billing' : item}</button>)}
       </nav>
 
-      {tab === 'overview' ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      {tab === 'overview' ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Tenant owner" value={detail.owner?.name || 'Not set'} detail={[detail.owner?.email, detail.owner?.phone].filter(Boolean).join(' · ') || 'No contact information'} />
         <Metric label="Wallet balance" value={formatIRR(tenant.wallet_balance_minor)} detail={`${formatIRR(tenant.wallet_pending_minor)} pending`} />
         <Metric label="Subscription" value={tenant.plan_display_name || 'No plan'} detail={tenant.subscription_status || 'Unavailable'} />
-        <Metric label="Current usage" value={tenant.usage_used.toLocaleString()} detail={tenant.usage_limit != null ? `${tenant.usage_limit.toLocaleString()} request limit` : 'No configured limit'} />
         <Metric label="Period end" value={formatDate(tenant.period_end)} detail={`Created ${formatDate(tenant.created_at)}`} />
       </div> : null}
 
@@ -120,8 +118,6 @@ export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
         <Card><h2 className="text-lg font-semibold">Current subscription</h2><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><Term label="Plan" value={detail.subscription?.plan_display_name || 'Unavailable'} /><Term label="Status" value={detail.subscription?.status || 'Unavailable'} /><Term label="Interval" value={detail.subscription?.billing_interval || 'Unavailable'} /><Term label="Period" value={`${formatDate(detail.subscription?.current_period_start)} — ${formatDate(detail.subscription?.current_period_end)}`} /><Term label="Cancellation" value={detail.subscription?.cancel_at_period_end ? 'Scheduled' : 'Not scheduled'} /></dl>{detail.subscription ? <div className="mt-5">{detail.subscription.cancel_at_period_end ? <Button onClick={() => void setCancellation(false)}>Reverse cancellation</Button> : <Button className="bg-red-500 text-white hover:bg-red-400" onClick={() => void setCancellation(true)}>Cancel at period end</Button>}</div> : null}</Card>
         <Card><h2 className="text-lg font-semibold">Assign plan</h2><p className="mt-1 text-sm text-zinc-400">Immediate, non-prorated operator assignment.</p><form className="mt-4 flex flex-col gap-3" onSubmit={changePlan}><Input placeholder="Plan slug" value={planChange.plan} onChange={(e) => setPlanChange({ ...planChange, plan: e.target.value })} /><select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={planChange.interval} onChange={(e) => setPlanChange({ ...planChange, interval: e.target.value })}><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select><Input placeholder="Required reason" value={planChange.reason} onChange={(e) => setPlanChange({ ...planChange, reason: e.target.value })} /><Button type="submit">Assign plan</Button></form></Card>
       </div> : null}
-
-      {tab === 'usage' ? <Card><h2 className="text-lg font-semibold">Current entitlement period</h2><div className="mt-5"><div className="flex justify-between text-sm"><span>Gateway requests</span><span>{tenant.usage_used.toLocaleString()} {tenant.usage_limit != null ? `/ ${tenant.usage_limit.toLocaleString()}` : ''}</span></div>{usagePercent != null ? <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full bg-cyan-500" style={{ width: `${usagePercent}%` }} /></div> : null}<p className="mt-4 text-sm text-zinc-400">Token, cost, error-rate, and model aggregates are unavailable from the current platform contract.</p></div></Card> : null}
 
       {tab === 'wallet' ? <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card><h2 className="text-lg font-semibold">Manual adjustment</h2><form className="mt-4 flex flex-col gap-3" onSubmit={submitAdjustment}><select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={adjustment.direction} onChange={(e) => setAdjustment({ ...adjustment, direction: e.target.value })}><option value="credit">Credit</option><option value="debit">Debit</option></select><Input inputMode="numeric" placeholder="Whole IRR amount" value={adjustment.amount} onChange={(e) => setAdjustment({ ...adjustment, amount: e.target.value })} /><Input placeholder="Required reason" value={adjustment.reason} onChange={(e) => setAdjustment({ ...adjustment, reason: e.target.value })} /><Input placeholder="Ticket/reference (optional)" value={adjustment.externalReference} onChange={(e) => setAdjustment({ ...adjustment, externalReference: e.target.value })} /><Button type="submit">Review adjustment</Button></form></Card>
