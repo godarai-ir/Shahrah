@@ -15,8 +15,6 @@ import (
 var (
 	// ErrInvalidCreditGrant reports a grant request that cannot be written.
 	ErrInvalidCreditGrant = errors.New("invalid credit grant")
-	// ErrCreditLedgerNotEnabled reports a tenant that is not billed in credits.
-	ErrCreditLedgerNotEnabled = errors.New("tenant is not billed in credits")
 )
 
 // CreditGrant describes credits added to a tenant as a new lot.

@@ -23,6 +23,10 @@ var (
 )
 
 func (s *FinancialRepository) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error) {
+	if strings.TrimSpace(req.CreditPackOrderID) != "" {
+		return s.createCreditPackBankTransfer(ctx, tenantID, req, actor)
+	}
+
 	meta := marshalJSONBestEffort(req.Metadata)
 
 	return scanBankTransferRequest(s.pool.QueryRow(ctx, `
@@ -125,6 +129,17 @@ func (s *FinancialRepository) ApproveBankTransferRequest(ctx context.Context, te
 	idempotency := strings.TrimSpace(req.IdempotencyKey)
 	if idempotency == "" {
 		idempotency = "bank_transfer:" + item.ID
+	}
+
+	var creditPackOrderID string
+	if orderErr := tx.QueryRow(ctx, `
+		SELECT COALESCE(credit_pack_order_id::text, '') FROM bank_transfer_requests WHERE bank_transfer_request_id::text = $1
+	`, item.ID).Scan(&creditPackOrderID); orderErr != nil {
+		return nil, orderErr
+	}
+
+	if creditPackOrderID != "" {
+		return s.approveCreditPackBankTransferTx(ctx, tx, item, creditPackOrderID, idempotency, actor)
 	}
 
 	walletTxn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{

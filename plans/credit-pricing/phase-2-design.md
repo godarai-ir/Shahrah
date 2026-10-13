@@ -1,6 +1,6 @@
 # Phase 2 Design: Ledger, Lots, Plans, Purchases, Expiry, Price Policy
 
-Status: 2a (ledger core) and 2b (plans, grants, user cap) implemented; 2c–2d to follow · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
+Status: 2a (ledger core), 2b (plans, grants, user cap), and 2c (packs, overage) implemented; 2d to follow · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
 
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 2. Phase 1 design:
 `plans/credit-pricing/phase-1-design.md`.
@@ -298,26 +298,56 @@ and the projections, all in one transaction.
 
 ## Add-on Packs and Overage (PR 2c)
 
-- `credit_packs`: a versioned catalog (slug, version, credits, `discount_percent` against
-  the list price, `validity_months` = 12, status).
-  - The price is computed at order time from the active list price:
-    1,000 credits at 0%, 5,000 at 10%, and 20,000 at 20% reproduce the PRD prices at
-    1,000 toman per credit.
-  - The order snapshots the price.
-- `credit_pack_orders` follows the IRR-native pattern of `subscription_payment_intents`:
-  provider, authority, callback, and status.
-  - Fields: `price_irr`, `tax_percent` (from `wallet_topup_settings`, as top-ups use today),
-    `tax_irr`, and `payable_irr`.
-  - Completion grants the lot with key `purchase:{order_id}` in the same transaction, so a
-    duplicate callback grants nothing.
-- Bank transfer: `bank_transfer_requests.credit_pack_order_id` (nullable). Approving a
-  linked request completes the order instead of crediting the wallet.
+- `credit_packs` (migration 065): a versioned catalog with slug, version, credits,
+  `discount_percent` against the list price, `validity_months` = 12, and a status.
+  Only one version per slug can be published.
+  - Seeded and published: `credits-1000` at 0%, `credits-5000` at 10%, and
+    `credits-20000` at 20%. At 10,000 IRR per credit these reproduce the PRD prices:
+    10,000,000, 45,000,000, and 160,000,000 IRR. A test checks them against the toman
+    prices.
+  - Publishing changes nobody's price, because only credit tenants can buy packs.
+- `credit_pack_orders` follows the IRR-native shape of `subscription_payment_intents`.
+  - Each order snapshots the pack version, list price, discount, `price_irr`, VAT
+    (`wallet_topup_settings.tax_percent`, as top-ups use), and `payable_irr`.
+  - A check constraint enforces `payable = price + tax`.
+  - The list price is the launch constant until 2d replaces it with the active revision.
+- Gateway flow:
+  - `POST /api/v1/billing/credits/orders` returns the gateway URL.
+  - The public callback `/api/v1/credits/packs/payment/callback/:provider` verifies the
+    payment **with the order's own provider**. The provider in the URL is ignored, so a
+    zarinpal order cannot be "verified" by the mock gateway.
+  - Completion grants the lot under key `purchase:{order_id}` in the same transaction, so
+    a repeated callback grants nothing.
+  - A completed order is never marked failed afterwards.
+- The mock gateway approves every payment. Credit packs accept it only where it is the
+  configured default provider, that is, in local and test environments. Wallet top-ups and
+  subscriptions accept it from any request; that is flagged as a separate task.
+- Bank transfer:
+  - An order with `provider = bank_transfer` waits in `AWAITING_TRANSFER`.
+  - `POST /wallet/bank-transfers` takes `credit_pack_order_id`, and the amount must equal
+    the order's payable amount exactly.
+  - Approval completes the order and grants the lot instead of crediting the IRR wallet.
+  - A unique index allows only one approved transfer per order.
+  - Rejection leaves the order open for another transfer.
+- Every purchase writes `financial_audit_events` (`credit_pack.purchased`).
+- Other tenant endpoints: `GET /billing/credits/packs`, `GET /billing/credits/orders[/:id]`,
+  `GET` and `PUT /billing/credits/settings`. Errors carry stable codes, for example
+  `credit_billing_not_enabled`, `credit_pack_transfer_amount_mismatch`, and
+  `overage_not_allowed`.
 - Overage:
-  - Tenant settings `credits.overage_enabled` (default false) and `credits.overage_cap`.
-  - At period end, outstanding debt of an overage-enabled tenant becomes an invoice line
-    item in IRR, at the list price in effect. An `overage` lot, fully allocated to the debt
-    with key `overage:{subscription_id}:{period_start}`, clears it.
+  - `credit_tenant_settings` holds `overage_enabled` (default false) and an optional
+    `overage_cap_mc`. Overage can be turned on only for credit tenants whose plan allows
+    it (`credits.overage_allowed`). Every change is audited.
+  - When a new plan slice is due, the grant transaction first checks for outstanding debt
+    of an overage-enabled tenant. It invoices that debt in IRR at the list price, rounded
+    up to the rial, with an `OVG-yyyymm-sub` invoice and a `credit_overage` line item. An
+    `overage` lot, fully allocated to the debt under key
+    `overage:{subscription}:{slice_start}`, clears it.
+  - The new slice is then granted in full.
+  - Without overage, the new slice repays the debt instead.
   - Enforcing the cap is Phase 3, because Phase 2 has no credit enforcement.
+- Tenant-admin screens for packs and overage are Phase 3 (FR-13's plan page). 2c ships the
+  APIs only.
 
 ## Credit Price Policy, Changelog, Support-Admin (PR 2d)
 
@@ -389,4 +419,8 @@ and the projections, all in one transaction.
 - The FX adjustment clause for annual plans is contract text; finance and legal own it.
 - Finance must confirm that VAT on add-on packs uses `wallet_topup_settings.tax_percent`,
   as top-ups do (Gate 2 asks for sign-off on a sample invoice).
+- Overage invoices carry no VAT line, like the existing period-end invoices. Finance
+  should confirm this with the Gate 2 sample invoice.
+- Debt of a tenant whose subscription lapses without renewal is never invoiced, because
+  no new slice is due. It stays as debt in the ledger.
 - None of the open issues falls under prompt §8, so implementation proceeds.

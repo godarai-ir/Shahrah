@@ -52,6 +52,7 @@ func (b *builder) buildManagement() error {
 			Plans:               b.store.PlanRepository,
 			Entitlements:        b.store.PlanRepository,
 			CreditUsage:         b.store.MetricsRepository,
+			CreditPacks:         b.store.CreditPackRepository,
 			CreditShadowEnabled: b.cfg.Runtime.BillingCreditsShadowEnabled,
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,

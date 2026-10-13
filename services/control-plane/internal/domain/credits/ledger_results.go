@@ -30,6 +30,8 @@ type GrantResult struct {
 	Granted    int
 	GrantedMC  int64
 	Duplicates int
+	// OverageMC is debt invoiced as overage before new plan slices.
+	OverageMC int64
 }
 
 // ReconciliationDiff is one failed reconciliation check.

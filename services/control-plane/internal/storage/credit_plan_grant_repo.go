@@ -44,10 +44,12 @@ func (s *CreditLedgerRepository) GrantDuePlanCredits(ctx context.Context, now ti
 			continue
 		}
 
-		granted, grantErr := s.GrantCredits(ctx, grant)
+		granted, overageMC, grantErr := s.grantDue(ctx, sub, grant)
 		if grantErr != nil {
 			return result, grantErr
 		}
+
+		result.OverageMC += overageMC
 
 		if granted.Duplicate {
 			result.Duplicates++
@@ -60,6 +62,57 @@ func (s *CreditLedgerRepository) GrantDuePlanCredits(ctx context.Context, now ti
 	}
 
 	return result, nil
+}
+
+// grantDue writes one due grant. A plan slice first settles the tenant's debt
+// as invoiced overage when overage is enabled; otherwise the grant repays it.
+func (s *CreditLedgerRepository) grantDue(ctx context.Context, sub creditSubscription, grant CreditGrant) (CreditGrantResult, int64, error) {
+	sliceStart, isSlice := grant.SourceRef["slice_start"].(time.Time)
+	if grant.Kind != credits.EntryPlanGrant || !isSlice {
+		result, err := s.GrantCredits(ctx, grant)
+
+		return result, 0, err
+	}
+
+	if err := validateCreditGrant(grant); err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+	defer rollbackTxBestEffort(ctx, tx)
+
+	var granted bool
+	if keyErr := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM credit_ledger_keys WHERE idempotency_key = $1)`, grant.IdempotencyKey).Scan(&granted); keyErr != nil {
+		return CreditGrantResult{}, 0, keyErr
+	}
+
+	if granted {
+		return CreditGrantResult{Duplicate: true}, 0, tx.Commit(ctx)
+	}
+
+	state, err := lockCreditTenantTx(ctx, tx, sub.TenantID)
+	if err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+
+	overageMC, err := settleOverageTx(ctx, tx, sub, sliceStart, state.DebtMC, grant.OccurredAt)
+	if err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+
+	result, err := grantCreditsTx(ctx, tx, grant)
+	if err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return CreditGrantResult{}, 0, err
+	}
+
+	return result, overageMC, nil
 }
 
 // planGrantFor decides the grant a subscription is due at now, if any.

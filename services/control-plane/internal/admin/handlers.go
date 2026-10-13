@@ -338,6 +338,8 @@ type BillingDependencies struct {
 	CreditUsage creditUsageStore
 	// CreditShadowEnabled reports whether shadow credits are being computed.
 	CreditShadowEnabled bool
+	// CreditPacks sells add-on packs; nil disables the credit pack endpoints.
+	CreditPacks creditPackStore
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -402,6 +404,7 @@ type billingState struct {
 	payment      PaymentConfig
 	creditUsage  creditUsageStore
 	creditShadow bool
+	creditPacks  creditPackStore
 }
 
 type onboardingState struct {
@@ -464,6 +467,7 @@ func New(deps Dependencies) *Handlers {
 			payment:      deps.Billing.Payment.withDefaults(),
 			creditUsage:  deps.Billing.CreditUsage,
 			creditShadow: deps.Billing.CreditShadowEnabled,
+			creditPacks:  deps.Billing.CreditPacks,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

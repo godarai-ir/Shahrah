@@ -103,6 +103,10 @@ type CreditRateCardRepository struct{ *walletState }
 // its balance projections.
 type CreditLedgerRepository struct{ *walletState }
 
+// CreditPackRepository persists credit add-on packs, their orders, and tenant
+// credit billing settings.
+type CreditPackRepository struct{ *walletState }
+
 // WalletRepository is a compatibility composition of focused wallet capabilities.
 type WalletRepository struct {
 	*WalletLedgerRepository
@@ -111,6 +115,7 @@ type WalletRepository struct {
 	*FinancialRepository
 	*CreditRateCardRepository
 	*CreditLedgerRepository
+	*CreditPackRepository
 }
 
 // SupportRepository persists support tickets and support-only tenant operations.
@@ -380,6 +385,7 @@ func composeWalletRepository(state *walletState) *WalletRepository {
 		FinancialRepository:      &FinancialRepository{walletState: state},
 		CreditRateCardRepository: &CreditRateCardRepository{walletState: state},
 		CreditLedgerRepository:   &CreditLedgerRepository{walletState: state},
+		CreditPackRepository:     &CreditPackRepository{walletState: state},
 	}
 }
 
