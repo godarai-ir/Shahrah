@@ -12,6 +12,7 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 )
 
 func (b *builder) buildWorkers() error {
@@ -162,8 +163,14 @@ func (b *builder) buildCreditLedgerWorker() error {
 		BatchSize:          settings.BatchSize,
 		ExpiryInterval:     settings.ExpiryInterval,
 		ReconcileInterval:  settings.ReconcileInterval,
+		PriceInterval:      settings.PriceInterval,
+		PriceAutoApply:     settings.PriceAutoApply,
 		Timeout:            settings.Timeout,
-	}, b.store.CreditLedgerRepository, b.logger)
+	}, creditLedgerWorkerStore{
+		CreditLedgerRepository:   b.store.CreditLedgerRepository,
+		CreditPriceRepository:    b.store.CreditPriceRepository,
+		CreditRateCardRepository: b.store.CreditRateCardRepository,
+	}, b.logger)
 
 	return b.lifecycle.AddWorker("credit ledger processor", func(context.Context) error {
 		processor.Start()
@@ -338,4 +345,11 @@ func stopWithConfiguredTimeout(
 	defer cancel()
 
 	return stop(ctx)
+}
+
+// creditLedgerWorkerStore joins the repositories the credit ledger worker drives.
+type creditLedgerWorkerStore struct {
+	*storage.CreditLedgerRepository
+	*storage.CreditPriceRepository
+	*storage.CreditRateCardRepository
 }

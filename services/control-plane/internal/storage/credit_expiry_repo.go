@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
@@ -294,22 +293,4 @@ func appendCreditDiff(diffs []credits.ReconciliationDiff, tenantID, check string
 	}
 
 	return append(diffs, credits.ReconciliationDiff{TenantID: tenantID, Check: check, ExpectedMC: expected, ActualMC: actual})
-}
-
-// SetTenantBillingUnit switches a tenant between IRR and credit billing.
-func (s *CreditLedgerRepository) SetTenantBillingUnit(ctx context.Context, tenantID, unit string) error {
-	if unit != credits.BillingUnitIRR && unit != credits.BillingUnitCredit {
-		return errors.New("billing unit must be irr or credit")
-	}
-
-	tag, err := s.pool.Exec(ctx, `UPDATE tenants SET billing_unit = $2 WHERE tenant_id = $1::uuid`, tenantID, unit)
-	if err != nil {
-		return err
-	}
-
-	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
-	}
-
-	return nil
 }

@@ -38,12 +38,6 @@ func scanCreditPackOrder(row pgx.Row) (*platform.CreditPackOrder, error) {
 	return &order, nil
 }
 
-// creditListPriceIRR is the list price of one credit. The credit price policy
-// (Phase 2d) replaces the constant with the active approved revision.
-func creditListPriceIRR(context.Context, rowQuerier) (int64, error) {
-	return credits.ListPriceIRRPerCredit, nil
-}
-
 // creditTaxPercent is the VAT rate applied to purchases, shared with wallet top-ups.
 func creditTaxPercent(ctx context.Context, q rowQuerier) (decimal.Decimal, error) {
 	var raw string

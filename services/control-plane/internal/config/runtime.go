@@ -276,6 +276,8 @@ type CreditLedgerSettings struct {
 	BatchSize          int
 	ExpiryInterval     time.Duration
 	ReconcileInterval  time.Duration
+	PriceInterval      time.Duration
+	PriceAutoApply     bool
 	Timeout            time.Duration
 }
 
@@ -287,6 +289,8 @@ func loadCreditLedgerSettings() CreditLedgerSettings {
 		BatchSize:          positiveIntEnv("BILLING_CREDIT_SETTLEMENT_BATCH_SIZE", 500),
 		ExpiryInterval:     secondsEnv("BILLING_CREDIT_EXPIRY_INTERVAL_SECONDS", 5*time.Minute),
 		ReconcileInterval:  secondsEnv("BILLING_CREDIT_RECONCILE_INTERVAL_SECONDS", 24*time.Hour),
+		PriceInterval:      secondsEnv("BILLING_CREDIT_PRICE_INTERVAL_SECONDS", time.Hour),
+		PriceAutoApply:     booleanEnv("BILLING_CREDIT_PRICE_AUTO_APPLY", false),
 		Timeout:            secondsEnv("BILLING_CREDIT_JOB_TIMEOUT_SECONDS", 2*time.Minute),
 	}
 }

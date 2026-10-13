@@ -29,6 +29,10 @@ func registerPublicAdminRoutes(app *fiber.App, deps Dependencies) {
 		app.Get("/api/v1/exchange-rates/current", currentExchangeRateHandler(deps.ExchangeRates))
 	}
 
+	if deps.PricingChangelogHandler != nil {
+		app.Get("/v1/pricing/changelog", deps.PricingChangelogHandler)
+	}
+
 	if deps.RateCardHandler != nil {
 		app.Get("/v1/rate-card", deps.RateCardHandler)
 	}

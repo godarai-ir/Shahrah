@@ -310,6 +310,29 @@ func creditPackErrorStatus(err error) (int, string) {
 	case errors.Is(err, billingdomain.ErrInvalidOverageCap):
 		return fiber.StatusBadRequest, "invalid_overage_cap"
 	default:
+		return creditAdminErrorStatus(err)
+	}
+}
+
+func creditAdminErrorStatus(err error) (int, string) {
+	switch {
+	case errors.Is(err, billingdomain.ErrCreditPriceRevisionNotFound):
+		return fiber.StatusNotFound, "credit_price_revision_not_found"
+	case errors.Is(err, billingdomain.ErrDecisionReasonRequired):
+		return fiber.StatusBadRequest, "reason_required"
+	case errors.Is(err, billingdomain.ErrCreditRateCardNotDraft):
+		return fiber.StatusConflict, "rate_card_not_draft"
+	case errors.Is(err, billingdomain.ErrInvalidCreditMultiplier):
+		return fiber.StatusBadRequest, "invalid_multiplier"
+	case errors.Is(err, billingdomain.ErrCreditPackVersionNotFound):
+		return fiber.StatusNotFound, "credit_pack_version_not_found"
+	case errors.Is(err, billingdomain.ErrInvalidCreditPack):
+		return fiber.StatusBadRequest, "invalid_credit_pack"
+	case errors.Is(err, billingdomain.ErrInvalidCreditAdjustment):
+		return fiber.StatusBadRequest, "invalid_credit_adjustment"
+	case errors.Is(err, billingdomain.ErrBillingUnitChangeDisabled):
+		return fiber.StatusConflict, "credit_billing_disabled"
+	default:
 		return 0, ""
 	}
 }

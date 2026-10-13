@@ -769,7 +769,7 @@ func insertFinancialAuditTx(ctx context.Context, tx pgx.Tx, tenantID, eventType 
 		INSERT INTO financial_audit_events (
 			tenant_id, event_type, actor_id, actor_role, source_type, source_id, idempotency_key, payload
 		)
-		VALUES ($1::uuid, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
+		VALUES (NULLIF($1, '')::uuid, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
 	`, tenantID, eventType, actor.ID, actor.Role, sourceType, sourceID, idempotencyKey, marshalJSONBestEffort(payload))
 
 	return err

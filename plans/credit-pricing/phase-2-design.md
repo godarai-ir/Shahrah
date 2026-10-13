@@ -1,6 +1,6 @@
 # Phase 2 Design: Ledger, Lots, Plans, Purchases, Expiry, Price Policy
 
-Status: 2a (ledger core), 2b (plans, grants, user cap), and 2c (packs, overage) implemented; 2d to follow · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
+Status: Phase 2 implemented (2a ledger core, 2b plans and user cap, 2c packs and overage, 2d price policy, changelog, and support-admin) · Branch: `feat/credits-phase-2-ledger` (stacked on `feat/credits-phase-1-core`)
 
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 2. Phase 1 design:
 `plans/credit-pricing/phase-1-design.md`.
@@ -351,28 +351,61 @@ and the projections, all in one transaction.
 
 ## Credit Price Policy, Changelog, Support-Admin (PR 2d)
 
-- FX samples:
-  - `exchange_rate_current` keeps only the latest rate, so `exchange_rate_daily_samples`
-    (source, day, usd_to_irr) is filled once a day from the **same** source the pricing
-    engine uses.
-  - This is the existing pipeline, not a new FX source (prompt §8.7).
-- `credit_price_revisions` as specified. A daily job:
-  - computes the 7-day average (only with 7 samples);
-  - when it is outside ±10% of `base_usd_toman`, proposes
-    `round50(price × avg / base)` with `avg` as the new base.
-  - Auto-apply is a flag, default off.
-- Approval in support-admin. Notice rules:
-  - Add-on pack prices follow the active list price immediately.
-  - Plan prices get new draft plan versions with `effective_from = approval + 30 days`.
-    Renewals pick them up from the next period.
-- `GET /v1/pricing/changelog`: rate-card versions and credit price revisions with their
-  effective dates. A page in `apps/website`, linked from tenant-admin.
-- Support-admin:
-  - the plan and pack catalog;
-  - rate-card multipliers, with a required reason;
-  - manual `adjust`, with a required reason, audited in `financial_audit_events`;
-  - the tenant `billing_unit` toggle, flag-guarded;
-  - a per-tenant ledger viewer with lot drill-down.
+- FX samples (migration 066):
+  - Every hour the worker stores the rate the pricing engine uses at that moment (the
+    newest `exchange_rate_current` row) in `exchange_rate_samples`. This is the existing
+    pipeline, not a new FX source (prompt §8.7).
+  - A rate older than 6 hours is skipped, so a stalled feed leaves a gap instead of
+    repeating one value.
+  - The 7-day average uses the 7 complete UTC days before now. It requires at least one
+    sample on each day.
+- `credit_price_revisions`:
+  - The seeded active revision is 1,000 toman at a 270,000 toman/USD base.
+  - Statuses are `proposed`, `active`, `rejected`, and `superseded`. The prompt's
+    "approved" collapses into `active`, because add-on prices change at approval.
+  - Unique indexes allow one active and one open proposal.
+  - When the average leaves ±10% of the base, the worker proposes
+    `round50(price × avg / base)` with the average as the new base. The PRD example
+    (300k → 1,100) is a test. An open proposal is refreshed, not duplicated.
+  - `BILLING_CREDIT_PRICE_AUTO_APPLY` (default off) approves it as `price_policy`.
+- Approval (support-admin, reason required, audited):
+  - The old price becomes `superseded` and the new one `active` at once, so pack quotes
+    use it immediately.
+  - Every published credit plan gets a draft version with prices scaled from the list
+    price that version was priced at. The draft's `effective_from` is approval + 30 days,
+    and it is linked by `plan_versions.credit_price_revision_id`.
+  - The worker publishes those drafts when due, and only while their revision is still
+    active, so subscribers pay the new price from their next period.
+  - Rejection closes the proposal.
+- Public changelog: `GET /v1/pricing/changelog` (public, cached 5 minutes) lists rate-card
+  versions (`scheduled`, `published`, `superseded`) and decided prices. It never includes a
+  USD figure.
+  - `apps/website` renders it at `/pricing/changelog` (RTL, Persian dates), linked from
+    the pricing page and the sitemap.
+  - Tenant-admin links to it from the credit card on the billing page.
+- Rate cards:
+  - Drafts copy the published multipliers, and there is one draft at a time.
+  - Every multiplier needs a reason and at most 4 decimals. Models are normalized.
+  - Publishing needs a Persian changelog. If any model gets more expensive than in the
+    published card, the version is `scheduled` for 30 days (`notice_until`) and the worker
+    publishes it then; otherwise it publishes at once. A newer due schedule replaces an
+    older one.
+- Packs: support-admin drafts a new version of a slug and publishes it, which archives the
+  previous one. Orders keep their snapshot.
+- Tenant credits (support-admin):
+  - Overview (unit, available, debt, overage), lots with a per-lot movement drill-down,
+    and a paged ledger.
+  - Manual adjustments, signed with two decimals, with a reason and the caller's
+    idempotency key, audited. A positive one creates an `adjust` lot (optional expiry); a
+    negative one is spent from lots, with shortfall as debt.
+  - The billing-unit switch needs a reason and is refused unless
+    `BILLING_CREDIT_LEDGER_ENABLED` is on.
+- Operator permissions in the support-admin proxy:
+  - Reads need `billing:read` or `wallet:read`.
+  - Adjustments need `wallet:adjust`.
+  - Pack and rate-card changes need `catalog:write`.
+  - Price decisions and the billing unit need `platform:admin`.
+- The plan catalog stays in the existing support-admin "Pricing" page.
 
 ## Feature Flags
 
@@ -381,6 +414,7 @@ and the projections, all in one transaction.
 | `BILLING_CREDIT_LEDGER_ENABLED` | false | Starts the settlement, grant, expiry, and reconciliation workers, and allows `billing_unit=credit`. |
 | `BILLING_CREDIT_SETTLEMENT_INTERVAL` | 30s | Consume settlement cadence. |
 | `BILLING_CREDIT_PRICE_AUTO_APPLY` | false | Applies an FX-band proposal without approval. |
+| `BILLING_CREDIT_PRICE_INTERVAL_SECONDS` | 3600 | FX sampling, price proposals, and scheduled plan and rate-card publishing. |
 
 ## Rollout and Rollback
 
@@ -411,6 +445,10 @@ and the projections, all in one transaction.
     This is conservative: it charges less.
 
 ## Open Issues
+
+- Price-change notices are announced through the public changelog only. Direct notices to
+  tenant admins (`notice_sent_at`) need an outbound notification channel, which prompt §8.1
+  says to ask about in Phase 3.
 
 - Tenant admins cannot revoke a pending invitation, so a mistaken invitation holds a seat
   until it expires after 7 days. A revoke action is a small follow-up.

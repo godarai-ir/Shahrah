@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"go.uber.org/zap"
@@ -26,6 +27,11 @@ type creditLedgerStore interface {
 	GrantDuePlanCredits(ctx context.Context, now time.Time) (credits.GrantResult, error)
 	EnsureCreditLedgerPartitions(ctx context.Context, now time.Time, monthsAhead int) (int, error)
 	ReconcileCreditLedger(ctx context.Context) ([]credits.ReconciliationDiff, error)
+	RecordExchangeRateSample(ctx context.Context, now time.Time) (bool, error)
+	ProposeCreditPrice(ctx context.Context, now time.Time) (*platform.CreditPriceRevision, bool, error)
+	ApproveCreditPriceRevision(ctx context.Context, revisionID string, actor platform.SupportActor, reason string, now time.Time) (*platform.CreditPriceRevision, error)
+	PublishDueRevisionPlanVersions(ctx context.Context, now time.Time) (int, error)
+	PublishDueRateCards(ctx context.Context, now time.Time) (int, error)
 }
 
 // CreditLedgerConfig controls the credit ledger background worker.
@@ -43,7 +49,12 @@ type CreditLedgerConfig struct {
 	// ReconcileInterval is how often the ledger is reconciled and recently settled
 	// spend logs are swept for gaps.
 	ReconcileInterval time.Duration
-	Timeout           time.Duration
+	// PriceInterval is how often the dollar rate is sampled and the credit price
+	// policy and scheduled price changes are evaluated.
+	PriceInterval time.Duration
+	// PriceAutoApply approves band proposals without a support-admin decision.
+	PriceAutoApply bool
+	Timeout        time.Duration
 }
 
 // CreditLedgerProcessor settles credit consumption, expires lots, and
@@ -68,6 +79,7 @@ func NewCreditLedgerProcessor(cfg CreditLedgerConfig, store creditLedgerStore, l
 	cfg.SettleDelay = positiveDuration(cfg.SettleDelay, 30*time.Second)
 	cfg.ExpiryInterval = positiveDuration(cfg.ExpiryInterval, 5*time.Minute)
 	cfg.ReconcileInterval = positiveDuration(cfg.ReconcileInterval, 24*time.Hour)
+	cfg.PriceInterval = positiveDuration(cfg.PriceInterval, time.Hour)
 	cfg.Timeout = positiveDuration(cfg.Timeout, 2*time.Minute)
 
 	if cfg.BatchSize <= 0 {
@@ -97,6 +109,7 @@ func (p *CreditLedgerProcessor) Start() {
 	p.loop(ctx, p.cfg.SettlementInterval, p.Settle)
 	p.loop(ctx, p.cfg.ExpiryInterval, p.GrantAndExpire)
 	p.loop(ctx, p.cfg.ReconcileInterval, p.Reconcile)
+	p.loop(ctx, p.cfg.PriceInterval, p.Price)
 }
 
 // Stop waits for every job to exit.
@@ -241,6 +254,46 @@ func (p *CreditLedgerProcessor) Reconcile(ctx context.Context) {
 		p.logger.Error("credit ledger reconciliation difference",
 			zap.String("tenant_id", diff.TenantID), zap.String("check", diff.Check),
 			zap.Int64("expected_mc", diff.ExpectedMC), zap.Int64("actual_mc", diff.ActualMC))
+	}
+}
+
+// Price samples the dollar rate, proposes a new list price when the 7-day
+// average left the band, and publishes plan and rate-card versions whose
+// notice period has ended.
+func (p *CreditLedgerProcessor) Price(ctx context.Context) {
+	now := p.now().UTC()
+
+	if _, err := p.store.RecordExchangeRateSample(ctx, now); err != nil {
+		p.fail("rate_sample", err)
+	}
+
+	proposal, due, err := p.store.ProposeCreditPrice(ctx, now)
+
+	switch {
+	case err != nil:
+		p.fail("price_proposal", err)
+	case due:
+		p.logger.Warn("credit list price proposal is waiting for approval",
+			zap.String("revision_id", proposal.ID), zap.Int64("price_toman_per_credit", proposal.PriceTomanPerCredit))
+
+		if p.cfg.PriceAutoApply {
+			actor := platform.SupportActor{ID: "price_policy", Role: "system"}
+			if _, approveErr := p.store.ApproveCreditPriceRevision(ctx, proposal.ID, actor, "auto-applied by the credit price policy", now); approveErr != nil {
+				p.fail("price_auto_apply", approveErr)
+			}
+		}
+	}
+
+	if published, publishErr := p.store.PublishDueRevisionPlanVersions(ctx, now); publishErr != nil {
+		p.fail("plan_price_publish", publishErr)
+	} else if published > 0 {
+		p.logger.Info("plan versions published for the new credit price", zap.Int("count", published))
+	}
+
+	if published, publishErr := p.store.PublishDueRateCards(ctx, now); publishErr != nil {
+		p.fail("rate_card_publish", publishErr)
+	} else if published > 0 {
+		p.logger.Info("scheduled credit rate card published")
 	}
 }
 

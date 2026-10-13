@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"go.uber.org/zap"
 )
@@ -48,11 +49,18 @@ func (b *builder) buildManagement() error {
 			},
 		},
 		Billing: admin.BillingDependencies{
-			Wallets:             b.store.WalletRepository,
-			Plans:               b.store.PlanRepository,
-			Entitlements:        b.store.PlanRepository,
-			CreditUsage:         b.store.MetricsRepository,
-			CreditPacks:         b.store.CreditPackRepository,
+			Wallets:      b.store.WalletRepository,
+			Plans:        b.store.PlanRepository,
+			Entitlements: b.store.PlanRepository,
+			CreditUsage:  b.store.MetricsRepository,
+			CreditPacks:  b.store.CreditPackRepository,
+			CreditAdmin: creditAdminStore{
+				CreditLedgerRepository:   b.store.CreditLedgerRepository,
+				CreditPackRepository:     b.store.CreditPackRepository,
+				CreditPriceRepository:    b.store.CreditPriceRepository,
+				CreditRateCardRepository: b.store.CreditRateCardRepository,
+			},
+			CreditLedgerEnabled: b.cfg.Runtime.BillingCreditLedger.Enabled,
 			CreditShadowEnabled: b.cfg.Runtime.BillingCreditsShadowEnabled,
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,
@@ -135,4 +143,12 @@ func (b *builder) buildManagement() error {
 	b.managementRoutes = managementRoutes
 
 	return nil
+}
+
+// creditAdminStore joins the repositories behind the support-admin credit endpoints.
+type creditAdminStore struct {
+	*storage.CreditLedgerRepository
+	*storage.CreditPackRepository
+	*storage.CreditPriceRepository
+	*storage.CreditRateCardRepository
 }
