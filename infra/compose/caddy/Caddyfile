@@ -1,0 +1,13 @@
+# Local HTTPS front for tenant hosts so OIDC clients that require an https
+# issuer (e.g. LibreChat) can use the control-plane. Certificates come from
+# Caddy's internal CA; trust data/caddy/pki/authorities/local/root.crt.
+{
+	skip_install_trust
+}
+
+https://*.localhost {
+	tls internal {
+		on_demand
+	}
+	reverse_proxy control-plane:4000
+}

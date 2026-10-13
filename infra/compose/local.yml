@@ -5,6 +5,21 @@ x-default-logging: &default-logging
     max-file: "3"
 
 services:
+  tls-proxy:
+    image: caddy:2
+    ports:
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+    networks:
+      default:
+      godar-edge:
+        aliases:
+          - tenant1.localhost
+    depends_on:
+      - control-plane
+
   oidc-keygen:
     image: alpine/openssl
     entrypoint: ["sh", "-c"]
@@ -70,7 +85,7 @@ services:
       NODE_ENV: development
       OIDC_ENABLED: ${OIDC_ENABLED:-true}
       OIDC_SIGNING_KEY_FILE: /run/secrets/oidc-signing-key.pem
-      OIDC_ISSUER_SCHEME: ${OIDC_ISSUER_SCHEME:-http}
+      OIDC_ISSUER_SCHEME: ${OIDC_ISSUER_SCHEME:-https}
       OIDC_LOGIN_URL_TEMPLATE: ${OIDC_LOGIN_URL_TEMPLATE:-http://{slug}.localhost:3000/login}
       TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION: ${TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION}
       TENANT_PROVIDER_CREDENTIAL_KEKS_JSON: ${TENANT_PROVIDER_CREDENTIAL_KEKS_JSON}
@@ -383,3 +398,7 @@ volumes:
   typesensedata:
   miniodata:
   pgadmin_data:
+
+networks:
+  godar-edge:
+    name: godar-edge
