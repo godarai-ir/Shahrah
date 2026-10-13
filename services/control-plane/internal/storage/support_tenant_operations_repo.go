@@ -21,23 +21,17 @@ func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, statu
 	rows, err := s.pool.Query(ctx, `
 		SELECT t.tenant_id::text, t.slug, t.domain, t.status, t.created_at,
 		       COALESCE(cp.slug, ''), COALESCE(cp.display_name, ''), COALESCE(ts.status, ''), ts.current_period_end,
-		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint,
-		       COALESCE(tuc.used, 0)::double precision
+		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint
 		FROM tenants t
 		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
 		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
 		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
-		LEFT JOIN LATERAL (
-			SELECT used FROM tenant_usage_counters
-			WHERE tenant_id = t.tenant_id AND feature_key = $1 AND window_end > NOW()
-			ORDER BY window_start DESC LIMIT 1
-		) tuc ON true
-		WHERE ($2 = '' OR t.slug ILIKE '%' || $2 || '%' OR t.domain ILIKE '%' || $2 || '%' OR t.tenant_id::text = $2)
-		  AND ($3 = '' OR LOWER(t.status) = $3)
-		  AND ($4 = '' OR LOWER(COALESCE(cp.slug, '')) = $4)
+		WHERE ($1 = '' OR t.slug ILIKE '%' || $1 || '%' OR t.domain ILIKE '%' || $1 || '%' OR t.tenant_id::text = $1)
+		  AND ($2 = '' OR LOWER(t.status) = $2)
+		  AND ($3 = '' OR LOWER(COALESCE(cp.slug, '')) = $3)
 		ORDER BY t.created_at DESC, t.tenant_id DESC
-		LIMIT $5 OFFSET $6
-	`, platform.FeatureGatewayRequestsMonthly, query, status, plan, limit, offset)
+		LIMIT $4 OFFSET $5
+	`, query, status, plan, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +43,7 @@ func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, statu
 		var item platform.SupportTenantSummary
 		if err := rows.Scan(&item.ID, &item.Slug, &item.Domain, &item.Status, &item.CreatedAt,
 			&item.PlanSlug, &item.PlanDisplayName, &item.SubscriptionStatus, &item.PeriodEnd,
-			&item.WalletBalanceMinor, &item.WalletPendingMinor, &item.UsageUsed); err != nil {
+			&item.WalletBalanceMinor, &item.WalletPendingMinor); err != nil {
 			return nil, err
 		}
 
@@ -65,23 +59,17 @@ func (s *SupportRepository) GetSupportTenantSummary(ctx context.Context, tenantI
 	err := s.pool.QueryRow(ctx, `
 		SELECT t.tenant_id::text, t.slug, t.domain, t.status, t.created_at,
 		       COALESCE(cp.slug, ''), COALESCE(cp.display_name, ''), COALESCE(ts.status, ''), ts.current_period_end,
-		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint,
-		       COALESCE(tuc.used, 0)::double precision
+		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint
 		FROM tenants t
 		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
 		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
 		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
-		LEFT JOIN LATERAL (
-			SELECT used FROM tenant_usage_counters
-			WHERE tenant_id = t.tenant_id AND feature_key = $1 AND window_end > NOW()
-			ORDER BY window_start DESC LIMIT 1
-		) tuc ON true
-		WHERE t.tenant_id::text = $2
+		WHERE t.tenant_id::text = $1
 		LIMIT 1
-	`, platform.FeatureGatewayRequestsMonthly, tenantID).Scan(
+	`, tenantID).Scan(
 		&item.ID, &item.Slug, &item.Domain, &item.Status, &item.CreatedAt,
 		&item.PlanSlug, &item.PlanDisplayName, &item.SubscriptionStatus, &item.PeriodEnd,
-		&item.WalletBalanceMinor, &item.WalletPendingMinor, &item.UsageUsed,
+		&item.WalletBalanceMinor, &item.WalletPendingMinor,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, supportdomain.ErrTenantNotFound

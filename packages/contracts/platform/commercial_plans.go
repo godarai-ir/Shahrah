@@ -3,7 +3,6 @@ package platform
 import "time"
 
 const (
-	FeatureGatewayRequestsMonthly  = "gateway.requests.monthly"
 	FeatureUsersMax                = "users.max"
 	FeatureTeamsEnabled            = "teams.enabled"
 	FeatureRateLimitRulesEnabled   = "rate_limit_rules.enabled"
@@ -119,12 +118,11 @@ type TenantEntitlementOverride struct {
 }
 
 type EffectiveEntitlementsResponse struct {
-	TenantID      string                 `json:"tenant_id"`
-	Subscription  *TenantSubscription    `json:"subscription,omitempty"`
-	Features      map[string]interface{} `json:"features"`
-	Overrides     map[string]interface{} `json:"overrides,omitempty"`
-	UsageCounters []UsageCounter         `json:"usage_counters,omitempty"`
-	ResolvedAt    time.Time              `json:"resolved_at"`
+	TenantID     string                 `json:"tenant_id"`
+	Subscription *TenantSubscription    `json:"subscription,omitempty"`
+	Features     map[string]interface{} `json:"features"`
+	Overrides    map[string]interface{} `json:"overrides,omitempty"`
+	ResolvedAt   time.Time              `json:"resolved_at"`
 }
 
 type EffectiveEntitlementLimits struct {
@@ -132,14 +130,6 @@ type EffectiveEntitlementLimits struct {
 	Subscription *TenantSubscription    `json:"subscription,omitempty"`
 	Features     map[string]interface{} `json:"features"`
 	ResolvedAt   time.Time              `json:"resolved_at"`
-}
-
-type UsageCounter struct {
-	FeatureKey  string    `json:"feature_key"`
-	WindowStart time.Time `json:"window_start"`
-	WindowEnd   time.Time `json:"window_end"`
-	Used        float64   `json:"used"`
-	Limit       *float64  `json:"limit,omitempty"`
 }
 
 type SubscriptionPaymentIntent struct {

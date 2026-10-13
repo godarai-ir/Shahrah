@@ -11,11 +11,9 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -580,10 +578,10 @@ func (s *EntitlementRepository) ResolveEffectiveEntitlements(ctx context.Context
 		return nil, err
 	}
 
-	return s.withCurrentUsageCounters(ctx, base)
+	return base, nil
 }
 
-// ResolveEffectiveEntitlementLimits returns subscription and feature limits without usage counters.
+// ResolveEffectiveEntitlementLimits returns subscription and feature limits.
 func (s *EntitlementRepository) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
@@ -723,20 +721,6 @@ func (s *EntitlementRepository) resolveEffectiveEntitlementsFromDB(ctx context.C
 	return resolved, nil
 }
 
-func (s *EntitlementRepository) withCurrentUsageCounters(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) (*platform.EffectiveEntitlementsResponse, error) {
-	out := cloneEffectiveEntitlements(resolved)
-
-	usageCounters, err := s.usageCounters.listCurrentUsageCounters(ctx, out.TenantID, out.Features)
-	if err != nil {
-		return nil, err
-	}
-
-	out.UsageCounters = usageCounters
-	out.ResolvedAt = time.Now().UTC()
-
-	return out, nil
-}
-
 func (s *EntitlementRepository) getCachedEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, bool) {
 	if s.entitlementCache == nil {
 		return nil, false
@@ -773,7 +757,6 @@ func (s *EntitlementRepository) cacheEntitlements(ctx context.Context, resolved 
 	}
 
 	resolvedCopy := cloneEffectiveEntitlements(resolved)
-	resolvedCopy.UsageCounters = nil
 
 	raw, err := json.Marshal(resolvedCopy)
 	if err != nil {
@@ -833,16 +816,6 @@ func cloneEffectiveEntitlements(in *platform.EffectiveEntitlementsResponse) *pla
 	out.Features = cloneStringInterfaceMap(in.Features)
 
 	out.Overrides = cloneStringInterfaceMap(in.Overrides)
-	if len(in.UsageCounters) > 0 {
-		out.UsageCounters = make([]platform.UsageCounter, len(in.UsageCounters))
-		for i, counter := range in.UsageCounters {
-			out.UsageCounters[i] = counter
-			if counter.Limit != nil {
-				limit := *counter.Limit
-				out.UsageCounters[i].Limit = &limit
-			}
-		}
-	}
 
 	return &out
 }
@@ -890,38 +863,6 @@ func cloneJSONValue(value interface{}) interface{} {
 
 func entitlementCacheKey(tenantID string) string {
 	return "entitlements:tenant:" + strings.TrimSpace(tenantID)
-}
-
-func (s *UsageCounterRepository) listCurrentUsageCounters(ctx context.Context, tenantID string, features map[string]interface{}) ([]platform.UsageCounter, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT feature_key, window_start, window_end, used::double precision
-		FROM tenant_usage_counters
-		WHERE tenant_id = $1::uuid
-		  AND window_start <= NOW()
-		  AND window_end > NOW()
-		ORDER BY feature_key
-	`, tenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items := []platform.UsageCounter{}
-
-	for rows.Next() {
-		var item platform.UsageCounter
-		if err := rows.Scan(&item.FeatureKey, &item.WindowStart, &item.WindowEnd, &item.Used); err != nil {
-			return nil, err
-		}
-
-		if limit, ok := numericFeatureLimit(features[item.FeatureKey]); ok {
-			item.Limit = &limit
-		}
-
-		items = append(items, item)
-	}
-
-	return items, rows.Err()
 }
 
 func (s *EntitlementRepository) UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error) {
@@ -999,135 +940,6 @@ func (s *EntitlementRepository) DeleteTenantEntitlementOverride(ctx context.Cont
 	return s.subscriptions.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
 	})
-}
-
-func (s *UsageCounterRepository) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
-	if s.usageCountersEnabled && s.usageCounterCache != nil {
-		counter, allowed, err := s.checkAndIncrementTenantUsageCounterRedis(ctx, tenantID, featureKey, limit, increment, now)
-		if err == nil {
-			return counter, allowed, nil
-		}
-
-		if s.logger != nil {
-			s.logger.Warn("redis usage counter unavailable; using fallback", zap.String("feature_key", featureKey), zap.Error(err))
-		}
-
-		if s.usageCountersFailOpen {
-			windowStart, windowEnd := usageCounterMonthWindow(now)
-
-			return &platform.UsageCounter{
-				FeatureKey:  featureKey,
-				WindowStart: windowStart,
-				WindowEnd:   windowEnd,
-				Used:        0,
-				Limit:       &limit,
-			}, true, nil
-		}
-	}
-
-	return s.checkAndIncrementTenantUsageCounterDB(ctx, tenantID, featureKey, limit, increment, now)
-}
-
-func (s *UsageCounterRepository) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
-	windowStart, windowEnd := usageCounterMonthWindow(now)
-
-	ttl := windowEnd.Sub(now) + s.usageCounterTTLBuffer
-	if ttl <= 0 {
-		ttl = s.usageCounterTTLBuffer
-	}
-
-	result, err := s.usageCounterCache.CheckUsageCounter(ctx, cache.UsageCounterRequest{
-		Key:         s.usageCounterKey(tenantID, featureKey, windowStart),
-		DirtySetKey: s.usageCounterDirtySetKey(),
-		Limit:       limit,
-		Increment:   increment,
-		TTL:         ttl,
-		WindowEnd:   windowEnd,
-	})
-	if err != nil {
-		return nil, false, err
-	}
-
-	return &platform.UsageCounter{
-		FeatureKey:  featureKey,
-		WindowStart: windowStart,
-		WindowEnd:   windowEnd,
-		Used:        result.Used,
-		Limit:       &limit,
-	}, result.Allowed, nil
-}
-
-func (s *UsageCounterRepository) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
-	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
-	defer cancel()
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, false, err
-	}
-	defer rollbackTxWithFreshTimeout(tx)
-
-	var windowStart, windowEnd time.Time
-	if err := tx.QueryRow(ctx, `
-		SELECT date_trunc('month', $1::timestamptz), date_trunc('month', $1::timestamptz) + INTERVAL '1 month'
-	`, now).Scan(&windowStart, &windowEnd); err != nil {
-		return nil, false, err
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO tenant_usage_counters (tenant_id, feature_key, window_start, window_end, used, created_at, updated_at)
-		VALUES ($1::uuid, $2, $3, $4, 0, NOW(), NOW())
-		ON CONFLICT (tenant_id, feature_key, window_start) DO NOTHING
-	`, tenantID, featureKey, windowStart, windowEnd); err != nil {
-		return nil, false, err
-	}
-
-	var used float64
-	if err := tx.QueryRow(ctx, `
-		SELECT used
-		FROM tenant_usage_counters
-		WHERE tenant_id = $1::uuid AND feature_key = $2 AND window_start = $3
-		FOR UPDATE
-	`, tenantID, featureKey, windowStart).Scan(&used); err != nil {
-		return nil, false, err
-	}
-
-	counter := &platform.UsageCounter{
-		FeatureKey:  featureKey,
-		WindowStart: windowStart,
-		WindowEnd:   windowEnd,
-		Used:        used,
-		Limit:       &limit,
-	}
-	if limit >= 0 && used+increment > limit {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, false, err
-		}
-
-		return counter, false, nil
-	}
-
-	if err := tx.QueryRow(ctx, `
-		UPDATE tenant_usage_counters
-		SET used = used + $4, updated_at = NOW()
-		WHERE tenant_id = $1::uuid AND feature_key = $2 AND window_start = $3
-		RETURNING used
-	`, tenantID, featureKey, windowStart, increment).Scan(&counter.Used); err != nil {
-		return nil, false, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, false, err
-	}
-
-	return counter, true, nil
-}
-
-func usageCounterMonthWindow(now time.Time) (time.Time, time.Time) {
-	utc := now.UTC()
-	windowStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-
-	return windowStart, windowStart.AddDate(0, 1, 0)
 }
 
 func (s *EntitlementRepository) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {

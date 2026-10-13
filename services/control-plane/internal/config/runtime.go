@@ -32,12 +32,6 @@ type StorageSettings struct {
 	AuthorizationCacheTTL        time.Duration
 	AuthorizationCacheMaxEntries int
 	EntitlementCacheTTL          time.Duration
-	UsageCountersEnabled         bool
-	UsageCountersFailOpen        bool
-	UsageCounterKeyPrefix        string
-	UsageCounterFlushInterval    time.Duration
-	UsageCounterFlushBatchSize   int
-	UsageCounterTTLBuffer        time.Duration
 	TenantCredentialCacheTTL     time.Duration
 	GatewayDatabaseTimeout       time.Duration
 	SubscriptionDatabaseTimeout  time.Duration
@@ -113,12 +107,6 @@ func LoadStorageSettings() StorageSettings {
 		AuthorizationCacheTTL:        secondsEnv("AUTHORIZATION_CACHE_TTL_SECONDS", time.Minute),
 		AuthorizationCacheMaxEntries: positiveIntEnv("AUTHORIZATION_CACHE_MAX_ENTRIES", 5000),
 		EntitlementCacheTTL:          secondsEnv("ENTITLEMENT_CACHE_TTL_SECONDS", time.Minute),
-		UsageCountersEnabled:         booleanEnv("USAGE_COUNTER_REDIS_ENABLED", true),
-		UsageCountersFailOpen:        booleanEnv("USAGE_COUNTER_REDIS_FAIL_OPEN", false),
-		UsageCounterKeyPrefix:        stringEnv("USAGE_COUNTER_REDIS_KEY_PREFIX", "usage"),
-		UsageCounterFlushInterval:    secondsEnv("USAGE_COUNTER_FLUSH_INTERVAL_SECONDS", 5*time.Second),
-		UsageCounterFlushBatchSize:   positiveIntEnv("USAGE_COUNTER_FLUSH_BATCH_SIZE", 500),
-		UsageCounterTTLBuffer:        secondsEnv("USAGE_COUNTER_TTL_BUFFER_SECONDS", time.Hour),
 		TenantCredentialCacheTTL:     secondsEnv("TENANT_PROVIDER_CREDENTIAL_CACHE_TTL_SECONDS", time.Minute),
 		GatewayDatabaseTimeout:       secondsEnv("GATEWAY_DB_TIMEOUT_SECONDS", 3*time.Second),
 		SubscriptionDatabaseTimeout:  secondsEnv("SUBSCRIPTION_LIFECYCLE_DB_TIMEOUT_SECONDS", 5*time.Second),

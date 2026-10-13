@@ -39,22 +39,6 @@ type RateLimitBatchChecker interface {
 	CheckRateLimits(ctx context.Context, checks []RateLimitCheck) ([]*RateLimitResult, error)
 }
 
-// UsageCounterRequest describes an atomic fixed-window usage counter update.
-type UsageCounterRequest struct {
-	Key         string
-	DirtySetKey string
-	Limit       float64
-	Increment   float64
-	TTL         time.Duration
-	WindowEnd   time.Time
-}
-
-// UsageCounterResult holds the result of an atomic usage counter update.
-type UsageCounterResult struct {
-	Allowed bool
-	Used    float64
-}
-
 // BudgetWindowSeed describes the active spend allowance window for a tenant.
 type BudgetWindowSeed struct {
 	WindowKey    string
@@ -114,12 +98,6 @@ type BudgetWindowSnapshot struct {
 	LastUpdatedAt time.Time
 }
 
-// UsageCounterSnapshot is a Redis-backed counter value selected for persistence.
-type UsageCounterSnapshot struct {
-	Key  string
-	Used float64
-}
-
 // TokenSpendDelta is a drained Redis token spend delta ready for persistence.
 type TokenSpendDelta struct {
 	Key      string
@@ -139,13 +117,6 @@ type TokenSpendDeltaRequest struct {
 type KeyLastUsedSnapshot struct {
 	Key          string
 	UsedAtUnixMS int64
-}
-
-// UsageCounterCache exposes distributed usage-counter operations.
-type UsageCounterCache interface {
-	CheckUsageCounter(ctx context.Context, req UsageCounterRequest) (*UsageCounterResult, error)
-	ListDirtyUsageCounters(ctx context.Context, dirtySetKey string, batchSize int) ([]UsageCounterSnapshot, error)
-	AckDirtyUsageCounters(ctx context.Context, dirtySetKey string, keys []string)
 }
 
 // TokenUsageCache exposes Redis-backed token usage aggregation primitives.
@@ -522,34 +493,6 @@ end
 return out
 `
 
-const usageCounterScript = `
-local counterKey = KEYS[1]
-local dirtySetKey = KEYS[2]
-local limit = tonumber(ARGV[1])
-local increment = tonumber(ARGV[2])
-local ttlMs = tonumber(ARGV[3])
-local windowEndUnix = tonumber(ARGV[4])
-
-if not increment or increment <= 0 then
-  increment = 1
-end
-
-local current = tonumber(redis.call('GET', counterKey) or '0')
-if limit and limit >= 0 and (current + increment) > limit then
-  return {0, current}
-end
-
-local updated = tonumber(redis.call('INCRBYFLOAT', counterKey, increment))
-local pttl = redis.call('PTTL', counterKey)
-if pttl < 0 then
-  redis.call('PEXPIRE', counterKey, ttlMs)
-end
-redis.call('ZADD', dirtySetKey, windowEndUnix, counterKey)
-redis.call('PEXPIRE', dirtySetKey, ttlMs)
-
-return {1, updated}
-`
-
 const queueTokenSpendDeltaScript = `
 local deltaKey = KEYS[1]
 local dirtySetKey = KEYS[2]
@@ -860,101 +803,6 @@ func (d *DualCache) CheckRateLimit(ctx context.Context, key string, limit int64,
 		Limit:   limit,
 		ResetAt: time.Now().Add(resetIn),
 	}, nil
-}
-
-// CheckUsageCounter atomically increments and checks a fixed-window usage counter in Redis.
-func (d *DualCache) CheckUsageCounter(ctx context.Context, req UsageCounterRequest) (*UsageCounterResult, error) {
-	if req.Key == "" || req.DirtySetKey == "" {
-		return nil, fmt.Errorf("usage counter key and dirty set key are required")
-	}
-
-	if req.TTL <= 0 {
-		return nil, fmt.Errorf("usage counter ttl must be positive")
-	}
-
-	result, err := d.redis.Eval(ctx, usageCounterScript, []string{req.Key, req.DirtySetKey}, req.Limit, req.Increment, req.TTL.Milliseconds(), req.WindowEnd.Unix()).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	values, ok := result.([]interface{})
-	if !ok || len(values) < 2 {
-		return nil, fmt.Errorf("unexpected redis usage counter result: %T", result)
-	}
-
-	allowed, err := redisInt(values[0])
-	if err != nil {
-		return nil, err
-	}
-
-	used, err := redisFloat(values[1])
-	if err != nil {
-		return nil, err
-	}
-
-	return &UsageCounterResult{
-		Allowed: allowed == 1,
-		Used:    used,
-	}, nil
-}
-
-// ListDirtyUsageCounters returns a bounded batch of dirty Redis usage counters.
-func (d *DualCache) ListDirtyUsageCounters(ctx context.Context, dirtySetKey string, batchSize int) ([]UsageCounterSnapshot, error) {
-	if batchSize <= 0 {
-		batchSize = 100
-	}
-
-	keys, err := d.redis.ZRange(ctx, dirtySetKey, 0, int64(batchSize-1)).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(keys) == 0 {
-		return nil, nil
-	}
-
-	pipe := d.redis.Pipeline()
-
-	cmds := make([]*redis.StringCmd, 0, len(keys))
-	for _, key := range keys {
-		cmds = append(cmds, pipe.Get(ctx, key))
-	}
-
-	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
-		return nil, err
-	}
-
-	snapshots := make([]UsageCounterSnapshot, 0, len(keys))
-
-	for i, cmd := range cmds {
-		value, err := cmd.Float64()
-		if err == redis.Nil {
-			snapshots = append(snapshots, UsageCounterSnapshot{Key: keys[i]})
-			continue
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		snapshots = append(snapshots, UsageCounterSnapshot{Key: keys[i], Used: value})
-	}
-
-	return snapshots, nil
-}
-
-// AckDirtyUsageCounters removes flushed usage counters from the dirty index.
-func (d *DualCache) AckDirtyUsageCounters(ctx context.Context, dirtySetKey string, keys []string) {
-	if len(keys) == 0 {
-		return
-	}
-
-	args := make([]interface{}, len(keys))
-	for i, key := range keys {
-		args[i] = key
-	}
-
-	d.redis.ZRem(ctx, dirtySetKey, args...)
 }
 
 // QueueTokenSpendDelta atomically accumulates one token spend delta and marks it dirty.

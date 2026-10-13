@@ -76,7 +76,6 @@ func TestFocusedRepositoriesStayFocused(t *testing.T) {
 		"PlanCatalogRepository",
 		"SubscriptionRepository",
 		"EntitlementRepository",
-		"UsageCounterRepository",
 		"WalletLedgerRepository",
 		"ExchangeRateRepository",
 		"WalletPaymentRepository",

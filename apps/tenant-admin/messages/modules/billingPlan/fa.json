@@ -23,7 +23,6 @@
     "empty": "برای این پلن قابلیتی ثبت نشده است."
   },
   "features": {
-    "gatewayRequestsMonthly": "درخواست‌های ماهانه درگاه",
     "usersMax": "کاربران فعال",
     "teamsEnabled": "مدیریت تیم‌ها",
     "cacheSimpleEnabled": "حافظه نهان درخواست‌های یکسان",
@@ -60,7 +59,6 @@
     "disabled": "در دسترس نیست",
     "none": "بدون مورد",
     "unknown": "نامشخص",
-    "usage": "{used} از {limit}",
     "custom": "طبق قرارداد",
     "unlimited": "نامحدود",
     "days": "{count} روز",

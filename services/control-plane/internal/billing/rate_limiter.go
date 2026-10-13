@@ -2,15 +2,13 @@ package billing
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 )
 
-// CheckRateLimit validates per-minute request and token limits.
+// CheckRateLimit validates rate-limit policies and the subscription state.
 // It returns the primary rate-limit result to expose in response headers.
 func (s *RateLimiter) CheckRateLimit(
 	ctx context.Context,
@@ -44,34 +42,7 @@ func (s *RateLimiter) CheckRateLimit(
 		return nil, ErrSubscriptionInactive
 	}
 
-	limit, limited := entitlementNumber(effective.Features[platform.FeatureGatewayRequestsMonthly])
-	if !limited {
-		return policyResult, nil
-	}
-
-	counter, allowed, err := s.entitlements.CheckAndIncrementTenantUsageCounter(
-		ctx,
-		auth.TenantID,
-		platform.FeatureGatewayRequestsMonthly,
-		limit,
-		1,
-		time.Now().UTC(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	result := &cache.RateLimitResult{
-		Allowed: allowed,
-		Current: int64(counter.Used),
-		Limit:   int64(limit),
-		ResetAt: counter.WindowEnd,
-	}
-	if !allowed {
-		return result, ErrRateLimitExceeded
-	}
-
-	return mostRestrictiveRateLimitResult(policyResult, result), nil
+	return policyResult, nil
 }
 
 func (s *RateLimiter) resolveEffectiveEntitlementLimits(
@@ -102,23 +73,4 @@ func (s *RateLimiter) resolveEffectiveEntitlementLimits(
 	}
 
 	return s.entitlements.ResolveEffectiveEntitlementLimits(ctx, tenantID)
-}
-
-func entitlementNumber(value interface{}) (float64, bool) {
-	switch typed := value.(type) {
-	case nil:
-		return 0, false
-	case int:
-		return float64(typed), typed >= 0
-	case int64:
-		return float64(typed), typed >= 0
-	case float64:
-		return typed, typed >= 0
-	case json.Number:
-		out, err := typed.Float64()
-
-		return out, err == nil && out >= 0
-	default:
-		return 0, false
-	}
 }

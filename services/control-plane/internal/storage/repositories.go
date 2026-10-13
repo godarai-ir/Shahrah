@@ -31,25 +31,17 @@ func (f RuntimeProfileInvalidatorFunc) Invalidate(ctx context.Context, tenantID 
 }
 
 type planState struct {
-	pool                       *pgxpool.Pool
-	logger                     *zap.Logger
-	entitlementCache           cache.Cache
-	entitlementCacheTTL        time.Duration
-	entitlementLoadGroup       singleflight.Group
-	usageCounterCache          cache.UsageCounterCache
-	usageCountersEnabled       bool
-	usageCountersFailOpen      bool
-	usageCounterKeyPrefix      string
-	usageCounterFlushInterval  time.Duration
-	usageCounterFlushBatchSize int
-	usageCounterTTLBuffer      time.Duration
-	runtimeProfileInvalidator  RuntimeProfileInvalidator
-	hotPathDBTimeout           time.Duration
-	subscriptionDBTimeout      time.Duration
-	catalog                    *PlanCatalogRepository
-	subscriptions              *SubscriptionRepository
-	entitlements               *EntitlementRepository
-	usageCounters              *UsageCounterRepository
+	pool                      *pgxpool.Pool
+	logger                    *zap.Logger
+	entitlementCache          cache.Cache
+	entitlementCacheTTL       time.Duration
+	entitlementLoadGroup      singleflight.Group
+	runtimeProfileInvalidator RuntimeProfileInvalidator
+	hotPathDBTimeout          time.Duration
+	subscriptionDBTimeout     time.Duration
+	catalog                   *PlanCatalogRepository
+	subscriptions             *SubscriptionRepository
+	entitlements              *EntitlementRepository
 }
 
 // PlanCatalogRepository persists commercial plan definitions and versions.
@@ -61,15 +53,11 @@ type SubscriptionRepository struct{ *planState }
 // EntitlementRepository resolves and persists tenant entitlement state.
 type EntitlementRepository struct{ *planState }
 
-// UsageCounterRepository persists and flushes entitlement usage counters.
-type UsageCounterRepository struct{ *planState }
-
 // PlanRepository is a compatibility composition of focused commercial capabilities.
 type PlanRepository struct {
 	*PlanCatalogRepository
 	*SubscriptionRepository
 	*EntitlementRepository
-	*UsageCounterRepository
 }
 
 type walletState struct {
@@ -301,23 +289,13 @@ func newPlanRepository(
 	storageConfig Config,
 ) *PlanRepository {
 	state := &planState{
-		pool:                       pool,
-		logger:                     logger,
-		entitlementCache:           sharedCache,
-		entitlementCacheTTL:        storageConfig.Plans.EntitlementCacheTTL,
-		usageCountersEnabled:       storageConfig.TokenUsage.UsageCounters,
-		usageCountersFailOpen:      storageConfig.TokenUsage.CountersFailOpen,
-		usageCounterKeyPrefix:      storageConfig.TokenUsage.CounterKeyPrefix,
-		usageCounterFlushInterval:  storageConfig.TokenUsage.CounterInterval,
-		usageCounterFlushBatchSize: storageConfig.TokenUsage.CounterBatchSize,
-		usageCounterTTLBuffer:      storageConfig.TokenUsage.CounterTTLBuffer,
-		runtimeProfileInvalidator:  invalidator,
-		hotPathDBTimeout:           storageConfig.HotPath.DatabaseTimeout,
-		subscriptionDBTimeout:      storageConfig.HotPath.SubscriptionLifecycleTimeout,
-	}
-
-	if usageCounterCache, ok := sharedCache.(cache.UsageCounterCache); ok {
-		state.usageCounterCache = usageCounterCache
+		pool:                      pool,
+		logger:                    logger,
+		entitlementCache:          sharedCache,
+		entitlementCacheTTL:       storageConfig.Plans.EntitlementCacheTTL,
+		runtimeProfileInvalidator: invalidator,
+		hotPathDBTimeout:          storageConfig.HotPath.DatabaseTimeout,
+		subscriptionDBTimeout:     storageConfig.HotPath.SubscriptionLifecycleTimeout,
 	}
 
 	return composePlanRepository(state)
@@ -327,17 +305,14 @@ func composePlanRepository(state *planState) *PlanRepository {
 	catalog := &PlanCatalogRepository{planState: state}
 	subscriptions := &SubscriptionRepository{planState: state}
 	entitlements := &EntitlementRepository{planState: state}
-	usageCounters := &UsageCounterRepository{planState: state}
 	state.catalog = catalog
 	state.subscriptions = subscriptions
 	state.entitlements = entitlements
-	state.usageCounters = usageCounters
 
 	return &PlanRepository{
 		PlanCatalogRepository:  catalog,
 		SubscriptionRepository: subscriptions,
 		EntitlementRepository:  entitlements,
-		UsageCounterRepository: usageCounters,
 	}
 }
 

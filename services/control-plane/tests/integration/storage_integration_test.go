@@ -180,7 +180,6 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		},
 		"commercial_signup_settings":   {"settings_id", "trial_days", "signup_credit_irr", "updated_by", "updated_at"},
 		"tenant_entitlement_overrides": {"override_id", "tenant_id", "feature_key", "value_json", "reason", "expires_at", "created_by"},
-		"tenant_usage_counters":        {"counter_id", "tenant_id", "feature_key", "window_start", "window_end", "used"},
 		"subscription_events":          {"event_id", "tenant_id", "subscription_id", "event_type", "actor", "payload"},
 		"subscription_payment_intents": {
 			"payment_intent_id", "public_id", "tenant_id", "plan_id", "version_id", "billing_interval",

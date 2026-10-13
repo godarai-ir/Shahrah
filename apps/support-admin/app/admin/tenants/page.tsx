@@ -55,14 +55,13 @@ export default function TenantsPage() {
       {error ? <p role="alert" className="rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</p> : null}
       <div className="overflow-x-auto rounded-xl border border-zinc-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-900 text-zinc-400"><tr><th className="p-3">Tenant</th><th className="p-3">Status</th><th className="p-3">Plan</th><th className="p-3">Wallet</th><th className="p-3">Usage</th><th className="p-3">Period end</th></tr></thead>
+          <thead className="bg-zinc-900 text-zinc-400"><tr><th className="p-3">Tenant</th><th className="p-3">Status</th><th className="p-3">Plan</th><th className="p-3">Wallet</th><th className="p-3">Period end</th></tr></thead>
           <tbody className="divide-y divide-zinc-800">
             {payload.data.map((tenant) => (
               <tr key={tenant.id} className="bg-zinc-950 hover:bg-zinc-900/70">
                 <td className="p-3"><Link className="font-medium text-cyan-300 hover:underline" href={`/admin/tenants/${tenant.id}`}>{tenant.slug}</Link><div className="text-xs text-zinc-500">{tenant.domain}</div></td>
                 <td className="p-3 capitalize">{tenant.status}</td><td className="p-3">{tenant.plan_display_name || 'No plan'}</td>
                 <td className="p-3 tabular-nums">{formatIRR(tenant.wallet_balance_minor)}</td>
-                <td className="p-3 tabular-nums">{tenant.usage_used.toLocaleString()}{tenant.usage_limit != null ? ` / ${tenant.usage_limit.toLocaleString()}` : ''}</td>
                 <td className="p-3 text-zinc-400">{formatDate(tenant.period_end)}</td>
               </tr>
             ))}

@@ -31,7 +31,6 @@ type walletStore interface {
 
 type entitlementStore interface {
 	ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error)
-	CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error)
 }
 
 // BudgetWindowCache provides atomic spend-allowance operations.

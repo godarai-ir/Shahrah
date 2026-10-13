@@ -14,8 +14,6 @@ type SupportTenantSummary struct {
 	PeriodEnd          *time.Time `json:"period_end,omitempty"`
 	WalletBalanceMinor int64      `json:"wallet_balance_minor"`
 	WalletPendingMinor int64      `json:"wallet_pending_minor"`
-	UsageUsed          float64    `json:"usage_used"`
-	UsageLimit         *float64   `json:"usage_limit,omitempty"`
 }
 
 type SupportTenantListResponse struct {

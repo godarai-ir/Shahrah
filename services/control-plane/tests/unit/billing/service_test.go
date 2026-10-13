@@ -91,7 +91,6 @@ func registerBillingShutdown(t *testing.T, svc *billing.Service) {
 type entitlementWalletStoreStub struct {
 	walletStoreStub
 	effective  *platform.EffectiveEntitlementsResponse
-	used       float64
 	fullCalls  int
 	limitCalls int
 }
@@ -120,24 +119,6 @@ func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlementLimits(_ context
 		Features:     s.effective.Features,
 		ResolvedAt:   s.effective.ResolvedAt,
 	}, nil
-}
-
-func (s *entitlementWalletStoreStub) CheckAndIncrementTenantUsageCounter(_ context.Context, tenantID, featureKey string, limit, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	allowed := s.used+increment <= limit
-	if allowed {
-		s.used += increment
-	}
-
-	return &platform.UsageCounter{
-		FeatureKey:  featureKey,
-		WindowStart: now,
-		WindowEnd:   now.Add(30 * 24 * time.Hour),
-		Used:        s.used,
-		Limit:       &limit,
-	}, allowed, nil
 }
 
 func (s *entitlementWalletStoreStub) entitlementCallCounts() (int, int) {
@@ -535,7 +516,7 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	}
 }
 
-func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.T) {
+func TestBillingService_ShouldAllowTrialingSubscriptionWithoutRequestQuota(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
 	store := &entitlementWalletStoreStub{
@@ -543,51 +524,21 @@ func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.
 			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 			rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 		},
-		used: 4,
 		effective: &platform.EffectiveEntitlementsResponse{
 			Subscription: &platform.TenantSubscription{Status: "trialing"},
-			Features: map[string]interface{}{
-				platform.FeatureGatewayRequestsMonthly: float64(5),
-			},
+			Features:     map[string]interface{}{},
 		},
 	}
 	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
-	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	assert.True(t, res.Allowed)
-	assert.Equal(t, int64(5), res.Current)
-	assert.Equal(t, int64(5), res.Limit)
+	for range 3 {
+		_, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+		require.NoError(t, err)
+	}
 
 	fullCalls, limitCalls := store.entitlementCallCounts()
 	assert.Equal(t, 0, fullCalls)
-	assert.Equal(t, 1, limitCalls)
-}
-
-func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-	store := &entitlementWalletStoreStub{
-		walletStoreStub: walletStoreStub{
-			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
-			rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-		},
-		used: 5,
-		effective: &platform.EffectiveEntitlementsResponse{
-			Subscription: &platform.TenantSubscription{Status: "active"},
-			Features: map[string]interface{}{
-				platform.FeatureGatewayRequestsMonthly: float64(5),
-			},
-		},
-	}
-	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
-
-	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
-	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
-	require.NotNil(t, res)
-	assert.False(t, res.Allowed)
-	assert.Equal(t, int64(5), res.Current)
+	assert.Equal(t, 3, limitCalls)
 }
 
 func TestBillingService_ShouldRejectInactiveSubscription(t *testing.T) {

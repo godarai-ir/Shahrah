@@ -11,18 +11,10 @@ export const tenantSubscriptionSchema = z.object({
   trial_ends_at: z.string().optional(),
 });
 
-const usageCounterSchema = z.object({
-  feature_key: z.string(),
-  used: z.number(),
-  limit: z.number().nullable().optional(),
-  window_end: z.string().optional(),
-});
-
 export const effectiveEntitlementsSchema = z.object({
   subscription: tenantSubscriptionSchema.nullable().optional(),
   features: z.record(z.string(), z.unknown()).optional(),
   overrides: z.record(z.string(), z.unknown()).optional(),
-  usage_counters: z.array(usageCounterSchema).optional(),
 });
 
 

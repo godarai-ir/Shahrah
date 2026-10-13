@@ -40,12 +40,6 @@ type TokenUsageConfig struct {
 	DeltaTTL         time.Duration
 	LastUsedInterval time.Duration
 	LastUsedTTL      time.Duration
-	UsageCounters    bool
-	CountersFailOpen bool
-	CounterKeyPrefix string
-	CounterInterval  time.Duration
-	CounterBatchSize int
-	CounterTTLBuffer time.Duration
 }
 
 // HotPathConfig controls request-path caches and database timeouts.
@@ -97,12 +91,6 @@ func DefaultConfig() Config {
 			DeltaTTL:         24 * time.Hour,
 			LastUsedInterval: time.Minute,
 			LastUsedTTL:      24 * time.Hour,
-			UsageCounters:    true,
-			CountersFailOpen: false,
-			CounterKeyPrefix: "usage",
-			CounterInterval:  5 * time.Second,
-			CounterBatchSize: 500,
-			CounterTTLBuffer: time.Hour,
 		},
 		HotPath: HotPathConfig{
 			RequestLoggingModeTTL:        time.Minute,

@@ -212,13 +212,6 @@ $env:MODEL="gpt-4o-mini"
 
 `TENANT` must be an existing tenant slug with enough wallet balance for protected `/v1/*` gateway calls. Prefer a real PAT or virtual-user token for staging tests; the local master key is only convenient for bootstrap/local verification. When the load-test override is active, requests use the mock provider instead of paid upstream providers.
 
-If repeated local runs have exhausted the monthly gateway counter, reset the load-test tenant before smoke/ramp tests and clear the local Redis usage-counter cache:
-
-```powershell
-docker exec compose-postgres-1 psql -U postgres -d sharah_db -c "update tenant_usage_counters c set used = 0, updated_at = now() from tenants t where t.tenant_id = c.tenant_id and t.slug = 'tenant1' and c.feature_key = 'gateway.requests.monthly' and now() between c.window_start and c.window_end;"
-docker exec compose-redis-1 sh -lc "redis-cli -a s4M6gOMp77ss --scan --pattern 'usage:tenant:*:feature:gateway.requests.monthly:*' | xargs -r redis-cli -a s4M6gOMp77ss DEL"
-```
-
 Smoke test:
 
 ```powershell

@@ -10,8 +10,6 @@ export type TenantSummary = {
   period_end?: string;
   wallet_balance_minor: number;
   wallet_pending_minor: number;
-  usage_used: number;
-  usage_limit?: number;
 };
 
 export type TenantListResponse = { data: TenantSummary[]; next_cursor?: string };
@@ -28,12 +26,11 @@ export type Subscription = {
   cancel_at_period_end: boolean;
 };
 
-export type UsageCounter = { feature_key: string; used: number; limit?: number; window_start: string; window_end: string };
 export type TenantDetail = {
   tenant: TenantSummary;
   owner?: { user_id: string; name?: string; email?: string; phone?: string };
   subscription?: Subscription;
-  entitlements?: { features: Record<string, unknown>; overrides?: Record<string, unknown>; usage_counters?: UsageCounter[] };
+  entitlements?: { features: Record<string, unknown>; overrides?: Record<string, unknown> };
   wallet?: { id: string; tenant_id: string; balance_irr: number; pending_irr: number };
 };
 

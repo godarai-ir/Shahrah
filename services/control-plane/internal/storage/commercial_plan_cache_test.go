@@ -82,7 +82,6 @@ func (c *entitlementTestCache) Close() error {
 
 func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 	ctx := context.Background()
-	limit := 10.0
 	store := composePlanRepository(&planState{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: time.Minute,
@@ -99,12 +98,7 @@ func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 			"requests_per_minute": float64(1000),
 			"nested":              map[string]interface{}{"enabled": true},
 		},
-		Overrides: map[string]interface{}{"requests_per_minute": float64(1000)},
-		UsageCounters: []platform.UsageCounter{{
-			FeatureKey: "requests_per_minute",
-			Used:       2,
-			Limit:      &limit,
-		}},
+		Overrides:  map[string]interface{}{"requests_per_minute": float64(1000)},
 		ResolvedAt: time.Now().UTC(),
 	}
 
@@ -115,10 +109,6 @@ func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 	cached, ok := store.getCachedEntitlements(ctx, "tenant-1")
 	if !ok {
 		t.Fatal("expected cached entitlements")
-	}
-
-	if len(cached.UsageCounters) != 0 {
-		t.Fatalf("expected usage counters to be omitted from cache, got %d", len(cached.UsageCounters))
 	}
 
 	if cached.Features["requests_per_minute"] != float64(1000) {
