@@ -1,6 +1,6 @@
 {
   "title": "Connected apps",
-  "description": "Let applications such as LibreChat sign members in with their Godar account. Each member reaches only the models Godar allows them.",
+  "description": "Let applications such as GodarChat sign members in with their Godar account. Each member reaches only the models Godar allows them.",
   "alerts": {
     "success": "Done",
     "error": "Error"
@@ -31,10 +31,10 @@
   },
   "fields": {
     "name": "App name",
-    "namePlaceholder": "LibreChat",
+    "namePlaceholder": "GodarChat",
     "nameHelp": "Members see this name on the Godar sign-in page.",
     "redirectURIs": "Redirect URIs",
-    "redirectURIsHelp": "One per line. Sign-in only returns to these exact addresses. For LibreChat use https://chat.example.com/oauth/openid/callback, replacing the domain with yours.",
+    "redirectURIsHelp": "One per line. Sign-in only returns to these exact addresses. For GodarChat use https://chat.example.com/oauth/openid/callback, replacing the domain with yours.",
     "logoutURIs": "Post-logout redirect URIs (optional)",
     "logoutURIsHelp": "One per line. Where the app may send members after they sign out.",
     "active": "Active",
@@ -118,6 +118,6 @@
   },
   "products": {
     "oidc_app": "Connected app (generic)",
-    "librechat": "LibreChat"
+    "librechat": "GodarChat"
   }
 }

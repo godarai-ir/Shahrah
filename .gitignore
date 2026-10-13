@@ -167,3 +167,6 @@ release/
 
 # Credit calibration reports contain tenant identifiers.
 output/credit-calibration/
+
+# Caddy local CA and certificates
+infra/compose/caddy/data/
