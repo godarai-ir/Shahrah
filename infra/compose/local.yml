@@ -5,6 +5,16 @@ x-default-logging: &default-logging
     max-file: "3"
 
 services:
+  oidc-keygen:
+    image: alpine/openssl
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        [ -f /keys/oidc-signing-key.pem ] || openssl ecparam -name prime256v1 -genkey -noout -out /keys/oidc-signing-key.pem
+        chmod 644 /keys/oidc-signing-key.pem
+    volumes:
+      - oidckeys:/keys
+
   control-plane:
     logging: *default-logging
     build:
@@ -15,7 +25,7 @@ services:
     ports:
       - "${LOCAL_BIND_ADDR:-127.0.0.1}:4000:4000"
     volumes:
-      - ./secrets/oidc-signing-key.pem:/run/secrets/oidc-signing-key.pem:ro
+      - oidckeys:/run/secrets:ro
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://sharah_user:5r74Fq90EyWA@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s}
@@ -77,6 +87,8 @@ services:
       mailpit:
         condition: service_started
       minio-init:
+        condition: service_completed_successfully
+      oidc-keygen:
         condition: service_completed_successfully
       clamav:
         condition: service_healthy
@@ -364,6 +376,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  oidckeys:
   pgdata:
   redisdata:
   clickhousedata:
