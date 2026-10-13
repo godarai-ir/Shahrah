@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { buildControlPlaneBillingSummaryPath, formatIRRAmount } from "@/features/billing/domain";
-import { parseBillingSummary, parseWallet } from "@/features/billing/api";
+import { buildControlPlaneBillingSummaryPath, buildControlPlaneCreditSummaryPath, formatIRRAmount } from "@/features/billing/domain";
+import { parseBillingSummary, parseCreditUsageSummary, parseWallet } from "@/features/billing/api";
+import { CreditShadowCard } from "@/features/billing/CreditShadowCard";
 import { resolveLocale } from "@/lib/locale";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +31,10 @@ export default async function BillingDashboardPage() {
     role: auth.user.role,
   };
 
-  const [walletResponse, summaryResponse] = await Promise.all([
+  const [walletResponse, summaryResponse, creditSummaryResponse] = await Promise.all([
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/wallet", userID: auth.user.id }),
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
+    fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneCreditSummaryPath("current_month"), userID: auth.user.id }),
   ]);
 
   const t = await getTranslations("billing");
@@ -42,6 +44,7 @@ export default async function BillingDashboardPage() {
 
   const wallet = walletResponse.ok ? parseWallet(walletResponse.payload) : null;
   const summary = summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null;
+  const creditSummary = creditSummaryResponse.ok ? parseCreditUsageSummary(creditSummaryResponse.payload) : null;
   const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
 
   return (
@@ -71,6 +74,26 @@ export default async function BillingDashboardPage() {
           <MetricCard icon={LineChart} label={t("overview.currentMonthUsage")} value={formatIRR(summary?.total_usage_irr)} />
           <MetricCard icon={BarChart3} label={t("overview.cacheSavings")} value={formatIRR(summary?.cache_savings_irr)} />
         </div>
+        {creditSummary?.available ? (
+          <CreditShadowCard
+            summary={creditSummary}
+            locale={locale}
+            labels={{
+              title: t("credits.title"),
+              description: t("credits.description"),
+              badge: t("credits.badge"),
+              unit: t("credits.unit"),
+              total: t("credits.total"),
+              cacheSaved: t("credits.cacheSaved"),
+              byModel: t("credits.byModel"),
+              byTeam: t("credits.byTeam"),
+              noTeam: t("credits.noTeam"),
+              emptyTitle: t("credits.emptyTitle"),
+              emptyDescription: t("credits.emptyDescription"),
+              requestCount: (count) => t("credits.requestCount", { count }),
+            }}
+          />
+        ) : null}
         <div className="grid gap-4 xl:grid-cols-2">
           <AppCard title={t("overview.quickActions")} className="lg:col-span-1">
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">

@@ -62,6 +62,8 @@ type RuntimeSettings struct {
 	BillingPricingCacheEnabled    bool
 	BillingPricingCacheTTL        time.Duration
 	BillingWalletCacheTTL         time.Duration
+	BillingCreditsShadowEnabled   bool
+	BillingCreditRateCardTTL      time.Duration
 	RateLimitPolicyFailOpen       bool
 	NobitexExchangeRateEnabled    bool
 	NobitexExchangeRateConfigured bool
@@ -145,6 +147,8 @@ func LoadRuntimeSettings() RuntimeSettings {
 		BillingPricingCacheEnabled:    booleanEnv("BILLING_PRICING_CACHE_ENABLED", true),
 		BillingPricingCacheTTL:        secondsEnv("BILLING_PRICING_CACHE_TTL_SECONDS", 5*time.Minute),
 		BillingWalletCacheTTL:         secondsEnv("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
+		BillingCreditsShadowEnabled:   booleanEnv("BILLING_CREDITS_SHADOW_ENABLED", false),
+		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
 		RateLimitPolicyFailOpen:       booleanEnv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		NobitexExchangeRateEnabled:    nobitexEnabled,
 		NobitexExchangeRateConfigured: nobitexConfigured,

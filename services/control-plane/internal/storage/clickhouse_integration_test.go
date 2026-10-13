@@ -46,16 +46,19 @@ func TestClickHouseObservabilityIntegration(t *testing.T) {
 	})
 
 	require.NoError(t, store.ensureClickHouseMetricsSchema(ctx))
+	require.True(t, store.MetricsRepository.clickhouseMetricCredits, "credit columns from migration 006 must be detected")
 	require.NoError(t, store.ensureClickHouseTraceSchema(ctx))
 	require.NoError(t, store.ensureClickHouseRequestLogsSchema(ctx))
 
-	start := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	// Keep fixtures inside the 90-day raw-event TTL; older rows are dropped on insert.
+	start := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Minute)
 	tenantID := "tenant-integration"
 
 	insertClickHouseMetrics(t, ctx, store, tenantID, start)
 	insertClickHouseLogs(t, ctx, db, tenantID, start)
 	insertClickHouseTraces(t, ctx, db, tenantID, start)
 
+	assertClickHouseCreditUsageSummary(t, ctx, store, start)
 	assertClickHouseMetricsQueries(t, ctx, store, tenantID, start)
 	assertClickHouseLogQueries(t, ctx, store, tenantID, start)
 	assertClickHouseTraceQueries(t, ctx, store, tenantID, start)
@@ -69,13 +72,18 @@ func startClickHouseTestContainer(t *testing.T, ctx context.Context) (string, fu
 		t.Skip("docker CLI is required for ClickHouse integration test")
 	}
 
+	image := strings.TrimSpace(os.Getenv("SHAHRAH_CLICKHOUSE_TEST_IMAGE"))
+	if image == "" {
+		image = "clickhouse/clickhouse-server:24.8-alpine"
+	}
+
 	name := fmt.Sprintf("shahrah-clickhouse-test-%d", time.Now().UnixNano())
 	args := []string{
 		"run", "-d", "--rm",
 		"--name", name,
 		"-p", "127.0.0.1::9000",
 		"-e", "CLICKHOUSE_SKIP_USER_SETUP=1",
-		"clickhouse/clickhouse-server:24.8-alpine",
+		image,
 	}
 
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
@@ -151,6 +159,7 @@ func applyClickHouseMigrations(ctx context.Context, db *sql.DB) error {
 		"003_mv_gateway_model_metrics_1m.sql",
 		"004_observability_runtime_schema.sql",
 		"005_gateway_model_event_id.sql",
+		"006_gateway_model_event_credits.sql",
 	} {
 		path := filepath.Join(root, "infra", "clickhouse", "migrations", name)
 
@@ -159,7 +168,11 @@ func applyClickHouseMigrations(ctx context.Context, db *sql.DB) error {
 			return err
 		}
 
-		for _, stmt := range splitSQLStatements(string(raw)) {
+		// The test container is a single node without Keeper, so replicated
+		// engines are applied as their non-replicated equivalents.
+		schema := strings.ReplaceAll(string(raw), "ENGINE = Replicated", "ENGINE = ")
+
+		for _, stmt := range splitSQLStatements(schema) {
 			if _, err := db.ExecContext(ctx, stmt); err != nil {
 				return fmt.Errorf("apply %s: %w", name, err)
 			}
@@ -410,4 +423,43 @@ func numericMapValue(t *testing.T, row map[string]interface{}, key string) uint6
 		t.Fatalf("unexpected numeric value type %T for %s", value, key)
 		return 0
 	}
+}
+
+func assertClickHouseCreditUsageSummary(t *testing.T, ctx context.Context, store *ObservabilityRepository, start time.Time) {
+	t.Helper()
+
+	tenantID := "tenant-credits"
+	base := platform.ModelMetricEvent{
+		TenantID: tenantID, ModelName: "anthropic/claude-sonnet-5", ProviderName: "anthropic",
+		RequestType: "chat_completions", StatusCode: 200, ErrorType: "none",
+		CacheMode: "none", CacheStatus: "none", CacheMatch: "none", RateCardVersion: 1,
+	}
+
+	first := base
+	first.TS, first.RequestID, first.TeamIDs = start.Add(time.Second), "credit-1", []string{"team-a"}
+	first.CreditsMC, first.CreditProduct = 4500, platform.CreditProductLibreChat
+
+	second := base
+	second.TS, second.RequestID = start.Add(2*time.Second), "credit-2"
+	second.CreditsMC, second.CreditsAvoidedMC = 1000, 900
+
+	require.NoError(t, store.InsertModelMetricEvents(ctx, []platform.ModelMetricEvent{first, second}))
+
+	summary, err := store.GetCreditUsageSummary(ctx, tenantID, start, start.Add(time.Minute))
+	require.NoError(t, err)
+	require.True(t, summary.Available)
+	require.Equal(t, "5.50", summary.TotalCredits)
+	require.Equal(t, "0.90", summary.CacheSavedCredits)
+	require.EqualValues(t, 2, summary.RequestCount)
+	require.Equal(t, []platform.CreditUsageItem{
+		{Key: "anthropic/claude-sonnet-5", Credits: "5.50", RequestCount: 2},
+	}, summary.ByModel)
+	require.Equal(t, []platform.CreditUsageItem{
+		{Key: "team-a", Credits: "4.50", RequestCount: 1},
+		{Key: "", Credits: "1.00", RequestCount: 1},
+	}, summary.ByTeam)
+	require.Equal(t, []platform.CreditUsageItem{
+		{Key: platform.CreditProductLibreChat, Credits: "4.50", RequestCount: 1},
+		{Key: platform.CreditProductGateway, Credits: "1.00", RequestCount: 1},
+	}, summary.ByProduct)
 }

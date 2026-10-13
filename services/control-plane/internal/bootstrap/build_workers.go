@@ -15,6 +15,8 @@ import (
 )
 
 func (b *builder) buildWorkers() error {
+	b.buildCreditRateCards()
+
 	if err := b.buildBillingWorkers(); err != nil {
 		return err
 	}
@@ -179,8 +181,13 @@ func (b *builder) buildMetricsWorkers() error {
 		return err
 	}
 
+	shadowCredits := b.cfg.Runtime.BillingCreditsShadowEnabled
 	b.emitMetric = func(input metricsobs.BuildInput) {
 		event := processor.BuildEvent(input)
+		if shadowCredits {
+			metricsobs.ApplyShadowCredits(&event, b.creditRateCards.CurrentRateCard())
+		}
+
 		_ = queue.Enqueue(event)
 	}
 
@@ -225,7 +232,7 @@ func (b *builder) buildAsyncLoggers() error {
 		}
 	}
 
-	b.spendLogger = b.store.SpendRepository
+	b.spendLogger = b.withCreditShadow(b.store.SpendRepository)
 	if !b.cfg.SpendLogs.AsyncEnabled {
 		return nil
 	}
@@ -238,7 +245,7 @@ func (b *builder) buildAsyncLoggers() error {
 		EnqueueTimeout: time.Duration(b.cfg.SpendLogs.EnqueueTimeoutMS) * time.Millisecond,
 		DropOnFull:     b.cfg.SpendLogs.DropOnFull,
 	}, b.logger, b.httpMetrics)
-	b.spendLogger = writer
+	b.spendLogger = b.withCreditShadow(writer)
 
 	return b.lifecycle.AddWorker("async spend logger", func(context.Context) error {
 		writer.Start()

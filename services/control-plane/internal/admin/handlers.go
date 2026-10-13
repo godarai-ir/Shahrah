@@ -4,6 +4,7 @@ import (
 	"context"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
@@ -182,6 +183,10 @@ type logsStore interface {
 	CancelLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error)
 }
 
+type creditUsageStore interface {
+	GetCreditUsageSummary(ctx context.Context, tenantID string, start time.Time, end time.Time) (*platform.CreditUsageSummary, error)
+}
+
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
 	ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
@@ -330,6 +335,10 @@ type BillingDependencies struct {
 	Plans        planStore
 	Entitlements entitlementResolverStore
 	Payment      PaymentConfig
+	// CreditUsage reads shadow credit usage; nil disables the credit summary.
+	CreditUsage creditUsageStore
+	// CreditShadowEnabled reports whether shadow credits are being computed.
+	CreditShadowEnabled bool
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -392,6 +401,8 @@ type billingState struct {
 	plans        planStore
 	entitlements entitlementResolverStore
 	payment      PaymentConfig
+	creditUsage  creditUsageStore
+	creditShadow bool
 }
 
 type onboardingState struct {
@@ -452,6 +463,8 @@ func New(deps Dependencies) *Handlers {
 			plans:        deps.Billing.Plans,
 			entitlements: deps.Billing.Entitlements,
 			payment:      deps.Billing.Payment.withDefaults(),
+			creditUsage:  deps.Billing.CreditUsage,
+			creditShadow: deps.Billing.CreditShadowEnabled,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

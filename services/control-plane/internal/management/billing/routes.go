@@ -25,6 +25,7 @@ type Handler interface {
 	GetBillingProfile(*fiber.Ctx) error
 	UpsertBillingProfile(*fiber.Ctx) error
 	GetBillingUsageSummary(*fiber.Ctx) error
+	GetCreditUsageSummary(*fiber.Ctx) error
 	GetBillingMonthlyUsage(*fiber.Ctx) error
 	ListBillingInvoices(*fiber.Ctx) error
 	ListBillingTransactions(*fiber.Ctx) error
@@ -72,6 +73,7 @@ func (r *Routes) RegisterPublic(router fiber.Router) {
 
 // RegisterTenant registers authenticated tenant billing endpoints.
 func (r *Routes) RegisterTenant(router fiber.Router) {
+	r.registerTenantCredits(router)
 	router.Get("/subscription", r.handler.GetTenantSubscription)
 	router.Post("/subscription/change", r.handler.ChangeTenantSubscription)
 	router.Get("/entitlements", r.handler.GetTenantEntitlements)
@@ -95,6 +97,11 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Get("/billing/documents/invoices", r.handler.ListBillingInvoices)
 	router.Get("/billing/documents/transactions", r.handler.ListBillingTransactions)
 	router.Get("/billing/documents/discounts", r.handler.ListBillingDiscounts)
+}
+
+// registerTenantCredits registers tenant credit endpoints.
+func (r *Routes) registerTenantCredits(router fiber.Router) {
+	router.Get("/billing/credits/summary", r.handler.GetCreditUsageSummary)
 }
 
 // RegisterPlatform registers platform billing endpoints.

@@ -74,4 +74,16 @@ describe("OIDC client input", () => {
       "https://b.example/cb",
     ]);
   });
+
+  it("accepts known credit products and rejects others", () => {
+    expect(parseOIDCClientInput({ credit_product: "librechat" }, { partial: true })).toEqual({
+      ok: true,
+      value: { credit_product: "librechat" },
+    });
+    expect(parseOIDCClientInput({ credit_product: "guardrail" }, { partial: true })).toMatchObject({
+      ok: false,
+      code: "product_invalid",
+      field: "credit_product",
+    });
+  });
 });

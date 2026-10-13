@@ -45,6 +45,7 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 			log.CompletionStart,
 			log.CompletionEnd,
 		)
+		args = append(args, spendLogCreditArgs(log.Credits)...)
 
 		tokenHash := strings.TrimSpace(log.TokenHash)
 		if tokenHash != "" && log.CostUSD > 0 {
@@ -57,7 +58,8 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
 			usage_breakdown_json, pricing_snapshot_json,
-			completion_start_time, completion_end_time
+			completion_start_time, completion_end_time,
+			credits_mc, credits_avoided_mc, rate_card_version, product, billing_mode, credit_source
 		)
 		VALUES `+strings.Join(values, ", "), args...); err != nil {
 		return err
@@ -66,7 +68,23 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 	return s.tokenUsage.queueTokenSpendDeltas(ctx, spendDeltas)
 }
 
-const spendLogInsertColumnCount = 18
+const spendLogInsertColumnCount = 24
+
+// spendLogCreditArgs returns the credit column values, all NULL when credits were not computed.
+func spendLogCreditArgs(credits *platform.SpendLogCredits) []interface{} {
+	if credits == nil {
+		return []interface{}{nil, nil, nil, nil, nil, nil}
+	}
+
+	return []interface{}{
+		credits.Millicredits,
+		credits.AvoidedMillicredits,
+		credits.RateCardVersion,
+		emptyToNil(credits.Product),
+		emptyToNil(credits.BillingMode),
+		emptyToNil(credits.Source),
+	}
+}
 
 func spendLogInsertPlaceholders(rowIndex, columns int) string {
 	start := rowIndex*columns + 1

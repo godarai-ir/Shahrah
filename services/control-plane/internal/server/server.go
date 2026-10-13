@@ -70,6 +70,8 @@ type Dependencies struct {
 	PlatformServiceAccounts           auth.PlatformServiceAccountStore
 	ExchangeRates                     ExchangeRateReader
 	GatewayMaxInFlight                *int
+	CreditSurface                     fiber.Handler
+	RateCardHandler                   fiber.Handler
 }
 
 // ExchangeRateReader exposes the persisted control-plane exchange-rate snapshot
@@ -146,6 +148,10 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 	if deps.TenantResolver != nil {
 		app.Use(deps.TenantResolver.Handle())
+	}
+
+	if deps.CreditSurface != nil {
+		app.Use(deps.CreditSurface)
 	}
 
 	if deps.AuthMiddleware != nil {

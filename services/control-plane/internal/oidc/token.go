@@ -24,6 +24,8 @@ type accessTokenClaims struct {
 	Scope     string   `json:"scope"`
 	TenantID  string   `json:"tid"`
 	GrantID   string   `json:"gid"`
+	// Product is the client's credit product label at issuance (for example librechat).
+	Product string `json:"gdp,omitempty"`
 }
 
 type idTokenClaims struct {
@@ -302,6 +304,7 @@ func (s *Service) issueTokens(grant tokenGrant) (*TokenResponse, error) {
 		Scope:     grant.scope,
 		TenantID:  grant.tenant.ID,
 		GrantID:   grant.grantID,
+		Product:   grant.client.CreditProduct,
 	})
 	if err != nil {
 		return nil, err

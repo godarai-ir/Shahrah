@@ -96,12 +96,16 @@ type WalletPaymentRepository struct{ *walletState }
 // FinancialRepository persists financial profiles, codes, invoices, and bank transfers.
 type FinancialRepository struct{ *walletState }
 
+// CreditRateCardRepository persists credit rate-card versions and model multipliers.
+type CreditRateCardRepository struct{ *walletState }
+
 // WalletRepository is a compatibility composition of focused wallet capabilities.
 type WalletRepository struct {
 	*WalletLedgerRepository
 	*ExchangeRateRepository
 	*WalletPaymentRepository
 	*FinancialRepository
+	*CreditRateCardRepository
 }
 
 // SupportRepository persists support tickets and support-only tenant operations.
@@ -195,6 +199,7 @@ type observabilityState struct {
 	clickhouseReady          bool
 	clickhouseTraceReady     bool
 	clickhouseMetricsReady   bool
+	clickhouseMetricCredits  bool
 	clickhouseLogsReady      bool
 	logger                   *zap.Logger
 	entitlementCache         cache.Cache
@@ -364,10 +369,11 @@ func composeWalletRepository(state *walletState) *WalletRepository {
 	state.rates = rates
 
 	return &WalletRepository{
-		WalletLedgerRepository:  ledger,
-		ExchangeRateRepository:  rates,
-		WalletPaymentRepository: &WalletPaymentRepository{walletState: state},
-		FinancialRepository:     &FinancialRepository{walletState: state},
+		WalletLedgerRepository:   ledger,
+		ExchangeRateRepository:   rates,
+		WalletPaymentRepository:  &WalletPaymentRepository{walletState: state},
+		FinancialRepository:      &FinancialRepository{walletState: state},
+		CreditRateCardRepository: &CreditRateCardRepository{walletState: state},
 	}
 }
 

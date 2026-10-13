@@ -27,6 +27,11 @@ func (s *Service) CreateClient(ctx context.Context, tenantID, actor string, requ
 		return nil, err
 	}
 
+	product, err := normalizeCreditProduct(request.CreditProduct)
+	if err != nil {
+		return nil, err
+	}
+
 	clientID, err := randomClientID()
 	if err != nil {
 		return nil, err
@@ -45,6 +50,7 @@ func (s *Service) CreateClient(ctx context.Context, tenantID, actor string, requ
 		RedirectURIs:           redirectURIs,
 		PostLogoutRedirectURIs: logoutURIs,
 		Active:                 true,
+		CreditProduct:          product,
 		CreatedBy:              strings.TrimSpace(actor),
 	})
 	if err != nil {
@@ -81,6 +87,15 @@ func (s *Service) UpdateClient(ctx context.Context, tenantID, id string, request
 		}
 
 		request.PostLogoutRedirectURIs = &uris
+	}
+
+	if request.CreditProduct != nil {
+		product, err := normalizeCreditProduct(*request.CreditProduct)
+		if err != nil {
+			return nil, err
+		}
+
+		request.CreditProduct = &product
 	}
 
 	return s.clients.UpdateOIDCClient(ctx, tenantID, id, request)

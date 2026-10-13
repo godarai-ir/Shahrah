@@ -38,7 +38,9 @@
     "logoutURIs": "Post-logout redirect URIs (optional)",
     "logoutURIsHelp": "One per line. Where the app may send members after they sign out.",
     "active": "Active",
-    "activeHelp": "An inactive app cannot sign anyone in or refresh its tokens. Access tokens already issued stop working when they expire."
+    "activeHelp": "An inactive app cannot sign anyone in or refresh its tokens. Access tokens already issued stop working when they expire.",
+    "creditProduct": "Product in usage reports",
+    "creditProductHelp": "Gateway usage this app makes with members' tokens is labeled with this product in reports and the credit ledger."
   },
   "form": {
     "createTitle": "Register an app",
@@ -101,7 +103,8 @@
     "name_too_long": "The name must be 120 characters or fewer.",
     "redirect_required": "Enter at least one redirect URI.",
     "redirect_invalid": "\"{value}\" is not allowed. Use a full https address without a # fragment. http is accepted only for localhost.",
-    "redirect_too_many": "Enter at most 10 addresses."
+    "redirect_too_many": "Enter at most 10 addresses.",
+    "product_invalid": "The selected product is not valid."
   },
   "apiErrors": {
     "oidc_client_invalid": "Godar rejected this configuration. Check the redirect URIs and try again.",
@@ -112,5 +115,9 @@
   "forbidden": {
     "title": "Tenant admin access required",
     "description": "Only tenant admins can register applications that sign members in with Godar."
+  },
+  "products": {
+    "oidc_app": "Connected app (generic)",
+    "librechat": "LibreChat"
   }
 }

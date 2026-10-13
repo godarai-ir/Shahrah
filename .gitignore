@@ -164,3 +164,6 @@ release/
 .playwright-mcp/
 .turbo/
 *.go.[0-9]*
+
+# Credit calibration reports contain tenant identifiers.
+output/credit-calibration/

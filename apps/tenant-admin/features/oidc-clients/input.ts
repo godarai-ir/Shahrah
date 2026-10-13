@@ -6,6 +6,11 @@
 
 export const MAX_CLIENT_NAME_LENGTH = 120;
 export const MAX_REDIRECT_URIS = 10;
+
+/** Product labels a client can report its gateway usage under (see the credit pricing PRD). */
+export const OIDC_CLIENT_PRODUCTS = ["oidc_app", "librechat"] as const;
+export type OIDCClientProduct = (typeof OIDC_CLIENT_PRODUCTS)[number];
+export const DEFAULT_OIDC_CLIENT_PRODUCT: OIDCClientProduct = "oidc_app";
 const MAX_REDIRECT_URI_LENGTH = 2048;
 
 export type OIDCClientInputErrorCode =
@@ -14,12 +19,14 @@ export type OIDCClientInputErrorCode =
   | "name_too_long"
   | "redirect_required"
   | "redirect_invalid"
-  | "redirect_too_many";
+  | "redirect_too_many"
+  | "product_invalid";
 
 export type OIDCClientInput = {
   name?: string;
   redirect_uris?: string[];
   post_logout_redirect_uris?: string[];
+  credit_product?: OIDCClientProduct;
   active?: boolean;
 };
 
@@ -34,7 +41,12 @@ const MESSAGES: Record<OIDCClientInputErrorCode, string> = {
   redirect_required: "At least one redirect URI is required.",
   redirect_invalid: "Redirect URIs must be absolute https URLs without credentials or fragments.",
   redirect_too_many: `At most ${MAX_REDIRECT_URIS} URIs are allowed.`,
+  product_invalid: `The product must be one of: ${OIDC_CLIENT_PRODUCTS.join(", ")}.`,
 };
+
+function isOIDCClientProduct(value: unknown): value is OIDCClientProduct {
+  return typeof value === "string" && (OIDC_CLIENT_PRODUCTS as readonly string[]).includes(value);
+}
 
 type OIDCClientInputFailure = Extract<OIDCClientInputResult, { ok: false }>;
 
@@ -120,6 +132,11 @@ export function parseOIDCClientInput(payload: unknown, options: { partial: boole
     value.post_logout_redirect_uris = logouts.values;
   } else if (!options.partial) {
     value.post_logout_redirect_uris = [];
+  }
+
+  if ("credit_product" in body) {
+    if (!isOIDCClientProduct(body.credit_product)) return failure("product_invalid", "credit_product");
+    value.credit_product = body.credit_product;
   }
 
   if (options.partial && "active" in body) {

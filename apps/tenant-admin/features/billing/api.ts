@@ -52,6 +52,18 @@ export const walletSchema = z.object({
   sync_lag_seconds: z.number().optional(), sync_status: z.string().optional(), window_id: z.string().optional(), as_of: z.string().optional(),
 });
 
+const creditUsageItemSchema = z.object({
+  key: z.string(), label: z.string().optional(), credits: z.string(), request_count: z.number(),
+});
+export const creditUsageSummarySchema = z.object({
+  available: z.boolean(), shadow_mode: z.boolean(), preset: z.string(),
+  period_start: z.string(), period_end: z.string(), total_credits: z.string(), cache_saved_credits: z.string(),
+  request_count: z.number(), by_model: z.array(creditUsageItemSchema), by_team: z.array(creditUsageItemSchema),
+  by_product: z.array(creditUsageItemSchema),
+});
+export type CreditUsageSummary = z.infer<typeof creditUsageSummarySchema>;
+export type CreditUsageItem = z.infer<typeof creditUsageItemSchema>;
+
 const currentExchangeRateSchema = z.object({
   base: z.literal("USD"), quote: z.literal("IRR"), rate: z.number().positive(),
   source: z.string().refine((value) => value.trim().toLowerCase().startsWith("nobitex:")),
@@ -95,6 +107,10 @@ export async function updateBillingProfile(input: { profile_type: string; data: 
 
 export function parseBillingSummary(payload: unknown) {
   return parseNullable(billingSummarySchema, payload);
+}
+
+export function parseCreditUsageSummary(payload: unknown) {
+  return parseNullable(creditUsageSummarySchema, payload);
 }
 
 export function parseMonthlyUsage(payload: unknown) {

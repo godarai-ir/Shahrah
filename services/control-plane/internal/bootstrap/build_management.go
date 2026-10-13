@@ -48,9 +48,11 @@ func (b *builder) buildManagement() error {
 			},
 		},
 		Billing: admin.BillingDependencies{
-			Wallets:      b.store.WalletRepository,
-			Plans:        b.store.PlanRepository,
-			Entitlements: b.store.PlanRepository,
+			Wallets:             b.store.WalletRepository,
+			Plans:               b.store.PlanRepository,
+			Entitlements:        b.store.PlanRepository,
+			CreditUsage:         b.store.MetricsRepository,
+			CreditShadowEnabled: b.cfg.Runtime.BillingCreditsShadowEnabled,
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,
 				DefaultSubscriptionProvider: b.cfg.Admin.Payment.DefaultSubscriptionProvider,

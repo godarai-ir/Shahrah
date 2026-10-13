@@ -52,6 +52,7 @@ type builder struct {
 	tenantMiddleware           *tenant.Middleware
 	billing                    *billing.Service
 	anthropicPricing           *billing.AnthropicPricingSnapshotManager
+	creditRateCards            *billing.CreditRateCardCache
 	httpMetrics                *prommetrics.HTTPMetrics
 	emitMetric                 func(metricsobs.BuildInput)
 	requestLogger              proxy.RequestLogger

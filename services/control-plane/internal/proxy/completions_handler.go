@@ -813,6 +813,10 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
 	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
 	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
+
+	if used := creditsUsed(creditSurface(c), cost); used != "" {
+		c.Set(apiheaders.HeaderCreditsUsed, used)
+	}
 }
 
 func setTraceHeaders(c *fiber.Ctx, traceID string) {

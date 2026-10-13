@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/oidc"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
@@ -90,13 +91,28 @@ func TestIntegration_OIDCProviderPersistsTheFullGrantLifecycle(t *testing.T) {
 
 	client, err := service.CreateClient(ctx, tenantID, "admin", oidc.CreateClientRequest{
 		Name: "LibreChat", RedirectURIs: []string{"https://chat.oidc.example/oauth/openid/callback"},
+		CreditProduct: platform.CreditProductLibreChat,
 	})
 	require.NoError(t, err)
+	require.Equal(t, platform.CreditProductLibreChat, client.CreditProduct)
 
 	listed, err := service.ListClients(ctx, tenantID)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	require.Equal(t, client.ClientID, listed[0].ClientID)
+	require.Equal(t, platform.CreditProductLibreChat, listed[0].CreditProduct)
+
+	genericProduct := platform.CreditProductOIDCApp
+	retagged, err := service.UpdateClient(ctx, tenantID, client.ID, oidc.UpdateClientRequest{CreditProduct: &genericProduct})
+	require.NoError(t, err)
+	require.Equal(t, platform.CreditProductOIDCApp, retagged.CreditProduct)
+
+	librechatProduct := platform.CreditProductLibreChat
+	_, err = service.UpdateClient(ctx, tenantID, client.ID, oidc.UpdateClientRequest{CreditProduct: &librechatProduct})
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `UPDATE oidc_clients SET credit_product = 'guardrail' WHERE id = $1::uuid`, client.ID)
+	require.Error(t, err, "the check constraint must reject unknown products")
 
 	tenant := oidc.Tenant{ID: tenantID, Slug: slug, Host: slug + ".godar.example"}
 	verifier := strings.Repeat("v", 64)
@@ -139,6 +155,7 @@ func TestIntegration_OIDCProviderPersistsTheFullGrantLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, userID, principal.UserID)
 	require.Equal(t, oidc.KeyType, principal.KeyType)
+	require.Equal(t, platform.CreditProductLibreChat, principal.CreditProduct, "the client's product is stamped into its access tokens")
 
 	refresh := oidc.TokenParams{
 		GrantType: oidc.GrantTypeRefreshToken, ClientID: client.ClientID, ClientSecret: client.ClientSecret,

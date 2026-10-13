@@ -102,6 +102,7 @@ const sidebars: SidebarsConfig = {
       label: 'مالی',
       items: [
         'financial/overview',
+        'financial/rate-card',
         'cost-tracking',
       ],
     },
