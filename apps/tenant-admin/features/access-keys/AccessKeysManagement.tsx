@@ -28,13 +28,13 @@ import {
   createPersonalAccessToken,
   listPersonalAccessTokens,
   revokePersonalAccessToken,
-} from "@/features/personal-access-tokens/api";
-import { guessDisplayName, resolveIdentity } from "@/features/users/member-filters";
-import type { TenantAdminUser } from "@/features/users/api";
-import type { VirtualUser } from "@/features/virtual-users/api";
+} from "@/lib/api/personal-access-tokens";
+import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
+import type { VirtualUser } from "@/lib/contracts/virtual-users";
 
-import { listTenantKeys, type TenantKey } from "./api";
-import { isExpired, resolveKeyState, resolveKeyType, type KeyType } from "./key-status";
+import { listTenantKeys, type TenantKey } from "@/lib/api/access-keys";
+import { isExpired, resolveKeyState, resolveKeyType, type KeyType } from "@/lib/access/key-status";
 
 type Banner = { kind: "success" | "error"; message: string };
 type TypeFilter = "all" | KeyType;

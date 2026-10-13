@@ -1,4 +1,4 @@
-import type { TenantKey } from "./api";
+import type { TenantKey } from "@/lib/api/access-keys";
 
 export type KeyType = "pat" | "vat";
 export type KeyState = "active" | "expired" | "revoked" | "blocked";

@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getRoleEntitlements } from "./api";
-import type { EffectiveEntitlements, PermissionItem, RoleDefinition } from "./contracts";
+import type { EffectiveEntitlements, PermissionItem, RoleDefinition } from "@/lib/contracts/roles";
 import { getLocaleDirection } from "@/lib/locale-direction";
 
 type RolesPermissionsManagementProps = {

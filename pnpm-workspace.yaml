@@ -2,10 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/web/*"
-  - "sdks/openapi"
-  - "sdks/typescript"
-  - "sdks/nextjs"
-  - "sdks/nestjs"
 allowBuilds:
   '@parcel/watcher': set this to true or false
   '@prisma/engines': set this to true or false

@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/features/admin-shell/AdminShell";
 import RoleEditManagement from "@/features/roles/RolesEditManagement";
-import { mePermissionsResponseSchema, roleListSchema } from "@/features/roles/contracts";
+import { mePermissionsResponseSchema, roleListSchema } from "@/lib/contracts/roles";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";

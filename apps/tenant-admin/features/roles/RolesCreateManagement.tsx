@@ -22,10 +22,10 @@ import {
   getPermissionEditorLabels,
   getPermissionSummaryLabels,
   translatePermissionDescription,
-  translatePermissionGroup,
 } from "./permissions";
+import { translatePermissionGroup } from "@/lib/access/permission-groups";
 import { createRole } from "./api";
-import type { PermissionItem } from "./contracts";
+import type { PermissionItem } from "@/lib/contracts/roles";
 import { getLocaleDirection } from "@/lib/locale-direction";
 
 type Banner = {

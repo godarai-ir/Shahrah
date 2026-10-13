@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { filterMembers, listUserRoleNames } from "./member-filters";
 import { parseUsersURLState, patchUsersURL } from "./url-state";
-import type { TenantAdminUser } from "./api";
+import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 
 function member(overrides: Partial<TenantAdminUser> & { id: string }): TenantAdminUser {
   return {

@@ -1,5 +1,5 @@
 import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
-import { effectiveEntitlementsSchema } from "./contracts";
+import { effectiveEntitlementsSchema } from "@/lib/contracts/roles";
 
 export type RolePayload = {
   name?: string;

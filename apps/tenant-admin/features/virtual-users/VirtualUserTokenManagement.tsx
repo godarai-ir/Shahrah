@@ -41,6 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { VirtualUser } from "@/lib/contracts/virtual-users";
 import { cn } from "@/lib/utils";
 import {
   createVATToken,
@@ -55,7 +56,6 @@ import {
   updateVirtualUser as updateVirtualUserRequest,
   type EffectiveEntitlements,
   type VATToken,
-  type VirtualUser,
 } from "./api";
 
 type Team = {

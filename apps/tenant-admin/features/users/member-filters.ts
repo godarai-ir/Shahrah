@@ -1,21 +1,11 @@
-import { hiddenRolesInUI } from "@/features/roles/role-display";
-import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
+import { hiddenRolesInUI } from "@/lib/access/role-display";
+import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 
-import type { TenantAdminUser } from "./api";
 import type { UsersURLState } from "./url-state";
-
-export function resolveIdentity(user: TenantAdminUser): string {
-  return user.email || (mobileAuthUIEnabled ? user.mobile : "") || user.id;
-}
 
 export function isUserActive(user: TenantAdminUser): boolean {
   return user.active && user.role !== "deactivated";
-}
-
-export function guessDisplayName(identity: string): string {
-  const value = identity.trim();
-  if (!value) return "";
-  return value.includes("@") ? value.split("@")[0] : value;
 }
 
 export function hasTenantAdminRole(user: TenantAdminUser): boolean {
