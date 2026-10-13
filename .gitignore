@@ -167,3 +167,6 @@ release/
 
 # Credit calibration reports contain tenant identifiers.
 output/credit-calibration/
+
+# Local-only generated secrets (see make docker-oidc-key)
+infra/compose/secrets/

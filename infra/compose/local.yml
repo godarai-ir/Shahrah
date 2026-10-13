@@ -14,6 +14,8 @@ services:
         GOPROXY: ${GOPROXY:-https://goproxy.io,direct}
     ports:
       - "${LOCAL_BIND_ADDR:-127.0.0.1}:4000:4000"
+    volumes:
+      - ./secrets/oidc-signing-key.pem:/run/secrets/oidc-signing-key.pem:ro
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://sharah_user:5r74Fq90EyWA@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s}
@@ -55,6 +57,11 @@ services:
       SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL: "${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL:-https://arvancloudai.ir/gateway/models/Bge-m3/p805iFnyY2GwffdnMtgV3d0hdR4C-nSy41D61Y7C0TKUVxGYVmQ6YbYK9kAKibIaBNyKUXfBK1OBsLmRQZCSuPQaAtLKHXC3hAZNURaqqZ6Z4_vcvmpAioKQwgi57GiubEVMzFTMMCLD36C7q-XXz_ufyGgdmFRZ9Q-Eo--VtRiMfIvtXrOgfhuhosjg6xTqENVo1pIUsOwoPKed1crX8isrXULdccVWQ8Zgvlw0Aoar4w/v1}"
       SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY: "${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY:-a7579f98-6348-5d37-93ed-3715845cacfa}"
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      NODE_ENV: development
+      OIDC_ENABLED: ${OIDC_ENABLED:-true}
+      OIDC_SIGNING_KEY_FILE: /run/secrets/oidc-signing-key.pem
+      OIDC_ISSUER_SCHEME: ${OIDC_ISSUER_SCHEME:-http}
+      OIDC_LOGIN_URL_TEMPLATE: ${OIDC_LOGIN_URL_TEMPLATE:-http://{slug}.localhost:3000/login}
       TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION: ${TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION}
       TENANT_PROVIDER_CREDENTIAL_KEKS_JSON: ${TENANT_PROVIDER_CREDENTIAL_KEKS_JSON}
       TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY: ${TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY}
