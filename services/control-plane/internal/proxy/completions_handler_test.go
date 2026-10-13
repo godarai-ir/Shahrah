@@ -457,6 +457,9 @@ func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, w
 			KeyType:   "pat",
 			Role:      "team_admin",
 			TokenHash: "hash_1",
+			UserID:    "user_1",
+			TeamID:    "team_1",
+			OrgUnitID: "org_unit_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
 			ID:     "tenant_a",
@@ -504,6 +507,9 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "success", logs.loggedSpends[0].Status)
+	assert.Equal(t, "user_1", logs.loggedSpends[0].UserID, "the credit ledger attributes usage to the user")
+	assert.Equal(t, "team_1", logs.loggedSpends[0].TeamID)
+	assert.Equal(t, "org_unit_1", logs.loggedSpends[0].OrgUnitID)
 	require.Len(t, logs.loggedEntries, 1)
 	assert.Equal(t, "success", logs.loggedEntries[0].Status)
 	assert.Equal(t, fiber.StatusOK, logs.loggedEntries[0].StatusCode)

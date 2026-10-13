@@ -111,6 +111,8 @@ async function proxyControlPlanePlatform(
 
 function controlPlanePermission(path: string[], method: string): AdminPermission {
   const joined = path.join('/');
+  const credit = creditPermission(joined, method);
+  if (credit) return credit;
   if (joined.startsWith('support/ticket-attachments')) return 'support_ticket:read';
   if (joined.startsWith('support/tickets')) {
     if (method === 'GET') {
@@ -146,6 +148,21 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
   if (method === 'GET') return 'catalog:read';
   if (joined.startsWith('commercial-plans') || joined.startsWith('features') || joined.startsWith('tenant-entitlement-overrides')) return 'catalog:write';
   return 'platform:admin';
+}
+
+// Credit billing: reads need billing or wallet read, corrections need wallet
+// adjust, catalog changes need catalog write, and the list price, which changes
+// what every credit tenant pays, needs platform admin.
+function creditPermission(joined: string, method: string): AdminPermission | undefined {
+  if (joined.startsWith('tenants/') && joined.includes('/credits')) {
+    if (method === 'GET') return 'wallet:read';
+    if (joined.endsWith('/credits/adjustments')) return 'wallet:adjust';
+    return 'platform:admin';
+  }
+  if (!joined.startsWith('credits/')) return undefined;
+  if (method === 'GET') return 'billing:read';
+  if (joined.startsWith('credits/price-revisions')) return 'platform:admin';
+  return 'catalog:write';
 }
 
 function ensureTrailingSlash(value: string): string {

@@ -39,14 +39,21 @@ const roles = [
   { id: "role-billing", name: "billing_manager", display_name: "Billing Manager", is_system: false, permissions: ["billing:read"] },
 ];
 
-function mockApi(userLimit: number, rejectInvite = false) {
+function mockApi(userLimit: number, rejectInvite: false | "conflict" | "plan_limit" = false, usedSeats = users.length) {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url === "/api/users/invite" && rejectInvite) {
+    if (url === "/api/users/invite" && rejectInvite === "conflict") {
       return { ok: false, status: 409, text: async () => JSON.stringify({ message: "Invite rejected" }) };
     }
-    const payload = url === "/api/entitlements"
-      ? { features: { "users.max": userLimit } }
+    if (url === "/api/users/invite" && rejectInvite === "plan_limit") {
+      return {
+        ok: false,
+        status: 403,
+        text: async () => JSON.stringify({ error: { code: "plan_user_limit_reached", message: "The plan's user limit is reached." } }),
+      };
+    }
+    const payload = url === "/api/users/seats"
+      ? { used: usedSeats, active_members: users.length, pending_invitations: usedSeats - users.length, limit: userLimit }
       : url === "/api/access-keys"
         ? { data: [{ id: "key-1", key_alias: "cli", key_type: "pat", created_by_user_id: "user-1" }] }
         : url.startsWith("/api/roles")
@@ -60,7 +67,6 @@ function renderPage() {
   return render(
     <UsersAccessManagement
       initialUsers={users}
-      initialTotal={1}
       initialError={null}
       initialPermissionCatalog={[{ key: "billing:read", group: "billing", description: "" }]}
       currentUserID="admin"
@@ -197,8 +203,33 @@ describe("UsersAccessManagement", () => {
     expect(emailInput).toHaveAttribute("dir", "ltr");
   });
 
+  it("counts pending invitations as seats before offering the invite sheet", async () => {
+    mockApi(2, false, 2);
+    renderPage();
+
+    const inviteButton = screen.getByRole("button", { name: "inviteUser" });
+    await waitFor(() => expect(inviteButton).toBeEnabled());
+    fireEvent.click(inviteButton);
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("usersPage.upgradeDialog.description");
+  });
+
+  it("explains a full plan when the server refuses an invite", async () => {
+    mockApi(5, "plan_limit");
+    renderPage();
+
+    const inviteButton = screen.getByRole("button", { name: "inviteUser" });
+    await waitFor(() => expect(inviteButton).toBeEnabled());
+    fireEvent.click(inviteButton);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "form.email" }), { target: { value: "new@example.com" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "button.createInvite" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("messages.planUserLimitReached");
+  });
+
   it("shows invite API errors inside the invite sheet", async () => {
-    mockApi(2, true);
+    mockApi(2, "conflict");
     renderPage();
 
     const inviteButton = screen.getByRole("button", { name: "inviteUser" });

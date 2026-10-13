@@ -64,6 +64,7 @@ type RuntimeSettings struct {
 	BillingWalletCacheTTL         time.Duration
 	BillingCreditsShadowEnabled   bool
 	BillingCreditRateCardTTL      time.Duration
+	BillingCreditLedger           CreditLedgerSettings
 	RateLimitPolicyFailOpen       bool
 	NobitexExchangeRateEnabled    bool
 	NobitexExchangeRateConfigured bool
@@ -149,6 +150,7 @@ func LoadRuntimeSettings() RuntimeSettings {
 		BillingWalletCacheTTL:         secondsEnv("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 		BillingCreditsShadowEnabled:   booleanEnv("BILLING_CREDITS_SHADOW_ENABLED", false),
 		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
+		BillingCreditLedger:           loadCreditLedgerSettings(),
 		RateLimitPolicyFailOpen:       booleanEnv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		NobitexExchangeRateEnabled:    nobitexEnabled,
 		NobitexExchangeRateConfigured: nobitexConfigured,
@@ -262,4 +264,33 @@ func csvEnv(key string) []string {
 	}
 
 	return values
+}
+
+// CreditLedgerSettings configures the credit ledger workers (pricing PRD, Phase 2).
+type CreditLedgerSettings struct {
+	// Enabled starts the settlement, expiry, and reconciliation workers and lets
+	// support-admin move tenants to credit billing.
+	Enabled            bool
+	SettlementInterval time.Duration
+	SettleDelay        time.Duration
+	BatchSize          int
+	ExpiryInterval     time.Duration
+	ReconcileInterval  time.Duration
+	PriceInterval      time.Duration
+	PriceAutoApply     bool
+	Timeout            time.Duration
+}
+
+func loadCreditLedgerSettings() CreditLedgerSettings {
+	return CreditLedgerSettings{
+		Enabled:            booleanEnv("BILLING_CREDIT_LEDGER_ENABLED", false),
+		SettlementInterval: secondsEnv("BILLING_CREDIT_SETTLEMENT_INTERVAL_SECONDS", 30*time.Second),
+		SettleDelay:        secondsEnv("BILLING_CREDIT_SETTLE_DELAY_SECONDS", 30*time.Second),
+		BatchSize:          positiveIntEnv("BILLING_CREDIT_SETTLEMENT_BATCH_SIZE", 500),
+		ExpiryInterval:     secondsEnv("BILLING_CREDIT_EXPIRY_INTERVAL_SECONDS", 5*time.Minute),
+		ReconcileInterval:  secondsEnv("BILLING_CREDIT_RECONCILE_INTERVAL_SECONDS", 24*time.Hour),
+		PriceInterval:      secondsEnv("BILLING_CREDIT_PRICE_INTERVAL_SECONDS", time.Hour),
+		PriceAutoApply:     booleanEnv("BILLING_CREDIT_PRICE_AUTO_APPLY", false),
+		Timeout:            secondsEnv("BILLING_CREDIT_JOB_TIMEOUT_SECONDS", 2*time.Minute),
+	}
 }

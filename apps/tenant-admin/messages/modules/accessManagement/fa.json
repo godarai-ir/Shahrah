@@ -28,7 +28,7 @@
       "cancel": "فعلاً نه",
       "action": "ارتقا یا خرید پلن"
     },
-    "headerUsage": "{used} از {limit} عضو"
+    "headerUsage": "{used} از {limit} صندلی (اعضای فعال و دعوت‌های در انتظار)"
   },
   "inviteUser": "دعوت کاربر",
   "inviteTitle": "دعوت کاربر",
@@ -107,7 +107,8 @@
     "roleCreated": "نقش با موفقیت ایجاد شد.",
     "roleCreateError": "ایجاد نقش ناموفق بود.",
     "roleUpdated": "نقش با موفقیت به‌روزرسانی شد.",
-    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود."
+    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود.",
+    "planUserLimitReached": "سقف کاربران پلن شما پر شده است. برای افزودن عضو، پلن را ارتقا دهید یا یک عضو یا دعوت در انتظار را حذف کنید."
   },
   "rolesPage": {
     "createTitle": "ایجاد نقش سفارشی",

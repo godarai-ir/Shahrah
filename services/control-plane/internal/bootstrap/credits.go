@@ -47,3 +47,12 @@ func (b *builder) creditSurfaceMiddleware() fiber.Handler {
 
 	return proxy.CreditSurfaceMiddleware(b.creditRateCards)
 }
+
+// pricingChangelogHandler serves the public pricing changelog when storage is available.
+func (b *builder) pricingChangelogHandler() fiber.Handler {
+	if b.store == nil || b.store.WalletRepository == nil {
+		return nil
+	}
+
+	return proxy.NewPricingChangelogHandler(b.store.CreditPriceRepository, b.logger)
+}

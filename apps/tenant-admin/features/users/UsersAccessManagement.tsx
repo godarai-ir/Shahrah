@@ -33,6 +33,7 @@ import { listTenantKeys, type TenantKey } from "@/features/access-keys/api";
 import type { PermissionItem } from "@/features/roles/contracts";
 import { hiddenRolesInUI, resolveRoleDisplayName } from "@/features/roles/role-display";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
+import { APIClientError } from "@/lib/http/api-client";
 import { cn } from "@/lib/utils";
 
 import { MemberDetailSheet } from "./member-detail-sheet";
@@ -47,13 +48,13 @@ import {
 import { parseUsersURLState, patchUsersURL, type MemberStatusFilter } from "./url-state";
 import {
   assignUserRole,
-  getUserEntitlements,
+  getUserSeats,
   inviteUser,
   listUserRoles,
   listUsers,
   setUserActive,
-  type EffectiveEntitlements,
   type RoleDefinition,
+  type SeatUsage,
   type TenantAdminUser,
 } from "./api";
 
@@ -64,7 +65,6 @@ type Banner = {
 
 type UsersAccessManagementProps = {
   initialUsers: TenantAdminUser[];
-  initialTotal: number;
   initialError: string | null;
   initialPermissionCatalog: PermissionItem[];
   currentUserID: string;
@@ -72,7 +72,6 @@ type UsersAccessManagementProps = {
 };
 
 const PAGE_SIZE = 25;
-const USERS_FEATURE_KEY = "users.max";
 /**
  * The control plane has no role or status filter on the user list, so the whole
  * roster is fetched once and filtered here. 200 is the server's own page cap.
@@ -89,14 +88,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const urlState = useMemo(() => parseUsersURLState(new URLSearchParams(queryString)), [queryString]);
 
   const [users, setUsers] = useState<TenantAdminUser[]>(props.initialUsers);
-  const [total, setTotal] = useState(props.initialTotal);
   const [requestedPage, setRequestedPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [seats, setSeats] = useState<SeatUsage | null>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
@@ -135,8 +133,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
     void Promise.allSettled([
       loadRoles(),
-      getUserEntitlements().then((response) => {
-        if (isMounted) setEntitlements(response);
+      getUserSeats().then((response) => {
+        if (isMounted) setSeats(response);
       }),
       // Team admins and above can read the tenant key list; anyone else gets an
       // error here and the drawer simply hides its key metrics.
@@ -319,8 +317,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const to = Math.min(page * PAGE_SIZE + pageUsers.length, matchCount);
   const canPrev = page > 0;
   const canNext = (page + 1) * PAGE_SIZE < matchCount;
-  const usersLimit = coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]);
-  const hasReachedUsersLimit = usersLimit !== null && total >= usersLimit;
+  // Seats are active members plus pending invitations, the same count the server caps.
+  const usersLimit = seats?.limit ?? null;
+  const hasReachedUsersLimit = usersLimit !== null && seats !== null && seats.used >= usersLimit;
 
   function handleOpenInvite() {
     if (hasReachedUsersLimit) {
@@ -336,6 +335,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     if (!open) setInviteError(null);
   }
 
+  // Seats change with every invite and status change, so they reload with the roster.
+  async function refreshSeats() {
+    try {
+      setSeats(await getUserSeats());
+    } catch {
+      // The server enforces the cap; a stale count only affects the early hint.
+    }
+  }
+
   async function loadUsers() {
     setIsLoading(true);
     try {
@@ -343,9 +351,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       search.set("limit", String(ROSTER_FETCH_LIMIT));
       search.set("offset", "0");
 
-      const data = await listUsers(search);
+      const [data] = await Promise.all([listUsers(search), refreshSeats()]);
       setUsers(data.data ?? []);
-      setTotal(data.total ?? 0);
       setBanner(null);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.loadUsersError")) });
@@ -391,7 +398,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       setInviteOpen(false);
       await loadUsers();
     } catch (error) {
-      setInviteError(normalizeError(error, t("messages.inviteError")));
+      setInviteError(normalizeError(error, t("messages.inviteError"), t("messages.planUserLimitReached")));
     } finally {
       setIsInviting(false);
     }
@@ -412,7 +419,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       showFeedbackToast({
         kind: "error",
         title: t("alerts.error"),
-        description: normalizeError(error, t("messages.updateStatusError")),
+        description: normalizeError(error, t("messages.updateStatusError"), t("messages.planUserLimitReached")),
       });
     } finally {
       setIsUpdatingUserID(null);
@@ -438,7 +445,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       await loadUsers();
       return true;
     } catch (error) {
-      setRoleError(normalizeError(error, t("messages.roleAssignmentError")));
+      setRoleError(normalizeError(error, t("messages.roleAssignmentError"), t("messages.planUserLimitReached")));
       return false;
     } finally {
       setIsAssigningRoleUserID(null);
@@ -840,16 +847,12 @@ function resolveDefaultInviteRole(roles: RoleDefinition[]): string {
   return roles.find((role) => role.name === "member")?.name ?? roles[0]?.name ?? "";
 }
 
-function coerceNumericEntitlement(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
+export const PLAN_USER_LIMIT_REACHED = "plan_user_limit_reached";
 
-function normalizeError(error: unknown, fallback: string) {
+function normalizeError(error: unknown, fallback: string, planLimitMessage?: string) {
+  if (planLimitMessage && error instanceof APIClientError && error.code === PLAN_USER_LIMIT_REACHED) {
+    return planLimitMessage;
+  }
   if (error instanceof Error) return error.message;
   return fallback;
 }

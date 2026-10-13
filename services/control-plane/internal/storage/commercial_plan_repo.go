@@ -429,6 +429,10 @@ func (s *SubscriptionRepository) ChangeTenantSubscription(ctx context.Context, t
 		return nil, err
 	}
 
+	if fitErr := s.ensurePlanFitsSeats(ctx, tenantID, target.Versions[0].ID); fitErr != nil {
+		return nil, fitErr
+	}
+
 	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
 	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
 		return nil, currentErr
@@ -1128,19 +1132,6 @@ func usageCounterMonthWindow(now time.Time) (time.Time, time.Time) {
 	windowStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
 
 	return windowStart, windowStart.AddDate(0, 1, 0)
-}
-
-func (s *EntitlementRepository) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(1)
-		FROM users
-		WHERE tenant_id = $1::uuid AND COALESCE(active, true) = true
-	`, tenantID).Scan(&count); err != nil {
-		return 0, err
-	}
-
-	return count, nil
 }
 
 // ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.
