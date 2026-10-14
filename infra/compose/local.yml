@@ -17,6 +17,7 @@ services:
       godar-edge:
         aliases:
           - tenant1.localhost
+          - tenant2.localhost
     depends_on:
       - control-plane
 
