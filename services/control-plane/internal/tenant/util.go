@@ -11,6 +11,7 @@ var reservedTenantSlugs = map[string]struct{}{
 	"app":       {},
 	"auth":      {},
 	"billing":   {},
+	"chat":      {},
 	"default":   {},
 	"help":      {},
 	"localhost": {},
