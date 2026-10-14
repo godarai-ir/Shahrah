@@ -13,25 +13,26 @@ import (
 
 // Config represents the top-level configuration.
 type Config struct {
-	RouterSettings   RouterSettings          `mapstructure:"router_settings"`
-	ResponseCache    ResponseCacheSettings   `mapstructure:"response_cache"`
-	SemanticJudge    SemanticJudgeSettings   `mapstructure:"semantic_guardrails"`
-	GeneralSettings  GeneralSettings         `mapstructure:"general_settings"`
-	Profiling        ProfilingSettings       `mapstructure:"profiling"`
-	OperationalLogs  OperationalLogSettings  `mapstructure:"operational_logging"`
-	RequestLogs      RequestLogSettings      `mapstructure:"request_logs"`
-	SpendLogs        SpendLogSettings        `mapstructure:"spend_logs"`
-	TenantSettings   TenantSettings          `mapstructure:"tenant_settings"`
-	ProviderEgress   ProviderEgressSettings  `mapstructure:"provider_egress"`
-	BillingSettings  BillingSettings         `mapstructure:"billing_settings"`
-	Storage          StorageSettings         `mapstructure:"-"`
-	Runtime          RuntimeSettings         `mapstructure:"-"`
-	Observability    ObservabilitySettings   `mapstructure:"-"`
-	Admin            AdminSettings           `mapstructure:"-"`
-	Credentials      CredentialSettings      `mapstructure:"-"`
-	SupportFiles     SupportFileSettings     `mapstructure:"-"`
-	ProviderFeatures ProviderFeatureSettings `mapstructure:"-"`
-	OIDC             OIDCSettings            `mapstructure:"-"`
+	RouterSettings   RouterSettings           `mapstructure:"router_settings"`
+	ResponseCache    ResponseCacheSettings    `mapstructure:"response_cache"`
+	SemanticJudge    SemanticJudgeSettings    `mapstructure:"semantic_guardrails"`
+	GeneralSettings  GeneralSettings          `mapstructure:"general_settings"`
+	Profiling        ProfilingSettings        `mapstructure:"profiling"`
+	OperationalLogs  OperationalLogSettings   `mapstructure:"operational_logging"`
+	RequestLogs      RequestLogSettings       `mapstructure:"request_logs"`
+	SpendLogs        SpendLogSettings         `mapstructure:"spend_logs"`
+	TenantSettings   TenantSettings           `mapstructure:"tenant_settings"`
+	ProviderEgress   ProviderEgressSettings   `mapstructure:"provider_egress"`
+	BillingSettings  BillingSettings          `mapstructure:"billing_settings"`
+	Storage          StorageSettings          `mapstructure:"-"`
+	Runtime          RuntimeSettings          `mapstructure:"-"`
+	Observability    ObservabilitySettings    `mapstructure:"-"`
+	Admin            AdminSettings            `mapstructure:"-"`
+	Credentials      CredentialSettings       `mapstructure:"-"`
+	SupportFiles     SupportFileSettings      `mapstructure:"-"`
+	ProviderFeatures ProviderFeatureSettings  `mapstructure:"-"`
+	OIDC             OIDCSettings             `mapstructure:"-"`
+	ChatProvisioning ChatProvisioningSettings `mapstructure:"-"`
 }
 
 // ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
@@ -278,6 +279,7 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	cfg.Observability = LoadObservabilitySettings()
 	cfg.Admin = LoadAdminSettings()
 	cfg.OIDC = LoadOIDCSettings()
+	cfg.ChatProvisioning = LoadChatProvisioningSettings()
 
 	return cfg, nil
 }

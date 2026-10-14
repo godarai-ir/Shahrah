@@ -117,6 +117,7 @@ func Build(ctx context.Context, cfg *config.Config, logger *zap.Logger) (_ *Appl
 	}{
 		{name: "storage", run: b.buildStorage},
 		{name: "workers", run: b.buildWorkers},
+		{name: "chat provisioning", run: b.buildChatProvisioning},
 		{name: "management", run: b.buildManagement},
 		{name: "gateway", run: b.buildGateway},
 		{name: "HTTP server", run: b.buildHTTP},
