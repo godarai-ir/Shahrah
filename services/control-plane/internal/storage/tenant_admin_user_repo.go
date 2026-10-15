@@ -55,13 +55,14 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id
 		WHERE t.slug = $1
-		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3)
+		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3 OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE $3)
 	`, tenantSlug, query, like).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
 		       COALESCE(u.active, true), u.created_at, u.updated_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
@@ -72,8 +73,8 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 		LEFT JOIN user_role_bindings urb ON urb.tenant_id = u.tenant_id AND urb.user_id = u.user_id
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
-		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3)
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
+		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3 OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE $3)
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at
 		ORDER BY u.updated_at DESC, u.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, tenantSlug, query, like, limit, offset)
@@ -91,7 +92,7 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 			active              bool
 			roles               []string
 		)
-		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
 			return nil, 0, err
 		}
 
@@ -136,6 +137,7 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 	)
 	if err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
 		       COALESCE(u.active, true), u.created_at, u.updated_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
@@ -147,10 +149,10 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
 		  AND u.user_id::text = $2
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at
 		LIMIT 1
 	`, tenantSlug, userID).Scan(
-		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.Active, &item.CreatedAt, &item.UpdatedAt, &roles,
+		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &item.Active, &item.CreatedAt, &item.UpdatedAt, &roles,
 	); err != nil {
 		return nil, err
 	}
@@ -178,6 +180,8 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	mobile := strings.TrimSpace(req.Mobile)
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
 
 	role := strings.TrimSpace(strings.ToLower(req.Role))
 	if role == "" {
@@ -271,13 +275,13 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO "tenant_admin_invitations" (
 			"invitation_id", "tenant_id", "tenantSlug", "email", "mobile", "role", "status",
-			"token_hash", "expires_at", "created_at", "updated_at"
+			"token_hash", "expires_at", "created_at", "updated_at", "first_name", "last_name"
 		) VALUES (
 			$1, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), $6, 'pending',
-			$7, $8, $9, $9
+			$7, $8, $9, $9, NULLIF($10, ''), NULLIF($11, '')
 		)
 		RETURNING "accepted_at"
-	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now).Scan(&acceptedAt); err != nil {
+	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now, firstName, lastName).Scan(&acceptedAt); err != nil {
 		return nil, "", err
 	}
 
@@ -324,12 +328,15 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		status     string
 		acceptedAt *time.Time
 		updatedAt  time.Time
+		firstName  string
+		lastName   string
 	)
 
 	queryErr := tx.QueryRow(ctx, `
 		SELECT "invitation_id"::text, "tenant_id"::text, "tenantSlug",
 		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'member'),
-		       "status", "expires_at", "accepted_at", "created_at", "updated_at"
+		       "status", "expires_at", "accepted_at", "created_at", "updated_at",
+		       COALESCE("first_name", ''), COALESCE("last_name", '')
 		FROM "tenant_admin_invitations"
 		WHERE "token_hash" = $1
 		FOR UPDATE
@@ -345,6 +352,8 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		&acceptedAt,
 		&invitation.CreatedAt,
 		&updatedAt,
+		&firstName,
+		&lastName,
 	)
 	if queryErr != nil {
 		return nil, nil, queryErr
@@ -371,7 +380,7 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		return nil, nil, ErrInvitationExpired
 	}
 
-	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role)
+	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role, firstName, lastName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -397,6 +406,34 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 	s.bumpAuthzTenantEpoch(invitation.TenantID)
 
 	return &invitation, user, nil
+}
+
+// UpdateTenantAdminUserProfile sets the first and last name of one tenant member.
+func (s *TenantAdminRepository) UpdateTenantAdminUserProfile(ctx context.Context, tenantSlug string, userID string, req platform.UpdateTenantAdminUserProfileRequest) (*platform.TenantAdminUser, error) {
+	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+
+	userID = strings.TrimSpace(userID)
+	if tenantSlug == "" || userID == "" {
+		return nil, apperrors.ErrNotFound
+	}
+
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE users u
+		SET first_name = NULLIF($3, ''), last_name = NULLIF($4, ''), updated_at = NOW()
+		FROM tenants t
+		WHERE t.tenant_id = u.tenant_id
+		  AND t.slug = $1
+		  AND u.user_id::text = $2
+	`, tenantSlug, userID, strings.TrimSpace(req.FirstName), strings.TrimSpace(req.LastName))
+	if err != nil {
+		return nil, err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return nil, apperrors.ErrNotFound
+	}
+
+	return s.GetTenantAdminUserRecord(ctx, tenantSlug, userID)
 }
 
 func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
@@ -461,7 +498,7 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 	return &user, nil
 }
 
-func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantID string, tenantSlug string, email string, mobile string, role string) (*platform.TenantAdminUser, error) {
+func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantID string, tenantSlug string, email string, mobile string, role string, firstName string, lastName string) (*platform.TenantAdminUser, error) {
 	var (
 		user          platform.TenantAdminUser
 		currentRole   string
@@ -490,10 +527,12 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 
 		updateErr := tx.QueryRow(ctx, `
 			UPDATE users
-			SET role = $2, active = true, updated_at = NOW()
+			SET role = $2, active = true, updated_at = NOW(),
+			    first_name = COALESCE(NULLIF($3, ''), first_name),
+			    last_name = COALESCE(NULLIF($4, ''), last_name)
 			WHERE user_id::text = $1
-			RETURNING updated_at
-		`, user.ID, nextRole).Scan(&user.UpdatedAt)
+			RETURNING updated_at, COALESCE(first_name, ''), COALESCE(last_name, '')
+		`, user.ID, nextRole, firstName, lastName).Scan(&user.UpdatedAt, &user.FirstName, &user.LastName)
 		if updateErr != nil {
 			return nil, updateErr
 		}
@@ -506,10 +545,10 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 		newUserID := uuid.NewString()
 
 		insertErr := tx.QueryRow(ctx, `
-			INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at)
-			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, true, NOW(), NOW())
+			INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, first_name, last_name, active, created_at, updated_at)
+			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, NULLIF($7, ''), NULLIF($8, ''), true, NOW(), NOW())
 			RETURNING created_at, updated_at
-		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role).Scan(&user.CreatedAt, &user.UpdatedAt)
+		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role, firstName, lastName).Scan(&user.CreatedAt, &user.UpdatedAt)
 		if insertErr != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(insertErr, &pgErr) && pgErr.Code == "23505" {
@@ -524,6 +563,8 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 		user.Email = strings.TrimSpace(email)
 		user.Mobile = strings.TrimSpace(mobile)
 		user.Role = role
+		user.FirstName = firstName
+		user.LastName = lastName
 		user.Active = true
 
 		return &user, nil

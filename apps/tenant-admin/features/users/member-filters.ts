@@ -1,5 +1,5 @@
 import { hiddenRolesInUI } from "@/lib/access/role-display";
-import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { fullName, guessDisplayName, resolveIdentity } from "@/lib/access/identity";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 
 import type { UsersURLState } from "./url-state";
@@ -39,7 +39,7 @@ export function filterMembers(
     if (!needle) return true;
 
     const identity = resolveIdentity(member);
-    return [identity, guessDisplayName(identity)].some((value) =>
+    return [identity, guessDisplayName(identity), fullName(member)].some((value) =>
       value.toLocaleLowerCase().includes(needle),
     );
   });

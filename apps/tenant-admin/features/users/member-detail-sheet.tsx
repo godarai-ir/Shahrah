@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Activity, KeyRound, ShieldCheck } from "lucide-react";
 
 import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
 import { MetricCard } from "@/components/app-ui/MetricCard";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
+import { AppTextField } from "@/components/app-ui/AppTextField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -20,7 +21,7 @@ import type { PermissionItem } from "@/lib/contracts/roles";
 import { countActiveKeys, listKeysOwnedByMember, resolveLastKeyUse } from "@/lib/access/key-status";
 import type { TenantKey } from "@/lib/api/access-keys";
 
-import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { memberDisplayName, resolveIdentity } from "@/lib/access/identity";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 
 import type { RoleDefinition } from "./api";
@@ -36,9 +37,75 @@ export type MemberDetailSheetProps = {
   canManageUsers: boolean;
   isSelf: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaveName: (member: TenantAdminUser, firstName: string, lastName: string) => Promise<void>;
   onChangeRole: (member: TenantAdminUser) => void;
   onToggleActive: (member: TenantAdminUser, activate: boolean) => void;
 };
+
+/** Edits a member's first and last name; remounted by its key whenever the saved names change. */
+function MemberNameForm(props: {
+  member: TenantAdminUser;
+  canManageUsers: boolean;
+  onSave: MemberDetailSheetProps["onSaveName"];
+}) {
+  const t = useTranslations("accessManagement");
+  const [firstName, setFirstName] = useState(props.member.first_name ?? "");
+  const [lastName, setLastName] = useState(props.member.last_name ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const changed =
+    firstName.trim() !== (props.member.first_name ?? "") || lastName.trim() !== (props.member.last_name ?? "");
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await props.onSave(props.member, firstName.trim(), lastName.trim());
+    } catch {
+      setError(t("messages.nameUpdateError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="flex min-w-0 flex-col gap-3">
+      <h3 className="text-sm font-semibold">{t("member.nameSection")}</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <AppTextField
+          label={t("form.firstName")}
+          value={firstName}
+          onChange={(event) => setFirstName(event.target.value)}
+          disabled={!props.canManageUsers || saving}
+          autoComplete="off"
+          maxLength={100}
+        />
+        <AppTextField
+          label={t("form.lastName")}
+          value={lastName}
+          onChange={(event) => setLastName(event.target.value)}
+          disabled={!props.canManageUsers || saving}
+          autoComplete="off"
+          maxLength={100}
+        />
+      </div>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {props.canManageUsers ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={!changed || saving}
+          onClick={() => void handleSave()}
+        >
+          {saving ? t("button.savingName") : t("button.saveName")}
+        </Button>
+      ) : null}
+    </section>
+  );
+}
 
 export function MemberDetailSheet(props: MemberDetailSheetProps) {
   const t = useTranslations("accessManagement");
@@ -46,7 +113,7 @@ export function MemberDetailSheet(props: MemberDetailSheetProps) {
   const member = props.member;
 
   const identity = member ? resolveIdentity(member) : "";
-  const displayName = guessDisplayName(identity) || identity;
+  const displayName = member ? memberDisplayName(member) : "";
   const roleNames = useMemo(() => (member ? listUserRoleNames(member) : []), [member]);
   const effective = useMemo(
     () => collectEffectivePermissions(roleNames, props.roles, props.permissionCatalog),
@@ -110,6 +177,15 @@ export function MemberDetailSheet(props: MemberDetailSheetProps) {
               )}
             />
           </div>
+
+          {member ? (
+            <MemberNameForm
+              key={`${member.id}:${member.first_name ?? ""}:${member.last_name ?? ""}`}
+              member={member}
+              canManageUsers={props.canManageUsers}
+              onSave={props.onSaveName}
+            />
+          ) : null}
 
           <section className="flex min-w-0 flex-col gap-2">
             <div className="flex items-center justify-between gap-2">

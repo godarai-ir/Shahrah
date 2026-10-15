@@ -314,8 +314,11 @@ type Identity struct {
 	Email    string
 	Mobile   string
 	Name     string
-	Role     string
-	Active   bool
+	// FirstName and LastName are the member's given and family names; both are optional.
+	FirstName string
+	LastName  string
+	Role      string
+	Active    bool
 }
 
 // Session is an authenticated tenant-admin login session.

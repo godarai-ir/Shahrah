@@ -49,9 +49,19 @@ export function listUserRoles() {
   return requestParsedJSON(roleListSchema, "/api/roles?limit=200&offset=0");
 }
 
-export function inviteUser(body: { email: string; role: string }) {
+export function inviteUser(body: { email: string; role: string; first_name?: string; last_name?: string }) {
   return requestParsedJSON(inviteResponseSchema, "/api/users/invite", {
     method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateUserProfile(
+  userID: string,
+  body: { first_name: string; last_name: string },
+): Promise<void> {
+  await requestJSON(`/api/users/${encodeURIComponent(userID)}/profile`, {
+    method: "PATCH",
     body: JSON.stringify(body),
   });
 }

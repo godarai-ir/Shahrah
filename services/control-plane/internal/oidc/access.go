@@ -105,6 +105,8 @@ func (s *Service) UserInfo(ctx context.Context, tenant Tenant, token string) (ma
 
 	info := map[string]any{"sub": identity.UserID, "tid": identity.TenantID, "tenant": tenant.Slug}
 	addClaim(info, "name", profile.Name)
+	addClaim(info, "given_name", profile.GivenName)
+	addClaim(info, "family_name", profile.FamilyName)
 	addClaim(info, "preferred_username", profile.PreferredUsername)
 	addClaim(info, "email", profile.Email)
 	addClaim(info, "phone_number", profile.PhoneNumber)

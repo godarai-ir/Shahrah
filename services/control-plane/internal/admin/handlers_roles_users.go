@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
@@ -336,6 +337,8 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Mobile = strings.TrimSpace(req.Mobile)
 	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
 	req.AcceptInviteClientURL = strings.TrimSpace(req.AcceptInviteClientURL)
 
 	if req.Email == "" && req.Mobile == "" {
@@ -426,6 +429,52 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 		Invitation: *invitation,
 		User:       *user,
 	})
+}
+
+const maxUserNameLength = 100
+
+// UpdateTenantUserProfile sets the first and last name of one tenant user.
+func (h *Handlers) UpdateTenantUserProfile(c *fiber.Ctx) error {
+	if err := requireUserManage(c); err != nil {
+		return err
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	userID := strings.TrimSpace(c.Params("userID"))
+	if userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
+	}
+
+	var req platform.UpdateTenantAdminUserProfileRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+
+	if utf8.RuneCountInString(req.FirstName) > maxUserNameLength || utf8.RuneCountInString(req.LastName) > maxUserNameLength {
+		return fiber.NewError(fiber.StatusBadRequest, "first and last name must be at most 100 characters")
+	}
+
+	user, err := h.users.UpdateTenantAdminUserProfile(c.Context(), currentTenant.Slug, userID, req)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+
+		return err
+	}
+
+	return c.JSON(user)
 }
 
 // ActivateTenantUser marks one tenant-admin user as active.

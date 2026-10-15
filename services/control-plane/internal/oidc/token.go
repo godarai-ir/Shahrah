@@ -41,6 +41,8 @@ type idTokenClaims struct {
 	TenantID            string   `json:"tid"`
 	Tenant              string   `json:"tenant,omitempty"`
 	Name                string   `json:"name,omitempty"`
+	GivenName           string   `json:"given_name,omitempty"`
+	FamilyName          string   `json:"family_name,omitempty"`
 	PreferredUsername   string   `json:"preferred_username,omitempty"`
 	Email               string   `json:"email,omitempty"`
 	EmailVerified       *bool    `json:"email_verified,omitempty"`
@@ -352,7 +354,9 @@ func applyProfileClaims(claims *idTokenClaims, identity *Identity, scope string)
 	verified := true
 
 	if hasScope(scope, ScopeProfile) {
-		claims.Name = firstNonEmpty(identity.Name, identity.Email, identity.Mobile)
+		claims.Name = firstNonEmpty(fullName(identity), identity.Name, identity.Email, identity.Mobile)
+		claims.GivenName = identity.FirstName
+		claims.FamilyName = identity.LastName
 		claims.PreferredUsername = firstNonEmpty(identity.Email, identity.Mobile, identity.UserID)
 
 		if identity.Role != "" {
@@ -369,6 +373,11 @@ func applyProfileClaims(claims *idTokenClaims, identity *Identity, scope string)
 		claims.PhoneNumber = identity.Mobile
 		claims.PhoneNumberVerified = &verified
 	}
+}
+
+// fullName joins the member's first and last name; it is empty when neither is set.
+func fullName(identity *Identity) string {
+	return strings.TrimSpace(identity.FirstName + " " + identity.LastName)
 }
 
 // halfHash computes the OIDC at_hash for an ES256-signed token.
