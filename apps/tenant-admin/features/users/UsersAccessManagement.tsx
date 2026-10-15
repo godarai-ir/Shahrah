@@ -7,6 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 
 import { AppEmailField } from "@/components/app-ui/AppEmailField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { DataTableBulkBar } from "@/components/app-ui/DataTableBulkBar";
 import { DataTableToolbar } from "@/components/app-ui/DataTableToolbar";
@@ -31,7 +32,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useCalendarLocale } from "@/hooks/use-locale-format";
 import { listTenantKeys, type TenantKey } from "@/lib/api/access-keys";
 import type { PermissionItem } from "@/lib/contracts/roles";
-import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { memberDisplayName, resolveIdentity } from "@/lib/access/identity";
 import { hiddenRolesInUI, resolveRoleDisplayName } from "@/lib/access/role-display";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
@@ -49,6 +50,7 @@ import {
   assignUserRole,
   getUserEntitlements,
   inviteUser,
+  updateUserProfile,
   listUserRoles,
   listUsers,
   setUserActive,
@@ -111,6 +113,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [bulkNotice, setBulkNotice] = useState<{ kind: "success" | "warning" | "error"; message: string } | null>(null);
   const bulkClearRef = useRef<() => void>(() => {});
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError ? { kind: "error", message: props.initialError } : null,
@@ -183,7 +187,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       header: t("table.member"),
       meta: { label: t("table.member"), headerClassName: "w-[28%]" },
       cell: ({ row }) => {
-        const displayName = guessDisplayName(resolveIdentity(row.original));
+        const displayName = memberDisplayName(row.original);
         return (
           <button
             type="button"
@@ -379,13 +383,20 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
     setIsInviting(true);
     try {
-      await inviteUser({ email, role: inviteRole });
+      await inviteUser({
+        email,
+        role: inviteRole,
+        first_name: inviteFirstName.trim(),
+        last_name: inviteLastName.trim(),
+      });
       showFeedbackToast({
         kind: "success",
         title: t("alerts.success"),
         description: t("messages.invitationSuccess"),
       });
       setInviteEmail("");
+      setInviteFirstName("");
+      setInviteLastName("");
       setInviteRole(resolveDefaultInviteRole(availableRoles));
       setInviteOpen(false);
       await loadUsers();
@@ -671,6 +682,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         onOpenChange={(open) => {
           if (!open) patchURL({ member: null });
         }}
+        onSaveName={async (member, firstName, lastName) => {
+          await updateUserProfile(member.id, { first_name: firstName, last_name: lastName });
+          showFeedbackToast({
+            kind: "success",
+            title: t("alerts.success"),
+            description: t("messages.nameUpdated"),
+          });
+          await loadUsers();
+        }}
         onChangeRole={(member) => {
           patchURL({ member: null });
           openRoleForm(member);
@@ -715,6 +735,24 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <AlertDescription>{inviteError}</AlertDescription>
             </Alert>
           ) : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AppTextField
+              id="invite-first-name"
+              label={t("form.firstName")}
+              value={inviteFirstName}
+              onChange={(event) => setInviteFirstName(event.target.value)}
+              autoComplete="given-name"
+              maxLength={100}
+            />
+            <AppTextField
+              id="invite-last-name"
+              label={t("form.lastName")}
+              value={inviteLastName}
+              onChange={(event) => setInviteLastName(event.target.value)}
+              autoComplete="family-name"
+              maxLength={100}
+            />
+          </div>
           <AppEmailField
             id="invite-email"
             label={t("form.email")}

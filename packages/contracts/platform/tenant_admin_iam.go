@@ -8,6 +8,8 @@ type TenantAdminUser struct {
 	TenantSlug  string     `json:"tenant_slug"`
 	Email       string     `json:"email,omitempty"`
 	Mobile      string     `json:"mobile,omitempty"`
+	FirstName   string     `json:"first_name,omitempty"`
+	LastName    string     `json:"last_name,omitempty"`
 	Role        string     `json:"role"`
 	Roles       []string   `json:"roles,omitempty"`
 	Active      bool       `json:"active"`
@@ -33,8 +35,16 @@ type TenantConsoleUserListResponse = TenantAdminUserListResponse
 type InviteTenantAdminUserRequest struct {
 	Email                 string `json:"email,omitempty"`
 	Mobile                string `json:"mobile,omitempty"`
+	FirstName             string `json:"first_name,omitempty"`
+	LastName              string `json:"last_name,omitempty"`
 	Role                  string `json:"role,omitempty"`
 	AcceptInviteClientURL string `json:"accept_invite_client_url,omitempty"`
+}
+
+// UpdateTenantAdminUserProfileRequest sets the first and last name of a tenant member.
+type UpdateTenantAdminUserProfileRequest struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // TenantAdminInvitation stores invitation metadata.

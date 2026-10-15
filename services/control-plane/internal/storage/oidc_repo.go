@@ -166,13 +166,14 @@ func (r *OIDCRepository) GetOIDCIdentity(ctx context.Context, tenantID, userID s
 
 	err := r.pool.QueryRow(ctx, `
 		SELECT user_id::text, tenant_id::text, COALESCE(email, ''), COALESCE(mobile, ''),
-		       COALESCE(user_alias, ''), COALESCE(role, 'member'), COALESCE(active, true)
+		       COALESCE(user_alias, ''), COALESCE(first_name, ''), COALESCE(last_name, ''),
+		       COALESCE(role, 'member'), COALESCE(active, true)
 		FROM users
 		WHERE tenant_id = $1::uuid AND user_id = $2::uuid
 		LIMIT 1
 	`, tenantID, userID).Scan(
 		&identity.UserID, &identity.TenantID, &identity.Email, &identity.Mobile,
-		&identity.Name, &identity.Role, &identity.Active,
+		&identity.Name, &identity.FirstName, &identity.LastName, &identity.Role, &identity.Active,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

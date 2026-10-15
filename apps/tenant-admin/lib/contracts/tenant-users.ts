@@ -6,6 +6,8 @@ export const tenantAdminUserSchema = z.object({
   tenant_slug: z.string(),
   email: z.string().optional(),
   mobile: z.string().optional(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
   role: z.string(),
   roles: z.array(z.string()).optional(),
   active: z.boolean(),

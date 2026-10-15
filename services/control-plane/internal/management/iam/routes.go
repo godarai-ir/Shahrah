@@ -54,6 +54,7 @@ type Handler interface {
 	AcceptTenantUserInvitation(*fiber.Ctx) error
 	ActivateTenantUser(*fiber.Ctx) error
 	DeactivateTenantUser(*fiber.Ctx) error
+	UpdateTenantUserProfile(*fiber.Ctx) error
 }
 
 // Routes owns IAM route registration.
@@ -116,6 +117,7 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Post("/users/invite", r.handler.InviteTenantUser)
 	router.Post("/users/invitations", r.handler.InviteTenantUser)
 	router.Post("/users/invitations/accept", r.handler.AcceptTenantUserInvitation)
+	router.Patch("/users/:userID/profile", r.handler.UpdateTenantUserProfile)
 	router.Post("/users/:userID/activate", r.handler.ActivateTenantUser)
 	router.Post("/users/:userID/deactivate", r.handler.DeactivateTenantUser)
 }

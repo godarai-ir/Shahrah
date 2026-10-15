@@ -29,7 +29,7 @@ import {
   listPersonalAccessTokens,
   revokePersonalAccessToken,
 } from "@/lib/api/personal-access-tokens";
-import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { memberDisplayName } from "@/lib/access/identity";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 import type { VirtualUser } from "@/lib/contracts/virtual-users";
 
@@ -83,8 +83,7 @@ export default function AccessKeysManagement(props: AccessKeysManagementProps) {
   const ownerNames = useMemo(() => {
     const names = new Map<string, string>();
     for (const member of props.members) {
-      const identity = resolveIdentity(member);
-      names.set(member.id, guessDisplayName(identity) || identity);
+      names.set(member.id, memberDisplayName(member));
     }
     return names;
   }, [props.members]);

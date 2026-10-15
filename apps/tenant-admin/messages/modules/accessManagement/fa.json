@@ -36,7 +36,9 @@
   "form": {
     "email": "ایمیل",
     "emailPlaceholder": "user@company.com",
-    "role": "نقش"
+    "role": "نقش",
+    "firstName": "نام",
+    "lastName": "نام خانوادگی"
   },
   "roles": {
     "billingManager": "مدیر مالی",
@@ -48,7 +50,9 @@
   },
   "button": {
     "createInvite": "ارسال دعوت‌نامه",
-    "inviting": "در حال ارسال..."
+    "inviting": "در حال ارسال...",
+    "saveName": "ذخیره نام",
+    "savingName": "در حال ذخیره..."
   },
   "table": {
     "loading": "در حال بارگذاری کاربران...",
@@ -107,7 +111,9 @@
     "roleCreated": "نقش با موفقیت ایجاد شد.",
     "roleCreateError": "ایجاد نقش ناموفق بود.",
     "roleUpdated": "نقش با موفقیت به‌روزرسانی شد.",
-    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود."
+    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود.",
+    "nameUpdated": "نام کاربر به‌روزرسانی شد.",
+    "nameUpdateError": "به‌روزرسانی نام کاربر ناموفق بود."
   },
   "rolesPage": {
     "createTitle": "ایجاد نقش سفارشی",
@@ -259,7 +265,8 @@
     "lastKeyUse": "آخرین استفاده از کلید",
     "keysUnavailable": "برای دیدن کلیدها دسترسی کافی ندارید.",
     "editRole": "ویرایش نقش",
-    "viewProfile": "پرونده عضو"
+    "viewProfile": "پرونده عضو",
+    "nameSection": "نام و نام خانوادگی"
   },
   "perms": {
     "ops": {
