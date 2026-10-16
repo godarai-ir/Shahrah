@@ -244,8 +244,6 @@ func (b *builder) buildStorage() error {
 				WalletCacheTTL:    b.cfg.Runtime.BillingWalletCacheTTL,
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
 				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
-				CreditEnforcementEnabled: b.cfg.Runtime.BillingCreditLedger.Enabled &&
-					b.cfg.Runtime.BillingCreditLedger.EnforcementEnabled,
 			},
 		},
 		b.cfg.BillingSettings.DefaultUSDtoIRR,

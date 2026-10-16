@@ -111,9 +111,9 @@ func (s *BudgetService) reserveCreditBudget(
 	profile *runtimeprofile.Profile,
 	billingMode string,
 ) (*platform.BudgetReservation, error) {
-	// Serving a credit tenant without credit enforcement would let it spend
-	// without limit, so it is refused until enforcement is turned on.
-	if !s.creditEnforcementEnabled || s.budgetWindows == nil || s.creditPools == nil {
+	// A credit tenant is never served without its credit windows: that would
+	// let it spend without limit.
+	if s.budgetWindows == nil || s.creditPools == nil {
 		return nil, ErrBudgetUnavailable
 	}
 

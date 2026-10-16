@@ -175,7 +175,6 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `BILLING_CREDIT_ENFORCEMENT_ENABLED` | off | Credit tenants reserve in credits. While it is off, a credit tenant is refused at reservation (`budget_unavailable`), never let through unenforced. |
 | `BILLING_CREDIT_SIDE_USAGE_ENABLED` | off | Spend logs and commits for the judge and the semantic-cache embedding. |
 | `BILLING_CREDIT_DOWNGRADE_ENABLED` | off | `on_exceed = downgrade`. While it is off, downgrade rules act as `block`. |
 | `BILLING_CREDIT_OVERAGE_DEFAULT_CEILING_CREDITS` | 100000 | Headroom for overage with no cap. |
@@ -190,7 +189,7 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 5. Execute the fleet cutover in batches. Watch reconciliation and the `budget_exceeded` rate after each batch.
 6. After one full billing period: deprecation headers, then the IRR flag off.
 
-**Rollback:** per tenant with the rollback action. For the whole system, turn off `BILLING_CREDIT_ENFORCEMENT_ENABLED`. Credit tenants are then refused rather than let through, so the real fallback for an incident is a per-tenant rollback, which a script can run fleet-wide.
+**Rollback:** per tenant with the rollback action, which a script can run fleet-wide. Credit enforcement has no flag of its own (owner decision, 2026-10-17): every credit tenant is always reserved in credits.
 
 ## PR split (stacked on #71)
 
@@ -230,7 +229,7 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 - **Forced commits.** A credit commit always succeeds, because the usage was already served. Commits use `BudgetCommitRequest.Force`, and alert rules use the new `RecordBudgetSpend`, which records spend with no admission check. Spend beyond an allowance is recorded as window overage (`shahrah_credit_budget_commit_overage_millicredits_total`), and the ledger debits it as debt.
   - Before this change, a commit beyond the allowance was refused, and several handlers then returned 402 *after* the provider call without writing a spend log. For a credit tenant, that request would never have been charged.
 - **No wallet debit for credit tenants.** `DebitWallet` is the direct-debit fallback, used when a request reaches settlement without a reservation. It now returns without writing for credit tenants. The window settlement path was already guarded in Phase 2.
-- **Switch guard.** Support-admin can move a tenant *to* credit only when both `BILLING_CREDIT_LEDGER_ENABLED` and `BILLING_CREDIT_ENFORCEMENT_ENABLED` are on. Moving back to IRR is always allowed.
+- **Switch guard.** Support-admin can move a tenant *to* credit only when `BILLING_CREDIT_LEDGER_ENABLED` is on, because the ledger's settlement is what debits a credit tenant. Moving back to IRR is always allowed. Credit enforcement itself has no flag (owner decision, 2026-10-17).
 - **Profile and window refresh.**
   - Every billing-unit switch recompiles the tenant's runtime profile.
   - Every balance change re-seeds the current pool window: grants, purchases, bank-transfer approvals, adjustments, expiry, settlement, and overage-settings changes.
@@ -244,7 +243,7 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 - Wallet credits are rounded down and rule limits up, as the prompt says. Both favor the tenant.
 - Overage with no cap gets a 100,000-credit ceiling instead of unlimited spend.
 - Migration lots never expire.
-- When enforcement is off, credit tenants are refused instead of allowed. Allowing them would mean unlimited unbilled-in-advance spend, which is the bug Phase 3 exists to fix.
+- A credit tenant whose credit windows are unavailable is refused, never served unenforced.
 - IRR budget refusals carry no `scope`. The IRR path does not track which window refused, and it is left untouched.
 - An unparseable `credits.byok_fee_percent` falls back to the 5% default.
 

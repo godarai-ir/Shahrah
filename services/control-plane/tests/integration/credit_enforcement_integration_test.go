@@ -75,7 +75,6 @@ func newCreditEnforcementFixture(t *testing.T) creditEnforcementFixture {
 		Wallets:         store.WalletRepository,
 		RuntimeProfiles: creditProfileStore{profile: profile},
 		CreditPools:     store.CreditLedgerRepository,
-		Config:          &billing.ServiceConfig{CreditEnforcementEnabled: true},
 	}, 850000, "test")
 
 	return creditEnforcementFixture{store: store, pool: pool, cache: mem, budgets: budgets, tenantID: tenantID}

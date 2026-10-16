@@ -330,9 +330,9 @@ func (h *Handlers) AdjustPlatformTenantCredits(c *fiber.Ctx) error {
 }
 
 // SetPlatformTenantBillingUnit moves a tenant between IRR and credit billing.
-// Moving to credit is refused unless the credit ledger and credit enforcement
-// are both enabled, so no tenant is billed in credits without being enforced
-// in credits. Moving back to IRR is always allowed.
+// Moving to credit is refused unless the credit ledger is enabled, because the
+// ledger's settlement is what debits a credit tenant. Moving back to IRR is
+// always allowed.
 func (h *Handlers) SetPlatformTenantBillingUnit(c *fiber.Ctx) error {
 	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {

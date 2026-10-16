@@ -271,9 +271,6 @@ type CreditLedgerSettings struct {
 	PriceInterval      time.Duration
 	PriceAutoApply     bool
 	Timeout            time.Duration
-	// EnforcementEnabled reserves credit tenants' requests in credits. While it
-	// is off, credit tenants are refused rather than served unenforced.
-	EnforcementEnabled bool
 }
 
 func loadCreditLedgerSettings() CreditLedgerSettings {
@@ -287,6 +284,5 @@ func loadCreditLedgerSettings() CreditLedgerSettings {
 		PriceInterval:      secondsEnv("BILLING_CREDIT_PRICE_INTERVAL_SECONDS", time.Hour),
 		PriceAutoApply:     booleanEnv("BILLING_CREDIT_PRICE_AUTO_APPLY", false),
 		Timeout:            secondsEnv("BILLING_CREDIT_JOB_TIMEOUT_SECONDS", 2*time.Minute),
-		EnforcementEnabled: booleanEnv("BILLING_CREDIT_ENFORCEMENT_ENABLED", false),
 	}
 }

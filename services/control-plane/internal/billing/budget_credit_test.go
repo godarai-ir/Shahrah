@@ -34,7 +34,7 @@ type creditTestHarness struct {
 	logs    *observer.ObservedLogs
 }
 
-func newCreditTestHarness(t *testing.T, enforcement bool, allowanceMC int64, rules ...platform.BudgetLimitRule) creditTestHarness {
+func newCreditTestHarness(t *testing.T, allowanceMC int64, rules ...platform.BudgetLimitRule) creditTestHarness {
 	t.Helper()
 
 	mem, err := testcache.New(t, zap.NewNop())
@@ -55,7 +55,6 @@ func newCreditTestHarness(t *testing.T, enforcement bool, allowanceMC int64, rul
 		RuntimeProfiles: staticRuntimeProfiles{profile: profile},
 		CreditPools:     pools,
 		Logger:          zap.New(core),
-		Config:          &ServiceConfig{CreditEnforcementEnabled: enforcement},
 	}, 850000, "test")
 
 	return creditTestHarness{service: service, cache: mem, pools: pools, logs: logs}
@@ -96,15 +95,24 @@ func creditUserRule(onExceed platform.BudgetOnExceed, limitCredits int64) platfo
 
 var creditAuth = &platform.AuthContext{TenantID: "tenant-1", UserID: "user-1", TokenHash: "hash-1"}
 
-func TestCreditTenantIsRefusedWhileEnforcementIsOff(t *testing.T) {
-	h := newCreditTestHarness(t, false, 100_000)
+func TestCreditTenantWithoutCreditPoolsIsRefused(t *testing.T) {
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
 
-	_, err := h.service.ReserveBudget(context.Background(), creditAuth, creditBreakdown(1), "req-1")
+	profile := &runtimeprofile.Profile{
+		TenantID: "tenant-1",
+		Tenant:   platform.Tenant{ID: "tenant-1", BillingUnit: credits.BillingUnitCredit},
+	}
+	service := NewServiceWithDependencies(Dependencies{
+		Cache: mem, BudgetWindows: mem, RuntimeProfiles: staticRuntimeProfiles{profile: profile},
+	}, 850000, "test")
+
+	_, err = service.ReserveBudget(context.Background(), creditAuth, creditBreakdown(1), "req-1")
 	require.ErrorIs(t, err, ErrBudgetUnavailable, "a credit tenant is never served unenforced")
 }
 
 func TestCreditTenantReservesMillicreditsFromItsBalance(t *testing.T) {
-	h := newCreditTestHarness(t, true, 10_000)
+	h := newCreditTestHarness(t, 10_000)
 	ctx := context.Background()
 
 	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(6), "req-1")
@@ -125,7 +133,7 @@ func TestCreditTenantReservesMillicreditsFromItsBalance(t *testing.T) {
 }
 
 func TestCreditCommitIsForcedForServedUsage(t *testing.T) {
-	h := newCreditTestHarness(t, true, 10_000)
+	h := newCreditTestHarness(t, 10_000)
 	ctx := context.Background()
 
 	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(8), "req-1")
@@ -140,7 +148,7 @@ func TestCreditCommitIsForcedForServedUsage(t *testing.T) {
 }
 
 func TestCreditBlockRuleRefusesWithItsScope(t *testing.T) {
-	h := newCreditTestHarness(t, true, 1_000_000, creditUserRule(platform.BudgetOnExceedBlock, 10))
+	h := newCreditTestHarness(t, 1_000_000, creditUserRule(platform.BudgetOnExceedBlock, 10))
 	ctx := context.Background()
 
 	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(7), "req-1")
@@ -158,7 +166,7 @@ func TestCreditBlockRuleRefusesWithItsScope(t *testing.T) {
 }
 
 func TestCreditAlertRuleNeverBlocksAndAlertsOnce(t *testing.T) {
-	h := newCreditTestHarness(t, true, 1_000_000, creditUserRule(platform.BudgetOnExceedAlert, 10))
+	h := newCreditTestHarness(t, 1_000_000, creditUserRule(platform.BudgetOnExceedAlert, 10))
 	ctx := context.Background()
 
 	for i, amount := range []int{9, 2, 3} {
@@ -174,7 +182,7 @@ func TestCreditAlertRuleNeverBlocksAndAlertsOnce(t *testing.T) {
 }
 
 func TestCreditExternalBilledReservesOnlyTheFeeFromTheBalance(t *testing.T) {
-	h := newCreditTestHarness(t, true, 1_000, creditUserRule(platform.BudgetOnExceedBlock, 30))
+	h := newCreditTestHarness(t, 1_000, creditUserRule(platform.BudgetOnExceedBlock, 30))
 	ctx := context.Background()
 
 	reservation, err := h.service.ReserveExternalBilledBudget(ctx, creditAuth, creditBreakdown(20), "req-1")

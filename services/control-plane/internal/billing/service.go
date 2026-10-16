@@ -58,17 +58,16 @@ type PricingEngine struct {
 
 // BudgetService owns budget admission, reservation, and settlement.
 type BudgetService struct {
-	cache                    cache.Cache
-	budgetWindows            BudgetWindowCache
-	store                    walletStore
-	entitlements             entitlementStore
-	runtimeProfiles          RuntimeProfileStore
-	creditPools              CreditPoolStore
-	creditRateCards          CreditRateCardProvider
-	creditEnforcementEnabled bool
-	logger                   *zap.Logger
-	walletCacheTTL           time.Duration
-	budgetWindowTTLGrace     time.Duration
+	cache                cache.Cache
+	budgetWindows        BudgetWindowCache
+	store                walletStore
+	entitlements         entitlementStore
+	runtimeProfiles      RuntimeProfileStore
+	creditPools          CreditPoolStore
+	creditRateCards      CreditRateCardProvider
+	logger               *zap.Logger
+	walletCacheTTL       time.Duration
+	budgetWindowTTLGrace time.Duration
 }
 
 // RateLimiter owns policy and subscription-based request admission.
@@ -109,9 +108,6 @@ type ServiceConfig struct {
 	WalletCacheTTL    time.Duration
 	BudgetWindowGrace time.Duration
 	RateLimitFailOpen bool
-	// CreditEnforcementEnabled reserves credit tenants in credits. While it is
-	// off, credit tenants are refused rather than served unenforced.
-	CreditEnforcementEnabled bool
 }
 
 // NewService creates a billing enforcement service.
@@ -223,17 +219,16 @@ func newService(
 			catalogPricing:    make(map[string]*CatalogPricingSnapshotManager),
 		},
 		BudgetService: &BudgetService{
-			cache:                    dependencies.Cache,
-			budgetWindows:            dependencies.BudgetWindows,
-			store:                    dependencies.Wallets,
-			entitlements:             dependencies.Entitlements,
-			runtimeProfiles:          dependencies.RuntimeProfiles,
-			creditPools:              dependencies.CreditPools,
-			creditRateCards:          dependencies.CreditRateCards,
-			creditEnforcementEnabled: serviceConfig.CreditEnforcementEnabled,
-			logger:                   logger,
-			walletCacheTTL:           serviceConfig.WalletCacheTTL,
-			budgetWindowTTLGrace:     serviceConfig.BudgetWindowGrace,
+			cache:                dependencies.Cache,
+			budgetWindows:        dependencies.BudgetWindows,
+			store:                dependencies.Wallets,
+			entitlements:         dependencies.Entitlements,
+			runtimeProfiles:      dependencies.RuntimeProfiles,
+			creditPools:          dependencies.CreditPools,
+			creditRateCards:      dependencies.CreditRateCards,
+			logger:               logger,
+			walletCacheTTL:       serviceConfig.WalletCacheTTL,
+			budgetWindowTTLGrace: serviceConfig.BudgetWindowGrace,
 		},
 		RateLimiter: &RateLimiter{
 			cache:             dependencies.Cache,
