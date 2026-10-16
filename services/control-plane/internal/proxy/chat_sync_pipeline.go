@@ -225,8 +225,10 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 		guardrailOverrides = state.guardrailOverrides
 	}
 
-	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(c.Context(), completion, selection, guardrailOverrides)
+	judgeUsage := &guardrails.JudgeUsage{}
+	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(guardrails.WithJudgeUsage(c.Context(), judgeUsage), completion, selection, guardrailOverrides)
 	h.recordGuardrailChecks(c, outputResult.Checks)
+	h.pipeline.chargeJudgeUsage(c.Context(), h.logs, authInfo, tunnelRequest.RequestID, tunnelRequest.TraceID, request.Model, "guardrail_output", judgeUsage)
 
 	if err != nil {
 		h.observeBlockedChat(c, request, originalBody, authInfo, tunnelRequest, finalCost, startedAt, requestLog)

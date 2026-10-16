@@ -1,6 +1,6 @@
 # Phase 3 Design: Credit Enforcement, Budget Rules, Fleet Cutover
 
-Status: **3a implemented**; 3c–3e pending. 3b (downgrade) was dropped (P5).
+Status: **3a and 3c implemented**; 3d–3e pending. 3b (downgrade) was dropped (P5).
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 3 and Phase 4.
 Builds on Phase 2 (`plans/credit-pricing/phase-2-design.md`, migrations 066–069).
 
@@ -14,6 +14,7 @@ These replace parts of the prompt. They were given in answer to the §8 stop-and
 | P2 | **Every tenant is converted; nobody opts in or out.** | The cutover tool has no tenant-approval step. Support-admin runs it, per tenant or for the whole fleet. §8.3 (tenants that never approve) no longer applies. |
 | P3 | **No pilot.** | Gate 3's "3 pilot tenants for one billing period" is waived. It is replaced by a staging run plus a fleet dry run with no errors (see "Gate 3 as amended"). Phases 3 and 4 merge: the fleet cutover is part of this phase. |
 | P4 | **Every tenant moves to the same-slug credit plan at cutover** (option C). The owner confirmed that no current subscription is sensitive, so the simplest mechanics were chosen (C2). | The current subscription is canceled and a new `active` subscription starts at once on the published credit version of the same plan slug and interval. The plan grant worker grants the first slice right away. That first period is free and *is* the compensation (Phase 4 item 3), so no separate compensation lot is granted. The new price is paid from the next renewal through the existing payment flow. |
+| P6 | **Side usage is priced per call** (2026-10-17): **1 credit per guardrail judge call, 0 per semantic-cache embedding.** Neither call reports a provider cost, so the `500 × USD` formula cannot price them. | Constants `credits.GuardrailJudgeCallMC` and `credits.SemanticCacheEmbeddingMC`, published in `/v1/rate-card` under `side_usage` and part of its ETag. With a price of 0, semantic-cache embeddings write no spend log and no ledger entry. |
 | P5 | **No `downgrade`** (2026-10-17). Budget rules offer only `block` and `alert`. | FR-8 (route to a cheaper model), the substitution headers, and the daily downgrade quota are not built; PR 3b is dropped. FR-10's tenant default `on_exceed` is dropped too: with only `alert` left as an alternative, a pool default of `alert` would mean unlimited debt, so an exhausted balance always blocks unless overage is on. |
 
 ## Current state (verified on `feat/credits-phase-2-to-main`)
@@ -228,6 +229,26 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 - **Rule windows** are re-seeded from `limit_mc` on every reservation, as IRR rule windows are, so a limit change applies at once.
 - **Alerts** compare the rule window's committed spend before and after each commit against `alert_thresholds`. Each crossing is deduplicated with a cache counter keyed by window and threshold, and is logged as `budget_alert` plus `shahrah_credit_budget_alerts_total`.
 - The credit rate-card cache is now built before the billing service, so reservations are priced with the published card.
+
+## Implementation notes (3c)
+
+- **Judge charges.**
+  - The guardrail engine counts judge calls on a `guardrails.JudgeUsage` placed on the request context.
+  - Only calls that reached the judge count; cached answers and failed calls are free.
+  - The management "test policy" endpoint is never charged.
+  - The input and output stages of `/v1/chat/completions` each charge their calls right after the stage, including when the guardrail blocks the request, because the judge ran.
+- **Per charge for a credit tenant:**
+  - **Budget windows.** The pool and every matching rule window are recorded after the fact through `RecordSideUsage`, with no admission check. The overshoot is at most one stage's judge calls.
+  - **Spend log.** One spend log `{request_id}:{stage}` with product `guardrail`, credits as `fixed_price`, the caller's user, team, and org unit, and `trace_id` in the metadata. The ledger settles it like any request. The suffixed request id keeps the side call from replacing the request's own spend log in trace lookups.
+  - IRR tenants are not charged for side usage.
+- **Cache hits:** the chat cache lookup runs before reservation, so a hit reserves and commits nothing. `credits_avoided_mc` is already recorded (Phase 1).
+- **`GET /v1/budget/me`** (route in `registerBudgetRoutes`), for any gateway credential:
+  - Lists the caller's enabled credit rules whose applies-per is an identity scope (tenant, user, team, org unit, virtual account). Rules applied per model or per metadata value have one window per value and are left out.
+  - Only identity conditions are evaluated. Request conditions (model, metadata, endpoint) cannot be known without a request, so a rule that matches the caller is listed regardless of them.
+  - `remaining` subtracts both committed and reserved spend.
+  - `tenant_balance` (remaining and reserved this month) is included for `tenant_admin`, `admin`, `billing:read`, and `billing:manage`.
+  - IRR tenants get 409 `credit_billing_required`.
+  - Data comes from the Redis windows plus a pool-allowance read when the month has no window yet. The response is `no-store`.
 
 ## Decisions made (conservative defaults, easy to flip)
 

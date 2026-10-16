@@ -228,3 +228,38 @@ func TestIntegration_DirectWalletDebitSkipsCreditTenants(t *testing.T) {
 	require.NoError(t, f.pool.QueryRow(ctx, `SELECT ROUND(balance_irr)::bigint FROM wallets WHERE tenant_id = $1::uuid`, f.tenantID).Scan(&balanceIRR))
 	require.Equal(t, int64(100_000), balanceIRR)
 }
+
+func TestIntegration_GuardrailSideUsageSettlesAsItsOwnProduct(t *testing.T) {
+	f := newCreditEnforcementFixture(t)
+	ctx := context.Background()
+
+	grantCredits(t, f.store, f.tenantID, credits.LotSourcePromo, 5_000, nil)
+
+	require.NoError(t, f.store.LogSpend(ctx, platform.SpendLog{
+		RequestID: "req-judge:guardrail_input", TenantID: f.tenantID, UserID: "", Model: "jev", Status: "success",
+		RequestMetadata: map[string]interface{}{"trace_id": "trace-judge"},
+		Credits:         &platform.SpendLogCredits{Millicredits: credits.GuardrailJudgeCallMC, Product: platform.CreditProductGuardrail, Source: string(credits.SourceFixedPrice)},
+	}))
+
+	_, err := f.pool.Exec(ctx, `UPDATE spend_logs SET created_at = NOW() - INTERVAL '5 minutes' WHERE request_id = 'req-judge:guardrail_input'`)
+	require.NoError(t, err)
+
+	settleAllCredits(t, f.store)
+
+	var (
+		product string
+		traceID string
+		amount  int64
+	)
+
+	require.NoError(t, f.pool.QueryRow(ctx, `
+		SELECT product, COALESCE(trace_id, ''), amount_mc FROM credit_ledger WHERE tenant_id = $1::uuid AND kind = 'consume'
+	`, f.tenantID).Scan(&product, &traceID, &amount))
+	require.Equal(t, platform.CreditProductGuardrail, product)
+	require.Equal(t, "trace-judge", traceID, "the side call links to the request it served")
+	require.Equal(t, -credits.GuardrailJudgeCallMC, amount)
+
+	balance, err := f.store.GetCreditBalance(ctx, f.tenantID)
+	require.NoError(t, err)
+	require.Equal(t, int64(4_000), balance.AvailableMC)
+}

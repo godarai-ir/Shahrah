@@ -158,6 +158,7 @@ func (b *builder) buildGateway() error {
 		GatewayMaxInFlight:                &b.cfg.Runtime.GatewayMaxInFlight,
 		CreditSurface:                     b.creditSurfaceMiddleware(),
 		RateCardHandler:                   proxy.NewRateCardHandler(b.billing, b.creditRateCards),
+		BudgetMeHandler:                   proxy.NewBudgetMeHandler(b.billing),
 		PricingChangelogHandler:           b.pricingChangelogHandler(),
 	}
 

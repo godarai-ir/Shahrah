@@ -205,3 +205,31 @@ func TestIRRTenantExternalBilledIsNotReserved(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, reservation)
 }
+
+func TestRecordSideUsageChargesCreditWindowsAfterTheFact(t *testing.T) {
+	h := newCreditTestHarness(t, 2_000, creditUserRule(platform.BudgetOnExceedBlock, 10))
+	ctx := context.Background()
+
+	credit, err := h.service.RecordSideUsage(ctx, creditAuth, platform.UsageCostBreakdown{Model: "gpt-test"}, 1_500)
+	require.NoError(t, err)
+	require.True(t, credit)
+
+	credit, err = h.service.RecordSideUsage(ctx, creditAuth, platform.UsageCostBreakdown{Model: "gpt-test"}, 1_500)
+	require.NoError(t, err)
+	require.True(t, credit, "side usage is recorded even beyond the balance")
+
+	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-1")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "3 credits of side usage exhausted the 2-credit balance")
+	require.Equal(t, BudgetScopeTenantBalance, BudgetErrorScope(err))
+}
+
+func TestRecordSideUsageIgnoresIRRTenants(t *testing.T) {
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+
+	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{TenantID: "tenant-1"}})
+
+	credit, err := service.RecordSideUsage(context.Background(), creditAuth, platform.UsageCostBreakdown{}, 1_000)
+	require.NoError(t, err)
+	require.False(t, credit)
+}

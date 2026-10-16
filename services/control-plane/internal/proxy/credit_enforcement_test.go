@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -126,4 +127,61 @@ func TestBudgetErrorsExposeOnlyCodeAndScope(t *testing.T) {
 func TestSettlementErrorMessageHidesInternalText(t *testing.T) {
 	require.Equal(t, "budget exceeded", settlementErrorMessage(errors.Join(billing.ErrBudgetExceeded, errors.New("window credit:tenant:x"))))
 	require.Equal(t, "Billing settlement failed", settlementErrorMessage(errors.New("commit failed: dial tcp 10.0.0.7:6379")))
+}
+
+// sideUsageBudgetManager is a budget manager that also records side usage.
+type sideUsageBudgetManager struct {
+	creditBudgetManager
+	creditTenant bool
+	recordedMC   int64
+	breakdown    platform.UsageCostBreakdown
+}
+
+func (m *sideUsageBudgetManager) RecordSideUsage(_ context.Context, _ *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) (bool, error) {
+	m.recordedMC += amountMC
+	m.breakdown = breakdown
+
+	return m.creditTenant, nil
+}
+
+func TestChargeSideUsageWritesAGuardrailSpendLogForCreditTenants(t *testing.T) {
+	manager := &sideUsageBudgetManager{creditTenant: true}
+	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{BudgetReservations: manager}, nil, nil)
+	logs := &testLogs{}
+	auth := &platform.AuthContext{TenantID: "t", UserID: "u", TeamID: "team", TokenHash: "h"}
+
+	usage := &guardrails.JudgeUsage{}
+	pipeline.chargeJudgeUsage(t.Context(), logs, auth, "req-1", "trace-1", "gpt-test", "guardrail_input", usage)
+	require.Empty(t, logs.loggedSpends, "no judge call, no charge")
+
+	pipeline.ChargeSideUsage(t.Context(), logs, SideUsageCharge{
+		Auth: auth, RequestID: "req-1", TraceID: "trace-1", Stage: "guardrail_input",
+		Product: platform.CreditProductGuardrail, Model: "jev", RequestModel: "gpt-test", RequestType: "chat_completions",
+		Calls: 2, PriceMC: credits.GuardrailJudgeCallMC,
+	})
+
+	require.Equal(t, int64(2_000), manager.recordedMC, "two judge calls cost two credits")
+	require.Equal(t, "gpt-test", manager.breakdown.Model, "rules match the originating request")
+	require.Len(t, logs.loggedSpends, 1)
+
+	log := logs.loggedSpends[0]
+	require.Equal(t, "req-1:guardrail_input", log.RequestID, "the side call never replaces the request's own spend log")
+	require.Equal(t, "trace-1", log.RequestMetadata["trace_id"])
+	require.Equal(t, "u", log.UserID)
+	require.Equal(t, int64(2_000), log.Credits.Millicredits)
+	require.Equal(t, platform.CreditProductGuardrail, log.Credits.Product)
+	require.Zero(t, log.CostIRR, "side usage never touches IRR billing")
+}
+
+func TestChargeSideUsageSkipsIRRTenants(t *testing.T) {
+	manager := &sideUsageBudgetManager{creditTenant: false}
+	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{BudgetReservations: manager}, nil, nil)
+	logs := &testLogs{}
+
+	pipeline.ChargeSideUsage(t.Context(), logs, SideUsageCharge{
+		Auth: &platform.AuthContext{TenantID: "t"}, RequestID: "req-1", Stage: "guardrail_input",
+		Product: platform.CreditProductGuardrail, Calls: 1, PriceMC: credits.GuardrailJudgeCallMC,
+	})
+
+	require.Empty(t, logs.loggedSpends)
 }

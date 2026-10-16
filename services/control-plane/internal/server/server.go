@@ -72,6 +72,7 @@ type Dependencies struct {
 	GatewayMaxInFlight                *int
 	CreditSurface                     fiber.Handler
 	RateCardHandler                   fiber.Handler
+	BudgetMeHandler                   fiber.Handler
 	PricingChangelogHandler           fiber.Handler
 }
 

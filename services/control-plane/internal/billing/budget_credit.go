@@ -493,3 +493,73 @@ func byokFeePercent(profile *runtimeprofile.Profile) decimal.Decimal {
 
 	return fee
 }
+
+// RecordSideUsage charges a credit tenant's windows for a call GodarAI made on
+// a request's behalf, such as a guardrail judge call. Side calls are not
+// reserved in advance: the spend is recorded after the call, so a request can
+// overshoot a limit by its side usage. It reports whether the tenant bills in
+// credits; IRR tenants are not charged for side usage.
+func (s *BudgetService) RecordSideUsage(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) (bool, error) {
+	if auth == nil || strings.TrimSpace(auth.TenantID) == "" || amountMC <= 0 {
+		return false, nil
+	}
+
+	profile, err := s.tenantProfile(ctx, auth.TenantID)
+	if err != nil || !isCreditTenant(profile) {
+		return false, err
+	}
+
+	recorder, ok := s.budgetWindows.(budgetSpendRecorder)
+	if !ok || s.creditPools == nil {
+		return true, ErrBudgetUnavailable
+	}
+
+	now := time.Now().UTC()
+	tenantID := strings.TrimSpace(auth.TenantID)
+	reservationID := budgetReservationID("")
+	targets := append([]budgetReservationTarget{s.creditPoolTarget(tenantID, reservationID, amountMC, now)},
+		s.creditPolicyTargets(profile, auth, breakdown, reservationID, amountMC, now)...)
+	thresholds := s.ruleAlertThresholds(ctx, tenantID)
+
+	var recordErrors []error
+
+	for _, target := range targets {
+		result, recordErr := s.recordSideUsageTarget(ctx, recorder, target, amountMC, now)
+		if recordErr != nil {
+			recordErrors = append(recordErrors, recordErr)
+
+			continue
+		}
+
+		if target.Kind == budgetTargetPolicy {
+			s.reportCrossedThresholds(ctx, tenantID, target.BudgetReservationTarget, thresholds[target.RuleID], amountMC, result)
+		}
+	}
+
+	if len(recordErrors) > 0 {
+		return true, fmt.Errorf("%w: side usage: %v", ErrBudgetUnavailable, errors.Join(recordErrors...))
+	}
+
+	return true, nil
+}
+
+func (s *BudgetService) recordSideUsageTarget(ctx context.Context, recorder budgetSpendRecorder, target budgetReservationTarget, amountMC int64, now time.Time) (*cache.BudgetWindowResult, error) {
+	request := cache.BudgetSpendRequest{WindowKey: target.WindowKey, Amount: float64(amountMC), Now: now}
+
+	result, err := recorder.RecordBudgetSpend(ctx, request)
+	if err == nil && result != nil && result.State == "window_unavailable" {
+		if err = s.seedBudgetTarget(ctx, s.budgetWindows, target); err == nil {
+			result, err = recorder.RecordBudgetSpend(ctx, request)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if result == nil || !result.Allowed {
+		return nil, fmt.Errorf("window %s unavailable", target.WindowKey)
+	}
+
+	return result, nil
+}
