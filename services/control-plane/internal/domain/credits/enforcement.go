@@ -163,12 +163,10 @@ func CrossedThresholds(thresholds []int, limitMC, beforeMC, afterMC int64) []int
 
 var (
 	// ErrInvalidOnExceed is returned for an unknown exceed behavior.
-	ErrInvalidOnExceed = errors.New("on_exceed must be block, downgrade, or alert")
+	ErrInvalidOnExceed = errors.New("on_exceed must be block or alert")
 	// ErrInconsistentOnExceed is returned when block_on_budget_exceed and
 	// on_exceed disagree in one request.
 	ErrInconsistentOnExceed = errors.New("block_on_budget_exceed contradicts on_exceed")
-	// ErrDowngradeModelRequired is returned for a downgrade rule with no model.
-	ErrDowngradeModelRequired = errors.New("downgrade_model is required when on_exceed is downgrade")
 )
 
 // ResolveOnExceed decides a rule's exceed behavior from the new on_exceed
@@ -189,7 +187,7 @@ func ResolveOnExceed(onExceed *platform.BudgetOnExceed, block *bool, current pla
 
 	value := platform.BudgetOnExceed(strings.TrimSpace(string(*onExceed)))
 	switch value {
-	case platform.BudgetOnExceedBlock, platform.BudgetOnExceedDowngrade, platform.BudgetOnExceedAlert:
+	case platform.BudgetOnExceedBlock, platform.BudgetOnExceedAlert:
 	default:
 		return "", ErrInvalidOnExceed
 	}

@@ -863,12 +863,8 @@ func validateCreateBudgetLimitRuleRequest(req platform.CreateBudgetLimitRuleRequ
 		return errors.New("limit or limit_to must be greater than zero")
 	}
 
-	if err := validateBudgetRuleCreditFields(req.Limit, req.DowngradeDailyLimit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
+	if err := validateBudgetRuleCreditFields(req.Limit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
 		return err
-	}
-
-	if req.OnExceed != nil && *req.OnExceed == platform.BudgetOnExceedDowngrade && strings.TrimSpace(derefBudgetString(req.DowngradeModel)) == "" {
-		return credits.ErrDowngradeModelRequired
 	}
 
 	switch req.Unit {
@@ -899,7 +895,7 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 		return errors.New("limit_to must be greater than zero")
 	}
 
-	if err := validateBudgetRuleCreditFields(req.Limit, req.DowngradeDailyLimit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
+	if err := validateBudgetRuleCreditFields(req.Limit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
 		return err
 	}
 
@@ -922,13 +918,9 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 
 // validateBudgetRuleCreditFields checks the credit fields a request sets. An
 // empty limit string is allowed: it clears the limit on update.
-func validateBudgetRuleCreditFields(limit, downgradeLimit *string, onExceed *platform.BudgetOnExceed, block *bool, thresholds []int) error {
-	for _, amount := range []*string{limit, downgradeLimit} {
-		if amount == nil || strings.TrimSpace(*amount) == "" {
-			continue
-		}
-
-		if _, err := credits.ParseCreditAmountMC(*amount); err != nil {
+func validateBudgetRuleCreditFields(limit *string, onExceed *platform.BudgetOnExceed, block *bool, thresholds []int) error {
+	if limit != nil && strings.TrimSpace(*limit) != "" {
+		if _, err := credits.ParseCreditAmountMC(*limit); err != nil {
 			return err
 		}
 	}
@@ -952,16 +944,7 @@ func isBudgetRuleCreditError(err error) bool {
 	return errors.Is(err, credits.ErrInvalidCreditAmount) ||
 		errors.Is(err, credits.ErrInvalidOnExceed) ||
 		errors.Is(err, credits.ErrInconsistentOnExceed) ||
-		errors.Is(err, credits.ErrDowngradeModelRequired) ||
 		errors.Is(err, credits.ErrInvalidAlertThreshold)
-}
-
-func derefBudgetString(value *string) string {
-	if value == nil {
-		return ""
-	}
-
-	return *value
 }
 
 func validateBudgetAppliesPer(value string) error {

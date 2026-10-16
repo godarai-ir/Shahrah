@@ -15,43 +15,28 @@ import (
 // budgetLimitRuleColumns is the column list scanBudgetLimitRule reads.
 const budgetLimitRuleColumns = `id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		conditions_json, limit_to, unit, budget_applies_per, block_on_budget_exceed, alerts_json,
-		limit_mc, on_exceed, COALESCE(downgrade_model,''), downgrade_daily_limit_mc, alert_thresholds, created_at, updated_at`
+		limit_mc, on_exceed, alert_thresholds, created_at, updated_at`
 
 // budgetRuleCreditFields are the credit enforcement columns of a rule.
 type budgetRuleCreditFields struct {
-	limitMC          *int64
-	onExceed         platform.BudgetOnExceed
-	downgradeModel   string
-	downgradeLimitMC *int64
-	thresholdsJSON   []byte
+	limitMC        *int64
+	onExceed       platform.BudgetOnExceed
+	thresholdsJSON []byte
 }
 
 // resolveBudgetRuleCreditFields applies requested credit fields over the
 // current ones (zero values for a new rule). A nil field keeps the current
 // value and an empty limit string clears it.
-func resolveBudgetRuleCreditFields(current platform.BudgetLimitRule, limit, downgradeLimit, downgradeModel *string, onExceed *platform.BudgetOnExceed, block *bool, thresholds []int) (budgetRuleCreditFields, error) {
+func resolveBudgetRuleCreditFields(current platform.BudgetLimitRule, limit *string, onExceed *platform.BudgetOnExceed, block *bool, thresholds []int) (budgetRuleCreditFields, error) {
 	resolvedOnExceed, err := credits.ResolveOnExceed(onExceed, block, current.OnExceed)
 	if err != nil {
 		return budgetRuleCreditFields{}, err
 	}
 
-	fields := budgetRuleCreditFields{
-		limitMC:          current.LimitMC,
-		onExceed:         resolvedOnExceed,
-		downgradeModel:   optionalTrimmedString(downgradeModel, current.DowngradeModel),
-		downgradeLimitMC: current.DowngradeDailyLimitMC,
-	}
+	fields := budgetRuleCreditFields{limitMC: current.LimitMC, onExceed: resolvedOnExceed}
 
 	if fields.limitMC, err = optionalCreditAmountMC(limit, fields.limitMC); err != nil {
 		return budgetRuleCreditFields{}, err
-	}
-
-	if fields.downgradeLimitMC, err = optionalCreditAmountMC(downgradeLimit, fields.downgradeLimitMC); err != nil {
-		return budgetRuleCreditFields{}, err
-	}
-
-	if fields.onExceed == platform.BudgetOnExceedDowngrade && fields.downgradeModel == "" {
-		return budgetRuleCreditFields{}, credits.ErrDowngradeModelRequired
 	}
 
 	if thresholds == nil {
@@ -98,8 +83,7 @@ func (s *PolicyRepository) CreateBudgetLimitRule(ctx context.Context, tenantID s
 		priority = *req.Priority
 	}
 
-	creditFields, err := resolveBudgetRuleCreditFields(platform.BudgetLimitRule{}, req.Limit, req.DowngradeDailyLimit,
-		req.DowngradeModel, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds)
+	creditFields, err := resolveBudgetRuleCreditFields(platform.BudgetLimitRule{}, req.Limit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds)
 	if err != nil {
 		return nil, err
 	}
@@ -120,14 +104,14 @@ func (s *PolicyRepository) CreateBudgetLimitRule(ctx context.Context, tenantID s
 		INSERT INTO budget_limit_rules (
 			id, tenant_id, rule_id, name, description, enabled, priority, conditions_json,
 			limit_to, unit, budget_applies_per, block_on_budget_exceed, alerts_json,
-			limit_mc, on_exceed, downgrade_model, downgrade_daily_limit_mc, alert_thresholds, created_at, updated_at
+			limit_mc, on_exceed, alert_thresholds, created_at, updated_at
 		) VALUES (
 			$1, $2::uuid, $3, NULLIF($4,''), NULLIF($5,''), $6, $7, $8, $9, $10, NULLIF($11,''), $12, $13,
-			$14, $15, NULLIF($16,''), $17, $18, NOW(), NOW()
+			$14, $15, $16, NOW(), NOW()
 		)
 		RETURNING `+budgetLimitRuleColumns+`
 	`, uuid.NewString(), tenantID, strings.TrimSpace(req.RuleID), strings.TrimSpace(req.Name), strings.TrimSpace(req.Description), enabled, priority, conditionsJSON, req.LimitTo, string(req.Unit), strings.TrimSpace(derefString(req.BudgetAppliesPer)), blockOnExceed, alertsJSON,
-		creditFields.limitMC, string(creditFields.onExceed), creditFields.downgradeModel, creditFields.downgradeLimitMC, creditFields.thresholdsJSON)
+		creditFields.limitMC, string(creditFields.onExceed), creditFields.thresholdsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -211,8 +195,7 @@ func (s *PolicyRepository) UpdateBudgetLimitRuleByRuleID(ctx context.Context, te
 	unit := optionalBudgetLimitUnit(req.Unit, current.Unit)
 	budgetAppliesPer := optionalStringPtr(req.BudgetAppliesPer, current.BudgetAppliesPer)
 
-	creditFields, err := resolveBudgetRuleCreditFields(*current, req.Limit, req.DowngradeDailyLimit,
-		req.DowngradeModel, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds)
+	creditFields, err := resolveBudgetRuleCreditFields(*current, req.Limit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds)
 	if err != nil {
 		return nil, err
 	}
@@ -248,14 +231,12 @@ func (s *PolicyRepository) UpdateBudgetLimitRuleByRuleID(ctx context.Context, te
 		    alerts_json = $12,
 		    limit_mc = $13,
 		    on_exceed = $14,
-		    downgrade_model = NULLIF($15, ''),
-		    downgrade_daily_limit_mc = $16,
-		    alert_thresholds = $17,
+		    alert_thresholds = $15,
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND rule_id = $2
 		RETURNING `+budgetLimitRuleColumns+`
 	`, tenantID, strings.TrimSpace(ruleID), name, description, enabled, priority, conditionsJSON, limitTo, string(unit), strings.TrimSpace(derefString(budgetAppliesPer)), blockOnExceed, alertsJSON,
-		creditFields.limitMC, string(creditFields.onExceed), creditFields.downgradeModel, creditFields.downgradeLimitMC, creditFields.thresholdsJSON)
+		creditFields.limitMC, string(creditFields.onExceed), creditFields.thresholdsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -385,8 +366,6 @@ func scanBudgetLimitRule(rows pgx.Rows) (*platform.BudgetLimitRule, error) {
 		&alertsBytes,
 		&item.LimitMC,
 		&onExceed,
-		&item.DowngradeModel,
-		&item.DowngradeDailyLimitMC,
 		&thresholdsBytes,
 		&item.CreatedAt,
 		&item.UpdatedAt,
@@ -402,7 +381,6 @@ func scanBudgetLimitRule(rows pgx.Rows) (*platform.BudgetLimitRule, error) {
 	item.BudgetAppliesPer = budgetAppliesPer
 	item.OnExceed = platform.BudgetOnExceed(onExceed)
 	item.Limit = formatOptionalCredits(item.LimitMC)
-	item.DowngradeDailyLimit = formatOptionalCredits(item.DowngradeDailyLimitMC)
 
 	if err := json.Unmarshal(thresholdsBytes, &item.AlertThresholds); err != nil {
 		return nil, err

@@ -1,6 +1,6 @@
 # Phase 3 Design: Credit Enforcement, Budget Rules, Fleet Cutover
 
-Status: **3a implemented**; 3b–3e pending.
+Status: **3a implemented**; 3c–3e pending. 3b (downgrade) was dropped (P5).
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 3 and Phase 4.
 Builds on Phase 2 (`plans/credit-pricing/phase-2-design.md`, migrations 066–069).
 
@@ -14,6 +14,7 @@ These replace parts of the prompt. They were given in answer to the §8 stop-and
 | P2 | **Every tenant is converted; nobody opts in or out.** | The cutover tool has no tenant-approval step. Support-admin runs it, per tenant or for the whole fleet. §8.3 (tenants that never approve) no longer applies. |
 | P3 | **No pilot.** | Gate 3's "3 pilot tenants for one billing period" is waived. It is replaced by a staging run plus a fleet dry run with no errors (see "Gate 3 as amended"). Phases 3 and 4 merge: the fleet cutover is part of this phase. |
 | P4 | **Every tenant moves to the same-slug credit plan at cutover** (option C). The owner confirmed that no current subscription is sensitive, so the simplest mechanics were chosen (C2). | The current subscription is canceled and a new `active` subscription starts at once on the published credit version of the same plan slug and interval. The plan grant worker grants the first slice right away. That first period is free and *is* the compensation (Phase 4 item 3), so no separate compensation lot is granted. The new price is paid from the next renewal through the existing payment flow. |
+| P5 | **No `downgrade`** (2026-10-17). Budget rules offer only `block` and `alert`. | FR-8 (route to a cheaper model), the substitution headers, and the daily downgrade quota are not built; PR 3b is dropped. FR-10's tenant default `on_exceed` is dropped too: with only `alert` left as an alternative, a pool default of `alert` would mean unlimited debt, so an exhausted balance always blocks unless overage is on. |
 
 ## Current state (verified on `feat/credits-phase-2-to-main`)
 
@@ -60,15 +61,13 @@ Migration `070_credit_budget_rules.sql` adds the following to `budget_limit_rule
 | --- | --- | --- |
 | `limit_mc` | `bigint` | NULL |
 | `on_exceed` | `varchar` | `block` |
-| `downgrade_model` | `varchar` | NULL |
-| `downgrade_daily_limit_mc` | `bigint` | NULL |
 | `alert_thresholds` | `jsonb` | `[80,100]` |
 
-It also adds a check constraint on `on_exceed IN ('block','downgrade','alert')`.
+It also adds a check constraint on `on_exceed IN ('block','alert')`.
 
 - Backfill: `block_on_budget_exceed = true → block`, `false → alert`. This keeps behavior: rules that did not block before still do not block.
 - **API contract:**
-  - `limit` is a decimal string in credits (two decimals) and maps to `limit_mc`; `on_exceed` and the downgrade fields are new.
+  - `limit` is a decimal string in credits (two decimals) and maps to `limit_mc`; `on_exceed` and `alert_thresholds` are new.
   - `limit_to` (IRR) and `block_on_budget_exceed` keep working for one release.
   - A request that sets both `block_on_budget_exceed` and `on_exceed` inconsistently gets a 400 `budget_rule_inconsistent_exceed`.
 - **Which limit applies:** credit tenants enforce `limit_mc`. IRR tenants enforce `limit_to` as today. The cutover fills `limit_mc` from `limit_to` (§6).
@@ -83,17 +82,11 @@ It also adds a check constraint on `on_exceed IN ('block','downgrade','alert')`.
   - Response: HTTP 402 `{"error":{"type":"budget_exceeded","code":"budget_exceeded","scope":"<scope>"}}`, shaped for each surface: OpenAI-compatible, Anthropic-native, Gemini-native, TokenBazaar.
   - `scope` is the rule's applies-per (`tenant`, `user`, `team`, `org_unit`, `model`, `virtualaccount`), or `tenant_balance` for the pool.
   - The response never includes amounts or internal ids. The three `err.Error()` leaks are fixed in the same PR.
-- **`downgrade`** (FR-8, PR 3b):
-  - The reservation returns a typed `BudgetDowngradeError{RuleID, Model}`.
-  - The handler re-resolves routing for `downgrade_model` and reserves again. The triggering rule is excluded; the tenant pool, all other matching rules, and a daily downgrade-quota window `credit_downgrade:{tenant}:{rule}:{scope}:{YYYYMMDD}` are included.
-  - It sets `x-godarai-model-substituted` and `x-godarai-original-model`, and puts the same fields in the telemetry event.
-  - When the quota is exhausted, or the downgrade model is not available to the caller, the request is blocked.
-  - Save time: `downgrade_model` is validated against the tenant's available and virtual models.
 - **`alert`:**
   - The request is allowed.
   - Crossing a threshold emits one log line `budget_alert` with rule id, scope, window, and threshold, plus `godarai_budget_alerts_total{threshold}`.
   - Dedupe uses a Redis `SET NX` on `(rule, scope value, window, threshold)` with the window's TTL. Nothing is sent to users (P1).
-- **FR-10:** when the pool is exhausted and overage is off, the tenant default `credits.default_on_exceed` applies. It is a new entitlement, default `block`. `downgrade` at pool level uses `credits.default_downgrade_model`.
+- **Tenant balance:** an exhausted balance always blocks (scope `tenant_balance`), unless overage is on and its headroom is left (P5).
 
 ### 5. BYOK (FR-11)
 
@@ -126,7 +119,7 @@ All of it is in fa and en, RTL-correct, built from existing `components/ui` and 
 - **Depletion forecast:** from the last 7 days, with explicit empty and uncertain states.
 - **Credits saved by cache:** net of `semantic_cache` credits, with gross as secondary detail.
 - **Plan page:** add-on purchase, overage toggle, and default `on_exceed`.
-- **Budget rule form in credits:** with `on_exceed` and the downgrade fields. This includes updating `ruleValidation.ts`, the policy-rules simulator, and `loadtests/k6/budget-limit-rule.js`.
+- **Budget rule form in credits:** with `on_exceed` (`block` or `alert`) and the alert thresholds. This includes updating `ruleValidation.ts`, the policy-rules simulator, and `loadtests/k6/budget-limit-rule.js`.
 
 ### 9. Cutover tool and fleet cutover (Phase 3 item 9, Phase 4 items 2–4)
 
@@ -168,7 +161,7 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 
 ### 10. Docs
 
-- Update `cost-tracking.mdx`, `request-headers.mdx` (substitution headers), and `guides/budget-limiting.mdx` (credits, `on_exceed`, downgrade, the alert behavior under P1).
+- Update `cost-tracking.mdx`, `request-headers.mdx` (credit headers), and `guides/budget-limiting.mdx` (credits, `on_exceed`, the alert behavior under P1).
 - Add a `budget/me` reference page.
 
 ## Feature flags
@@ -176,14 +169,13 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 | Flag | Default | Purpose |
 | --- | --- | --- |
 | `BILLING_CREDIT_SIDE_USAGE_ENABLED` | off | Spend logs and commits for the judge and the semantic-cache embedding. |
-| `BILLING_CREDIT_DOWNGRADE_ENABLED` | off | `on_exceed = downgrade`. While it is off, downgrade rules act as `block`. |
 | `BILLING_CREDIT_OVERAGE_DEFAULT_CEILING_CREDITS` | 100000 | Headroom for overage with no cap. |
 | `BILLING_IRR_RUNTIME_ENABLED` | on | Phase 4 kill switch for the IRR path. |
 
 ## Rollout
 
 1. Merge PRs 3a–3d with all flags off. Nothing changes for IRR tenants.
-2. In staging: enable the ledger and enforcement, convert test tenants, and run end to end (purchase → grant → consume → expire → reconcile, block, downgrade, BYOK, side usage, rollback). Run the load and chaos tests below.
+2. In staging: enable the ledger and enforcement, convert test tenants, and run end to end (purchase → grant → consume → expire → reconcile, block, alert, BYOK, side usage, rollback). Run the load and chaos tests below.
 3. Publish the credit plan versions in support-admin.
 4. In production: enable the ledger and enforcement flags, then run the fleet dry run. Fix anything it reports.
 5. Execute the fleet cutover in batches. Watch reconciliation and the `budget_exceeded` rate after each batch.
@@ -196,14 +188,14 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 | PR | Content |
 | --- | --- |
 | 3a | Billing unit in the profile, the credit pool window and its seeding, the settled table, BYOK reservation, rules in credits (`limit_mc`, `on_exceed` block/alert), 402 shaping and the three leak fixes, alerts as logs and metrics. |
-| 3b | Downgrade, the substitution headers, and the downgrade quota. |
+| ~~3b~~ | Dropped (P5). |
 | 3c | Side usage (judge, semantic cache), and `GET /v1/budget/me`. |
 | 3d | Tenant-admin UI (balance, usage, forecast, cache savings, plan page, rule form) and docs. |
 | 3e | The cutover tool, the fleet page in support-admin, rollback, compensation, and deprecation. |
 
 ## Tests
 
-- **Unit:** mc estimation, window allowance math, every `on_exceed` branch on all four API surfaces, BYOK split, conversion rounding (wallet rounded down, rules rounded up), and the residue.
+- **Unit:** mc estimation, window allowance math, both `on_exceed` branches and the 402 shape on all four API surfaces, BYOK split, conversion rounding (wallet rounded down, rules rounded up), and the residue.
 - **Integration (Postgres + Redis):**
   - pool exhaustion → 402;
   - settle → re-seed → allowance stays correct across a month boundary;

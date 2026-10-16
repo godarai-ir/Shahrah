@@ -92,8 +92,8 @@ func TestResolveOnExceed(t *testing.T) {
 	t.Parallel()
 
 	yes, no := true, false
-	block, alert, downgrade := platform.BudgetOnExceedBlock, platform.BudgetOnExceedAlert, platform.BudgetOnExceedDowngrade
-	unknown := platform.BudgetOnExceed("pause")
+	block, alert := platform.BudgetOnExceedBlock, platform.BudgetOnExceedAlert
+	unknown, removed := platform.BudgetOnExceed("pause"), platform.BudgetOnExceed("downgrade")
 
 	cases := []struct {
 		name     string
@@ -106,12 +106,13 @@ func TestResolveOnExceed(t *testing.T) {
 		{name: "default is block", want: block},
 		{name: "legacy true", block: &yes, want: block},
 		{name: "legacy false keeps not blocking", block: &no, want: alert},
-		{name: "keep stored value", current: downgrade, want: downgrade},
-		{name: "explicit", onExceed: &downgrade, want: downgrade},
+		{name: "keep stored value", current: alert, want: alert},
+		{name: "explicit", onExceed: &alert, want: alert},
 		{name: "consistent pair", onExceed: &alert, block: &no, want: alert},
 		{name: "inconsistent pair", onExceed: &alert, block: &yes, err: ErrInconsistentOnExceed},
-		{name: "downgrade can block", onExceed: &downgrade, block: &no, err: ErrInconsistentOnExceed},
+		{name: "explicit block with legacy false", onExceed: &block, block: &no, err: ErrInconsistentOnExceed},
 		{name: "unknown", onExceed: &unknown, err: ErrInvalidOnExceed},
+		{name: "downgrade is not offered", onExceed: &removed, err: ErrInvalidOnExceed},
 	}
 
 	for _, tc := range cases {

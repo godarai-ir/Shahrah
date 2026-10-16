@@ -18,8 +18,6 @@ type BudgetOnExceed string
 const (
 	// BudgetOnExceedBlock refuses the request with HTTP 402.
 	BudgetOnExceedBlock BudgetOnExceed = "block"
-	// BudgetOnExceedDowngrade routes the request to the rule's downgrade model.
-	BudgetOnExceedDowngrade BudgetOnExceed = "downgrade"
 	// BudgetOnExceedAlert allows the request and records an alert.
 	BudgetOnExceedAlert BudgetOnExceed = "alert"
 )
@@ -50,16 +48,11 @@ type BudgetLimitRule struct {
 	// Limit is the credit limit as a decimal string with two decimals.
 	Limit *string `json:"limit,omitempty"`
 	// LimitMC is Limit in millicredits; credit tenants enforce it.
-	LimitMC  *int64         `json:"limit_mc,omitempty"`
-	OnExceed BudgetOnExceed `json:"on_exceed,omitempty"`
-	// DowngradeModel is the model used when OnExceed is downgrade.
-	DowngradeModel string `json:"downgrade_model,omitempty"`
-	// DowngradeDailyLimit caps downgraded spend per scope value and day, in credits.
-	DowngradeDailyLimit   *string   `json:"downgrade_daily_limit,omitempty"`
-	DowngradeDailyLimitMC *int64    `json:"downgrade_daily_limit_mc,omitempty"`
-	AlertThresholds       []int     `json:"alert_thresholds,omitempty"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	LimitMC         *int64         `json:"limit_mc,omitempty"`
+	OnExceed        BudgetOnExceed `json:"on_exceed,omitempty"`
+	AlertThresholds []int          `json:"alert_thresholds,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type CreateBudgetLimitRuleRequest struct {
@@ -76,8 +69,6 @@ type CreateBudgetLimitRuleRequest struct {
 	Alerts              map[string]interface{} `json:"alerts,omitempty"`
 	Limit               *string                `json:"limit,omitempty"`
 	OnExceed            *BudgetOnExceed        `json:"on_exceed,omitempty"`
-	DowngradeModel      *string                `json:"downgrade_model,omitempty"`
-	DowngradeDailyLimit *string                `json:"downgrade_daily_limit,omitempty"`
 	AlertThresholds     []int                  `json:"alert_thresholds,omitempty"`
 }
 
@@ -94,8 +85,6 @@ type UpdateBudgetLimitRuleRequest struct {
 	Alerts              map[string]interface{} `json:"alerts,omitempty"`
 	Limit               *string                `json:"limit,omitempty"`
 	OnExceed            *BudgetOnExceed        `json:"on_exceed,omitempty"`
-	DowngradeModel      *string                `json:"downgrade_model,omitempty"`
-	DowngradeDailyLimit *string                `json:"downgrade_daily_limit,omitempty"`
 	AlertThresholds     []int                  `json:"alert_thresholds,omitempty"`
 }
 

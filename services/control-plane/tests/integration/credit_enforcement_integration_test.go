@@ -202,9 +202,9 @@ func TestIntegration_BudgetRulesStoreCreditFields(t *testing.T) {
 	})
 	require.ErrorIs(t, err, credits.ErrInconsistentOnExceed)
 
-	downgrade := platform.BudgetOnExceedDowngrade
+	downgrade := platform.BudgetOnExceed("downgrade")
 	_, err = f.store.UpdateBudgetLimitRuleByRuleID(ctx, f.tenantID, "credit-rule", platform.UpdateBudgetLimitRuleRequest{OnExceed: &downgrade})
-	require.ErrorIs(t, err, credits.ErrDowngradeModelRequired)
+	require.ErrorIs(t, err, credits.ErrInvalidOnExceed, "downgrade is not an exceed behavior")
 
 	cleared := ""
 	updated, err := f.store.UpdateBudgetLimitRuleByRuleID(ctx, f.tenantID, "credit-rule", platform.UpdateBudgetLimitRuleRequest{Limit: &cleared})
