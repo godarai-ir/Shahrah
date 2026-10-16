@@ -29,6 +29,8 @@ var (
 	ErrInvalidCreditAdjustment           = errors.New("adjustment needs a non-zero amount with at most two decimals, a reason, and an idempotency key")
 	ErrBillingUnitChangeDisabled         = errors.New("credit billing is not enabled on this deployment")
 	ErrInvalidOverageCap                 = errors.New("overage cap must be a positive amount of credits with at most two decimals")
+	ErrCreditConversionNothingToDo       = errors.New("the tenant is already billed in credits and has no IRR balance to convert")
+	ErrWalletTopUpForCreditTenant        = errors.New("credit tenants buy credit packs instead of topping up the IRR wallet")
 	ErrSubscriptionNotFound              = errors.New("tenant subscription not found")
 	ErrSubscriptionPaymentIntentNotFound = errors.New("subscription payment intent not found")
 	ErrTenantQuotaExceeded               = errors.New("tenant quota exceeded")

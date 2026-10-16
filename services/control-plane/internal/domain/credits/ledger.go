@@ -36,6 +36,9 @@ const (
 	EntryRefund     EntryKind = "refund"
 	EntryExpire     EntryKind = "expire"
 	EntryAdjust     EntryKind = "adjust"
+	// EntryConvert moves value between a tenant's IRR wallet and its credits
+	// during the credit cutover or its rollback.
+	EntryConvert EntryKind = "convert"
 )
 
 // Billing units stored in tenants.billing_unit.

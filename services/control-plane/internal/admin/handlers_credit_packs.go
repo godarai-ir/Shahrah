@@ -309,6 +309,8 @@ func creditPackErrorStatus(err error) (int, string) {
 		return fiber.StatusForbidden, "overage_not_allowed"
 	case errors.Is(err, billingdomain.ErrInvalidOverageCap):
 		return fiber.StatusBadRequest, "invalid_overage_cap"
+	case errors.Is(err, billingdomain.ErrWalletTopUpForCreditTenant):
+		return fiber.StatusConflict, "credit_billing_uses_packs"
 	default:
 		return creditAdminErrorStatus(err)
 	}

@@ -286,6 +286,12 @@ func (s *CreditLedgerRepository) AdjustCredits(ctx context.Context, tenantID str
 }
 
 func debitAdjustmentTx(ctx context.Context, tx pgx.Tx, tenantID string, debitMC int64, key, reason, actor string, now time.Time) (bool, error) {
+	return debitCreditsTx(ctx, tx, tenantID, credits.EntryAdjust, debitMC, key, reason, actor, now)
+}
+
+// debitCreditsTx writes a manual debit of kind across the tenant's lots in
+// consumption order. Repeating the key debits nothing.
+func debitCreditsTx(ctx context.Context, tx pgx.Tx, tenantID string, kind credits.EntryKind, debitMC int64, key, reason, actor string, now time.Time) (bool, error) {
 	entryID := uuid.NewString()
 
 	claimed, err := claimCreditKeyTx(ctx, tx, key, entryID, tenantID, now)
@@ -298,7 +304,7 @@ func debitAdjustmentTx(ctx context.Context, tx pgx.Tx, tenantID string, debitMC 
 	}
 
 	if entryErr := insertCreditEntryTx(ctx, tx, creditEntry{
-		EntryID: entryID, TenantID: tenantID, Kind: credits.EntryAdjust, AmountMC: -debitMC,
+		EntryID: entryID, TenantID: tenantID, Kind: kind, AmountMC: -debitMC,
 		IdempotencyKey: key, OccurredAt: now, Reason: reason, Actor: actor,
 	}); entryErr != nil {
 		return false, entryErr

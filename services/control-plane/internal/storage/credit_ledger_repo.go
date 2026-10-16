@@ -140,7 +140,7 @@ func validateCreditGrant(grant CreditGrant) error {
 	switch grant.Kind {
 	case credits.EntryPurchase, credits.EntryPlanGrant, credits.EntryPromoGrant, credits.EntryRefund:
 		return nil
-	case credits.EntryAdjust:
+	case credits.EntryAdjust, credits.EntryConvert:
 		if strings.TrimSpace(grant.Reason) == "" {
 			return fmt.Errorf("%w: adjustments need a reason", ErrInvalidCreditGrant)
 		}

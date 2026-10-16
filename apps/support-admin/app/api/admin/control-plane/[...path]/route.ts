@@ -151,8 +151,8 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
 }
 
 // Credit billing: reads need billing or wallet read, corrections need wallet
-// adjust, catalog changes need catalog write, and the list price, which changes
-// what every credit tenant pays, needs platform admin.
+// adjust, catalog changes need catalog write, and the list price and the fleet
+// conversion, which change what every tenant pays, need platform admin.
 function creditPermission(joined: string, method: string): AdminPermission | undefined {
   if (joined.startsWith('tenants/') && joined.includes('/credits')) {
     if (method === 'GET') return 'wallet:read';
@@ -161,6 +161,7 @@ function creditPermission(joined: string, method: string): AdminPermission | und
   }
   if (!joined.startsWith('credits/')) return undefined;
   if (method === 'GET') return 'billing:read';
+  if (joined.startsWith('credits/conversions')) return 'platform:admin';
   if (joined.startsWith('credits/price-revisions')) return 'platform:admin';
   return 'catalog:write';
 }

@@ -8,6 +8,7 @@ import {
   formatToman, type CreditPackVersion, type CreditPriceRevision, type CreditPriceStatus, type CreditRateCardVersion,
 } from '@/lib/support-credits';
 import { controlPlaneRequest, formatDate } from '@/lib/support-tenants';
+import { FleetConversion } from './fleet-conversion';
 
 /** Credit price policy, rate-card multipliers, and the add-on pack catalog. */
 export function CreditsWorkspace() {
@@ -86,9 +87,11 @@ export function CreditsWorkspace() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div><h1 className="text-2xl font-semibold text-zinc-50">Credits</h1><p className="text-sm text-zinc-400">List price policy, rate-card multipliers, and add-on packs. Every change is audited.</p></div>
+      <div><h1 className="text-2xl font-semibold text-zinc-50">Credits</h1><p className="text-sm text-zinc-400">Fleet conversion, list price policy, rate-card multipliers, and add-on packs. Every change is audited.</p></div>
       {error ? <p role="alert" className="rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</p> : null}
       {message ? <p role="status" className="rounded-md border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">{message}</p> : null}
+
+      <FleetConversion />
 
       <section className="grid gap-4 lg:grid-cols-3">
         <Card><p className="text-sm text-zinc-400">Active list price</p><p className="mt-2 text-xl font-semibold">{price?.active ? formatToman(price.active.price_toman_per_credit) : '—'}</p><p className="mt-1 text-xs text-zinc-500">Base {price?.active ? formatToman(price.active.base_usd_toman) : '—'} per USD · ±{price?.active?.band_pct ?? '10'}% band</p></Card>

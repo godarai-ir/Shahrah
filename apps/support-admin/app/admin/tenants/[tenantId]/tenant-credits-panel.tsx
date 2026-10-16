@@ -8,6 +8,7 @@ import {
   formatCredits, parseCreditAmount, type CreditLedgerEntry, type CreditLot, type CreditLotAllocation, type TenantCreditOverview,
 } from '@/lib/support-credits';
 import { controlPlaneRequest, formatDate, formatIRR } from '@/lib/support-tenants';
+import { TenantConversionCard } from './tenant-conversion-card';
 
 const LEDGER_PAGE = 50;
 
@@ -77,23 +78,6 @@ export function TenantCreditsPanel({ tenantId, tenantSlug }: { tenantId: string;
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Adjustment failed'); }
   }
 
-  async function switchBillingUnit() {
-    if (!overview) return;
-    const target = overview.billing_unit === 'credit' ? 'irr' : 'credit';
-    const reason = window.prompt(`Reason to bill ${tenantSlug} in ${target === 'credit' ? 'credits' : 'IRR'}:`)?.trim();
-    if (!reason) return;
-    const warning = target === 'credit'
-      ? 'The tenant leaves IRR wallet settlement and is charged from its credit lots. Gateway enforcement stays IRR until Phase 3.'
-      : 'The tenant goes back to IRR wallet settlement. Credit lots and the ledger are kept.';
-    if (!window.confirm(`${warning}\n\nSwitch ${tenantSlug} to ${target}?`)) return;
-    try {
-      const next = await controlPlaneRequest<TenantCreditOverview>(`tenants/${tenantId}/credits/billing-unit`, {
-        method: 'PUT', body: JSON.stringify({ billing_unit: target, reason }),
-      });
-      setOverview(next); setMessage(`Billing unit set to ${target}.`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Billing unit change failed'); }
-  }
-
   if (!overview) return error ? <p role="alert" className="text-sm text-red-300">{error}</p> : <p className="text-sm text-zinc-400">Loading credits…</p>;
 
   return (
@@ -102,11 +86,13 @@ export function TenantCreditsPanel({ tenantId, tenantSlug }: { tenantId: string;
       {message ? <p role="status" className="rounded-md border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">{message}</p> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card><p className="text-sm text-zinc-400">Billing unit</p><p className="mt-2 text-xl font-semibold uppercase">{overview.billing_unit}</p><Button className="mt-3" onClick={() => void switchBillingUnit()}>Switch to {overview.billing_unit === 'credit' ? 'IRR' : 'credits'}</Button></Card>
+        <Card><p className="text-sm text-zinc-400">Billing unit</p><p className="mt-2 text-xl font-semibold uppercase">{overview.billing_unit}</p><p className="mt-1 text-xs text-zinc-500">Changed only by a conversion below</p></Card>
         <Card><p className="text-sm text-zinc-400">Available</p><p className="mt-2 text-xl font-semibold">{formatCredits(overview.available_credits)}</p><p className="mt-1 text-xs text-zinc-500">Across unexpired lots</p></Card>
         <Card><p className="text-sm text-zinc-400">Debt</p><p className={`mt-2 text-xl font-semibold ${Number(overview.debt_credits) > 0 ? 'text-amber-300' : ''}`}>{formatCredits(overview.debt_credits)}</p><p className="mt-1 text-xs text-zinc-500">Repaid by the next grant</p></Card>
         <Card><p className="text-sm text-zinc-400">Overage</p><p className="mt-2 text-xl font-semibold">{overview.settings.overage_enabled ? 'Enabled' : 'Off'}</p><p className="mt-1 text-xs text-zinc-500">{overview.settings.overage_allowed ? 'Allowed by plan' : 'Not allowed by plan'}{overview.settings.overage_cap_credits ? ` · cap ${formatCredits(overview.settings.overage_cap_credits)}` : ''}</p></Card>
       </div>
+
+      <TenantConversionCard tenantId={tenantId} tenantSlug={tenantSlug} onChanged={() => void load()} />
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card><h2 className="text-lg font-semibold">Manual credit adjustment</h2><p className="mt-1 text-sm text-zinc-400">Positive amounts create a lot; negative amounts are spent from lots in consumption order.</p><form className="mt-4 flex flex-col gap-3" onSubmit={submitAdjustment}><Input inputMode="decimal" placeholder="Credits, e.g. 100 or -12.50" value={adjustment.amount} onChange={(e) => setAdjustment({ ...adjustment, amount: e.target.value })} /><Input placeholder="Required reason" value={adjustment.reason} onChange={(e) => setAdjustment({ ...adjustment, reason: e.target.value })} /><label className="text-xs text-zinc-400">Expiry for granted credits (optional)<Input type="date" value={adjustment.expiresAt} onChange={(e) => setAdjustment({ ...adjustment, expiresAt: e.target.value })} /></label><Button type="submit">Review adjustment</Button></form></Card>

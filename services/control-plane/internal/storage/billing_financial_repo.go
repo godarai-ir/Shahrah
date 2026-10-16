@@ -27,6 +27,10 @@ func (s *FinancialRepository) CreateBankTransferRequest(ctx context.Context, ten
 		return s.createCreditPackBankTransfer(ctx, tenantID, req, actor)
 	}
 
+	if err := refuseCreditTenantWalletTopUp(ctx, s.pool, tenantID); err != nil {
+		return nil, err
+	}
+
 	meta := marshalJSONBestEffort(req.Metadata)
 
 	return scanBankTransferRequest(s.pool.QueryRow(ctx, `

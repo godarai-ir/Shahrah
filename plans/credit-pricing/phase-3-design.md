@@ -1,6 +1,6 @@
 # Phase 3 Design: Credit Enforcement, Budget Rules, Fleet Cutover
 
-Status: **3a and 3c implemented**; 3d–3e pending. 3b (downgrade) was dropped (P5).
+Status: **3a, 3c, and 3e implemented**; 3d (tenant-admin UI and docs) pending. 3b (downgrade) was dropped (P5).
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 3 and Phase 4.
 Builds on Phase 2 (`plans/credit-pricing/phase-2-design.md`, migrations 066–069).
 
@@ -249,6 +249,45 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
   - `tenant_balance` (remaining and reserved this month) is included for `tenant_admin`, `admin`, `billing:read`, and `billing:manage`.
   - IRR tenants get 409 `credit_billing_required`.
   - Data comes from the Redis windows plus a pool-allowance read when the month has no window yet. The response is `no-store`.
+
+## Implementation notes (3e)
+
+**Storage** is in `credit_conversion_repo.go`, `credit_conversion_preview_repo.go`, and `credit_conversion_rollback_repo.go`. Migration `071` adds the ledger kind `convert` (non-zero, reason required) and `credit_conversions`.
+
+**Conversion to credits** (`ConvertTenantToCredits`):
+1. It first settles the tenant's IRR wallet windows for this and last month. After the cutover, wallet settlement no longer debits the tenant, so unsettled IRR spend would otherwise be lost.
+2. In one transaction, with the tenant row locked:
+   - **Wallet.** `floor(wallet / (10 × price))` credits become a `migration` lot with no expiry, under key `convert:{tenant}:{n}:lot`. The residue below one credit **stays in the IRR wallet** instead of being forfeited, which follows invariant 8. A `credit_conversion_out` wallet transaction debits the converted part.
+   - **Rules.** Every rule with `limit_to > 0` and no `limit_mc` gets `limit_mc = ceil(limit_to / (10 × price))` whole credits.
+   - **Plan (P4).** The active subscription is canceled and replaced by an `active` one on the published version of the same plan that carries `credits.monthly_grant`, for the same interval from now. The event is `credit_cutover`. A tenant with no subscription, or a plan with no published credit version, keeps its subscription; the dry run warns about it.
+   - **Then:** `billing_unit = credit`, a `credit_conversions` row with the price and revision, and the `credit.converted` audit event.
+3. After commit, it refreshes the entitlement cache, the wallet cache, the credit pool window, and the runtime profile.
+
+**Repeats are safe.** Two conversions running at once serialize on the tenant row. The second sees `credit` and an empty wallet and gets `credit_conversion_nothing_to_do`. A credit tenant whose wallet received a top-up after the cutover is converted again, wallet only, as conversion `n+1`.
+
+**Rollback** (`RollbackCreditConversion`, always allowed), all at the price of the last conversion to credits:
+1. A `convert` grant repays any debt.
+2. A `convert` debit empties every lot.
+3. The IRR value of the remaining credits is credited to the wallet. If the debt was worth more, the difference is debited from the wallet, as far as the wallet covers it; the rest is recorded as `uncollected_irr`.
+4. `billing_unit = irr` and the `credit.rolled_back` audit event. The plan and the credit limits stay.
+
+**Fleet** (`ConvertCreditFleet`): IRR tenants oldest first, batches of 1–100 (default 20). Each tenant is its own transaction. A failure is reported with a stable code and the error is logged, never returned.
+
+**Guards:**
+- IRR wallet top-ups and non-pack bank transfers are refused for credit tenants with 409 `credit_billing_uses_packs`. The support-admin wallet adjustment still works.
+- The Phase 2 raw billing-unit switch (`PUT …/credits/billing-unit`) is removed. It flipped the unit without moving the wallet, so conversion and rollback are now the only ways to change the unit.
+
+**API** (support-admin, `/api/v1/platform`):
+- `GET credits/conversions/preview` and `POST credits/conversions/fleet`.
+- `GET|POST tenants/:id/credits/conversion` and `POST tenants/:id/credits/conversion/rollback`.
+- Fleet and per-tenant conversion need `BILLING_CREDIT_LEDGER_ENABLED`. Rollback does not. In the support-admin proxy, conversions need `platform:admin` and reads need `billing:read` or `wallet:read`.
+
+**UI** (support-admin):
+- The Credits page has a "Fleet conversion" section: dry-run table, warning counts, and batch execution with a reason.
+- The tenant Credits tab replaces the unit switch with a conversion card: dry run, convert or roll back with a reason, and history.
+- Verified in a browser against a local control plane: dry run, convert, rollback (wallet restored to the rial), and a 2-tenant fleet batch.
+
+**Known gap:** a request that reserved in the IRR window just before the cutover and commits after it is never charged. That window is a few seconds per tenant and is accepted.
 
 ## Decisions made (conservative defaults, easy to flip)
 

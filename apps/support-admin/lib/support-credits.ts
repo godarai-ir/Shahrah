@@ -118,3 +118,66 @@ export function formatToman(value: number | string): string {
   if (!Number.isFinite(parsed)) return String(value);
   return `${new Intl.NumberFormat('en-US').format(Math.round(parsed))} toman`;
 }
+
+export type CreditConversionPreview = {
+  tenant_id: string;
+  tenant_slug: string;
+  billing_unit: string;
+  price_toman_per_credit: number;
+  wallet_irr: number;
+  unsettled_irr: number;
+  credits: string;
+  residue_irr: number;
+  rules_to_convert: number;
+  plan_slug?: string;
+  billing_interval?: string;
+  new_plan_price_irr?: number;
+  new_plan_monthly_credits?: string;
+  warnings: string[];
+};
+
+export type CreditConversion = {
+  id: string;
+  tenant_id: string;
+  sequence: number;
+  direction: 'to_credit' | 'to_irr';
+  price_toman_per_credit: number;
+  wallet_irr: number;
+  converted_irr: number;
+  residue_irr: number;
+  credits: string;
+  debt: string;
+  uncollected_irr: number;
+  rules_converted: number;
+  plan_slug?: string;
+  subscription_id?: string;
+  actor: string;
+  reason: string;
+  created_at: string;
+};
+
+export type TenantCreditConversionStatus = { preview: CreditConversionPreview; conversions: CreditConversion[] };
+
+export type CreditFleetConversionResult = {
+  converted: CreditConversion[];
+  failed: { tenant_id: string; tenant_slug: string; error: string }[];
+  remaining: number;
+};
+
+const CONVERSION_WARNINGS: Record<string, string> = {
+  no_subscription: 'No active subscription: the plan is not moved.',
+  no_published_credit_plan: 'The plan has no published credit version: publish it first or the plan is not moved.',
+  pending_wallet_topup: 'A wallet top-up is pending; if it completes later, convert the tenant again.',
+  pending_bank_transfer: 'A wallet bank transfer awaits review; approving it later needs another conversion.',
+  unsettled_irr_usage: 'IRR usage from this month is settled from the wallet first.',
+  already_credit: 'Already billed in credits; only a remaining wallet balance can be converted.',
+};
+
+export function conversionWarning(code: string): string {
+  return CONVERSION_WARNINGS[code] ?? code;
+}
+
+/** Warnings that leave the tenant on its current plan instead of moving it. */
+export function blocksPlanMove(preview: CreditConversionPreview): boolean {
+  return preview.warnings.some((code) => code === 'no_subscription' || code === 'no_published_credit_plan');
+}

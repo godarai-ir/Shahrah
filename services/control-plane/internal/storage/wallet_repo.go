@@ -258,7 +258,7 @@ func scanWalletTransactionRow(row pgx.Row) (*platform.Transaction, error) {
 
 func isWalletDebitType(txType string) bool {
 	switch strings.ToLower(strings.TrimSpace(txType)) {
-	case "usage_debit", "invoice_adjustment", "manual_debit", "invoice_debit", "consumption", "withdrawal":
+	case "usage_debit", "invoice_adjustment", "manual_debit", "invoice_debit", "consumption", "withdrawal", walletTxCreditConversionOut:
 		return true
 	default:
 		return false
