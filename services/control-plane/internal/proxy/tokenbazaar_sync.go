@@ -103,6 +103,8 @@ func tokenBazaarHandleSync(
 		TenantID:       authInfo.TenantID,
 		OrganizationID: authInfo.OrganizationID,
 		TeamID:         authInfo.TeamID,
+		UserID:         authInfo.UserID,
+		OrgUnitID:      authInfo.OrgUnitID,
 		Model:          requestedModel,
 		InputTokens:    finalized.InputTokens,
 		OutputTokens:   finalized.OutputTokens,

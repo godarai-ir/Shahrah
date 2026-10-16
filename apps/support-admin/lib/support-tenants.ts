@@ -54,8 +54,8 @@ export async function controlPlaneRequest<T>(path: string, init?: RequestInit): 
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     cache: 'no-store',
   });
-  const payload = await response.json().catch(() => ({})) as { error?: string; message?: string };
-  if (!response.ok) throw new Error(payload.error || payload.message || `Request failed (${response.status})`);
+  const payload = await response.json().catch(() => ({})) as { error?: string | { message?: string; code?: string }; message?: string };
+  if (!response.ok) throw new Error(controlPlaneErrorMessage(payload) || `Request failed (${response.status})`);
   return payload as T;
 }
 
@@ -66,4 +66,11 @@ export function formatIRR(value: number): string {
 export function formatDate(value?: string): string {
   if (!value) return 'Unavailable';
   return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+/** Control-plane errors are either `{error: "text"}` or `{error: {code, message}}`. */
+export function controlPlaneErrorMessage(payload: { error?: string | { message?: string; code?: string }; message?: string }): string | undefined {
+  if (typeof payload.error === 'string') return payload.error;
+  if (payload.error && typeof payload.error === 'object') return payload.error.message || payload.error.code;
+  return payload.message;
 }

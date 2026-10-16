@@ -146,6 +146,7 @@ type userStore interface {
 	AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
 	UpdateTenantAdminUserProfile(ctx context.Context, tenantSlug string, userID string, req platform.UpdateTenantAdminUserProfileRequest) (*platform.TenantAdminUser, error)
+	GetTenantSeatUsage(ctx context.Context, tenantID string) (*platform.TenantSeatUsage, error)
 }
 
 type roleStore interface {
@@ -250,12 +251,10 @@ type planStore interface {
 	UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error)
 	UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error)
 	DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type entitlementResolverStore interface {
 	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type supportTenantOperationsStore interface {
@@ -340,6 +339,12 @@ type BillingDependencies struct {
 	CreditUsage creditUsageStore
 	// CreditShadowEnabled reports whether shadow credits are being computed.
 	CreditShadowEnabled bool
+	// CreditPacks sells add-on packs; nil disables the credit pack endpoints.
+	CreditPacks creditPackStore
+	// CreditAdmin backs the support-admin credit endpoints.
+	CreditAdmin creditAdminStore
+	// CreditLedgerEnabled allows moving tenants to credit billing.
+	CreditLedgerEnabled bool
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -404,6 +409,10 @@ type billingState struct {
 	payment      PaymentConfig
 	creditUsage  creditUsageStore
 	creditShadow bool
+	creditPacks  creditPackStore
+	creditAdmin  creditAdminStore
+	// creditLedgerEnabled allows support-admin to move tenants to credit billing.
+	creditLedgerEnabled bool
 }
 
 type onboardingState struct {
@@ -466,6 +475,10 @@ func New(deps Dependencies) *Handlers {
 			payment:      deps.Billing.Payment.withDefaults(),
 			creditUsage:  deps.Billing.CreditUsage,
 			creditShadow: deps.Billing.CreditShadowEnabled,
+			creditPacks:  deps.Billing.CreditPacks,
+			creditAdmin:  deps.Billing.CreditAdmin,
+
+			creditLedgerEnabled: deps.Billing.CreditLedgerEnabled,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

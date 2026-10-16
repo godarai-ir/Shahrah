@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType } from "react";
 import { BarChart3, CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
@@ -16,6 +17,7 @@ import { buildControlPlaneBillingSummaryPath, buildControlPlaneCreditSummaryPath
 import { parseBillingSummary, parseCreditUsageSummary, parseWallet } from "@/features/billing/api";
 import { CreditShadowCard } from "@/features/billing/CreditShadowCard";
 import { resolveLocale } from "@/lib/locale";
+import { buildApexHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,7 @@ export default async function BillingDashboardPage() {
   const summary = summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null;
   const creditSummary = creditSummaryResponse.ok ? parseCreditUsageSummary(creditSummaryResponse.payload) : null;
   const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
+  const changelogHref = buildApexHref(await headers(), tenantSlug, "/pricing/changelog");
 
   return (
     <AdminShell
@@ -78,6 +81,7 @@ export default async function BillingDashboardPage() {
           <CreditShadowCard
             summary={creditSummary}
             locale={locale}
+            changelog={{ href: changelogHref, label: t("credits.changelog") }}
             labels={{
               title: t("credits.title"),
               description: t("credits.description"),

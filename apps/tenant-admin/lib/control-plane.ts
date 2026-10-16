@@ -711,6 +711,15 @@ function extractErrorMessage(payload: unknown): string | undefined {
   return undefined;
 }
 
+/** Reads a stable string error code (for example `plan_user_limit_reached`) from a control-plane error payload. */
+export function readUpstreamErrorCode(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code.trim() ? code.trim() : undefined;
+}
+
 function controlPlaneJSONResponse(upstream: ControlPlaneResponse, exposedHeaders?: string[]) {
   const headers = new Headers();
   copySafeOperationalHeaders(new Headers(upstream.responseHeaders), headers, exposedHeaders);
@@ -721,6 +730,7 @@ function controlPlaneJSONResponse(upstream: ControlPlaneResponse, exposedHeaders
           message:
             upstream.errorMessage ??
             `خطا در ارتباط با کنترل‌پلین (${upstream.status})`,
+          code: readUpstreamErrorCode(upstream.payload),
         },
         details: upstream.payload,
       },

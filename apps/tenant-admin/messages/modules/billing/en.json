@@ -245,6 +245,7 @@
     "noTeam": "No team",
     "emptyTitle": "No usage yet",
     "emptyDescription": "Once a request is sent this month, its credit equivalent appears here.",
-    "requestCount": "{count} requests"
+    "requestCount": "{count} requests",
+    "changelog": "Credit price and rate-card changelog"
   }
 }

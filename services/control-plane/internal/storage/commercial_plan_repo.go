@@ -427,6 +427,10 @@ func (s *SubscriptionRepository) ChangeTenantSubscription(ctx context.Context, t
 		return nil, err
 	}
 
+	if fitErr := s.ensurePlanFitsSeats(ctx, tenantID, target.Versions[0].ID); fitErr != nil {
+		return nil, fitErr
+	}
+
 	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
 	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
 		return nil, currentErr
@@ -940,19 +944,6 @@ func (s *EntitlementRepository) DeleteTenantEntitlementOverride(ctx context.Cont
 	return s.subscriptions.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
 	})
-}
-
-func (s *EntitlementRepository) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(1)
-		FROM users
-		WHERE tenant_id = $1::uuid AND COALESCE(active, true) = true
-	`, tenantID).Scan(&count); err != nil {
-		return 0, err
-	}
-
-	return count, nil
 }
 
 // ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.

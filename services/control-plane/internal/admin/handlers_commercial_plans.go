@@ -297,6 +297,10 @@ func (h *Handlers) ChangeTenantSubscription(c *fiber.Ctx) error {
 	callbackURL := strings.TrimSuffix(resolveExternalBaseURL(c), "/") + "/api/v1/subscription/payment/callback/" + providerName
 
 	result, err := store.PrepareTenantSubscriptionChange(c.Context(), currentTenant.ID, req, callbackURL, returnURL)
+	if errors.Is(err, billingdomain.ErrPlanUserLimitReached) {
+		return planUserLimitReached(c)
+	}
+
 	if err != nil {
 		return mapPlanStoreError(err)
 	}

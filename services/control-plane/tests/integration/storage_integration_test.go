@@ -1683,8 +1683,13 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
 	ctx := context.Background()
+	// The credit ledger refuses TRUNCATE unless the session opts in for maintenance.
 	_, err := pool.Exec(ctx, `
+		SET LOCAL shahrah.credit_ledger_maintenance = 'on';
 		TRUNCATE TABLE
+			credit_ledger,
+			credit_ledger_keys,
+			credit_settlement_cursors,
 			tenant_onboarding_requests,
 			wallet_transactions,
 			wallets,

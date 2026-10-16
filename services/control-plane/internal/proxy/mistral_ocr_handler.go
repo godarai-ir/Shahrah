@@ -235,7 +235,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: requestedModel,
+		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, UserID: authInfo.UserID, OrgUnitID: authInfo.OrgUnitID, Model: requestedModel,
 		CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR, ResponseTimeMS: responseTimeMS,
 		Status: "success", RequestMetadata: enrichPricingMetadata(tunnelRequest.RequestMetadata, authInfo, requestedModel),
 		CompletionStart: startedAt, CompletionEnd: time.Now(),
