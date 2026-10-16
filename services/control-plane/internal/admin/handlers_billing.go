@@ -48,6 +48,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 		req.AmountIRR = amountIRR
 		req.TrackingNumber = strings.TrimSpace(firstFormValue(form.Value, "tracking_number"))
 		req.BankTransactionDateJalali = strings.TrimSpace(firstFormValue(form.Value, "bank_transaction_date_jalali"))
+		req.CreditPackOrderID = strings.TrimSpace(firstFormValue(form.Value, "credit_pack_order_id"))
 
 		receipts := form.File["receipt_image"]
 		if len(receipts) > 1 {
@@ -101,7 +102,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 			h.supportFiles.DeleteObject(context.WithoutCancel(c.Context()), receipt.ObjectKey)
 		}
 
-		return err
+		return creditPackError(c, err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(item)
@@ -228,6 +229,10 @@ func (h *Handlers) reviewPlatformBankTransfer(c *fiber.Ctx, approve bool) error 
 		item, err = h.wallets.ApproveBankTransferRequest(c.Context(), c.Params("tenantID"), c.Params("requestID"), req, supportActor(c))
 	} else {
 		item, err = h.wallets.RejectBankTransferRequest(c.Context(), c.Params("tenantID"), c.Params("requestID"), req, supportActor(c))
+	}
+
+	if status, _ := creditPackErrorStatus(err); status != 0 {
+		return creditPackError(c, err)
 	}
 
 	if err != nil {

@@ -20,6 +20,7 @@ const staticRoutes = [
   "/features/security",
   "/on-premise",
   "/pricing",
+  "/pricing/changelog",
   "/privacy",
   "/signup",
   "/terms",

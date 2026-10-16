@@ -25,6 +25,10 @@ func (s *SubscriptionRepository) PrepareTenantSubscriptionChange(ctx context.Con
 		return nil, err
 	}
 
+	if fitErr := s.ensurePlanFitsSeats(ctx, tenantID, target.Versions[0].ID); fitErr != nil {
+		return nil, fitErr
+	}
+
 	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
 	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
 		return nil, currentErr

@@ -437,6 +437,8 @@ func (h *ImagesHandler) handleSync(
 		TenantID:        authInfo.TenantID,
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
+		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           requestedModel,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,

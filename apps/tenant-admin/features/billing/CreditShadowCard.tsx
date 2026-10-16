@@ -1,6 +1,8 @@
 import { Coins } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+
 import { AppCard } from "@/components/app-ui/AppCard";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
 import { EmptyState } from "@/components/app-ui/EmptyState";
@@ -31,13 +33,15 @@ type CreditShadowCardProps = {
   labels: CreditShadowCardLabels;
   locale: AppLocale;
   limit?: number;
+  /** The public pricing changelog, where credit price and rate-card changes are announced. */
+  changelog?: { href: string; label: string };
 };
 
 /**
  * Shows shadow-mode credit usage next to the IRR billing figures. Credits are
  * computed for comparison only and are never deducted while shadow mode is on.
  */
-export function CreditShadowCard({ summary, labels, locale, limit = 5 }: CreditShadowCardProps) {
+export function CreditShadowCard({ summary, labels, locale, limit = 5, changelog }: CreditShadowCardProps) {
   const formatCredits = (value: string) => `${formatCreditAmount(value, locale)} ${labels.unit}`;
   const isEmpty = summary.request_count === 0;
 
@@ -46,6 +50,11 @@ export function CreditShadowCard({ summary, labels, locale, limit = 5 }: CreditS
       title={labels.title}
       description={labels.description}
       actions={<StatusBadge status="info">{labels.badge}</StatusBadge>}
+      footer={changelog ? (
+        <Button asChild variant="link" className="h-auto px-0">
+          <a href={changelog.href} target="_blank" rel="noreferrer">{changelog.label}</a>
+        </Button>
+      ) : undefined}
     >
       <div className="flex flex-col gap-6">
         <DefinitionList columns={2}>

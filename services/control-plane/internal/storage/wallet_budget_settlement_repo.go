@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 )
 
 // ApplyWalletBudgetSettlement mirrors committed budget-window spend into the ledger wallet balance.
@@ -47,10 +48,18 @@ func (s *WalletLedgerRepository) ApplyWalletBudgetSettlement(ctx context.Context
 		return err
 	}
 
+	var billingUnit string
+	if err := tx.QueryRow(ctx, `SELECT billing_unit FROM tenants WHERE tenant_id::text = $1`, tenantID).Scan(&billingUnit); err != nil {
+		return err
+	}
+
 	deltaIRR := committedIRR - settledIRR
 	now := time.Now().UTC()
 
-	if deltaIRR > 0 {
+	// Credit tenants are charged by the credit ledger. Their window spend is
+	// marked settled without a wallet debit, so it is never charged twice, nor
+	// re-charged in IRR if the tenant later switches back.
+	if deltaIRR > 0 && billingUnit != credits.BillingUnitCredit {
 		metadata := map[string]interface{}{
 			"budget_window_key":       snapshot.WindowKey,
 			"budget_window_id":        windowID,

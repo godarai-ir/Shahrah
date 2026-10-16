@@ -28,6 +28,9 @@ type CreateBankTransferRequest struct {
 	BankTransactionAt         time.Time              `json:"-"`
 	ReceiptFileURL            string                 `json:"receipt_file_url,omitempty"`
 	Metadata                  map[string]interface{} `json:"metadata,omitempty"`
+	// CreditPackOrderID pays a credit pack order awaiting transfer; AmountIRR must
+	// equal the order's payable amount.
+	CreditPackOrderID string `json:"credit_pack_order_id,omitempty"`
 }
 
 type ReviewBankTransferRequest struct {

@@ -263,6 +263,11 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 		return nil, "", err
 	}
 
+	// A pending invitation holds a seat until it is accepted or expires.
+	if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+		return nil, "", capErr
+	}
+
 	expiresAt := now.Add(invitationTTL)
 	invitationID := uuid.NewString()
 
@@ -380,6 +385,11 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		return nil, nil, ErrInvitationExpired
 	}
 
+	// The pending invitation already holds a seat, so accepting it adds none.
+	if capErr := enforceTenantUserCapTx(ctx, tx, invitation.TenantID, 0); capErr != nil {
+		return nil, nil, capErr
+	}
+
 	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role, firstName, lastName)
 	if err != nil {
 		return nil, nil, err
@@ -442,6 +452,12 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
 		return nil, apperrors.ErrNotFound
+	}
+
+	if active {
+		if err := s.reactivateWithinUserCap(ctx, tenantSlug, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -613,4 +629,44 @@ func tokenHashFromInviteToken(token string) (string, error) {
 	sum := sha256.Sum256(decoded)
 
 	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+// reactivateWithinUserCap activates a deactivated member only when the tenant
+// has a free seat. Activating an already active member is a no-op.
+func (s *TenantAdminRepository) reactivateWithinUserCap(ctx context.Context, tenantSlug, userID string) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer rollbackTxBestEffort(ctx, tx)
+
+	var (
+		tenantID      string
+		alreadyActive bool
+	)
+
+	err = tx.QueryRow(ctx, `
+		SELECT u.tenant_id::text, COALESCE(u.active, true)
+		FROM users u
+		JOIN tenants t ON t.tenant_id = u.tenant_id
+		WHERE t.slug = $1 AND u.user_id::text = $2
+		FOR UPDATE OF u
+	`, tenantSlug, userID).Scan(&tenantID, &alreadyActive)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.ErrNotFound
+	}
+
+	if err != nil || alreadyActive {
+		return err
+	}
+
+	if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+		return capErr
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE users SET active = true, updated_at = NOW() WHERE user_id::text = $1`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

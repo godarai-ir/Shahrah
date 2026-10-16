@@ -411,20 +411,32 @@ func (s *AuthRepository) UpdateUserRoles(ctx context.Context, tenantID string, r
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
-	var userID string
+	var (
+		userID     string
+		userActive bool
+	)
+
 	if err := tx.QueryRow(ctx, `
-		SELECT user_id::text
+		SELECT user_id::text, COALESCE(active, true)
 		FROM users
 		WHERE tenant_id = $1::uuid
 		  AND LOWER(COALESCE(email, '')) = $2
 		LIMIT 1
 		FOR UPDATE
-	`, tenantID, email).Scan(&userID); err != nil {
+	`, tenantID, email).Scan(&userID, &userActive); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 
 		return nil, err
+	}
+
+	// Assigning roles also activates the member, which takes a seat when the
+	// member was deactivated.
+	if !userActive {
+		if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+			return nil, capErr
+		}
 	}
 
 	type roleRow struct {

@@ -349,6 +349,9 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
             مشاوره برای انتخاب پلن
             <ArrowLeft aria-hidden="true" className="size-4" />
           </Link>
+          <Link href="/pricing/changelog" className="text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300">
+            تاریخچه‌ی تغییرات قیمت و نرخ‌نامه
+          </Link>
         </div>
       </section>
       </main>
