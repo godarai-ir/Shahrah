@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
@@ -736,6 +737,10 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
+		if isBudgetRuleCreditError(err) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+
 		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "failed to create budget limit rule")
 		}
@@ -799,6 +804,10 @@ func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
+		if isBudgetRuleCreditError(err) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+
 		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
@@ -850,8 +859,16 @@ func validateCreateBudgetLimitRuleRequest(req platform.CreateBudgetLimitRuleRequ
 		return errors.New("rule_id is required")
 	}
 
-	if req.LimitTo <= 0 {
-		return errors.New("limit_to must be greater than zero")
+	if req.LimitTo < 0 || (req.LimitTo == 0 && req.Limit == nil) {
+		return errors.New("limit or limit_to must be greater than zero")
+	}
+
+	if err := validateBudgetRuleCreditFields(req.Limit, req.DowngradeDailyLimit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
+		return err
+	}
+
+	if req.OnExceed != nil && *req.OnExceed == platform.BudgetOnExceedDowngrade && strings.TrimSpace(derefBudgetString(req.DowngradeModel)) == "" {
+		return credits.ErrDowngradeModelRequired
 	}
 
 	switch req.Unit {
@@ -882,6 +899,10 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 		return errors.New("limit_to must be greater than zero")
 	}
 
+	if err := validateBudgetRuleCreditFields(req.Limit, req.DowngradeDailyLimit, req.OnExceed, req.BlockOnBudgetExceed, req.AlertThresholds); err != nil {
+		return err
+	}
+
 	if req.Unit != nil {
 		switch *req.Unit {
 		case platform.BudgetLimitCostPerDay, platform.BudgetLimitCostPerWeek, platform.BudgetLimitCostPerMonth:
@@ -897,6 +918,50 @@ func validateUpdateBudgetLimitRuleRequest(req platform.UpdateBudgetLimitRuleRequ
 	}
 
 	return nil
+}
+
+// validateBudgetRuleCreditFields checks the credit fields a request sets. An
+// empty limit string is allowed: it clears the limit on update.
+func validateBudgetRuleCreditFields(limit, downgradeLimit *string, onExceed *platform.BudgetOnExceed, block *bool, thresholds []int) error {
+	for _, amount := range []*string{limit, downgradeLimit} {
+		if amount == nil || strings.TrimSpace(*amount) == "" {
+			continue
+		}
+
+		if _, err := credits.ParseCreditAmountMC(*amount); err != nil {
+			return err
+		}
+	}
+
+	if onExceed != nil {
+		if _, err := credits.ResolveOnExceed(onExceed, block, ""); err != nil {
+			return err
+		}
+	}
+
+	if len(thresholds) > 0 {
+		if _, err := credits.NormalizeAlertThresholds(thresholds); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func isBudgetRuleCreditError(err error) bool {
+	return errors.Is(err, credits.ErrInvalidCreditAmount) ||
+		errors.Is(err, credits.ErrInvalidOnExceed) ||
+		errors.Is(err, credits.ErrInconsistentOnExceed) ||
+		errors.Is(err, credits.ErrDowngradeModelRequired) ||
+		errors.Is(err, credits.ErrInvalidAlertThreshold)
+}
+
+func derefBudgetString(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return *value
 }
 
 func validateBudgetAppliesPer(value string) error {

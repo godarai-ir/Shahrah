@@ -834,6 +834,7 @@ type ErrorInfo struct {
 	Type    string                 `json:"type"`
 	Param   string                 `json:"param,omitempty"`
 	Code    string                 `json:"code,omitempty"`
+	Scope   string                 `json:"scope,omitempty"`
 	Details map[string]interface{} `json:"details,omitempty"`
 }
 

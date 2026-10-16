@@ -36,6 +36,9 @@ type StorageSettings struct {
 	GatewayDatabaseTimeout       time.Duration
 	SubscriptionDatabaseTimeout  time.Duration
 	BudgetWindowTTLGrace         time.Duration
+	// CreditOverageCeilingCredits bounds overage for credit tenants that
+	// enabled it without a cap.
+	CreditOverageCeilingCredits int64
 }
 
 // RuntimeSettings is the process-level non-storage runtime configuration snapshot.
@@ -112,6 +115,7 @@ func LoadStorageSettings() StorageSettings {
 		GatewayDatabaseTimeout:       secondsEnv("GATEWAY_DB_TIMEOUT_SECONDS", 3*time.Second),
 		SubscriptionDatabaseTimeout:  secondsEnv("SUBSCRIPTION_LIFECYCLE_DB_TIMEOUT_SECONDS", 5*time.Second),
 		BudgetWindowTTLGrace:         secondsEnv("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 24*time.Hour),
+		CreditOverageCeilingCredits:  positiveInt64Env("BILLING_CREDIT_OVERAGE_DEFAULT_CEILING_CREDITS", 100_000),
 	}
 }
 
@@ -267,6 +271,9 @@ type CreditLedgerSettings struct {
 	PriceInterval      time.Duration
 	PriceAutoApply     bool
 	Timeout            time.Duration
+	// EnforcementEnabled reserves credit tenants' requests in credits. While it
+	// is off, credit tenants are refused rather than served unenforced.
+	EnforcementEnabled bool
 }
 
 func loadCreditLedgerSettings() CreditLedgerSettings {
@@ -280,5 +287,6 @@ func loadCreditLedgerSettings() CreditLedgerSettings {
 		PriceInterval:      secondsEnv("BILLING_CREDIT_PRICE_INTERVAL_SECONDS", time.Hour),
 		PriceAutoApply:     booleanEnv("BILLING_CREDIT_PRICE_AUTO_APPLY", false),
 		Timeout:            secondsEnv("BILLING_CREDIT_JOB_TIMEOUT_SECONDS", 2*time.Minute),
+		EnforcementEnabled: booleanEnv("BILLING_CREDIT_ENFORCEMENT_ENABLED", false),
 	}
 }

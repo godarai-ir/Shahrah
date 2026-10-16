@@ -63,7 +63,18 @@ type BudgetCommitRequest struct {
 	WindowKey      string
 	ReservationKey string
 	ActualIRR      float64
-	Now            time.Time
+	// Force commits even when the actual amount exceeds the allowance, and
+	// records the excess as overage. It is for usage already served.
+	Force bool
+	Now   time.Time
+}
+
+// BudgetSpendRequest adds already-happened spend to a window. The amount's
+// unit is the window's unit, fixed by its key prefix.
+type BudgetSpendRequest struct {
+	WindowKey string
+	Amount    float64
+	Now       time.Time
 }
 
 // BudgetReleaseRequest describes one atomic budget release operation.
@@ -690,6 +701,7 @@ local reservationKey = KEYS[2]
 local activeSetKey = KEYS[3]
 local actual = tonumber(ARGV[1])
 local nowUnix = tonumber(ARGV[2])
+local force = ARGV[3] == '1'
 
 if not actual or actual < 0 then
   actual = 0
@@ -720,14 +732,52 @@ end
 local estimated = tonumber(redis.call('HGET', reservationKey, 'estimated_irr') or '0')
 local projectedReserved = reserved - estimated
 local projectedCommitted = committed + actual
-if (projectedReserved + projectedCommitted) > allowance then
+if (projectedReserved + projectedCommitted) > allowance and not force then
   local remainingBefore = allowance - reserved - committed
   return {0, 'exhausted', allowance, reserved, committed, remainingBefore, overage}
 end
 reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', -estimated))
 committed = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'committed_irr', actual))
+if committed > allowance then
+  overage = committed - allowance
+  redis.call('HSET', windowKey, 'overage_irr', overage)
+end
 
 redis.call('HSET', reservationKey, 'status', 'committed', 'actual_irr', actual, 'updated_at', nowUnix)
+redis.call('HSET', windowKey, 'updated_at', nowUnix)
+local expiresAt = tonumber(redis.call('HGET', windowKey, 'expires_at') or '0')
+local ttlMs = redis.call('PTTL', windowKey)
+if ttlMs and ttlMs > 0 and expiresAt > 0 then
+  redis.call('ZADD', activeSetKey, expiresAt, windowKey)
+  redis.call('PEXPIRE', activeSetKey, ttlMs)
+end
+local remaining = allowance - reserved - committed
+return {1, 'committed', allowance, reserved, committed, remaining, overage}
+`
+
+const recordBudgetSpendScript = `
+local windowKey = KEYS[1]
+local activeSetKey = KEYS[2]
+local amount = tonumber(ARGV[1])
+local nowUnix = tonumber(ARGV[2])
+
+if not amount or amount < 0 then
+  amount = 0
+end
+
+if redis.call('EXISTS', windowKey) == 0 then
+  return {-1, 'window_unavailable', 0, 0, 0, 0, 0}
+end
+
+local allowance = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0')
+local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
+local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
+local committed = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'committed_irr', amount))
+if committed > allowance then
+  overage = committed - allowance
+  redis.call('HSET', windowKey, 'overage_irr', overage)
+end
+
 redis.call('HSET', windowKey, 'updated_at', nowUnix)
 local expiresAt = tonumber(redis.call('HGET', windowKey, 'expires_at') or '0')
 local ttlMs = redis.call('PTTL', windowKey)
@@ -949,7 +999,32 @@ func (d *DualCache) CommitBudget(ctx context.Context, req BudgetCommitRequest) (
 		now = time.Now().UTC()
 	}
 
-	values, err := d.redis.Eval(ctx, commitBudgetScript, []string{req.WindowKey, req.ReservationKey, activeBudgetWindowsKey}, req.ActualIRR, now.Unix()).Result()
+	force := "0"
+	if req.Force {
+		force = "1"
+	}
+
+	values, err := d.redis.Eval(ctx, commitBudgetScript, []string{req.WindowKey, req.ReservationKey, activeBudgetWindowsKey}, req.ActualIRR, now.Unix(), force).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return parseBudgetWindowResult(values)
+}
+
+// RecordBudgetSpend atomically adds spend to a window without a reservation or
+// an admission check, for usage that already happened.
+func (d *DualCache) RecordBudgetSpend(ctx context.Context, req BudgetSpendRequest) (*BudgetWindowResult, error) {
+	if req.WindowKey == "" {
+		return nil, fmt.Errorf("budget window key is required")
+	}
+
+	now := req.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	values, err := d.redis.Eval(ctx, recordBudgetSpendScript, []string{req.WindowKey, activeBudgetWindowsKey}, req.Amount, now.Unix()).Result()
 	if err != nil {
 		return nil, err
 	}

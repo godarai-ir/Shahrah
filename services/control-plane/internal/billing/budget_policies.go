@@ -14,6 +14,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 )
 
 const (
@@ -28,12 +29,14 @@ type budgetReservationTarget struct {
 	expiresAt      time.Time
 	ttl            time.Duration
 	seedFromWallet bool
+	// seedCreditPool seeds the window from the tenant's credit balance.
+	seedCreditPool bool
 }
 
-func (s *BudgetService) budgetReservationTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
+func (s *BudgetService) budgetReservationTargets(profile *runtimeprofile.Profile, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
 	tenantTarget := s.tenantCreditTarget(auth.TenantID, reservationID, breakdown.TotalCostIRR, now)
 
-	policyTargets, err := s.budgetPolicyTargets(ctx, auth, breakdown, reservationID, now)
+	policyTargets, err := s.budgetPolicyTargets(profile, auth, breakdown, reservationID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -73,14 +76,9 @@ func (s *BudgetService) tenantCreditTarget(tenantID string, reservationID string
 	}
 }
 
-func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
-	if s.runtimeProfiles == nil || auth == nil || strings.TrimSpace(auth.TenantID) == "" {
+func (s *BudgetService) budgetPolicyTargets(profile *runtimeprofile.Profile, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
+	if auth == nil || strings.TrimSpace(auth.TenantID) == "" {
 		return nil, nil
-	}
-
-	profile, err := s.runtimeProfiles.GetSnapshot(ctx, auth.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("%w: profile budget rules unavailable: %v", ErrBudgetUnavailable, err)
 	}
 
 	if profile == nil || len(profile.BudgetRules) == 0 {
@@ -144,7 +142,10 @@ func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.
 }
 
 func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
-	if !target.seedFromWallet {
+	// Rule windows are re-seeded on every reservation so a changed limit
+	// applies at once; balance windows are seeded on first use and refreshed
+	// when the balance changes.
+	if !target.seedFromWallet && !target.seedCreditPool {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
 		}
@@ -186,6 +187,10 @@ func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache Bud
 }
 
 func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget) error {
+	if target.seedCreditPool {
+		return s.seedCreditPoolWindow(ctx, budgetCache, target)
+	}
+
 	if target.seedFromWallet {
 		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
 	}

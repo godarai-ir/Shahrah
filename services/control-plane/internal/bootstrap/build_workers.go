@@ -16,8 +16,6 @@ import (
 )
 
 func (b *builder) buildWorkers() error {
-	b.buildCreditRateCards()
-
 	if err := b.buildBillingWorkers(); err != nil {
 		return err
 	}

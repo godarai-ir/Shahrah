@@ -20,11 +20,13 @@ const (
 
 // Tenant represents the root tenant boundary for Shahrah.
 type Tenant struct {
-	ID        string    `json:"id"`
-	Slug      string    `json:"slug"`
-	Domain    string    `json:"domain"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID     string `json:"id"`
+	Slug   string `json:"slug"`
+	Domain string `json:"domain"`
+	Status string `json:"status"`
+	// BillingUnit is irr or credit; empty means irr.
+	BillingUnit string    `json:"billing_unit,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // AuthContext is the effective request auth context.
@@ -260,25 +262,36 @@ type UsageCostBreakdown struct {
 
 // BudgetReservationTarget is one window reserved for a request.
 type BudgetReservationTarget struct {
-	Kind           string    `json:"kind"`
-	RuleID         string    `json:"rule_id,omitempty"`
-	Scope          string    `json:"scope,omitempty"`
-	ScopeValue     string    `json:"scope_value,omitempty"`
-	WindowID       string    `json:"window_id"`
-	WindowKey      string    `json:"window_key"`
-	ReservationKey string    `json:"reservation_key"`
-	EstimatedIRR   float64   `json:"estimated_irr"`
-	CreatedAt      time.Time `json:"created_at"`
+	Kind           string  `json:"kind"`
+	RuleID         string  `json:"rule_id,omitempty"`
+	Scope          string  `json:"scope,omitempty"`
+	ScopeValue     string  `json:"scope_value,omitempty"`
+	WindowID       string  `json:"window_id"`
+	WindowKey      string  `json:"window_key"`
+	ReservationKey string  `json:"reservation_key"`
+	EstimatedIRR   float64 `json:"estimated_irr"`
+	// EstimatedMC is the reserved amount of a credit-unit target, in millicredits.
+	EstimatedMC int64 `json:"estimated_mc,omitempty"`
+	// OnExceed is the rule's exceed behavior for credit-unit policy targets.
+	OnExceed  string    `json:"on_exceed,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // BudgetReservation tracks request-time spend reservations in active budget windows.
 type BudgetReservation struct {
-	ID             string                    `json:"id"`
-	TenantID       string                    `json:"tenant_id"`
-	WindowID       string                    `json:"window_id"`
-	WindowKey      string                    `json:"window_key"`
-	ReservationKey string                    `json:"reservation_key"`
-	EstimatedIRR   float64                   `json:"estimated_irr"`
+	ID             string  `json:"id"`
+	TenantID       string  `json:"tenant_id"`
+	WindowID       string  `json:"window_id"`
+	WindowKey      string  `json:"window_key"`
+	ReservationKey string  `json:"reservation_key"`
+	EstimatedIRR   float64 `json:"estimated_irr"`
+	// Unit is the window unit of every target: irr (empty) or credit.
+	Unit string `json:"unit,omitempty"`
+	// BillingMode is the deployment billing mode the reservation was made for.
+	BillingMode string `json:"billing_mode,omitempty"`
+	// BYOKFeePercent is the platform fee charged to the tenant pool for
+	// externally billed credit requests, as a decimal string.
+	BYOKFeePercent string                    `json:"byok_fee_percent,omitempty"`
 	CreatedAt      time.Time                 `json:"created_at"`
 	Targets        []BudgetReservationTarget `json:"targets,omitempty"`
 }

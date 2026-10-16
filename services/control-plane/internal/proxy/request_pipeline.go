@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"go.uber.org/zap"
 )
@@ -118,11 +119,19 @@ func (p *RequestPipeline) ReleaseDetached(reservation *platform.BudgetReservatio
 
 // Reserve executes the budget admission stage without depending on HTTP.
 func (p *RequestPipeline) Reserve(ctx context.Context, input BudgetRequest) (*platform.BudgetReservation, error) {
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+
 	if firstBillingMode(input.BillingMode) == platform.BillingModeExternalBilled {
-		return nil, nil
+		// Only credit tenants reserve externally billed requests: their
+		// budgets count the full equivalent and their balance pays the fee.
+		reserver, ok := p.billingCapabilities.BudgetReservations.(externalBilledBudgetReserver)
+		if !ok || reservationPolicy == CapabilityDisabled {
+			return nil, nil
+		}
+
+		return reserver.ReserveExternalBilledBudget(ctx, input.Auth, input.Estimated, input.RequestID)
 	}
 
-	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
 	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil {
 		return p.billingCapabilities.BudgetReservations.ReserveBudget(ctx, input.Auth, input.Estimated, input.RequestID)
 	}
@@ -140,13 +149,19 @@ func (p *RequestPipeline) Reserve(ctx context.Context, input BudgetRequest) (*pl
 
 // Settle executes the final budget commit or wallet debit stage.
 func (p *RequestPipeline) Settle(ctx context.Context, input SettlementRequest) error {
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+
 	if firstBillingMode(input.BillingMode) == platform.BillingModeExternalBilled {
+		if input.Reservation != nil && input.Reservation.Unit == credits.BillingUnitCredit &&
+			reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil {
+			return p.billingCapabilities.BudgetReservations.CommitBudget(ctx, input.Reservation, input.Actual)
+		}
+
 		p.Release(ctx, input.Reservation, "external_billed")
 
 		return nil
 	}
 
-	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
 	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil && input.Reservation != nil {
 		return p.billingCapabilities.BudgetReservations.CommitBudget(ctx, input.Reservation, input.Actual)
 	}

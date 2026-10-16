@@ -82,9 +82,16 @@ func (s *CreditLedgerRepository) SettleCreditConsumption(ctx context.Context, ba
 		return result, err
 	}
 
+	touched := make(map[string]struct{})
+	defer s.syncCreditPoolWindows(ctx, touched)
+
 	fees := newCreditFeeResolver(conn)
 	for _, row := range rows {
 		outcome, settleErr := s.settleOne(ctx, conn, row, fees)
+		if outcome.settled {
+			touched[row.TenantID] = struct{}{}
+		}
+
 		if settleErr != nil {
 			result.LastSpendLogID = row.SpendLogID - 1
 
@@ -138,11 +145,18 @@ func (s *CreditLedgerRepository) SweepCreditConsumption(ctx context.Context, sin
 		return result, err
 	}
 
+	touched := make(map[string]struct{})
+	defer s.syncCreditPoolWindows(ctx, touched)
+
 	fees := newCreditFeeResolver(conn)
 	for _, row := range rows {
 		outcome, settleErr := s.settleOne(ctx, conn, row, fees)
 		if settleErr != nil {
 			return result, fmt.Errorf("sweep spend log %d: %w", row.SpendLogID, settleErr)
+		}
+
+		if outcome.settled {
+			touched[row.TenantID] = struct{}{}
 		}
 
 		result.Scanned++
@@ -224,6 +238,10 @@ func (s *CreditLedgerRepository) settleOne(ctx context.Context, conn *pgxpool.Co
 	}
 
 	if err := applyCreditTenantDeltaTx(ctx, tx, row.TenantID, -(amountMC - debtMC), debtMC, -amountMC); err != nil {
+		return creditSettleOutcome{}, err
+	}
+
+	if err := addCreditWindowSettledTx(ctx, tx, row.TenantID, row.OccurredAt, amountMC); err != nil {
 		return creditSettleOutcome{}, err
 	}
 

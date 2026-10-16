@@ -7,6 +7,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -329,20 +330,22 @@ func (h *Handlers) AdjustPlatformTenantCredits(c *fiber.Ctx) error {
 }
 
 // SetPlatformTenantBillingUnit moves a tenant between IRR and credit billing.
-// It is refused unless the credit ledger is enabled on this deployment.
+// Moving to credit is refused unless the credit ledger and credit enforcement
+// are both enabled, so no tenant is billed in credits without being enforced
+// in credits. Moving back to IRR is always allowed.
 func (h *Handlers) SetPlatformTenantBillingUnit(c *fiber.Ctx) error {
 	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {
 		return err
 	}
 
-	if !h.creditLedgerEnabled {
-		return creditPackError(c, billingdomain.ErrBillingUnitChangeDisabled)
-	}
-
 	var req platform.SetBillingUnitRequest
 	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if !h.creditLedgerEnabled && strings.TrimSpace(req.BillingUnit) == credits.BillingUnitCredit {
+		return creditPackError(c, billingdomain.ErrBillingUnitChangeDisabled)
 	}
 
 	if changeErr := store.SetTenantBillingUnitAudited(c.Context(), tenantID, req, supportActor(c)); changeErr != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"go.uber.org/zap"
 )
 
 var (
@@ -57,13 +58,17 @@ type PricingEngine struct {
 
 // BudgetService owns budget admission, reservation, and settlement.
 type BudgetService struct {
-	cache                cache.Cache
-	budgetWindows        BudgetWindowCache
-	store                walletStore
-	entitlements         entitlementStore
-	runtimeProfiles      RuntimeProfileStore
-	walletCacheTTL       time.Duration
-	budgetWindowTTLGrace time.Duration
+	cache                    cache.Cache
+	budgetWindows            BudgetWindowCache
+	store                    walletStore
+	entitlements             entitlementStore
+	runtimeProfiles          RuntimeProfileStore
+	creditPools              CreditPoolStore
+	creditRateCards          CreditRateCardProvider
+	creditEnforcementEnabled bool
+	logger                   *zap.Logger
+	walletCacheTTL           time.Duration
+	budgetWindowTTLGrace     time.Duration
 }
 
 // RateLimiter owns policy and subscription-based request admission.
@@ -90,6 +95,10 @@ type Dependencies struct {
 	Wallets         walletStore
 	Entitlements    entitlementStore
 	RuntimeProfiles RuntimeProfileStore
+	// CreditPools and CreditRateCards enforce credit tenants in credits.
+	CreditPools     CreditPoolStore
+	CreditRateCards CreditRateCardProvider
+	Logger          *zap.Logger
 	Config          *ServiceConfig
 }
 
@@ -100,6 +109,9 @@ type ServiceConfig struct {
 	WalletCacheTTL    time.Duration
 	BudgetWindowGrace time.Duration
 	RateLimitFailOpen bool
+	// CreditEnforcementEnabled reserves credit tenants in credits. While it is
+	// off, credit tenants are refused rather than served unenforced.
+	CreditEnforcementEnabled bool
 }
 
 // NewService creates a billing enforcement service.
@@ -198,6 +210,11 @@ func newService(
 		Source:   source,
 	}
 
+	logger := dependencies.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		PricingEngine: &PricingEngine{
 			defaultRate:       defaultRate,
@@ -206,13 +223,17 @@ func newService(
 			catalogPricing:    make(map[string]*CatalogPricingSnapshotManager),
 		},
 		BudgetService: &BudgetService{
-			cache:                dependencies.Cache,
-			budgetWindows:        dependencies.BudgetWindows,
-			store:                dependencies.Wallets,
-			entitlements:         dependencies.Entitlements,
-			runtimeProfiles:      dependencies.RuntimeProfiles,
-			walletCacheTTL:       serviceConfig.WalletCacheTTL,
-			budgetWindowTTLGrace: serviceConfig.BudgetWindowGrace,
+			cache:                    dependencies.Cache,
+			budgetWindows:            dependencies.BudgetWindows,
+			store:                    dependencies.Wallets,
+			entitlements:             dependencies.Entitlements,
+			runtimeProfiles:          dependencies.RuntimeProfiles,
+			creditPools:              dependencies.CreditPools,
+			creditRateCards:          dependencies.CreditRateCards,
+			creditEnforcementEnabled: serviceConfig.CreditEnforcementEnabled,
+			logger:                   logger,
+			walletCacheTTL:           serviceConfig.WalletCacheTTL,
+			budgetWindowTTLGrace:     serviceConfig.BudgetWindowGrace,
 		},
 		RateLimiter: &RateLimiter{
 			cache:             dependencies.Cache,

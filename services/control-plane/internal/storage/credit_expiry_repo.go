@@ -129,6 +129,8 @@ func (s *CreditLedgerRepository) expireLot(ctx context.Context, lotID, tenantID 
 		return 0, err
 	}
 
+	s.invalidateCreditTenant(ctx, tenantID, "")
+
 	return remainingMC, nil
 }
 

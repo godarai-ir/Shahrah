@@ -10,6 +10,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 )
 
 // CheckBudget validates wallet balance constraints for compatibility callers.
@@ -58,7 +59,16 @@ func (s *BudgetService) ReserveBudget(
 	now := time.Now().UTC()
 	reservationID := budgetReservationID(requestID)
 
-	targets, err := s.budgetReservationTargets(ctx, auth, breakdown, reservationID, now)
+	profile, err := s.tenantProfile(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	if isCreditTenant(profile) {
+		return s.reserveCreditBudget(ctx, auth, breakdown, reservationID, profile, platform.BillingModeWalletBilled)
+	}
+
+	targets, err := s.budgetReservationTargets(profile, auth, breakdown, reservationID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +136,10 @@ func (s *BudgetService) CommitBudget(
 	budgetCache := s.budgetWindows
 	if budgetCache == nil {
 		return ErrBudgetUnavailable
+	}
+
+	if reservation.Unit == credits.BillingUnitCredit {
+		return s.commitCreditBudget(ctx, reservation, breakdown)
 	}
 
 	targets := reservation.Targets

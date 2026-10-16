@@ -343,7 +343,8 @@ type BillingDependencies struct {
 	CreditPacks creditPackStore
 	// CreditAdmin backs the support-admin credit endpoints.
 	CreditAdmin creditAdminStore
-	// CreditLedgerEnabled allows moving tenants to credit billing.
+	// CreditLedgerEnabled allows moving tenants to credit billing. It requires
+	// both the credit ledger and credit enforcement.
 	CreditLedgerEnabled bool
 }
 

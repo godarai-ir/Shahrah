@@ -114,6 +114,7 @@ func NewStore(
 		observability.ObservabilityHealthRepository.clickHouseMetricsReady(),
 		logger,
 		dependencies.Cache,
+		dependencies.RuntimeProfileInvalidator,
 		storageConfig,
 	)
 	store.SupportRepository = newSupportRepository(pool, store.PlanRepository, store.WalletRepository)

@@ -214,7 +214,7 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 
 		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
 		if err != nil {
-			return writeBudgetCheckError(c, err)
+			return writeAnthropicBudgetError(c, err)
 		}
 	}
 
@@ -282,7 +282,7 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 		}
 
 		if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalized, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
-			return writeAnthropicError(c, fiber.StatusPaymentRequired, "billing_error", err.Error())
+			return writeAnthropicError(c, fiber.StatusPaymentRequired, "billing_error", settlementErrorMessage(err))
 		}
 	}
 

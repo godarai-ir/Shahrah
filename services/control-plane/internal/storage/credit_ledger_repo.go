@@ -120,6 +120,8 @@ func (s *CreditLedgerRepository) GrantCredits(ctx context.Context, grant CreditG
 		return CreditGrantResult{}, err
 	}
 
+	s.invalidateCreditTenant(ctx, grant.TenantID, "")
+
 	return result, nil
 }
 

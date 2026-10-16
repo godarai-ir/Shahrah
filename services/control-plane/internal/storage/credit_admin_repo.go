@@ -280,6 +280,8 @@ func (s *CreditLedgerRepository) AdjustCredits(ctx context.Context, tenantID str
 		return nil, commitErr
 	}
 
+	s.invalidateCreditTenant(ctx, tenantID, "")
+
 	return s.GetTenantCreditOverview(ctx, tenantID)
 }
 
@@ -350,5 +352,13 @@ func (s *CreditLedgerRepository) SetTenantBillingUnitAudited(ctx context.Context
 		return auditErr
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// The billing unit is compiled into the runtime profile, which decides
+	// how the gateway reserves this tenant's requests.
+	s.invalidateCreditTenant(ctx, tenantID, "billing_unit.changed")
+
+	return nil
 }
