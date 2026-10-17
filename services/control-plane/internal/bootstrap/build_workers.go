@@ -107,6 +107,19 @@ func (b *builder) buildBillingWorkers() error {
 		return err
 	}
 
+	spendPurge := billing.NewSpendPurgeProcessor(b.store.SpendHistoryPurgeRepository, b.logger, 5*time.Minute)
+	if err := b.lifecycle.AddWorker("clickhouse spend purge", func(context.Context) error {
+		spendPurge.Start()
+
+		return nil
+	}, func(context.Context) error {
+		spendPurge.Stop()
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	settlementCfg := billing.WalletSettlementConfig{
 		Enabled:   b.cfg.Runtime.WalletSettlementEnabled,
 		Interval:  b.cfg.Runtime.WalletSettlementInterval,
@@ -143,12 +156,11 @@ func (b *builder) buildBillingWorkers() error {
 
 func (b *builder) buildCreditLedgerWorker() error {
 	settings := b.cfg.Runtime.BillingCreditLedger
-	if !settings.Enabled || b.store == nil || b.store.WalletRepository == nil {
+	if b.store == nil || b.store.WalletRepository == nil {
 		return nil
 	}
 
 	processor := billing.NewCreditLedgerProcessor(billing.CreditLedgerConfig{
-		Enabled:            true,
 		SettlementInterval: settings.SettlementInterval,
 		SettleDelay:        settings.SettleDelay,
 		BatchSize:          settings.BatchSize,

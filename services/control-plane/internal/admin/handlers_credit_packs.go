@@ -332,8 +332,6 @@ func creditAdminErrorStatus(err error) (int, string) {
 		return fiber.StatusBadRequest, "invalid_credit_pack"
 	case errors.Is(err, billingdomain.ErrInvalidCreditAdjustment):
 		return fiber.StatusBadRequest, "invalid_credit_adjustment"
-	case errors.Is(err, billingdomain.ErrBillingUnitChangeDisabled):
-		return fiber.StatusConflict, "credit_billing_disabled"
 	default:
 		return 0, ""
 	}

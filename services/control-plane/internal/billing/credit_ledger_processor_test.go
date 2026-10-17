@@ -116,7 +116,7 @@ func TestCreditLedgerProcessorDrainsFullBatches(t *testing.T) {
 		{Locked: true, Scanned: 3, Settled: 1},
 		{Locked: true, Scanned: 10},
 	}}
-	processor := NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true, BatchSize: 10}, store, nil)
+	processor := NewCreditLedgerProcessor(CreditLedgerConfig{BatchSize: 10}, store, nil)
 
 	processor.Settle(context.Background())
 	require.Equal(t, 3, store.settleCalls, "stops at the first partial batch")
@@ -126,11 +126,11 @@ func TestCreditLedgerProcessorStopsWhenLockedOrFailing(t *testing.T) {
 	t.Parallel()
 
 	locked := &fakeCreditLedgerStore{settleResults: []credits.SettlementResult{{Locked: false}}}
-	NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true, BatchSize: 10}, locked, nil).Settle(context.Background())
+	NewCreditLedgerProcessor(CreditLedgerConfig{BatchSize: 10}, locked, nil).Settle(context.Background())
 	require.Equal(t, 1, locked.settleCalls)
 
 	failing := &fakeCreditLedgerStore{settleErr: errors.New("boom")}
-	NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true, BatchSize: 10}, failing, nil).Settle(context.Background())
+	NewCreditLedgerProcessor(CreditLedgerConfig{BatchSize: 10}, failing, nil).Settle(context.Background())
 	require.Equal(t, 1, failing.settleCalls)
 }
 
@@ -138,7 +138,7 @@ func TestCreditLedgerProcessorExpiresAndReconciles(t *testing.T) {
 	t.Parallel()
 
 	store := &fakeCreditLedgerStore{diffs: []credits.ReconciliationDiff{{TenantID: "t", Check: credits.CheckDebt, ExpectedMC: 1, ActualMC: 2}}}
-	processor := NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true}, store, nil)
+	processor := NewCreditLedgerProcessor(CreditLedgerConfig{}, store, nil)
 	fixed := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
 	processor.now = func() time.Time { return fixed }
 
@@ -152,22 +152,20 @@ func TestCreditLedgerProcessorExpiresAndReconciles(t *testing.T) {
 	require.Equal(t, 1, store.reconciled)
 }
 
-func TestCreditLedgerProcessorStartIsANoOpWhenDisabled(t *testing.T) {
+func TestCreditLedgerProcessorStartIsANoOpWithoutAStore(t *testing.T) {
 	t.Parallel()
 
-	store := &fakeCreditLedgerStore{}
-	processor := NewCreditLedgerProcessor(CreditLedgerConfig{}, store, nil)
+	processor := NewCreditLedgerProcessor(CreditLedgerConfig{}, nil, nil)
 
 	processor.Start()
 	processor.Stop()
-	require.Zero(t, store.settleCalls)
 }
 
 func TestCreditLedgerProcessorRunsJobsUntilStopped(t *testing.T) {
 	t.Parallel()
 
 	store := &fakeCreditLedgerStore{}
-	processor := NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true, SettlementInterval: time.Hour}, store, nil)
+	processor := NewCreditLedgerProcessor(CreditLedgerConfig{SettlementInterval: time.Hour}, store, nil)
 
 	processor.Start()
 	processor.Stop()
@@ -179,7 +177,7 @@ func TestCreditLedgerProcessorPriceJobOnlyAutoAppliesWhenEnabled(t *testing.T) {
 
 	for _, autoApply := range []bool{false, true} {
 		store := &fakeCreditLedgerStore{proposal: &platform.CreditPriceRevision{ID: "rev-2", PriceTomanPerCredit: 1_100}}
-		processor := NewCreditLedgerProcessor(CreditLedgerConfig{Enabled: true, PriceAutoApply: autoApply}, store, nil)
+		processor := NewCreditLedgerProcessor(CreditLedgerConfig{PriceAutoApply: autoApply}, store, nil)
 
 		processor.Price(context.Background())
 		require.Equal(t, 1, store.samples)

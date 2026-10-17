@@ -36,7 +36,6 @@ type creditLedgerStore interface {
 
 // CreditLedgerConfig controls the credit ledger background worker.
 type CreditLedgerConfig struct {
-	Enabled bool
 	// SettlementInterval is how often committed spend logs become consume entries.
 	SettlementInterval time.Duration
 	// SettleDelay leaves the newest spend logs for a later pass, so a slow writer's
@@ -97,9 +96,9 @@ func positiveDuration(value, fallback time.Duration) time.Duration {
 	return value
 }
 
-// Start launches the jobs when the ledger is enabled.
+// Start launches the jobs.
 func (p *CreditLedgerProcessor) Start() {
-	if p == nil || !p.cfg.Enabled || p.store == nil {
+	if p == nil || p.store == nil {
 		return
 	}
 

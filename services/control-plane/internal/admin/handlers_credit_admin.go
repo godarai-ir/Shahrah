@@ -356,17 +356,11 @@ func (h *Handlers) GetPlatformTenantCreditConversion(c *fiber.Ctx) error {
 	return c.JSON(platform.TenantCreditConversionStatus{Preview: *preview, Conversions: conversions})
 }
 
-// ConvertPlatformTenantToCredits converts one tenant to credit billing. It is
-// refused unless the credit ledger is enabled, because the ledger's settlement
-// is what debits a credit tenant.
+// ConvertPlatformTenantToCredits converts one tenant to credit billing.
 func (h *Handlers) ConvertPlatformTenantToCredits(c *fiber.Ctx) error {
 	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {
 		return err
-	}
-
-	if !h.creditLedgerEnabled {
-		return creditPackError(c, billingdomain.ErrBillingUnitChangeDisabled)
 	}
 
 	var req platform.CreditConversionRequest
@@ -382,8 +376,7 @@ func (h *Handlers) ConvertPlatformTenantToCredits(c *fiber.Ctx) error {
 	return c.JSON(conversion)
 }
 
-// RollbackPlatformTenantCredits moves a credit tenant back to IRR billing. It
-// is always allowed, so a cutover can be undone even with the ledger off.
+// RollbackPlatformTenantCredits moves a credit tenant back to IRR billing.
 func (h *Handlers) RollbackPlatformTenantCredits(c *fiber.Ctx) error {
 	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {
@@ -423,10 +416,6 @@ func (h *Handlers) ConvertPlatformCreditFleet(c *fiber.Ctx) error {
 	store, err := h.requireCreditAdminStore()
 	if err != nil {
 		return err
-	}
-
-	if !h.creditLedgerEnabled {
-		return creditPackError(c, billingdomain.ErrBillingUnitChangeDisabled)
 	}
 
 	var req platform.CreditFleetConversionRequest

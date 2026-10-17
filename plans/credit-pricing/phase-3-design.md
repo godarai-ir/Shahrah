@@ -223,7 +223,7 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 - **Forced commits.** A credit commit always succeeds, because the usage was already served. Commits use `BudgetCommitRequest.Force`, and alert rules use the new `RecordBudgetSpend`, which records spend with no admission check. Spend beyond an allowance is recorded as window overage (`shahrah_credit_budget_commit_overage_millicredits_total`), and the ledger debits it as debt.
   - Before this change, a commit beyond the allowance was refused, and several handlers then returned 402 *after* the provider call without writing a spend log. For a credit tenant, that request would never have been charged.
 - **No wallet debit for credit tenants.** `DebitWallet` is the direct-debit fallback, used when a request reaches settlement without a reservation. It now returns without writing for credit tenants. The window settlement path was already guarded in Phase 2.
-- **Switch guard.** Support-admin can move a tenant *to* credit only when `BILLING_CREDIT_LEDGER_ENABLED` is on, because the ledger's settlement is what debits a credit tenant. Moving back to IRR is always allowed. Credit enforcement itself has no flag (owner decision, 2026-10-17).
+- **No switch guard.** The credit ledger and credit enforcement have no flags (owner decisions, 2026-10-17). `BILLING_CREDIT_LEDGER_ENABLED` was removed, so the ledger worker always runs and support-admin can always move a tenant to credit.
 - **Profile and window refresh.**
   - Every billing-unit switch recompiles the tenant's runtime profile.
   - Every balance change re-seeds the current pool window: grants, purchases, bank-transfer approvals, adjustments, expiry, settlement, and overage-settings changes.
@@ -263,14 +263,14 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
    - wallet window settlements, wallet transactions, and wallets;
    - `spend_logs`, truncated.
 
-   `financial_audit_events` and `subscription_events` are kept as the audit trail. Spend history in ClickHouse is not touched by a Postgres migration.
+   `financial_audit_events` and `subscription_events` are kept as the audit trail. Spend history in ClickHouse is cleared separately; see "ClickHouse spend purge" below.
 3. **Signup settings.** `signup_credit_irr = 0`, and trials grant 500 credits for 14 days.
 4. **Budget rules.** IRR limits get `limit_mc = ceil(limit_to / (10 × active price))` whole credits.
 5. **Subscriptions.** Every open subscription is canceled. Every tenant gets a `trialing` subscription for 14 days on the published credit version of its plan, or `developer` if it had none or its plan has no credit version. The event is `credit_cutover`. If any tenant would get no version, the migration aborts.
 6. **Billing unit.** `billing_unit = credit` for every tenant.
 
 **After deploy:**
-- The credit ledger worker, which runs at startup when `BILLING_CREDIT_LEDGER_ENABLED=true`, grants each trial its 500 credits, expiring with the trial. Until that first pass, a tenant's balance is 0 and requests get 402. With the flag off, no credits are granted at all.
+- The credit ledger worker always runs and, on its first pass at startup, grants each trial its 500 credits, expiring with the trial. Until that pass, a tenant's balance is 0 and requests get 402.
 - Runtime profiles carry `schema_version`, which is now 2. Profiles cached in Redis or stored before the deploy are discarded and recompiled, so no pod serves an IRR profile after the cutover. Old pods still running during a rolling deploy can serve their in-memory profiles until they stop.
 
 **Code changes:** onboarding and social signup create tenants with `billing_unit = credit`. The table default stays `irr`, so other inserts are unchanged.
@@ -280,6 +280,20 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
 - A trialing credit tenant is capped at 3 users. Tenants that already have more keep them (grandfathered) but cannot add any during the trial.
 
 Verified on a copy-shaped test database: tenants on team, enterprise, a running trial, and no subscription all became credit tenants on 14-day credit trials; the financial tables were emptied; a 123,456 IRR rule became 13 credits; one grant pass gave each tenant a 500-credit trial lot; and `down` was refused.
+
+## ClickHouse spend purge
+
+The owner asked for the ClickHouse spend history to be cleared too (2026-10-17). The ClickHouse migration hook re-applies every file on each Argo CD sync, so a purge there would run on every deploy. Instead:
+
+- Migration 073 creates `clickhouse_spend_purges` and inserts one `credit_cutover` row whose cutoff is the migration time.
+- The control-plane's `clickhouse spend purge` worker runs each pending purge at startup, retries every 5 minutes on failure, marks it complete, and stops. A deployment without `CLICKHOUSE_DSN` has nothing to clear, so its purges complete at once. The mutations are idempotent, so replicas racing is harmless.
+- For rows before the cutoff, it zeroes the cost columns and keeps the rows, so request counts, tokens, latency, and the request logs stay:
+  - `gateway_model_events`: `cost_usd`, `avoided_cost_usd`, `avoided_cost_irr`, `embedding_cost_usd`, `credits_mc`, `credits_avoided_mc`;
+  - `gateway_model_metrics_1m`: `cost_usd_sum`, reset to an empty sum state;
+  - `request_logs_ch`: `cost_usd`, `cost_irr`.
+- Each table gets one `ALTER TABLE … UPDATE` mutation. ClickHouse finishes it in the background; `system.mutations` shows progress.
+
+Verified against ClickHouse 26.3: rows before the cutoff keep their counts with zero spend, and rows after it keep their spend.
 
 ## Implementation notes (3e)
 
@@ -311,7 +325,7 @@ Verified on a copy-shaped test database: tenants on team, enterprise, a running 
 **API** (support-admin, `/api/v1/platform`):
 - `GET credits/conversions/preview` and `POST credits/conversions/fleet`.
 - `GET|POST tenants/:id/credits/conversion` and `POST tenants/:id/credits/conversion/rollback`.
-- Fleet and per-tenant conversion need `BILLING_CREDIT_LEDGER_ENABLED`. Rollback does not. In the support-admin proxy, conversions need `platform:admin` and reads need `billing:read` or `wallet:read`.
+- In the support-admin proxy, conversions need `platform:admin` and reads need `billing:read` or `wallet:read`.
 
 **UI** (support-admin):
 - The Credits page has a "Fleet conversion" section: dry-run table, warning counts, and batch execution with a reason.

@@ -260,9 +260,6 @@ func csvEnv(key string) []string {
 
 // CreditLedgerSettings configures the credit ledger workers (pricing PRD, Phase 2).
 type CreditLedgerSettings struct {
-	// Enabled starts the settlement, expiry, and reconciliation workers and lets
-	// support-admin move tenants to credit billing.
-	Enabled            bool
 	SettlementInterval time.Duration
 	SettleDelay        time.Duration
 	BatchSize          int
@@ -275,7 +272,6 @@ type CreditLedgerSettings struct {
 
 func loadCreditLedgerSettings() CreditLedgerSettings {
 	return CreditLedgerSettings{
-		Enabled:            booleanEnv("BILLING_CREDIT_LEDGER_ENABLED", false),
 		SettlementInterval: secondsEnv("BILLING_CREDIT_SETTLEMENT_INTERVAL_SECONDS", 30*time.Second),
 		SettleDelay:        secondsEnv("BILLING_CREDIT_SETTLE_DELAY_SECONDS", 30*time.Second),
 		BatchSize:          positiveIntEnv("BILLING_CREDIT_SETTLEMENT_BATCH_SIZE", 500),

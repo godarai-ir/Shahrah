@@ -411,7 +411,7 @@ and the projections, all in one transaction.
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `BILLING_CREDIT_LEDGER_ENABLED` | false | Starts the settlement, grant, expiry, and reconciliation workers, and allows `billing_unit=credit`. |
+| ~~`BILLING_CREDIT_LEDGER_ENABLED`~~ | — | Removed in Phase 3 (2026-10-17): the ledger workers always run. |
 | `BILLING_CREDIT_SETTLEMENT_INTERVAL` | 30s | Consume settlement cadence. |
 | `BILLING_CREDIT_PRICE_AUTO_APPLY` | false | Applies an FX-band proposal without approval. |
 | `BILLING_CREDIT_PRICE_INTERVAL_SECONDS` | 3600 | FX sampling, price proposals, and scheduled plan and rate-card publishing. |
