@@ -57,7 +57,7 @@ func TestPipelineReservesExternalBilledRequestsOfCreditTenants(t *testing.T) {
 	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
 		BudgetReservations:      manager,
 		BudgetReservationPolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 
 	reservation, err := pipeline.Reserve(t.Context(), BudgetRequest{
 		Auth: &platform.AuthContext{TenantID: "t"}, RequestID: "req", BillingMode: platform.BillingModeExternalBilled,
@@ -68,11 +68,8 @@ func TestPipelineReservesExternalBilledRequestsOfCreditTenants(t *testing.T) {
 	require.Zero(t, manager.reserved, "BYOK never takes the wallet-billed path")
 
 	require.NoError(t, pipeline.Settle(t.Context(), SettlementRequest{Reservation: reservation, BillingMode: platform.BillingModeExternalBilled}))
-	require.Equal(t, 1, manager.committed, "a credit BYOK reservation is committed, not released")
-
-	irr := &platform.BudgetReservation{ID: "irr"}
-	require.NoError(t, pipeline.Settle(t.Context(), SettlementRequest{Reservation: irr, BillingMode: platform.BillingModeExternalBilled}))
-	require.Equal(t, 1, manager.released, "an IRR BYOK reservation is still only released")
+	require.Equal(t, 1, manager.committed, "a BYOK reservation is committed, not released")
+	require.Zero(t, manager.released)
 }
 
 func decodeErrorBody(t *testing.T, app *fiber.App) (int, map[string]interface{}) {
@@ -132,21 +129,20 @@ func TestSettlementErrorMessageHidesInternalText(t *testing.T) {
 // sideUsageBudgetManager is a budget manager that also records side usage.
 type sideUsageBudgetManager struct {
 	creditBudgetManager
-	creditTenant bool
-	recordedMC   int64
-	breakdown    platform.UsageCostBreakdown
+	recordedMC int64
+	breakdown  platform.UsageCostBreakdown
 }
 
-func (m *sideUsageBudgetManager) RecordSideUsage(_ context.Context, _ *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) (bool, error) {
+func (m *sideUsageBudgetManager) RecordSideUsage(_ context.Context, _ *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) error {
 	m.recordedMC += amountMC
 	m.breakdown = breakdown
 
-	return m.creditTenant, nil
+	return nil
 }
 
-func TestChargeSideUsageWritesAGuardrailSpendLogForCreditTenants(t *testing.T) {
-	manager := &sideUsageBudgetManager{creditTenant: true}
-	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{BudgetReservations: manager}, nil, nil)
+func TestChargeSideUsageWritesAGuardrailSpendLog(t *testing.T) {
+	manager := &sideUsageBudgetManager{}
+	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{BudgetReservations: manager}, nil)
 	logs := &testLogs{}
 	auth := &platform.AuthContext{TenantID: "t", UserID: "u", TeamID: "team", TokenHash: "h"}
 
@@ -171,17 +167,4 @@ func TestChargeSideUsageWritesAGuardrailSpendLogForCreditTenants(t *testing.T) {
 	require.Equal(t, int64(2_000), log.Credits.Millicredits)
 	require.Equal(t, platform.CreditProductGuardrail, log.Credits.Product)
 	require.Zero(t, log.CostIRR, "side usage never touches IRR billing")
-}
-
-func TestChargeSideUsageSkipsIRRTenants(t *testing.T) {
-	manager := &sideUsageBudgetManager{creditTenant: false}
-	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{BudgetReservations: manager}, nil, nil)
-	logs := &testLogs{}
-
-	pipeline.ChargeSideUsage(t.Context(), logs, SideUsageCharge{
-		Auth: &platform.AuthContext{TenantID: "t"}, RequestID: "req-1", Stage: "guardrail_input",
-		Product: platform.CreditProductGuardrail, Calls: 1, PriceMC: credits.GuardrailJudgeCallMC,
-	})
-
-	require.Empty(t, logs.loggedSpends)
 }

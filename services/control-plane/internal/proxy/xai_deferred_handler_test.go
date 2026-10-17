@@ -36,7 +36,7 @@ func TestXAIDeferredCompletionLifecycleIsOwnedAndExactlyOnce(t *testing.T) {
 		Body:       []byte(`{"request_id":"deferred_1"}`),
 	}}
 	handler := NewChatCompletionHandlerWithDependencies(ChatCompletionDependencies{Base: BaseHandlerDependencies{
-		Router: rt, Tunnel: tunnel, Billing: &xaiResponsesBudgeter{}, Wallets: &testWallets{},
+		Router: rt, Tunnel: tunnel, Billing: &xaiResponsesBudgeter{},
 		ProviderResources: resources, Deployments: deployments, RequestLogger: &testLogs{}, SpendLogger: &testLogs{}, Logger: zap.NewNop(),
 	}})
 

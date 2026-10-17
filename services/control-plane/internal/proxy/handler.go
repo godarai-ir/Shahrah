@@ -86,10 +86,6 @@ func applyDeploymentPricingOverride(
 	return pipeline.applyDeploymentPricingOverride(ctx, estimated, deployment)
 }
 
-type walletStore interface {
-	DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error)
-}
-
 type usageLogger interface {
 	LogRequest(ctx context.Context, entry platform.RequestLogEntry) error
 	LogSpend(ctx context.Context, log platform.SpendLog) error
@@ -167,7 +163,7 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 }
 
 // NewChatCompletionHandler creates a new chat completion handler.
-func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, budget budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
+func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, budget budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -179,7 +175,6 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 			Tunnel:              tunnel,
 			Billing:             budget,
 			BillingCapabilities: compatibilityBillingCapabilities(),
-			Wallets:             wallets,
 			RequestLogger:       logs,
 			SpendLogger:         logs,
 			Logger:              logger,
@@ -1889,7 +1884,6 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 		Object  string                `json:"object"`
 		Usage   contractsopenai.Usage `json:"usage"`
 		CostUSD float64               `json:"cost_usd"`
-		CostIRR float64               `json:"cost_irr"`
 		Credits string                `json:"credits,omitempty"`
 	}{
 		Object: "godarai.telemetry",
@@ -1899,7 +1893,6 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 			TotalTokens:      cost.TotalTokens,
 		},
 		CostUSD: cost.TotalCostUSD,
-		CostIRR: cost.TotalCostIRR,
 		Credits: creditsText,
 	})
 	if err != nil {

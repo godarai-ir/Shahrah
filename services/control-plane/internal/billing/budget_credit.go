@@ -59,15 +59,9 @@ type budgetSpendRecorder interface {
 	RecordBudgetSpend(ctx context.Context, req cache.BudgetSpendRequest) (*cache.BudgetWindowResult, error)
 }
 
-// isCreditTenant reports whether the compiled profile bills in credits.
-func isCreditTenant(profile *runtimeprofile.Profile) bool {
-	return profile != nil && strings.TrimSpace(profile.Tenant.BillingUnit) == credits.BillingUnitCredit
-}
-
-// ReserveExternalBilledBudget reserves an externally billed (BYOK) request. IRR
-// tenants are not reserved, as before. Credit tenants reserve the full credit
-// equivalent against their budget rules and only the platform fee against
-// their balance.
+// ReserveExternalBilledBudget reserves an externally billed (BYOK) request: the
+// full credit equivalent against the budget rules and only the platform fee
+// against the balance.
 func (s *BudgetService) ReserveExternalBilledBudget(
 	ctx context.Context,
 	auth *platform.AuthContext,
@@ -81,10 +75,6 @@ func (s *BudgetService) ReserveExternalBilledBudget(
 	profile, err := s.tenantProfile(ctx, auth.TenantID)
 	if err != nil {
 		return nil, err
-	}
-
-	if !isCreditTenant(profile) {
-		return nil, nil
 	}
 
 	return s.reserveCreditBudget(ctx, auth, breakdown, budgetReservationID(requestID), profile, platform.BillingModeExternalBilled)
@@ -494,24 +484,23 @@ func byokFeePercent(profile *runtimeprofile.Profile) decimal.Decimal {
 	return fee
 }
 
-// RecordSideUsage charges a credit tenant's windows for a call GodarAI made on
-// a request's behalf, such as a guardrail judge call. Side calls are not
+// RecordSideUsage charges the tenant's windows for a call GodarAI made on a
+// request's behalf, such as a guardrail judge call. Side calls are not
 // reserved in advance: the spend is recorded after the call, so a request can
-// overshoot a limit by its side usage. It reports whether the tenant bills in
-// credits; IRR tenants are not charged for side usage.
-func (s *BudgetService) RecordSideUsage(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) (bool, error) {
+// overshoot a limit by its side usage.
+func (s *BudgetService) RecordSideUsage(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) error {
 	if auth == nil || strings.TrimSpace(auth.TenantID) == "" || amountMC <= 0 {
-		return false, nil
+		return nil
 	}
 
 	profile, err := s.tenantProfile(ctx, auth.TenantID)
-	if err != nil || !isCreditTenant(profile) {
-		return false, err
+	if err != nil {
+		return err
 	}
 
 	recorder, ok := s.budgetWindows.(budgetSpendRecorder)
 	if !ok || s.creditPools == nil {
-		return true, ErrBudgetUnavailable
+		return ErrBudgetUnavailable
 	}
 
 	now := time.Now().UTC()
@@ -537,10 +526,10 @@ func (s *BudgetService) RecordSideUsage(ctx context.Context, auth *platform.Auth
 	}
 
 	if len(recordErrors) > 0 {
-		return true, fmt.Errorf("%w: side usage: %v", ErrBudgetUnavailable, errors.Join(recordErrors...))
+		return fmt.Errorf("%w: side usage: %v", ErrBudgetUnavailable, errors.Join(recordErrors...))
 	}
 
-	return true, nil
+	return nil
 }
 
 func (s *BudgetService) recordSideUsageTarget(ctx context.Context, recorder budgetSpendRecorder, target budgetReservationTarget, amountMC int64, now time.Time) (*cache.BudgetWindowResult, error) {

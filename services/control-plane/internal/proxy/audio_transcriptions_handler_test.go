@@ -61,7 +61,6 @@ func newAudioTranscriptionsTestApp(t *testing.T, modelName string, provider stri
 			MeteredUsage:       billing,
 			MeteredUsagePolicy: CapabilityFailClosed,
 		},
-		Wallets:       &testWallets{},
 		RequestLogger: logs,
 		SpendLogger:   logs,
 		Logger:        zap.NewNop(),

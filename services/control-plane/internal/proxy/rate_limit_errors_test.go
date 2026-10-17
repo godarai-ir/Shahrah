@@ -82,7 +82,7 @@ func TestRequestPipelineReserveErrorCanBeWrittenAtHTTPEdge(t *testing.T) {
 	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
 		BudgetReservations:      manager,
 		BudgetReservationPolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 
 	app.Post("/", func(c *fiber.Ctx) error {
 		_, err := pipeline.Reserve(c.Context(), budgetRequestFromHTTP(

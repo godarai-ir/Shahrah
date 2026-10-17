@@ -58,7 +58,6 @@ type RuntimeSettings struct {
 	BillingExchangeRateStale      time.Duration
 	BillingPricingCacheEnabled    bool
 	BillingPricingCacheTTL        time.Duration
-	BillingWalletCacheTTL         time.Duration
 	BillingCreditRateCardTTL      time.Duration
 	BillingCreditLedger           CreditLedgerSettings
 	RateLimitPolicyFailOpen       bool
@@ -70,10 +69,6 @@ type RuntimeSettings struct {
 	NobitexExchangeRateInterval   time.Duration
 	NobitexExchangeRateTimeout    time.Duration
 	NobitexExchangeRateMinTrades  int
-	WalletSettlementEnabled       bool
-	WalletSettlementInterval      time.Duration
-	WalletSettlementTimeout       time.Duration
-	WalletSettlementBatchSize     int
 	GatewayMaxInFlight            int
 }
 
@@ -138,7 +133,6 @@ func LoadRuntimeSettings() RuntimeSettings {
 		BillingExchangeRateStale:      secondsEnv("BILLING_EXCHANGE_RATE_CACHE_MAX_STALE_SECONDS", 10*time.Minute),
 		BillingPricingCacheEnabled:    booleanEnv("BILLING_PRICING_CACHE_ENABLED", true),
 		BillingPricingCacheTTL:        secondsEnv("BILLING_PRICING_CACHE_TTL_SECONDS", 5*time.Minute),
-		BillingWalletCacheTTL:         secondsEnv("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
 		BillingCreditLedger:           loadCreditLedgerSettings(),
 		RateLimitPolicyFailOpen:       booleanEnv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
@@ -150,10 +144,6 @@ func LoadRuntimeSettings() RuntimeSettings {
 		NobitexExchangeRateInterval:   secondsEnv("NOBITEX_EXCHANGE_RATE_INTERVAL_SECONDS", 5*time.Minute),
 		NobitexExchangeRateTimeout:    secondsEnv("NOBITEX_EXCHANGE_RATE_TIMEOUT_SECONDS", 10*time.Second),
 		NobitexExchangeRateMinTrades:  positiveIntEnv("NOBITEX_EXCHANGE_RATE_MIN_TRADES", 1),
-		WalletSettlementEnabled:       booleanEnv("WALLET_BUDGET_SETTLEMENT_ENABLED", true),
-		WalletSettlementInterval:      secondsEnv("WALLET_BUDGET_SETTLEMENT_INTERVAL_SECONDS", 5*time.Minute),
-		WalletSettlementTimeout:       secondsEnv("WALLET_BUDGET_SETTLEMENT_TIMEOUT_SECONDS", 30*time.Second),
-		WalletSettlementBatchSize:     positiveIntEnv("WALLET_BUDGET_SETTLEMENT_BATCH_SIZE", 200),
 		GatewayMaxInFlight:            nonNegativeIntEnv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", 512),
 	}
 }

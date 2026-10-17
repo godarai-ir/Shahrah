@@ -5,10 +5,7 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
-	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestBudgetStatusReportsTheCallersRules(t *testing.T) {
@@ -61,16 +58,6 @@ func TestBudgetStatusReportsTheCallersRules(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "45.00", withBalance.TenantBalance.Remaining)
 	require.Equal(t, "2.00", withBalance.TenantBalance.Reserved)
-}
-
-func TestBudgetStatusNeedsCreditBilling(t *testing.T) {
-	mem, err := testcache.New(t, zap.NewNop())
-	require.NoError(t, err)
-
-	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{TenantID: "tenant-1"}})
-
-	_, err = service.BudgetStatus(context.Background(), creditAuth, true)
-	require.ErrorIs(t, err, ErrCreditBillingRequired)
 }
 
 func TestBudgetStatusBeforeAnyRequestReadsTheBalance(t *testing.T) {

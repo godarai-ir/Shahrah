@@ -1119,6 +1119,7 @@ function buildTelemetryItems(
   const telemetry = result.telemetry ?? {};
   const number = new Intl.NumberFormat(locale);
   const money = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 });
+  const creditAmount = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const duration = (value?: number) =>
     value === undefined
       ? t("telemetry.unavailable")
@@ -1167,12 +1168,12 @@ function buildTelemetryItems(
           : `$${money.format(telemetry.costUSD)}`,
     },
     {
-      key: "irr",
-      label: t("telemetry.costIRR"),
+      key: "credits",
+      label: t("telemetry.credits"),
       value:
-        telemetry.costIRR === undefined
+        telemetry.credits === undefined
           ? null
-          : number.format(telemetry.costIRR),
+          : creditAmount.format(Number(telemetry.credits)),
     },
     {
       key: "model",

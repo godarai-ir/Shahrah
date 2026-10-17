@@ -24,7 +24,7 @@ type exchangeRateCacheEntry struct {
 }
 
 type exchangeRateCache struct {
-	store         walletStore
+	store         exchangeRateStore
 	cache         cache.Cache
 	defaultRate   platform.ExchangeRate
 	cfg           ExchangeRateCacheConfig
@@ -61,7 +61,7 @@ func normalizeExchangeRateCacheConfig(cfg ExchangeRateCacheConfig) ExchangeRateC
 	return cfg
 }
 
-func newExchangeRateCache(store walletStore, c cache.Cache, defaultRate platform.ExchangeRate, cfg ExchangeRateCacheConfig) *exchangeRateCache {
+func newExchangeRateCache(store exchangeRateStore, c cache.Cache, defaultRate platform.ExchangeRate, cfg ExchangeRateCacheConfig) *exchangeRateCache {
 	defaultRate = cloneExchangeRate(defaultRate)
 	refreshCtx, cancel := context.WithCancel(context.Background())
 

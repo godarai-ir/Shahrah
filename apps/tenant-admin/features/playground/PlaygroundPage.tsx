@@ -307,7 +307,7 @@ export default function PlaygroundPage() {
     let responseID: string | undefined;
     let responseModel: string | undefined;
     let streamedCostUSD: number | undefined;
-    let streamedCostIRR: number | undefined;
+    let streamedCredits: string | undefined;
     let rawResponse: unknown = null;
     setNotice(null);
     setResults((current) => {
@@ -347,14 +347,14 @@ export default function PlaygroundPage() {
             responseModel = snapshot.responseModel;
             firstTokenAt = snapshot.firstTokenAt;
             streamedCostUSD = snapshot.costUSD;
-            streamedCostIRR = snapshot.costIRR;
+            streamedCredits = snapshot.credits;
             setResults((current) => ({
               ...current,
               [column.id]: {
                 ...current[column.id], status: "running", responseText, toolCalls, finishReason,
                 rawResponse: { id: responseID, model: responseModel, choices: [{ message: { role: "assistant", content: responseText, tool_calls: toolCalls }, finish_reason: finishReason }], usage },
                 responseIsPrevious: false,
-                telemetry: { ...baseTelemetry, effectiveModel: responseModel ?? baseTelemetry.effectiveModel, ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt), ...usageTelemetry(usage), costUSD: streamedCostUSD ?? baseTelemetry.costUSD, costIRR: streamedCostIRR ?? baseTelemetry.costIRR },
+                telemetry: { ...baseTelemetry, effectiveModel: responseModel ?? baseTelemetry.effectiveModel, ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt), ...usageTelemetry(usage), costUSD: streamedCostUSD ?? baseTelemetry.costUSD, credits: streamedCredits ?? baseTelemetry.credits },
               },
             }));
           },
@@ -367,7 +367,7 @@ export default function PlaygroundPage() {
         responseModel = streamed.responseModel;
         firstTokenAt = streamed.firstTokenAt;
         streamedCostUSD = streamed.costUSD;
-        streamedCostIRR = streamed.costIRR;
+        streamedCredits = streamed.credits;
       } else {
         const payload = await readPlaygroundJSON(response);
         if (mode === "image_generation") {
@@ -410,7 +410,7 @@ export default function PlaygroundPage() {
             ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt),
             ...usageTelemetry(usage),
             costUSD: streamedCostUSD ?? baseTelemetry.costUSD,
-            costIRR: streamedCostIRR ?? baseTelemetry.costIRR,
+            credits: streamedCredits ?? baseTelemetry.credits,
             ...(mode === "image_generation" ? {
               imageCount: generatedImages.length,
               requestedImageSize: column.imageConfig.size,
@@ -1012,7 +1012,7 @@ function telemetryFromHeaders(headers: Headers, requestedModel: string, startedA
     cacheStatus: headers.get("x-godarai-cache-status") ?? undefined,
     cacheSimilarity: numeric("x-godarai-cache-similarity-score"),
     costUSD: numeric("x-godarai-cost-usd"),
-    costIRR: numeric("x-godarai-cost-irr"),
+    credits: headers.get("x-godarai-credits-used") ?? undefined,
     guardrailStatus: headers.get("x-godarai-guardrail-checks") ?? undefined,
     durationMs: Math.round(performance.now() - startedAt),
   };

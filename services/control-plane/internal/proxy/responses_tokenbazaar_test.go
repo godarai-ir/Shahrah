@@ -134,7 +134,6 @@ func newTokenBazaarResponsesTestAppForModel(
 		Tunnel:              tunnel,
 		Billing:             &tokenBazaarResponsesBudgeter{endpoints: endpoints},
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             &testWallets{},
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              zap.NewNop(),

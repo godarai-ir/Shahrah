@@ -120,7 +120,8 @@ export type PlaygroundTelemetry = {
   outputTokens?: number;
   totalTokens?: number;
   costUSD?: number;
-  costIRR?: number;
+  /** Credits charged, as the gateway's two-decimal string. */
+  credits?: string;
   cacheStatus?: string;
   cacheSimilarity?: number;
   retryCount?: number;

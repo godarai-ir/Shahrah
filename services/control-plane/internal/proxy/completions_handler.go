@@ -46,7 +46,7 @@ func NewCompletionsHandlerWithDependencies(deps BaseHandlerDependencies) *Comple
 }
 
 // NewCompletionsHandler creates a new legacy completions handler.
-func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
+func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -57,7 +57,6 @@ func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -818,7 +817,6 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 // setCostHeaders sets cost-related response headers.
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
 	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
 
 	if used := creditsUsed(creditSurface(c), cost); used != "" {
 		c.Set(apiheaders.HeaderCreditsUsed, used)
