@@ -103,6 +103,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'financial/overview',
         'financial/rate-card',
+        'budget-me',
         'cost-tracking',
       ],
     },

@@ -295,6 +295,31 @@ The owner asked for the ClickHouse spend history to be cleared too (2026-10-17).
 
 Verified against ClickHouse 26.3: rows before the cutoff keep their counts with zero spend, and rows after it keep their spend.
 
+## Implementation notes (3d)
+
+Owner decision (2026-10-17): the IRR wallet pages are replaced with credits, not kept beside them.
+
+**Backend.**
+- `GET /billing/credits/balance` returns available credits, debt, the spendable lots (remaining > 0, not expired), the overage settings, and a forecast.
+- The forecast reads the last 7 days of `consume` ledger entries and spreads them over the time since the first of them, at least one hour. Under 48 hours of history it is `uncertain`; with no consumption it is `no_usage` and has no date.
+- The credit usage summary adds `by_user` (ClickHouse `user_email`) and drops `shadow_mode`.
+- The forecast stops at the last spendable lot's expiry when that comes first (`limited_by: expiry`), so a trial does not read as lasting longer than it does.
+
+**Tenant-admin.**
+- `/billing` shows available credits, this month's usage, cache savings net of the `semantic_cache` product charge (gross as the description), the forecast, the lots, and usage by model, team, user, and product over a preset window.
+- `/billing/credits` sells add-on packs, online or by bank transfer. A bank-transfer order opens the receipt form with the amount fixed to the order total. Gateway payments return to this page with `payment_status`.
+- `/billing/plan` adds the overage switch and cap. A plan without `overage_allowed` locks the switch.
+- `/billing/topup`, `/billing/bank-transfer`, `/billing/reports`, and `/billing/documents` redirect to the credit pages. Their panels, the IRR report chart, and the `topupPage` and `topupResult` message modules are deleted, and the navigation keeps only overview, buy credits, billing profile, and plan.
+- Budget rules are edited in credits: `limit` (two decimals), `on_exceed` as an option-card choice, and alert thresholds as chips (Persian digits accepted). The notification-channel fields are gone (P1). The simulator reports `alertOnly` for alert rules, and the list badges them.
+- "Default `on_exceed`" on the plan page has no backend setting; new rules default to `block`.
+- The plan page labels the `credits.*` entitlements (monthly grant, trial grant and length, overage, rollover, bonus, BYOK fee).
+
+Verified in a browser against a local control-plane, in English and Persian: a tenant made through the onboarding API got its 500 trial credits; seeded usage settled and showed by model, user, and product; a bank-transfer pack order opened the receipt form at the order total; overage and a cap saved; and an alert-only rule saved with `limit_mc`, `on_exceed`, and thresholds.
+
+**Docs.** `guides/budget-limiting` is rewritten for credits, `budget-me` is new, and `cost-tracking`, `request-headers`, and `financial/rate-card` describe credits as the billing unit. `financial/overview` carries a notice until Phase 4 rewrites it.
+
+**k6.** `budget-limit-rule.js` reads `BUDGET_LIMIT_CREDITS` and sums `x-godarai-credits-used`.
+
 ## Implementation notes (3e)
 
 **Storage** is in `credit_conversion_repo.go`, `credit_conversion_preview_repo.go`, and `credit_conversion_rollback_repo.go`. Migration `071` adds the ledger kind `convert` (non-zero, reason required) and `credit_conversions`.

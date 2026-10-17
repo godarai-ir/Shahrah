@@ -26,6 +26,7 @@ type Handler interface {
 	UpsertBillingProfile(*fiber.Ctx) error
 	GetBillingUsageSummary(*fiber.Ctx) error
 	GetCreditUsageSummary(*fiber.Ctx) error
+	GetCreditBalance(*fiber.Ctx) error
 	ListCreditPacks(*fiber.Ctx) error
 	ListCreditPackOrders(*fiber.Ctx) error
 	GetCreditPackOrder(*fiber.Ctx) error
@@ -131,6 +132,7 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 // registerTenantCredits registers tenant credit endpoints.
 func (r *Routes) registerTenantCredits(router fiber.Router) {
 	router.Get("/billing/credits/summary", r.handler.GetCreditUsageSummary)
+	router.Get("/billing/credits/balance", r.handler.GetCreditBalance)
 	router.Get("/billing/credits/packs", r.handler.ListCreditPacks)
 	router.Get("/billing/credits/orders", r.handler.ListCreditPackOrders)
 	router.Post("/billing/credits/orders", r.handler.CreateCreditPackOrder)

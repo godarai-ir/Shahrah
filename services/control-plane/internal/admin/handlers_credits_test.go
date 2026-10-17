@@ -31,7 +31,6 @@ func (m *creditUsageStoreMock) GetCreditUsageSummary(
 
 	return &platform.CreditUsageSummary{
 		Available:    true,
-		ShadowMode:   true,
 		TotalCredits: "12.50",
 		ByModel:      []platform.CreditUsageItem{{Key: "anthropic/claude-sonnet-5", Credits: "12.50", RequestCount: 3}},
 		ByTeam:       []platform.CreditUsageItem{},
@@ -107,4 +106,39 @@ func TestGetCreditUsageSummaryRejectsInvalidPresetAndMissingPermission(t *testin
 
 	status, _ = getCreditSummary(t, creditSummaryApp(h, nil), "")
 	require.Equal(t, fiber.StatusForbidden, status)
+}
+
+type creditBalanceStoreMock struct {
+	tenantID string
+}
+
+func (m *creditBalanceStoreMock) GetTenantCreditBalance(_ context.Context, tenantID string, _ time.Time) (*platform.TenantCreditBalance, error) {
+	m.tenantID = tenantID
+
+	return &platform.TenantCreditBalance{AvailableCredits: "500.00", Lots: []platform.CreditLot{}}, nil
+}
+
+func TestGetCreditBalanceUsesTenantAndNeedsBillingRead(t *testing.T) {
+	t.Parallel()
+
+	store := &creditBalanceStoreMock{}
+	h := &Handlers{billingState: billingState{creditBalance: store}}
+
+	for _, tc := range []struct {
+		permissions []string
+		status      int
+	}{
+		{nil, fiber.StatusForbidden},
+		{[]string{"billing:read"}, fiber.StatusOK},
+	} {
+		app := creditSummaryApp(h, tc.permissions)
+		app.Get("/api/v1/billing/credits/balance", h.GetCreditBalance)
+
+		resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/billing/credits/balance", http.NoBody))
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, tc.status, resp.StatusCode)
+	}
+
+	require.Equal(t, "tenant_a", store.tenantID)
 }

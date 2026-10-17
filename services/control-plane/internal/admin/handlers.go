@@ -189,6 +189,10 @@ type creditUsageStore interface {
 	GetCreditUsageSummary(ctx context.Context, tenantID string, start time.Time, end time.Time) (*platform.CreditUsageSummary, error)
 }
 
+type creditBalanceStore interface {
+	GetTenantCreditBalance(ctx context.Context, tenantID string, now time.Time) (*platform.TenantCreditBalance, error)
+}
+
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
 	ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
@@ -335,8 +339,10 @@ type BillingDependencies struct {
 	Plans        planStore
 	Entitlements entitlementResolverStore
 	Payment      PaymentConfig
-	// CreditUsage reads shadow credit usage; nil disables the credit summary.
+	// CreditUsage reads credit usage; nil disables the credit summary.
 	CreditUsage creditUsageStore
+	// CreditBalance reads a tenant's lots and depletion forecast.
+	CreditBalance creditBalanceStore
 	// CreditPacks sells add-on packs; nil disables the credit pack endpoints.
 	CreditPacks creditPackStore
 	// CreditAdmin backs the support-admin credit endpoints.
@@ -399,13 +405,14 @@ type catalogState struct {
 }
 
 type billingState struct {
-	wallets      walletStore
-	plans        planStore
-	entitlements entitlementResolverStore
-	payment      PaymentConfig
-	creditUsage  creditUsageStore
-	creditPacks  creditPackStore
-	creditAdmin  creditAdminStore
+	wallets       walletStore
+	plans         planStore
+	entitlements  entitlementResolverStore
+	payment       PaymentConfig
+	creditUsage   creditUsageStore
+	creditBalance creditBalanceStore
+	creditPacks   creditPackStore
+	creditAdmin   creditAdminStore
 }
 
 type onboardingState struct {
@@ -462,13 +469,14 @@ func New(deps Dependencies) *Handlers {
 			semanticTestLimiter: newAuthRateLimiter(),
 		},
 		billingState: billingState{
-			wallets:      deps.Billing.Wallets,
-			plans:        deps.Billing.Plans,
-			entitlements: deps.Billing.Entitlements,
-			payment:      deps.Billing.Payment.withDefaults(),
-			creditUsage:  deps.Billing.CreditUsage,
-			creditPacks:  deps.Billing.CreditPacks,
-			creditAdmin:  deps.Billing.CreditAdmin,
+			wallets:       deps.Billing.Wallets,
+			plans:         deps.Billing.Plans,
+			entitlements:  deps.Billing.Entitlements,
+			payment:       deps.Billing.Payment.withDefaults(),
+			creditUsage:   deps.Billing.CreditUsage,
+			creditBalance: deps.Billing.CreditBalance,
+			creditPacks:   deps.Billing.CreditPacks,
+			creditAdmin:   deps.Billing.CreditAdmin,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

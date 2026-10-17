@@ -46,16 +46,14 @@ describe("client component performance boundaries", () => {
   });
 
   it("keeps feature chart implementations out of their orchestration graphs", async () => {
-    const [metrics, dashboard, billing] = await Promise.all([
+    const [metrics, dashboard] = await Promise.all([
       readSource("features/metrics/ModelMetricsDashboard.tsx"),
       readSource("features/dashboard/DashboardAnalytics.tsx"),
-      readSource("features/billing/BillingFinancePanels.tsx"),
     ]);
 
     expect(metrics).toContain('import("@/features/metrics/metrics-charts")');
     expect(dashboard).toContain('import("@/features/dashboard/dashboard-charts")');
-    expect(billing).toContain('import("@/features/billing/provider-cost-chart")');
-    for (const source of [metrics, dashboard, billing]) {
+    for (const source of [metrics, dashboard]) {
       expect(source).not.toMatch(/from\s+["']recharts["']/u);
     }
   });

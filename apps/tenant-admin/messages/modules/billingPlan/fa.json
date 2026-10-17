@@ -52,7 +52,14 @@
     "deploymentSaasEnabled": "استقرار ابری",
     "deploymentVpcEnabled": "استقرار در محل یا ابر خصوصی",
     "supportTier": "نوع پشتیبانی",
-    "supportSla": "توافقنامه سطح خدمات"
+    "supportSla": "توافقنامه سطح خدمات",
+    "creditsMonthlyGrant": "کردیت ماهانه",
+    "creditsTrialGrant": "کردیت دوره آزمایشی",
+    "creditsTrialDays": "طول دوره آزمایشی",
+    "creditsOverageAllowed": "اضافه‌مصرف",
+    "creditsRolloverAllowed": "انتقال کردیت به ماه بعد",
+    "creditsBonusPercent": "کردیت هدیه",
+    "creditsByokFeePercent": "کارمزد BYOK"
   },
   "values": {
     "enabled": "در دسترس",
@@ -62,7 +69,9 @@
     "custom": "طبق قرارداد",
     "unlimited": "نامحدود",
     "days": "{count} روز",
-    "noSla": "بدون SLA"
+    "noSla": "بدون SLA",
+    "credits": "{count} کردیت",
+    "percent": "{value}٪"
   },
   "support": {
     "chatbot": "چت‌بات",

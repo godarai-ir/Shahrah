@@ -1,19 +1,15 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { BarChart3, Building2, CreditCard, Download, FileImage, FileText, Landmark, ReceiptText, Tag, Trash2, Upload, WalletCards, type LucideIcon } from "lucide-react";
+import { Building2, CreditCard, FileImage, Landmark, Trash2, Upload, type LucideIcon } from "lucide-react";
 
-import { AppCard } from "@/components/app-ui/AppCard";
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { CopyableValue } from "@/components/app-ui/CopyableValue";
 import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { FormSection } from "@/components/app-ui/FormSection";
-import { MetricCard } from "@/components/app-ui/MetricCard";
 import { SettingsCard } from "@/components/app-ui/SettingsCard";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,58 +25,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type BankTransferRequest,
   type BillingProfile,
-  type BillingProviderUsage,
-  type BillingSummaryPreset,
-  type BillingUsageSummary,
-  type DiscountRedemption,
-  type Invoice,
-  type MonthlyUsageDetail,
-  type WalletTransaction,
-  buildRecentJalaliMonthOptions,
   getCurrentJalaliDateValue,
-  getCurrentJalaliMonthSelection,
-  getJalaliMonthKey,
   normalizeJalaliDateInput,
-  parseJalaliMonthKey,
   statusTone,
 } from "@/features/billing/domain";
-import { getBillingReports, submitBankTransfer, updateBillingProfile } from "@/features/billing/api";
+import { submitBankTransfer, updateBillingProfile } from "@/features/billing/api";
 import {
-  buildFilterOptions,
   formatFileSize,
   JalaliDateField,
-  mapDiscountTypeLabel,
   mapDocumentStatusLabel,
-  mapTransactionTypeLabel,
-  matchDiscountFilters,
-  matchInvoiceFilters,
-  matchTransactionFilters,
   normalizeDigits,
   ProfileTypeField,
-  transactionTypeIcon,
   type BillingProfileType,
 } from "@/features/billing/billing-ui-helpers";
-import { downloadBillingDocumentsCSV, type BillingDocumentTab } from "@/features/billing/documents-csv";
 import { useBillingFormat } from "@/features/billing/use-billing-format";
-import { useAppLocale } from "@/hooks/use-locale-format";
 
 type BankTransferPanelProps = {
   initialItems: BankTransferRequest[];
   initialError: string | null;
+  /** A credit pack order to pay: the amount is fixed to its payable total and the history is hidden. */
+  packOrder?: { id: string; payableIRR: number };
+  onSubmitted?: () => void;
 };
 
-const REPORT_PRESETS: BillingSummaryPreset[] = [
-  "current_month",
-  "current_quarter",
-  "current_year",
-  "last_3_months",
-  "last_6_months",
-  "last_12_months",
-];
 const MAX_RECEIPT_IMAGE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_RECEIPT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -89,11 +59,7 @@ const BANK_TRANSFER_ACCOUNT_INFO = {
   cardNumber: "6219 8610 8689 9761",
 } as const;
 
-const ProviderCostChart = dynamic(() => import("@/features/billing/provider-cost-chart"), {
-  loading: () => <div className="h-full w-full animate-pulse rounded-md bg-muted" aria-hidden="true" />,
-});
-
-export function BankTransferPanel({ initialItems, initialError }: BankTransferPanelProps) {
+export function BankTransferPanel({ initialItems, initialError, packOrder, onSubmitted }: BankTransferPanelProps) {
   const router = useRouter();
   const t = useTranslations("billing");
   const format = useBillingFormat();
@@ -128,7 +94,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
     e.preventDefault();
     setError(null);
 
-    const toman = Number(amountToman.replaceAll(",", ""));
+    const toman = packOrder ? packOrder.payableIRR / 10 : Number(amountToman.replaceAll(",", ""));
     if (!Number.isFinite(toman) || toman <= 0 || !trackingNumber.trim()) {
       setError(t("bankTransfer.errors.amountAndTracking"));
       return;
@@ -146,7 +112,8 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.set("amount_irr", String(Math.round(toman * 10)));
+      formData.set("amount_irr", String(packOrder ? packOrder.payableIRR : Math.round(toman * 10)));
+      if (packOrder) formData.set("credit_pack_order_id", packOrder.id);
       formData.set("tracking_number", trackingNumber.trim());
       formData.set("bank_transaction_date_jalali", normalizedDate);
       formData.set("receipt_image", receiptImage);
@@ -161,6 +128,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       }
       setReceiptPreviewURL(null);
       setReceiptImage(null);
+      onSubmitted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("unknownError"));
     } finally {
@@ -209,7 +177,16 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       <BankAccountDetailsCard />
       <SettingsCard>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <AppTextField id="bank-amount" label={t("bankTransfer.form.amount")} value={amountToman} onChange={(event) => setAmountToman(event.target.value)} dir="ltr" inputMode="numeric" />
+          <AppTextField
+            id="bank-amount"
+            label={t("bankTransfer.form.amount")}
+            value={packOrder ? format.toman(packOrder.payableIRR) : amountToman}
+            onChange={(event) => setAmountToman(event.target.value)}
+            readOnly={Boolean(packOrder)}
+            description={packOrder ? t("bankTransfer.form.packAmountHint") : undefined}
+            dir="ltr"
+            inputMode="numeric"
+          />
           <AppTextField id="bank-tracking" label={t("bankTransfer.form.trackingNumber")} value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} dir="ltr" />
           <JalaliDateField id="bank-date" label={t("bankTransfer.form.transferDate")} value={bankTransactionDateJalali} onChange={setBankTransactionDateJalali} />
           <div className="flex flex-col gap-2 md:col-span-2">
@@ -263,9 +240,11 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
           </div>
         </form>
       </SettingsCard>
-      <SettingsCard title={t("bankTransfer.list.title")} description={t("bankTransfer.list.description")}>
-        <DataTable tableId="billing-bank-transfers" columns={columns} data={initialItems} emptyLabel={t("bankTransfer.list.empty")} />
-      </SettingsCard>
+      {packOrder ? null : (
+        <SettingsCard title={t("bankTransfer.list.title")} description={t("bankTransfer.list.description")}>
+          <DataTable tableId="billing-bank-transfers" columns={columns} data={initialItems} emptyLabel={t("bankTransfer.list.empty")} />
+        </SettingsCard>
+      )}
     </div>
   );
 }
@@ -340,117 +319,6 @@ function BankAccountCopyField({
           copied: t("bankTransfer.account.copied"),
         }}
       />
-    </div>
-  );
-}
-
-type ReportsPanelProps = {
-  initialSummary: BillingUsageSummary | null;
-  initialMonthly: MonthlyUsageDetail | null;
-  initialError: string | null;
-};
-
-export function ReportsPanel({ initialSummary, initialMonthly, initialError }: ReportsPanelProps) {
-  const t = useTranslations("billing");
-  const format = useBillingFormat();
-  const locale = useAppLocale();
-  const [preset, setPreset] = useState<BillingSummaryPreset>(initialSummary?.preset ?? "current_month");
-  const [monthKey, setMonthKey] = useState(() => {
-    if (initialMonthly) {
-      return getJalaliMonthKey({ year: initialMonthly.jalali_year, month: initialMonthly.jalali_month });
-    }
-    return getJalaliMonthKey(getCurrentJalaliMonthSelection());
-  });
-  const [summary, setSummary] = useState<BillingUsageSummary | null>(initialSummary);
-  const [monthly, setMonthly] = useState<MonthlyUsageDetail | null>(initialMonthly);
-  const [error, setError] = useState<string | null>(initialError);
-  const [loading, setLoading] = useState(false);
-  const monthOptions = useMemo(() => buildRecentJalaliMonthOptions(18, new Date(), locale), [locale]);
-
-  const columns = useMemo<ColumnDef<BillingProviderUsage>[]>(
-    () => [
-      { accessorKey: "provider_name", header: t("reports.columns.provider") },
-      { accessorKey: "request_count", header: t("reports.columns.requests") },
-      { accessorKey: "input_tokens", header: t("reports.columns.inputTokens") },
-      { accessorKey: "output_tokens", header: t("reports.columns.outputTokens") },
-      { accessorKey: "raw_cost_irr", header: t("reports.columns.rawCost"), cell: ({ row }) => format.irr(row.original.raw_cost_irr) },
-      { accessorKey: "discount_irr", header: t("reports.columns.discount"), cell: ({ row }) => format.irr(row.original.discount_irr) },
-      { accessorKey: "cache_savings_irr", header: t("reports.columns.cacheSavings"), cell: ({ row }) => format.irr(row.original.cache_savings_irr) },
-      { accessorKey: "final_cost_irr", header: t("reports.columns.finalCost"), cell: ({ row }) => format.irr(row.original.final_cost_irr) },
-    ],
-    [format, t],
-  );
-
-  async function refresh(nextPreset = preset, nextMonthKey = monthKey) {
-    const nextMonth = parseJalaliMonthKey(nextMonthKey);
-    if (!nextMonth) {
-      setError(t("reports.invalidMonth"));
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const reports = await getBillingReports(nextPreset, nextMonth);
-      setSummary(reports.summary);
-      setMonthly(reports.monthly);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("unknownError"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const pieData = (summary?.providers ?? []).map((item) => ({
-    name: item.provider_name || "unknown",
-    value: Math.max(item.final_cost_irr, 0),
-  }));
-
-  return (
-    <div className="space-y-6">
-      {error ? <Alert variant="destructive"><AlertTitle>{t("errorTitle")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        <MetricCard icon={WalletCards} label={t("reports.metrics.periodUsage")} value={format.irr(summary?.total_usage_irr)} />
-        <MetricCard icon={Tag} label={t("reports.metrics.discount")} value={format.irr(summary?.discount_irr)} />
-        <MetricCard icon={BarChart3} label={t("reports.metrics.cacheSavings")} value={format.irr(summary?.cache_savings_irr)} />
-        <MetricCard icon={ReceiptText} label={t("reports.metrics.giftCredit")} value={format.irr(summary?.gift_credit_irr)} />
-      </div>
-      <SettingsCard title={t("reports.filter.title")} description={t("reports.filter.description")}>
-        <div className="grid gap-4 md:grid-cols-3">
-          <AppSelectField
-            label={t("reports.filter.range")}
-            value={preset}
-            onValueChange={(value) => {
-              setPreset(value as BillingSummaryPreset);
-              void refresh(value as BillingSummaryPreset, monthKey);
-            }}
-            options={REPORT_PRESETS.map((value) => ({ value, label: t(`reports.presets.${value}`) }))}
-          />
-          <AppSelectField
-            label={t("reports.filter.monthly")}
-            value={monthKey}
-            onValueChange={setMonthKey}
-            options={monthOptions}
-          />
-          <div className="flex items-end">
-            <Button type="button" onClick={() => void refresh()} disabled={loading}>{loading ? t("reports.filter.refreshing") : t("reports.filter.refresh")}</Button>
-          </div>
-        </div>
-      </SettingsCard>
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <SettingsCard
-          title={t("reports.monthlyDetail.title")}
-          description={t("reports.monthlyDetail.description", { month: format.jalaliMonth(monthKey) })}
-          className="min-w-0 max-w-none overflow-hidden"
-        >
-          <DataTable tableId="billing-monthly-providers" columns={columns} data={monthly?.providers ?? []} emptyLabel={t("reports.monthlyDetail.empty")} />
-        </SettingsCard>
-        <AppCard title={t("reports.providerShare.title")} description={t("reports.providerShare.description")}>
-          <div className="h-64">
-            <ProviderCostChart data={pieData} />
-          </div>
-        </AppCard>
-      </div>
     </div>
   );
 }
@@ -589,264 +457,3 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
     </div>
   );
 }
-
-type DocumentsPanelProps = {
-  invoices: Invoice[];
-  transactions: WalletTransaction[];
-  discounts: DiscountRedemption[];
-};
-
-export function BillingDocumentsPanel({ invoices, transactions, discounts }: DocumentsPanelProps) {
-  const t = useTranslations("billing");
-  const format = useBillingFormat();
-  const allLabel = t("filters.all");
-  const [activeTab, setActiveTab] = useState<BillingDocumentTab>("invoices");
-  const [invoiceStatus, setInvoiceStatus] = useState("all");
-  const [invoicePage, setInvoicePage] = useState(1);
-  const [transactionStatus, setTransactionStatus] = useState("all");
-  const [transactionType, setTransactionType] = useState("all");
-  const [transactionPage, setTransactionPage] = useState(1);
-  const [discountStatus, setDiscountStatus] = useState("all");
-  const [discountType, setDiscountType] = useState("all");
-  const [discountPage, setDiscountPage] = useState(1);
-
-  const invoiceColumns = useMemo<ColumnDef<Invoice>[]>(
-    () => [
-      { accessorKey: "net_adjustment_irr", header: t("documents.invoices.netAdjustment"), cell: ({ row }) => format.amount(row.original.net_adjustment_irr) },
-      { accessorKey: "final_amount_irr", header: t("documents.invoices.finalAmount"), cell: ({ row }) => format.amount(row.original.final_amount_irr) },
-      { accessorKey: "period_end", header: t("documents.invoices.periodEnd"), cell: ({ row }) => format.dateTime(row.original.period_end) },
-      { accessorKey: "status", header: t("documents.invoices.status"), cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status, t)}</StatusBadge> },
-      { accessorKey: "invoice_number", header: t("documents.invoices.number") },
-    ],
-    [format, t],
-  );
-  const txColumns = useMemo<ColumnDef<WalletTransaction>[]>(
-    () => [
-      {
-        accessorKey: "type",
-        header: t("documents.transactions.type"),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            {transactionTypeIcon(row.original.type)}
-            <span>{mapTransactionTypeLabel(row.original.type, t)}</span>
-          </div>
-        ),
-      },
-      { accessorKey: "status", header: t("documents.transactions.status"), cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status, t)}</StatusBadge> },
-      { accessorKey: "amount_irr", header: t("documents.transactions.amount"), cell: ({ row }) => format.amount(row.original.amount_irr) },
-      { accessorKey: "balance_after_irr", header: t("documents.transactions.balanceAfter"), cell: ({ row }) => format.amount(row.original.balance_after_irr) },
-      { accessorKey: "created_at", header: t("documents.transactions.createdAt"), cell: ({ row }) => format.dateTime(row.original.created_at) },
-    ],
-    [format, t],
-  );
-  const discountColumns = useMemo<ColumnDef<DiscountRedemption>[]>(
-    () => [
-      { accessorKey: "code", header: t("documents.discounts.code") },
-      { accessorKey: "discount_type", header: t("documents.discounts.type"), cell: ({ row }) => mapDiscountTypeLabel(row.original.discount_type, t) },
-      { accessorKey: "status", header: t("documents.discounts.status"), cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status, t)}</StatusBadge> },
-      { accessorKey: "used_amount_irr", header: t("documents.discounts.usedAmount"), cell: ({ row }) => format.amount(row.original.used_amount_irr) },
-      { accessorKey: "created_at", header: t("documents.discounts.createdAt"), cell: ({ row }) => format.dateTime(row.original.created_at) },
-    ],
-    [format, t],
-  );
-
-  const invoiceRows = useMemo(
-    () => invoices.filter((item) => matchInvoiceFilters(item, invoiceStatus)),
-    [invoiceStatus, invoices],
-  );
-  const transactionRows = useMemo(
-    () => transactions.filter((item) => matchTransactionFilters(item, transactionStatus, transactionType)),
-    [transactionStatus, transactionType, transactions],
-  );
-  const discountRows = useMemo(
-    () => discounts.filter((item) => matchDiscountFilters(item, discountStatus, discountType)),
-    [discountStatus, discountType, discounts],
-  );
-
-  return (
-    <AppCard className="min-w-0 max-w-none overflow-hidden">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as BillingDocumentTab)} className="min-w-0 w-full">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 self-start"
-            aria-label={t("documents.exportCSV")}
-            title={t("documents.exportCSV")}
-            onClick={() =>
-              downloadBillingDocumentsCSV({
-                tab: activeTab,
-                invoices: invoiceRows,
-                transactions: transactionRows,
-                discounts: discountRows,
-                t,
-                format,
-              })
-            }
-          >
-            <Download className="size-4" />
-          </Button>
-          <TabsList className="w-full justify-start overflow-x-auto sm:w-fit sm:self-end">
-            <TabsTrigger value="invoices"><FileText className="me-2 size-4" />{t("documents.tabs.invoices")}</TabsTrigger>
-            <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />{t("documents.tabs.transactions")}</TabsTrigger>
-            <TabsTrigger value="discounts"><Tag className="me-2 size-4" />{t("documents.tabs.discounts")}</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="invoices">
-          <DocumentTableSection
-            columns={invoiceColumns}
-            rows={invoiceRows}
-            emptyLabel={t("documents.invoices.empty")}
-            filters={[
-              {
-                value: invoiceStatus,
-                onValueChange: (value) => {
-                  setInvoiceStatus(value);
-                  setInvoicePage(1);
-                },
-                options: buildFilterOptions(invoices.map((item) => item.status), (value) => mapDocumentStatusLabel(value, t), allLabel),
-                label: t("documents.invoices.status"),
-              },
-            ]}
-            page={invoicePage}
-            onPageChange={setInvoicePage}
-          />
-        </TabsContent>
-        <TabsContent value="transactions">
-          <DocumentTableSection
-            columns={txColumns}
-            rows={transactionRows}
-            emptyLabel={t("documents.transactions.empty")}
-            filters={[
-              {
-                value: transactionType,
-                onValueChange: (value) => {
-                  setTransactionType(value);
-                  setTransactionPage(1);
-                },
-                options: buildFilterOptions(transactions.map((item) => item.type), (value) => mapTransactionTypeLabel(value, t), allLabel),
-                label: t("documents.transactions.type"),
-              },
-              {
-                value: transactionStatus,
-                onValueChange: (value) => {
-                  setTransactionStatus(value);
-                  setTransactionPage(1);
-                },
-                options: buildFilterOptions(transactions.map((item) => item.status), (value) => mapDocumentStatusLabel(value, t), allLabel),
-                label: t("documents.transactions.status"),
-              },
-            ]}
-            page={transactionPage}
-            onPageChange={setTransactionPage}
-          />
-        </TabsContent>
-        <TabsContent value="discounts">
-          <DocumentTableSection
-            columns={discountColumns}
-            rows={discountRows}
-            emptyLabel={t("documents.discounts.empty")}
-            filters={[
-              {
-                value: discountType,
-                onValueChange: (value) => {
-                  setDiscountType(value);
-                  setDiscountPage(1);
-                },
-                options: buildFilterOptions(discounts.map((item) => item.discount_type), (value) => mapDiscountTypeLabel(value, t), allLabel),
-                label: t("documents.discounts.type"),
-              },
-              {
-                value: discountStatus,
-                onValueChange: (value) => {
-                  setDiscountStatus(value);
-                  setDiscountPage(1);
-                },
-                options: buildFilterOptions(discounts.map((item) => item.status), (value) => mapDocumentStatusLabel(value, t), allLabel),
-                label: t("documents.discounts.status"),
-              },
-            ]}
-            page={discountPage}
-            onPageChange={setDiscountPage}
-          />
-        </TabsContent>
-      </Tabs>
-    </AppCard>
-  );
-}
-
-type DocumentFilterControl = {
-  label: string;
-  value: string;
-  onValueChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
-};
-
-function DocumentTableSection<T>({
-  columns,
-  rows,
-  emptyLabel,
-  filters,
-  page,
-  onPageChange,
-}: {
-  columns: ColumnDef<T>[];
-  rows: T[];
-  emptyLabel: string;
-  filters: DocumentFilterControl[];
-  page: number;
-  onPageChange: (value: number) => void;
-}) {
-  const t = useTranslations("billing");
-  const format = useBillingFormat();
-  const pageSizeNumber = 10;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSizeNumber));
-  const safePage = Math.min(page, pageCount);
-  const pageStart = rows.length === 0 ? 0 : (safePage - 1) * pageSizeNumber;
-  const paginatedRows = rows.slice(pageStart, pageStart + pageSizeNumber);
-  const pageEnd = rows.length === 0 ? 0 : Math.min(pageStart + pageSizeNumber, rows.length);
-
-  return (
-    <div className="min-w-0 space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3">
-        <div className="flex flex-col gap-3">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {filters.map((filter) => (
-              <AppSelectField
-                key={filter.label}
-                value={filter.value}
-                onValueChange={filter.onValueChange}
-                options={filter.options}
-                label={filter.label}
-                triggerClassName="min-w-36"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      <DataTable tableId="billing-report-rows" columns={columns} data={paginatedRows} emptyLabel={emptyLabel} />
-      <div className="flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-muted-foreground">
-          {t("pagination.range", {
-            from: format.count(pageStart + 1),
-            to: format.count(pageEnd),
-            total: format.count(rows.length),
-          })}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={safePage <= 1} onClick={() => onPageChange(safePage - 1)}>
-            {t("pagination.previous")}
-          </Button>
-          <span className="min-w-20 text-center text-xs text-muted-foreground">
-            {t("pagination.page", { page: format.count(safePage), pageCount: format.count(pageCount) })}
-          </span>
-          <Button type="button" variant="outline" size="sm" disabled={safePage >= pageCount} onClick={() => onPageChange(safePage + 1)}>
-            {t("pagination.next")}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
