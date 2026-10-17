@@ -60,7 +60,6 @@ func (b *builder) buildManagement() error {
 				CreditPriceRepository:    b.store.CreditPriceRepository,
 				CreditRateCardRepository: b.store.CreditRateCardRepository,
 			},
-			CreditShadowEnabled: b.cfg.Runtime.BillingCreditsShadowEnabled,
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,
 				DefaultSubscriptionProvider: b.cfg.Admin.Payment.DefaultSubscriptionProvider,

@@ -33,7 +33,7 @@ func (h *Handlers) GetCreditUsageSummary(c *fiber.Ctx) error {
 		return err
 	}
 
-	if !h.creditShadow || h.creditUsage == nil {
+	if h.creditUsage == nil {
 		return c.JSON(emptyCreditUsageSummary(normalizedPreset, start, end))
 	}
 
@@ -49,7 +49,6 @@ func (h *Handlers) GetCreditUsageSummary(c *fiber.Ctx) error {
 
 func emptyCreditUsageSummary(preset string, start, end time.Time) platform.CreditUsageSummary {
 	return platform.CreditUsageSummary{
-		ShadowMode:        true,
 		Preset:            preset,
 		PeriodStart:       start,
 		PeriodEnd:         end,

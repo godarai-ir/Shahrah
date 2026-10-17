@@ -29,22 +29,14 @@ func (b *builder) buildCreditRateCards() {
 	}
 }
 
-// withCreditShadow wraps the spend logger with shadow credit computation when enabled.
+// withCreditShadow wraps the spend logger with credit pricing. Every tenant is
+// billed in credits, and the ledger settles only spend logs that carry credits.
 func (b *builder) withCreditShadow(next proxy.SpendLogger) proxy.SpendLogger {
-	if !b.cfg.Runtime.BillingCreditsShadowEnabled {
-		return next
-	}
-
 	return proxy.NewCreditShadowSpendLogger(next, b.creditRateCards, b.logger)
 }
 
-// creditSurfaceMiddleware returns the response credit-reporting middleware, or
-// nil when shadow credits are disabled so responses stay unchanged.
+// creditSurfaceMiddleware returns the response credit-reporting middleware.
 func (b *builder) creditSurfaceMiddleware() fiber.Handler {
-	if !b.cfg.Runtime.BillingCreditsShadowEnabled {
-		return nil
-	}
-
 	return proxy.CreditSurfaceMiddleware(b.creditRateCards)
 }
 

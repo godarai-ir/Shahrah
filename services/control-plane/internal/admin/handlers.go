@@ -337,8 +337,6 @@ type BillingDependencies struct {
 	Payment      PaymentConfig
 	// CreditUsage reads shadow credit usage; nil disables the credit summary.
 	CreditUsage creditUsageStore
-	// CreditShadowEnabled reports whether shadow credits are being computed.
-	CreditShadowEnabled bool
 	// CreditPacks sells add-on packs; nil disables the credit pack endpoints.
 	CreditPacks creditPackStore
 	// CreditAdmin backs the support-admin credit endpoints.
@@ -406,7 +404,6 @@ type billingState struct {
 	entitlements entitlementResolverStore
 	payment      PaymentConfig
 	creditUsage  creditUsageStore
-	creditShadow bool
 	creditPacks  creditPackStore
 	creditAdmin  creditAdminStore
 }
@@ -470,7 +467,6 @@ func New(deps Dependencies) *Handlers {
 			entitlements: deps.Billing.Entitlements,
 			payment:      deps.Billing.Payment.withDefaults(),
 			creditUsage:  deps.Billing.CreditUsage,
-			creditShadow: deps.Billing.CreditShadowEnabled,
 			creditPacks:  deps.Billing.CreditPacks,
 			creditAdmin:  deps.Billing.CreditAdmin,
 		},

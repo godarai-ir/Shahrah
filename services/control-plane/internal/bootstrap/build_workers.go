@@ -222,12 +222,9 @@ func (b *builder) buildMetricsWorkers() error {
 		return err
 	}
 
-	shadowCredits := b.cfg.Runtime.BillingCreditsShadowEnabled
 	b.emitMetric = func(input metricsobs.BuildInput) {
 		event := processor.BuildEvent(input)
-		if shadowCredits {
-			metricsobs.ApplyShadowCredits(&event, b.creditRateCards.CurrentRateCard())
-		}
+		metricsobs.ApplyShadowCredits(&event, b.creditRateCards.CurrentRateCard())
 
 		_ = queue.Enqueue(event)
 	}
