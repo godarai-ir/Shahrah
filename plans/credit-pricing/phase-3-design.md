@@ -1,6 +1,6 @@
 # Phase 3 Design: Credit Enforcement, Budget Rules, Fleet Cutover
 
-Status: **3a, 3c, and 3e implemented**; 3d (tenant-admin UI and docs) pending. 3b (downgrade) was dropped (P5).
+Status: **3a, 3c, 3e, and the fleet cutover migration (P7) implemented**; 3d (tenant-admin UI and docs) pending. 3b (downgrade) was dropped (P5).
 Source: `plans/credit-pricing-execution-prompt.md` §6 Phase 3 and Phase 4.
 Builds on Phase 2 (`plans/credit-pricing/phase-2-design.md`, migrations 066–069).
 
@@ -15,6 +15,7 @@ These replace parts of the prompt. They were given in answer to the §8 stop-and
 | P3 | **No pilot.** | Gate 3's "3 pilot tenants for one billing period" is waived. It is replaced by a staging run plus a fleet dry run with no errors (see "Gate 3 as amended"). Phases 3 and 4 merge: the fleet cutover is part of this phase. |
 | P4 | **Every tenant moves to the same-slug credit plan at cutover** (option C). The owner confirmed that no current subscription is sensitive, so the simplest mechanics were chosen (C2). | The current subscription is canceled and a new `active` subscription starts at once on the published credit version of the same plan slug and interval. The plan grant worker grants the first slice right away. That first period is free and *is* the compensation (Phase 4 item 3), so no separate compensation lot is granted. The new price is paid from the next renewal through the existing payment flow. |
 | P6 | **Side usage is priced per call** (2026-10-17): **1 credit per guardrail judge call, 0 per semantic-cache embedding.** Neither call reports a provider cost, so the `500 × USD` formula cannot price them. | Constants `credits.GuardrailJudgeCallMC` and `credits.SemanticCacheEmbeddingMC`, published in `/v1/rate-card` under `side_usage` and part of its ETag. With a price of 0, semantic-cache embeddings write no spend log and no ledger entry. |
+| P7 | **One-shot fleet cutover by migration, no wallet conversion** (2026-10-17). Every existing tenant moves to credits at once on a 14-day trial with 500 credits. IRR wallet balances are not converted, and all IRR financial history may be deleted. New signups are credit tenants from the start. | Migration `072_credit_fleet_cutover.sql` (see "Fleet cutover migration"). It supersedes P4 (no free plan period, no compensation lot) and the per-tenant wallet conversion of 3e for existing tenants. The 3e tools stay for rollbacks and stray cases. |
 | P5 | **No `downgrade`** (2026-10-17). Budget rules offer only `block` and `alert`. | FR-8 (route to a cheaper model), the substitution headers, and the daily downgrade quota are not built; PR 3b is dropped. FR-10's tenant default `on_exceed` is dropped too: with only `alert` left as an alternative, a pool default of `alert` would mean unlimited debt, so an exhausted balance always blocks unless overage is on. |
 
 ## Current state (verified on `feat/credits-phase-2-to-main`)
@@ -249,6 +250,36 @@ It also reports tenants with a negative wallet, pending top-ups, or open bank tr
   - `tenant_balance` (remaining and reserved this month) is included for `tenant_admin`, `admin`, `billing:read`, and `billing:manage`.
   - IRR tenants get 409 `credit_billing_required`.
   - Data comes from the Redis windows plus a pool-allowance read when the month has no window yet. The response is `no-store`.
+
+## Fleet cutover migration (P7)
+
+`072_credit_fleet_cutover.sql` runs once on deploy, in one transaction, and its `down` refuses to run.
+
+1. **Publish the credit plans.** For every plan with a draft version that carries `credits.monthly_grant` and no published credit version, the published version is archived and that draft is published. Business has no published version, so its draft is simply published.
+2. **Delete the IRR financial history:**
+   - invoices and their line items;
+   - manual wallet adjustments, gift and discount redemptions (the code definitions are kept);
+   - bank transfers, credit pack orders, wallet top-ups, and subscription payment intents;
+   - wallet window settlements, wallet transactions, and wallets;
+   - `spend_logs`, truncated.
+
+   `financial_audit_events` and `subscription_events` are kept as the audit trail. Spend history in ClickHouse is not touched by a Postgres migration.
+3. **Signup settings.** `signup_credit_irr = 0`, and trials grant 500 credits for 14 days.
+4. **Budget rules.** IRR limits get `limit_mc = ceil(limit_to / (10 × active price))` whole credits.
+5. **Subscriptions.** Every open subscription is canceled. Every tenant gets a `trialing` subscription for 14 days on the published credit version of its plan, or `developer` if it had none or its plan has no credit version. The event is `credit_cutover`. If any tenant would get no version, the migration aborts.
+6. **Billing unit.** `billing_unit = credit` for every tenant.
+
+**After deploy:**
+- The credit ledger worker, which runs at startup when `BILLING_CREDIT_LEDGER_ENABLED=true`, grants each trial its 500 credits, expiring with the trial. Until that first pass, a tenant's balance is 0 and requests get 402. With the flag off, no credits are granted at all.
+- Runtime profiles carry `schema_version`, which is now 2. Profiles cached in Redis or stored before the deploy are discarded and recompiled, so no pod serves an IRR profile after the cutover. Old pods still running during a rolling deploy can serve their in-memory profiles until they stop.
+
+**Code changes:** onboarding and social signup create tenants with `billing_unit = credit`. The table default stays `irr`, so other inserts are unchanged.
+
+**What tenants see:**
+- After the 14 days, the trial subscription expires like any trial. A tenant then needs a paid credit plan or a pack.
+- A trialing credit tenant is capped at 3 users. Tenants that already have more keep them (grandfathered) but cannot add any during the trial.
+
+Verified on a copy-shaped test database: tenants on team, enterprise, a running trial, and no subscription all became credit tenants on 14-day credit trials; the financial tables were emptied; a 123,456 IRR rule became 13 credits; one grant pass gave each tenant a 500-credit trial lot; and `down` was refused.
 
 ## Implementation notes (3e)
 

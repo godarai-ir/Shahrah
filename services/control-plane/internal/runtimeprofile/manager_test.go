@@ -166,7 +166,7 @@ func benchmarkProfile() *Profile {
 
 func TestManagerLoadsProfileFromL2(t *testing.T) {
 	cache := newFakeDistributedCache()
-	profile := &Profile{TenantID: "tenant-1", Version: 9}
+	profile := &Profile{SchemaVersion: ProfileSchemaVersion, TenantID: "tenant-1", Version: 9}
 	raw, _ := json.Marshal(profile)
 	cache.values[ActiveVersionKey("tenant-1")] = "9"
 	cache.values[ProfileKey("tenant-1", 9)] = string(raw)
@@ -316,4 +316,18 @@ func (c *fakeDistributedCache) DistributedSet(_ context.Context, key string, val
 func (c *fakeDistributedCache) Publish(_ context.Context, _ string, message string) error {
 	c.published = message
 	return nil
+}
+
+func TestManagerDiscardsProfilesFromAnOlderSchema(t *testing.T) {
+	cache := newFakeDistributedCache()
+	stale := &Profile{TenantID: "tenant-1", Version: 9, Tenant: platform.Tenant{ID: "tenant-1"}}
+	raw, _ := json.Marshal(stale)
+	cache.values[ActiveVersionKey("tenant-1")] = "9"
+	cache.values[ProfileKey("tenant-1", 9)] = string(raw)
+
+	manager := NewManager(nil, nil, cache, zap.NewNop(), Config{StaleGrace: time.Minute, VersionCheckInterval: time.Minute})
+
+	if _, err := manager.Get(context.Background(), "tenant-1"); err == nil {
+		t.Fatal("a profile compiled before the billing unit existed must not be served")
+	}
 }

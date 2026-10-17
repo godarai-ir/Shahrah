@@ -384,6 +384,10 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 	require.NotNil(t, provisioned)
 	assert.Equal(t, "verified-otp", provisioned.Tenant.Slug)
 
+	var billingUnit string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT billing_unit FROM tenants WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&billingUnit))
+	assert.Equal(t, "credit", billingUnit, "new tenants are billed in credits from signup")
+
 	var (
 		planSlug, status string
 		trialDays        int

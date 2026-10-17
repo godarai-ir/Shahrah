@@ -12,6 +12,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
@@ -361,10 +362,10 @@ func (s *TenantAdminRepository) VerifyOnboardingOTPAndProvision(ctx context.Cont
 	var created platform.Tenant
 
 	tenantCreateErr := tx.QueryRow(ctx, `
-		INSERT INTO tenants (slug, domain, status)
-		VALUES ($1, $2, 'active')
+		INSERT INTO tenants (slug, domain, status, billing_unit)
+		VALUES ($1, $2, 'active', $3)
 		RETURNING tenant_id::text, slug, domain, status, created_at
-	`, tenantSlug, tenantDomain).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt)
+	`, tenantSlug, tenantDomain, credits.BillingUnitCredit).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt)
 	if tenantCreateErr != nil {
 		return nil, tenantCreateErr
 	}

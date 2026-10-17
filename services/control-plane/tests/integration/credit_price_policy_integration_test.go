@@ -23,6 +23,13 @@ func restoreActivePrice(t *testing.T, pool *pgxpool.Pool) {
 	var original string
 	require.NoError(t, pool.QueryRow(context.Background(), `SELECT revision_id::text FROM credit_price_revisions WHERE status = 'active'`).Scan(&original))
 
+	// Publishing repriced versions archives the published ones, catalog plans
+	// included; they are published again so later tests find their plans.
+	var published []string
+	require.NoError(t, pool.QueryRow(context.Background(), `
+		SELECT COALESCE(array_agg(version_id::text), '{}') FROM plan_versions WHERE status = 'published'
+	`).Scan(&published))
+
 	t.Cleanup(func() {
 		ctx := context.Background()
 		statements := []string{
@@ -38,6 +45,9 @@ func restoreActivePrice(t *testing.T, pool *pgxpool.Pool) {
 			_, err := pool.Exec(ctx, statement, original)
 			require.NoError(t, err, statement)
 		}
+
+		_, err := pool.Exec(ctx, `UPDATE plan_versions SET status = 'published' WHERE version_id = ANY($1::uuid[])`, published)
+		require.NoError(t, err)
 	})
 }
 
@@ -71,8 +81,12 @@ func newPublishedCreditPlan(t *testing.T, pool *pgxpool.Pool) (planID string) {
 	`, versionID)
 	require.NoError(t, err)
 
+	// Archived, not only inactive: repricing covers every published credit version.
 	t.Cleanup(func() {
 		_, cleanupErr := pool.Exec(context.Background(), `UPDATE commercial_plans SET active = false WHERE plan_id = $1::uuid`, planID)
+		require.NoError(t, cleanupErr)
+
+		_, cleanupErr = pool.Exec(context.Background(), `UPDATE plan_versions SET status = 'archived' WHERE plan_id = $1::uuid`, planID)
 		require.NoError(t, cleanupErr)
 	})
 
@@ -152,9 +166,15 @@ func TestIntegration_CreditPricePolicyProposesApprovesAndReprices(t *testing.T) 
 	require.NoError(t, err)
 	require.Zero(t, published, "plan prices wait for the 30-day notice")
 
+	var repriced int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT COUNT(1) FROM plan_versions WHERE status = 'draft' AND credit_price_revision_id = $1::uuid
+	`, proposal.ID).Scan(&repriced))
+	require.GreaterOrEqual(t, repriced, 1, "the test plan, and any published credit plan, is repriced")
+
 	published, err = store.PublishDueRevisionPlanVersions(ctx, now.AddDate(0, 0, credits.PlanPriceNoticeDays+1))
 	require.NoError(t, err)
-	require.Equal(t, 1, published)
+	require.Equal(t, repriced, published)
 
 	var publishedVersion int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT version FROM plan_versions WHERE plan_id = $1::uuid AND status = 'published'`, planID).Scan(&publishedVersion))
