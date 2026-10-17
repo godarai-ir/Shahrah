@@ -74,7 +74,7 @@ func TestGetCreditUsageSummaryUsesTenantAndPreset(t *testing.T) {
 	t.Parallel()
 
 	store := &creditUsageStoreMock{}
-	h := &Handlers{billingState: billingState{creditUsage: store, creditShadow: true}}
+	h := &Handlers{billingState: billingState{creditUsage: store}}
 
 	status, summary := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "?preset=last_3_months")
 	require.Equal(t, fiber.StatusOK, status)
@@ -85,24 +85,22 @@ func TestGetCreditUsageSummaryUsesTenantAndPreset(t *testing.T) {
 	require.True(t, summary.Available)
 }
 
-func TestGetCreditUsageSummaryShadowDisabled(t *testing.T) {
+func TestGetCreditUsageSummaryWithoutUsageStore(t *testing.T) {
 	t.Parallel()
 
-	store := &creditUsageStoreMock{}
-	h := &Handlers{billingState: billingState{creditUsage: store, creditShadow: false}}
+	h := &Handlers{}
 
 	status, summary := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "")
 	require.Equal(t, fiber.StatusOK, status)
 	require.False(t, summary.Available)
 	require.Equal(t, "current_month", summary.Preset)
 	require.Equal(t, "0.00", summary.TotalCredits)
-	require.Empty(t, store.tenantID, "store must not be queried while shadow credits are disabled")
 }
 
 func TestGetCreditUsageSummaryRejectsInvalidPresetAndMissingPermission(t *testing.T) {
 	t.Parallel()
 
-	h := &Handlers{billingState: billingState{creditUsage: &creditUsageStoreMock{}, creditShadow: true}}
+	h := &Handlers{billingState: billingState{creditUsage: &creditUsageStoreMock{}}}
 
 	status, _ := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "?preset=forever")
 	require.Equal(t, fiber.StatusBadRequest, status)

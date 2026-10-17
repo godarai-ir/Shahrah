@@ -170,7 +170,7 @@ expiry and re-authentication.
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `BILLING_CREDITS_SHADOW_ENABLED` (env) | `false` | Compute and persist credits, set the header and telemetry field, show the shadow card. |
+| ~~`BILLING_CREDITS_SHADOW_ENABLED`~~ | — | Removed after the fleet cutover (2026-10-17): credits are always computed, because the ledger settles only spend logs that carry them. |
 | `BILLING_CREDIT_RATE_CARD_TTL_SECONDS` | `300` | Rate-card cache TTL |
 
 ## Rollback

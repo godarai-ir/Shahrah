@@ -27,7 +27,6 @@ func (s *MetricsRepository) GetCreditUsageSummary(
 	end time.Time,
 ) (*platform.CreditUsageSummary, error) {
 	out := &platform.CreditUsageSummary{
-		ShadowMode:        true,
 		PeriodStart:       start,
 		PeriodEnd:         end,
 		TotalCredits:      credits.Format(0),
