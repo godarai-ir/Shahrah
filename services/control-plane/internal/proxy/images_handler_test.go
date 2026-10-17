@@ -158,7 +158,7 @@ func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider strin
 		b = &testBudgeter{}
 	}
 
-	h := NewImagesHandler(rt, tunnel, b, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	h := NewImagesHandler(rt, tunnel, b, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 

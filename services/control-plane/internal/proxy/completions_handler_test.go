@@ -102,26 +102,6 @@ func (b *testBudgeter) PriceMeteredUsage(_ context.Context, model, _ string, _ s
 	return estimated, nil
 }
 
-type walletDebitCall struct {
-	TenantID  string
-	Breakdown platform.UsageCostBreakdown
-	RequestID string
-}
-
-type testWallets struct {
-	debits []walletDebitCall
-}
-
-func (w *testWallets) DebitWallet(_ context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
-	w.debits = append(w.debits, walletDebitCall{
-		TenantID:  tenantID,
-		Breakdown: breakdown,
-		RequestID: requestID,
-	})
-
-	return &platform.Transaction{}, nil
-}
-
 type testLogs struct {
 	mu            sync.RWMutex
 	loggedEntries []platform.RequestLogEntry
@@ -229,7 +209,7 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, lo
 		logs = logsOpt[0]
 	}
 
-	h := NewCompletionsHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewCompletionsHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -275,7 +255,7 @@ func newChatCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse
 		logs = &testLogs{}
 	}
 
-	h := NewChatCompletionHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewChatCompletionHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -432,7 +412,7 @@ func TestCompletionsTracingLifecycle_ProviderErrorIncludesProviderSpan(t *testin
 	assert.True(t, sawProvider)
 }
 
-func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, wallets *testWallets, logs *testLogs) *fiber.App {
+func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, logs *testLogs) *fiber.App {
 	t.Helper()
 
 	mem, err := testcache.New(t, zap.NewNop())
@@ -447,7 +427,7 @@ func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, w
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewCompletionsHandler(rt, tunnel, &testBudgeter{}, wallets, logs, zap.NewNop())
+	h := NewCompletionsHandler(rt, tunnel, &testBudgeter{}, logs, zap.NewNop())
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -482,9 +462,8 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 
 	close(stream.chunks)
 
-	wallets := &testWallets{}
 	logs := &testLogs{}
-	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, wallets, logs)
+	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, logs)
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -504,7 +483,6 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 	assert.Contains(t, bodyText, `"object":"text_completion"`)
 	assert.Contains(t, bodyText, `"text":"Salam"`)
 	assert.True(t, stream.closed)
-	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "success", logs.loggedSpends[0].Status)
 	assert.Equal(t, "user_1", logs.loggedSpends[0].UserID, "the credit ledger attributes usage to the user")
@@ -524,7 +502,7 @@ func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 	stream.errors <- errors.New("provider stream exploded")
 
 	logs := &testLogs{}
-	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testWallets{}, logs)
+	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, logs)
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -552,9 +530,8 @@ func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 
 	close(stream.chunks)
 
-	wallets := &testWallets{}
 	logs := &testLogs{}
-	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, wallets, logs)
+	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, logs)
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -569,10 +546,8 @@ func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"text":"Salam"`)
 	assert.NotContains(t, string(body), "panic")
-	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
 	assert.True(t, stream.closed)
-	assert.Equal(t, "tenant_a", wallets.debits[0].TenantID)
 	assert.Equal(t, "gpt-4", logs.loggedSpends[0].Model)
 	assert.Equal(t, "success", logs.loggedSpends[0].Status)
 }
@@ -585,7 +560,7 @@ func TestCompletionsHandlerStreamPassesThroughUnparseableChunk(t *testing.T) {
 
 	close(stream.chunks)
 
-	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testWallets{}, &testLogs{})
+	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testLogs{})
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -640,7 +615,6 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 		Body:       body,
 	}}
 	billing := &budgetDenyingBudgeter{}
-	wallets := &testWallets{}
 	store := completionsDeploymentStore{deployments: []platform.Deployment{{
 		ID:                  "provider-account:acct_1:gpt-4o-mini",
 		TenantID:            "tenant_a",
@@ -657,7 +631,7 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewCompletionsHandler(rt, tunnel, billing, wallets, &testLogs{}, zap.NewNop())
+	h := NewCompletionsHandler(rt, tunnel, billing, &testLogs{}, zap.NewNop())
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -686,7 +660,6 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Zero(t, billing.checkBudgetCalls)
-	assert.Empty(t, wallets.debits)
 	require.NotNil(t, tunnel.lastReq.Deployment.ProviderAuth)
 	assert.Equal(t, "user-openai-key", tunnel.lastReq.Deployment.ProviderAuth.APIKey)
 	assert.Empty(t, tunnel.lastReq.Deployment.APIKey)
@@ -703,7 +676,6 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 	close(stream.chunks)
 
 	billing := &budgetDenyingBudgeter{}
-	wallets := &testWallets{}
 	logs := &testLogs{}
 	store := completionsDeploymentStore{deployments: []platform.Deployment{{
 		ID:                  "provider-account:acct_1:gpt-4o-mini",
@@ -721,7 +693,7 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewCompletionsHandler(rt, &testTunnel{stream: stream}, billing, wallets, logs, zap.NewNop())
+	h := NewCompletionsHandler(rt, &testTunnel{stream: stream}, billing, logs, zap.NewNop())
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -750,7 +722,6 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Zero(t, billing.checkBudgetCalls)
-	assert.Empty(t, wallets.debits)
 	require.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, platform.BillingModeExternalBilled, logs.loggedSpends[0].RequestMetadata["billing_mode"])
 	assert.Equal(t, platform.CredentialSourceUserBYOK, logs.loggedSpends[0].RequestMetadata["credential_source"])

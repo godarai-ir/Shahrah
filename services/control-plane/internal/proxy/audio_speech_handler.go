@@ -50,7 +50,7 @@ type audioSpeechMetadata struct {
 }
 
 // NewAudioSpeechHandler creates a new audio speech handler.
-func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioSpeechHandler {
+func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioSpeechHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -61,7 +61,6 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,

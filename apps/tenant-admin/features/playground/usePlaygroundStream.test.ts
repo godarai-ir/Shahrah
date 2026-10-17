@@ -36,7 +36,7 @@ describe("playground stream rendering", () => {
       'data: {"id":"response-1","model":"model-1","choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}',
       ": keep-alive",
       'data: {"id":"response-1","model":"model-1","choices":[{"delta":{"content":" world"},"finish_reason":"stop"}]}',
-      'event: godarai.telemetry\ndata: {"object":"godarai.telemetry","usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19},"cost_usd":0.00042,"cost_irr":357}',
+      'event: godarai.telemetry\ndata: {"object":"godarai.telemetry","usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19},"cost_usd":0.00042,"credits":"0.42"}',
       "data: [DONE]",
       "",
     ].join("\n\n");
@@ -69,7 +69,7 @@ describe("playground stream rendering", () => {
       firstTokenAt: 42,
       usage: { prompt_tokens: 12, completion_tokens: 7, total_tokens: 19 },
       costUSD: 0.00042,
-      costIRR: 357,
+      credits: "0.42",
     });
   });
 

@@ -2,12 +2,10 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -30,10 +28,6 @@ func NewBudgetMeHandler(statuses BudgetStatusReader) fiber.Handler {
 		}
 
 		status, err := statuses.BudgetStatus(c.Context(), authInfo, canReadBilling(authInfo))
-		if errors.Is(err, billing.ErrCreditBillingRequired) {
-			return writeAPIErrorDetail(c, fiber.StatusConflict, "Budget status is available for credit billing only", "invalid_request_error", "", "credit_billing_required")
-		}
-
 		if err != nil {
 			return writeAPIErrorDetail(c, fiber.StatusServiceUnavailable, billingUnavailableReason, billingUnavailableCode, "", billingUnavailableCode)
 		}

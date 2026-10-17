@@ -247,7 +247,6 @@
     "duration": "زمان کل",
     "ttft": "اولین توکن",
     "costUSD": "هزینه دلار",
-    "costIRR": "هزینه ریال",
     "model": "مدل مؤثر",
     "cache": "کش",
     "cacheSimilarity": "شباهت کش",
@@ -259,7 +258,8 @@
     "trace": "شناسه رد",
     "unavailable": "—",
     "guardrails": "گاردریل‌ها",
-    "guardrailCheck": "{hook}: {slug} ({status})"
+    "guardrailCheck": "{hook}: {slug} ({status})",
+    "credits": "کردیت"
   },
   "save": {
     "titleNew": "ذخیره در مخزن پرامپت",

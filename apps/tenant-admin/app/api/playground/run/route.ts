@@ -20,7 +20,7 @@ const OPERATIONAL_HEADERS = [
   "x-godarai-cached-trace-id",
   "x-godarai-cache-similarity-score",
   "x-godarai-cost-usd",
-  "x-godarai-cost-irr",
+  "x-godarai-credits-used",
   "x-godarai-guardrail-checks",
   "x-request-id",
 ];

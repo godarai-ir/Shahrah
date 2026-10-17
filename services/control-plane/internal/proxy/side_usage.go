@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// sideUsageRecorder charges a credit tenant's budget windows for side usage.
+// sideUsageRecorder charges the tenant's budget windows for side usage.
 type sideUsageRecorder interface {
-	RecordSideUsage(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) (bool, error)
+	RecordSideUsage(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, amountMC int64) error
 }
 
 // SideUsageCharge is one batch of calls GodarAI made for a request.
@@ -34,9 +34,9 @@ type SideUsageCharge struct {
 	PriceMC      int64
 }
 
-// ChargeSideUsage charges a credit tenant for side calls: the budget windows
-// right away, and the balance through a spend log the credit ledger settles.
-// IRR tenants are not charged. Failures are logged and never fail the request.
+// ChargeSideUsage charges the tenant for side calls: the budget windows right
+// away, and the balance through a spend log the credit ledger settles.
+// Failures are logged and never fail the request.
 func (p *RequestPipeline) ChargeSideUsage(ctx context.Context, logs usageLogger, charge SideUsageCharge) {
 	amountMC := int64(charge.Calls) * charge.PriceMC
 	if charge.Auth == nil || amountMC <= 0 || logs == nil {
@@ -50,13 +50,8 @@ func (p *RequestPipeline) ChargeSideUsage(ctx context.Context, logs usageLogger,
 
 	breakdown := platform.UsageCostBreakdown{Model: charge.RequestModel, RequestType: charge.RequestType}
 
-	creditTenant, err := recorder.RecordSideUsage(ctx, charge.Auth, breakdown, amountMC)
-	if err != nil && p.logger != nil {
+	if err := recorder.RecordSideUsage(ctx, charge.Auth, breakdown, amountMC); err != nil && p.logger != nil {
 		p.logger.Warn("failed to record side usage in budget windows", zap.Error(err), zap.String("request_id", charge.RequestID))
-	}
-
-	if !creditTenant {
-		return
 	}
 
 	now := time.Now()

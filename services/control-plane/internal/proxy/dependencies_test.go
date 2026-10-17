@@ -16,7 +16,6 @@ func TestBaseHandlerDependenciesReusesConfiguredPipeline(t *testing.T) {
 		&testBudgeter{},
 		BillingCapabilities{},
 		nil,
-		nil,
 		RequestPipelineConfig{DetachedWorkTimeout: 12 * time.Second},
 	)
 	dependencies := BaseHandlerDependencies{Pipeline: pipeline}

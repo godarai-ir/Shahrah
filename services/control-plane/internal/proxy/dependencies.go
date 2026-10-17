@@ -113,7 +113,6 @@ type BaseHandlerDependencies struct {
 	RawTunnel                 platform.TunnelRawTransport
 	Billing                   budgeter
 	BillingCapabilities       BillingCapabilities
-	Wallets                   walletStore
 	AnthropicRuntimeProfiles  anthropicModelRuntimeProfileResolver
 	ProviderResources         providerNativeResourceStore
 	AnthropicResources        anthropicNativeResourceStore
@@ -212,7 +211,6 @@ func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
 		d.RawTunnel,
 		d.Billing,
 		d.BillingCapabilities,
-		d.Wallets,
 		d.Logger,
 		d.PipelineConfig,
 	)

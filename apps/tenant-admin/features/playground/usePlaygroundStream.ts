@@ -11,7 +11,7 @@ export type PlaygroundStreamSnapshot = {
   responseModel?: string;
   firstTokenAt?: number;
   costUSD?: number;
-  costIRR?: number;
+  credits?: string;
 };
 
 type FrameScheduler = (callback: () => void) => () => void;
@@ -69,7 +69,7 @@ export async function consumePlaygroundStream(response: Response, options: Consu
         if (chunk.usage && typeof chunk.usage === "object") snapshot.usage = chunk.usage as Record<string, unknown>;
         if (chunk.object === "godarai.telemetry") {
           snapshot.costUSD = finiteNumber(chunk.cost_usd) ?? snapshot.costUSD;
-          snapshot.costIRR = finiteNumber(chunk.cost_irr) ?? snapshot.costIRR;
+          snapshot.credits = typeof chunk.credits === "string" && chunk.credits ? chunk.credits : snapshot.credits;
         }
 
         const choice = Array.isArray(chunk.choices) ? chunk.choices[0] as Record<string, unknown> | undefined : undefined;

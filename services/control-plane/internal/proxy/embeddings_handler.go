@@ -41,7 +41,7 @@ func (e *embeddingValidationError) Error() string {
 }
 
 // NewEmbeddingsHandler creates a new embeddings handler.
-func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *EmbeddingsHandler {
+func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *EmbeddingsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -52,7 +52,6 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,

@@ -11,10 +11,6 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 )
 
-// ErrCreditBillingRequired is returned by budget status for tenants still
-// billed in IRR.
-var ErrCreditBillingRequired = errors.New("credit billing required")
-
 // identityScopes are the applies-per scopes that one caller has a single
 // value for. Rules applied per model or per metadata value have one window per
 // value and are not reported.
@@ -39,8 +35,8 @@ func (s *BudgetService) BudgetStatus(ctx context.Context, auth *platform.AuthCon
 		return nil, err
 	}
 
-	if !isCreditTenant(profile) {
-		return nil, ErrCreditBillingRequired
+	if profile == nil {
+		return nil, ErrBudgetUnavailable
 	}
 
 	inspector, ok := s.budgetWindows.(cache.BudgetWindowInspector)

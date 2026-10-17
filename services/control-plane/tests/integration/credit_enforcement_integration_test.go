@@ -72,7 +72,7 @@ func newCreditEnforcementFixture(t *testing.T) creditEnforcementFixture {
 	budgets := billing.NewServiceWithDependencies(billing.Dependencies{
 		Cache:           mem,
 		BudgetWindows:   mem,
-		Wallets:         store.WalletRepository,
+		ExchangeRates:   store.WalletRepository,
 		RuntimeProfiles: creditProfileStore{profile: profile},
 		CreditPools:     store.CreditLedgerRepository,
 	}, 850000, "test")

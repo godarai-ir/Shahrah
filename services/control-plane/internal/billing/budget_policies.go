@@ -14,7 +14,6 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
-	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 )
 
 const (
@@ -24,128 +23,19 @@ const (
 
 type budgetReservationTarget struct {
 	platform.BudgetReservationTarget
-	tenantID       string
-	allowanceIRR   float64
-	expiresAt      time.Time
-	ttl            time.Duration
-	seedFromWallet bool
+	tenantID     string
+	allowanceIRR float64
+	expiresAt    time.Time
+	ttl          time.Duration
 	// seedCreditPool seeds the window from the tenant's credit balance.
 	seedCreditPool bool
 }
 
-func (s *BudgetService) budgetReservationTargets(profile *runtimeprofile.Profile, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
-	tenantTarget := s.tenantCreditTarget(auth.TenantID, reservationID, breakdown.TotalCostIRR, now)
-
-	policyTargets, err := s.budgetPolicyTargets(profile, auth, breakdown, reservationID, now)
-	if err != nil {
-		return nil, err
-	}
-
-	targets := make([]budgetReservationTarget, 1, 1+len(policyTargets))
-	targets[0] = tenantTarget
-	targets = append(targets, policyTargets...)
-
-	return targets, nil
-}
-
-func (s *BudgetService) tenantCreditTarget(tenantID string, reservationID string, estimatedIRR float64, now time.Time) budgetReservationTarget {
-	windowID, windowEnd := budgetWindowForTime(now)
-
-	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
-	if ttl <= 0 {
-		ttl = s.budgetWindowTTLGrace
-	}
-
-	windowKey := budgetWindowKey(tenantID, windowID)
-
-	return budgetReservationTarget{
-		tenantID: strings.TrimSpace(tenantID),
-		BudgetReservationTarget: platform.BudgetReservationTarget{
-			Kind:           budgetTargetTenantCredit,
-			Scope:          string(platform.BudgetAppliesPerTenant),
-			ScopeValue:     strings.TrimSpace(tenantID),
-			WindowID:       windowID,
-			WindowKey:      windowKey,
-			ReservationKey: budgetReservationKey(tenantID, reservationID),
-			EstimatedIRR:   estimatedIRR,
-			CreatedAt:      now,
-		},
-		expiresAt:      windowEnd,
-		ttl:            ttl,
-		seedFromWallet: true,
-	}
-}
-
-func (s *BudgetService) budgetPolicyTargets(profile *runtimeprofile.Profile, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
-	if auth == nil || strings.TrimSpace(auth.TenantID) == "" {
-		return nil, nil
-	}
-
-	if profile == nil || len(profile.BudgetRules) == 0 {
-		return nil, nil
-	}
-
-	targets := make([]budgetReservationTarget, 0, len(profile.BudgetRules))
-	for _, rule := range profile.BudgetRules {
-		if !rule.Enabled || !rule.BlockOnBudgetExceed || rule.LimitTo <= 0 {
-			continue
-		}
-
-		matches, err := budgetRuleMatches(rule, auth, breakdown)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		if !matches {
-			continue
-		}
-
-		scope, scopeValue, err := budgetRuleScope(rule, auth, breakdown)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s scope: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		windowID, windowEnd, err := budgetPolicyWindowForTime(rule.Unit, now)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s unit: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
-		if ttl <= 0 {
-			ttl = s.budgetWindowTTLGrace
-		}
-
-		scopeHash := shortHash(scope + ":" + scopeValue)
-		ruleID := ruleIdentifier(rule)
-		windowKey := budgetPolicyWindowKey(auth.TenantID, ruleID, scopeHash, windowID)
-		targetHash := shortHash(windowKey)
-		targets = append(targets, budgetReservationTarget{
-			tenantID: auth.TenantID,
-			BudgetReservationTarget: platform.BudgetReservationTarget{
-				Kind:           budgetTargetPolicy,
-				RuleID:         ruleID,
-				Scope:          scope,
-				ScopeValue:     scopeValue,
-				WindowID:       windowID,
-				WindowKey:      windowKey,
-				ReservationKey: budgetPolicyReservationKey(auth.TenantID, reservationID, targetHash),
-				EstimatedIRR:   breakdown.TotalCostIRR,
-				CreatedAt:      now,
-			},
-			allowanceIRR: rule.LimitTo,
-			expiresAt:    windowEnd,
-			ttl:          ttl,
-		})
-	}
-
-	return targets, nil
-}
-
 func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
 	// Rule windows are re-seeded on every reservation so a changed limit
-	// applies at once; balance windows are seeded on first use and refreshed
+	// applies at once; the pool window is seeded on first use and refreshed
 	// when the balance changes.
-	if !target.seedFromWallet && !target.seedCreditPool {
+	if !target.seedCreditPool {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
 		}
@@ -189,10 +79,6 @@ func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache Bud
 func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget) error {
 	if target.seedCreditPool {
 		return s.seedCreditPoolWindow(ctx, budgetCache, target)
-	}
-
-	if target.seedFromWallet {
-		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
 	}
 
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
@@ -510,14 +396,6 @@ func budgetPolicyWindowForTime(unit platform.BudgetLimitUnit, now time.Time) (st
 	default:
 		return "", time.Time{}, fmt.Errorf("unsupported budget unit %q", unit)
 	}
-}
-
-func budgetPolicyWindowKey(tenantID string, ruleID string, scopeHash string, windowID string) string {
-	return fmt.Sprintf("budget_policy:%s:rule:%s:scope:%s:window:%s", strings.TrimSpace(tenantID), strings.TrimSpace(ruleID), strings.TrimSpace(scopeHash), strings.TrimSpace(windowID))
-}
-
-func budgetPolicyReservationKey(tenantID string, reservationID string, targetHash string) string {
-	return fmt.Sprintf("budget_reservation:%s:%s:%s", strings.TrimSpace(tenantID), strings.TrimSpace(reservationID), strings.TrimSpace(targetHash))
 }
 
 func ruleIdentifier(rule platform.BudgetLimitRule) string {

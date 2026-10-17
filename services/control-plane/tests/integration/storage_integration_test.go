@@ -1623,7 +1623,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
 		Cache:         memCache,
 		BudgetWindows: memCache,
-		Wallets:       store,
+		ExchangeRates: store,
 	}, 850000, "test")
 	promptApplication, err := prompts.NewService(store.PromptRepository)
 	require.NoError(t, err)
@@ -1633,7 +1633,6 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
-		Wallets:             store,
 		RequestLogger:       store,
 		SpendLogger:         store,
 		Logger:              logger,
