@@ -63,10 +63,10 @@ const budgetRule: BudgetLimitRule = {
   enabled: true,
   priority: 100,
   conditions: { combinator: "AND", conditions: [] },
-  limit_to: 5_000_000,
+  limit: "5000",
   unit: "cost_per_month",
-  block_on_budget_exceed: true,
-  alerts: { enabled: false },
+  on_exceed: "block",
+  alert_thresholds: [80, 100],
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
@@ -123,7 +123,7 @@ describe("GatewayPolicyRulesPage", () => {
     expect(within(rateSection).getByText("For team “Checkout” on gpt-4o-mini: at most 600 requests per minute")).toBeInTheDocument();
 
     const budgetSection = screen.getByRole("region", { name: /Budget caps · 1 rule/ });
-    expect(within(budgetSection).getByText(/at most 5,000,000 IRR spent per month/)).toBeInTheDocument();
+    expect(within(budgetSection).getByText(/at most 5,000 credits per month/)).toBeInTheDocument();
   });
 
   it("flags overlaps and legacy subjects on the row", async () => {

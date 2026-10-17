@@ -51,7 +51,7 @@ type audioTranscriptionMetadata struct {
 }
 
 // NewAudioTranscriptionsHandler creates a new audio transcriptions handler.
-func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioTranscriptionsHandler {
+func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioTranscriptionsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -62,7 +62,6 @@ func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.Tun
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,

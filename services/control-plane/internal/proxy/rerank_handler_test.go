@@ -40,7 +40,7 @@ func newRerankTestApp(t *testing.T, modelName string, provider string, deploymen
 		logs = &testLogs{}
 	}
 
-	h := NewRerankHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewRerankHandler(rt, tunnel, &testBudgeter{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 

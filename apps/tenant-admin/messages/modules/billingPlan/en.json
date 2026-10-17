@@ -52,7 +52,14 @@
     "deploymentSaasEnabled": "Cloud deployment",
     "deploymentVpcEnabled": "On-premise or private cloud deployment",
     "supportTier": "Support type",
-    "supportSla": "Service-level agreement"
+    "supportSla": "Service-level agreement",
+    "creditsMonthlyGrant": "Monthly credits",
+    "creditsTrialGrant": "Trial credits",
+    "creditsTrialDays": "Trial length",
+    "creditsOverageAllowed": "Overage",
+    "creditsRolloverAllowed": "Credit rollover",
+    "creditsBonusPercent": "Bonus credits",
+    "creditsByokFeePercent": "BYOK fee"
   },
   "values": {
     "enabled": "Available",
@@ -62,7 +69,9 @@
     "custom": "Custom agreement",
     "unlimited": "Unlimited",
     "days": "{count} days",
-    "noSla": "No SLA"
+    "noSla": "No SLA",
+    "credits": "{count} credits",
+    "percent": "{value}%"
   },
   "support": {
     "chatbot": "Chatbot",

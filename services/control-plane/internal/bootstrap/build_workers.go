@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/logretention"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -108,47 +107,13 @@ func (b *builder) buildBillingWorkers() error {
 	}
 
 	spendPurge := billing.NewSpendPurgeProcessor(b.store.SpendHistoryPurgeRepository, b.logger, 5*time.Minute)
-	if err := b.lifecycle.AddWorker("clickhouse spend purge", func(context.Context) error {
+
+	return b.lifecycle.AddWorker("clickhouse spend purge", func(context.Context) error {
 		spendPurge.Start()
 
 		return nil
 	}, func(context.Context) error {
 		spendPurge.Stop()
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	settlementCfg := billing.WalletSettlementConfig{
-		Enabled:   b.cfg.Runtime.WalletSettlementEnabled,
-		Interval:  b.cfg.Runtime.WalletSettlementInterval,
-		Timeout:   b.cfg.Runtime.WalletSettlementTimeout,
-		BatchSize: b.cfg.Runtime.WalletSettlementBatchSize,
-	}
-
-	liveBudgetCache, ok := b.cache.(cache.BudgetWindowInspector)
-	if !ok {
-		if settlementCfg.Enabled {
-			b.logger.Warn("Wallet settlement worker is disabled because the cache cannot inspect budget windows")
-		}
-
-		return nil
-	}
-
-	settlement := billing.NewWalletSettlementProcessor(
-		settlementCfg,
-		liveBudgetCache,
-		b.store.WalletLedgerRepository,
-		b.logger,
-	)
-
-	return b.lifecycle.AddWorker("wallet settlement processor", func(context.Context) error {
-		settlement.Start()
-
-		return nil
-	}, func(context.Context) error {
-		settlement.Stop()
 
 		return nil
 	})

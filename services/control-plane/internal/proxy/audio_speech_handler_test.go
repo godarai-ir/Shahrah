@@ -80,7 +80,6 @@ func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, depl
 			MeteredUsage:       billing,
 			MeteredUsagePolicy: CapabilityFailClosed,
 		},
-		Wallets:       &testWallets{},
 		RequestLogger: logs,
 		SpendLogger:   logs,
 		Logger:        zap.NewNop(),

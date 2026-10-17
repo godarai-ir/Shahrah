@@ -7,15 +7,15 @@ import { useTranslations } from "next-intl";
 
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { ChipInput } from "@/components/app-ui/ChipInput";
 import { FormSection } from "@/components/app-ui/FormSection";
 import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { OptionCardGroup } from "@/components/app-ui/OptionCardGroup";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { FieldDescription, FieldLabel } from "@/components/ui/field";
 import { GatewayPolicyRuleSheetFooter, RuleOverlapNote, RuleSentencePreview, RuleTargetsEditor } from "@/features/gateway-policies/components";
 import { findOverlappingRules, type PolicyRule } from "@/features/gateway-policies/policy-rules";
 import { buildRuleConditions, readRuleTargets } from "@/features/gateway-policies/rule-targets";
@@ -23,7 +23,21 @@ import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-
 
 import { createBudgetLimitRule, updateBudgetLimitRule } from "./ruleApi";
 import type { BudgetLimitRule } from "./ruleTypes";
-import { budgetLimitRuleSchema, type BudgetLimitRuleFormInput } from "./ruleValidation";
+import { budgetLimitRuleSchema, DEFAULT_ALERT_THRESHOLDS, type BudgetLimitRuleFormInput } from "./ruleValidation";
+
+const ON_EXCEED_VALUES = ["block", "alert"] as const;
+
+/** Splits typed thresholds on commas or spaces, folds Persian digits, and keeps whole percentages. */
+function parseThresholds(raw: string): string[] {
+  const folded = raw.replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0)).replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660));
+  return folded.split(/[,،\s]+/).map((item) => item.trim().replace(/%$/, "")).filter((item) => /^\d{1,4}$/.test(item) && Number(item) >= 1 && Number(item) <= 1000);
+}
+
+/** The exceed behavior of a stored rule; rules saved before on_exceed fall back to the blocking flag. */
+function storedOnExceed(rule?: BudgetLimitRule): "block" | "alert" {
+  if (rule?.on_exceed) return rule.on_exceed;
+  return rule?.block_on_budget_exceed === false ? "alert" : "block";
+}
 
 type BudgetLimitRuleFormProps = {
   initialRule?: BudgetLimitRule;
@@ -50,11 +64,11 @@ export function BudgetLimitRuleForm({ initialRule, rules, onCancel, onSaved }: B
       priority: initialRule?.priority ?? 100,
       // Re-writing through the targets model upgrades legacy `kind:id` subjects to the shape the gateway reads.
       conditions: { combinator: "AND", conditions: buildRuleConditions(readRuleTargets(initialRule?.conditions?.conditions)) },
-      limit_to: initialRule?.limit_to,
+      limit: initialRule?.limit ?? "",
       unit: initialRule?.unit ?? "cost_per_month",
       budget_applies_per: initialRule?.budget_applies_per ?? undefined,
-      block_on_budget_exceed: initialRule?.block_on_budget_exceed ?? true,
-      alerts: initialRule?.alerts ?? { enabled: false, thresholds: [75, 90, 100], notification_target: [] },
+      on_exceed: storedOnExceed(initialRule),
+      alert_thresholds: initialRule?.alert_thresholds?.length ? initialRule.alert_thresholds : [...DEFAULT_ALERT_THRESHOLDS],
     }),
     [initialRule],
   );
@@ -68,10 +82,10 @@ export function BudgetLimitRuleForm({ initialRule, rules, onCancel, onSaved }: B
   // eslint-disable-next-line react-hooks/incompatible-library
   const watched = form.watch();
   const conditions = watched.conditions?.conditions;
-  const alertEnabled = watched.alerts?.enabled;
+  const thresholds = watched.alert_thresholds ?? [];
   const draft: PolicyRule = {
     type: "budget",
-    rule: { ...(watched as BudgetLimitRule), limit_to: Number(watched.limit_to) || 0, conditions: { combinator: "AND", conditions: conditions ?? [] } },
+    rule: { ...(watched as BudgetLimitRule), conditions: { combinator: "AND", conditions: conditions ?? [] } },
   };
   const overlapping = watched.enabled === false
     ? []
@@ -132,7 +146,7 @@ export function BudgetLimitRuleForm({ initialRule, rules, onCancel, onSaved }: B
             className="md:grid-cols-1"
           >
             <div className="grid gap-4 lg:grid-cols-3">
-              <AppNumberField id="limit-to" label={t("form.fields.limitTo")} min={1} step={1} inputMode="numeric" error={form.formState.errors.limit_to?.message} fieldClassName="min-w-0" {...form.register("limit_to", { valueAsNumber: true })} />
+              <AppNumberField id="limit" label={t("form.fields.limit")} min={0.01} step={0.01} inputMode="decimal" description={t("form.descriptions.limit")} error={form.formState.errors.limit?.message} fieldClassName="min-w-0" {...form.register("limit")} />
               <AppSelectField
                 className="min-w-0"
                 triggerClassName="h-10 min-w-0 rounded-lg"
@@ -166,60 +180,30 @@ export function BudgetLimitRuleForm({ initialRule, rules, onCancel, onSaved }: B
             description={t("form.descriptions.behavior")}
             className="md:grid-cols-1"
           >
-            <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background p-4">
-              <div className="flex flex-col gap-1">
-                <div className="font-medium">{t("form.blocking.title")}</div>
-                <p className="text-sm leading-6 text-muted-foreground">{t("form.blocking.description")}</p>
-              </div>
-              <Switch
-                aria-label={t("form.blocking.title")}
-                checked={watched.block_on_budget_exceed}
-                onCheckedChange={(checked) => form.setValue("block_on_budget_exceed", checked, { shouldValidate: true, shouldDirty: true })}
+            <OptionCardGroup
+              aria-label={t("form.onExceed.label")}
+              density="compact"
+              value={watched.on_exceed ?? "block"}
+              onValueChange={(value) => form.setValue("on_exceed", value, { shouldValidate: true, shouldDirty: true })}
+              disabled={isSaving}
+              options={ON_EXCEED_VALUES.map((value) => ({
+                value,
+                title: t(`form.onExceed.${value}.title`),
+                description: t(`form.onExceed.${value}.description`),
+              }))}
+            />
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor="alert-thresholds">{t("form.fields.thresholds")}</FieldLabel>
+              <ChipInput
+                id="alert-thresholds"
+                value={thresholds.map(String)}
+                onValueChange={(values) => form.setValue("alert_thresholds", [...new Set(values.map(Number))].sort((x, y) => x - y), { shouldValidate: true, shouldDirty: true })}
+                parseValues={parseThresholds}
+                placeholder={t("form.placeholders.thresholds")}
+                getRemoveLabel={(value) => t("form.thresholdRemove", { value })}
+                disabled={isSaving}
               />
-            </div>
-
-            <div className="flex flex-col gap-4 rounded-xl border border-border bg-background p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="font-medium">{t("form.alerts.title")}</div>
-                <p className="text-sm leading-6 text-muted-foreground">{t("form.alerts.description")}</p>
-              </div>
-              <Switch
-                aria-label={t("form.alerts.title")}
-                checked={alertEnabled}
-                onCheckedChange={(checked) => form.setValue("alerts.enabled", checked, { shouldValidate: true, shouldDirty: true })}
-              />
-            </div>
-            {alertEnabled ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>{t("form.fields.thresholds")}</Label>
-                  <Input
-                    placeholder={t("form.placeholders.thresholds")}
-                    defaultValue={(form.getValues("alerts.thresholds") ?? [75, 90, 95, 100]).join(",")}
-                    onBlur={(event) => {
-                      const values = event.target.value
-                        .split(",")
-                        .map((v) => Number(v.trim()))
-                        .filter((v) => Number.isFinite(v));
-                      form.setValue("alerts.thresholds", values);
-                    }}
-                  />
-                </div>
-                <AppSelectField
-                  label={t("form.fields.channelType")}
-                  value={(watched.alerts?.notification_target?.[0]?.type as string | undefined) ?? "email"}
-                  onValueChange={(value) => form.setValue("alerts.notification_target", [{ type: value as "email" | "slack-webhook" | "slack-bot" }], { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
-                  options={[
-                    { value: "email", label: t("form.options.channel.email") },
-                    { value: "slack-webhook", label: t("form.options.channel.slackWebhook") },
-                    { value: "slack-bot", label: t("form.options.channel.slackBot") },
-                  ]}
-                />
-              </div>
-            ) : null}
-            </div>
+              <FieldDescription>{t("form.descriptions.thresholds")}</FieldDescription>
             </div>
           </FormSection>
 

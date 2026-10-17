@@ -47,8 +47,7 @@
   "units": {
     "cost_per_day": "Per day",
     "cost_per_week": "Per week",
-    "cost_per_month": "Per month",
-    "irr": "IRR"
+    "cost_per_month": "Per month"
   },
   "filters": {
     "title": "Filters",
@@ -72,31 +71,32 @@
   "form": {
     "titleCreate": "Add New Budget Rule",
     "titleEdit": "Edit Budget Rule",
-    "headerDescription": "Configure the cost ceiling, scope, and gateway behavior after the budget is exceeded.",
+    "headerDescription": "Configure the credit ceiling, scope, and gateway behavior after the limit is reached.",
     "stickyDescription": "Review the rule identifier and scope before saving.",
     "sections": {
       "ruleIdentity": "Rule Identity",
       "budget": "Budget",
-      "behavior": "Behavior and notifications"
+      "behavior": "Behavior after the limit"
     },
     "descriptions": {
       "ruleIdentity": "Choose a stable technical identifier for referencing this rule.",
-      "budget": "Set the cost ceiling, calculation period, and budget partitioning.",
-      "behavior": "Configure gateway enforcement and notifications near or beyond the limit."
+      "budget": "Set the credit ceiling, calculation period, and budget partitioning.",
+      "behavior": "Choose whether the gateway refuses requests once the limit is spent or only records the crossing.",
+      "limit": "Up to two decimals, for example 250 or 12.5.",
+      "thresholds": "Crossing each percentage of the limit is recorded in gateway logs and metrics. No notification is sent."
     },
     "fields": {
       "ruleId": "Technical identifier",
-      "limitTo": "Budget Limit (IRR)",
       "unit": "Budget Unit",
       "budgetAppliesPer": "Apply Budget Per",
-      "thresholds": "Alert Thresholds (%)",
-      "channelType": "Notification Channel"
+      "thresholds": "Alert thresholds (% of limit)",
+      "limit": "Budget limit (credits)"
     },
     "placeholders": {
       "ruleId": "Enter rule ID",
       "metadataKey": "Metadata key",
       "metadataValue": "Metadata value",
-      "thresholds": "75,90,100"
+      "thresholds": "For example 80, then Enter"
     },
     "options": {
       "applyPer": {
@@ -108,20 +108,19 @@
         "model": "Per model",
         "virtualAccount": "Per virtual account",
         "metadataProjectId": "Per metadata.project_id"
-      },
-      "channel": {
-        "email": "Email",
-        "slackWebhook": "Slack webhook",
-        "slackBot": "Slack bot"
       }
     },
-    "blocking": {
-      "title": "Block on Budget Exceed",
-      "description": "Reject requests immediately after budget limit is exceeded."
-    },
-    "alerts": {
-      "title": "Budget Alerts",
-      "description": "Send notifications when consumption reaches configured thresholds."
+    "thresholdRemove": "Remove the {value}% threshold",
+    "onExceed": {
+      "label": "Behavior after the limit",
+      "block": {
+        "title": "Refuse requests",
+        "description": "Once the limit is spent, further requests fail with budget_exceeded."
+      },
+      "alert": {
+        "title": "Record an alert only",
+        "description": "Requests are never refused; spend is counted and threshold crossings are recorded."
+      }
     }
   },
   "selectors": {

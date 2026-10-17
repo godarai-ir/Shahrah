@@ -49,11 +49,12 @@ func (b *builder) buildManagement() error {
 			},
 		},
 		Billing: admin.BillingDependencies{
-			Wallets:      b.store.WalletRepository,
-			Plans:        b.store.PlanRepository,
-			Entitlements: b.store.PlanRepository,
-			CreditUsage:  b.store.MetricsRepository,
-			CreditPacks:  b.store.CreditPackRepository,
+			Wallets:       b.store.WalletRepository,
+			Plans:         b.store.PlanRepository,
+			Entitlements:  b.store.PlanRepository,
+			CreditUsage:   b.store.MetricsRepository,
+			CreditBalance: b.store.CreditLedgerRepository,
+			CreditPacks:   b.store.CreditPackRepository,
 			CreditAdmin: creditAdminStore{
 				CreditLedgerRepository:   b.store.CreditLedgerRepository,
 				CreditPackRepository:     b.store.CreditPackRepository,

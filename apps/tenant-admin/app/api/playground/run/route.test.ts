@@ -115,7 +115,7 @@ describe("playground run route", () => {
       column_id: "column-1",
       tags: { experiment: "a" },
     });
-    expect(options.exposeResponseHeaders).toContain("x-godarai-cost-irr");
+    expect(options.exposeResponseHeaders).toContain("x-godarai-credits-used");
   });
 
   it("passes model decoding controls through without semantic validation", async () => {

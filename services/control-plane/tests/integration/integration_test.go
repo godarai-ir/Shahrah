@@ -46,6 +46,16 @@ type integrationCache interface {
 	billing.BudgetWindowCache
 }
 
+// integrationCreditPools gives every tenant the same credit allowance, so the
+// gateway tests reserve in credits without a credit ledger.
+type integrationCreditPools struct {
+	allowanceMC int64
+}
+
+func (p integrationCreditPools) CreditPoolAllowanceMC(context.Context, string, string) (int64, error) {
+	return p.allowanceMC, nil
+}
+
 func integrationBillingCapabilities(service *billing.Service) proxy.BillingCapabilities {
 	return proxy.BillingCapabilities{
 		MeteredUsage:             service,
@@ -131,7 +141,8 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
 		Cache:         memCache,
 		BudgetWindows: memCache,
-		Wallets:       walletStore,
+		ExchangeRates: walletStore,
+		CreditPools:   integrationCreditPools{allowanceMC: 1_000_000_000},
 	}, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
 
@@ -155,7 +166,6 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
-		Wallets:             walletStore,
 		RequestLogger:       walletStore,
 		SpendLogger:         walletStore,
 		Logger:              logger,
@@ -353,52 +363,6 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Greater(t, authInfo.Spend, 0.0)
 	require.Len(t, modelStore.deployments, 1)
-}
-
-func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
-			ID:      "chatcmpl-no-balance",
-			Object:  "chat.completion",
-			Created: time.Now().Unix(),
-			Model:   "gpt-4",
-			Choices: []contractsopenai.Choice{{
-				Index: 0,
-				Message: &contractsopenai.ChatMessage{
-					Role:    "assistant",
-					Content: "should not succeed",
-				},
-				FinishReason: "stop",
-			}},
-			Usage: &contractsopenai.Usage{
-				PromptTokens:     50,
-				CompletionTokens: 50,
-				TotalTokens:      100,
-			},
-		})
-	}))
-	defer provider.Close()
-
-	app, _, _, walletStore := newIntegrationApp(t, logger, memCache, provider.URL)
-
-	createdKey := createVirtualKey(t, app, `{"key_alias":"low-balance","models":["openai:default:gpt-4"]}`)
-	createModel(t, app, fmt.Sprintf(`{"model_name":"openai:default:gpt-4","provider":"openai","model":"gpt-4","api_base":"%s/v1","api_key":"sk-provider","rpm":50}`, provider.URL))
-	topUpWallet(t, app, `{"amount_irr":1}`)
-
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4","messages":[{"role":"user","content":"expensive request"}]}`)
-	assert.Equal(t, http.StatusPaymentRequired, resp.StatusCode)
-
-	var apiErr contractsopenai.APIError
-	decodeJSONBody(t, resp, &apiErr)
-	assert.Contains(t, apiErr.Error.Type, "budget")
-	assert.Empty(t, walletStore.debits)
-	assert.Empty(t, walletStore.requestLogs)
-	assert.Empty(t, walletStore.spendLogs)
-	assert.Equal(t, int64(1), walletStore.wallet.BalanceIRR)
 }
 
 func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
@@ -1107,7 +1071,7 @@ func TestIntegration_LegacyCompletionsSetsFinalCostHeaders(t *testing.T) {
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/completions", "Bearer "+createdKey.Key, `{"model":"openai:default:gpt-4o-mini","prompt":"hello"}`)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderCostUSD))
-	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderCostIRR))
+	assert.Empty(t, resp.Header.Get("x-godarai-cost-irr"), "the IRR header was removed")
 	assert.Equal(t, "provider-req-1", resp.Header.Get("X-Request-Id"))
 }
 
@@ -2575,7 +2539,8 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCac
 	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
 		Cache:         memCache,
 		BudgetWindows: memCache,
-		Wallets:       walletStore,
+		ExchangeRates: walletStore,
+		CreditPools:   integrationCreditPools{allowanceMC: 1_000_000_000},
 	}, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
 
@@ -2590,7 +2555,6 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCac
 		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
-		Wallets:             walletStore,
 		RequestLogger:       walletStore,
 		SpendLogger:         walletStore,
 		Logger:              logger,

@@ -56,6 +56,30 @@ func emptyCreditUsageSummary(preset string, start, end time.Time) platform.Credi
 		CacheSavedCredits: credits.Format(0),
 		ByModel:           []platform.CreditUsageItem{},
 		ByTeam:            []platform.CreditUsageItem{},
+		ByUser:            []platform.CreditUsageItem{},
 		ByProduct:         []platform.CreditUsageItem{},
 	}
+}
+
+// GetCreditBalance returns the tenant's spendable lots and depletion forecast.
+func (h *Handlers) GetCreditBalance(c *fiber.Ctx) error {
+	if err := requireBillingRead(c); err != nil {
+		return err
+	}
+
+	if h.creditBalance == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "credit balance is unavailable")
+	}
+
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
+	}
+
+	balance, err := h.creditBalance.GetTenantCreditBalance(c.Context(), currentTenant.ID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(balance)
 }

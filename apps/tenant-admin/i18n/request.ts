@@ -17,8 +17,6 @@ const MESSAGE_NAMESPACES = [
   "quickStart",
   "billing",
   "billingPlan",
-  "topupPage",
-  "topupResult",
   "login",
   "settings",
   "providerAccounts",

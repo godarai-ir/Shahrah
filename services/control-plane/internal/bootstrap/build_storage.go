@@ -226,7 +226,7 @@ func (b *builder) buildStorage() error {
 		billing.Dependencies{
 			Cache:           sharedCache,
 			BudgetWindows:   sharedCache,
-			Wallets:         store.WalletRepository,
+			ExchangeRates:   store.WalletRepository,
 			Entitlements:    store.PlanRepository,
 			RuntimeProfiles: b.runtimeProfiles,
 			CreditPools:     store.CreditLedgerRepository,
@@ -241,7 +241,6 @@ func (b *builder) buildStorage() error {
 					Enabled: b.cfg.Runtime.BillingPricingCacheEnabled,
 					TTL:     b.cfg.Runtime.BillingPricingCacheTTL,
 				},
-				WalletCacheTTL:    b.cfg.Runtime.BillingWalletCacheTTL,
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
 				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
 			},

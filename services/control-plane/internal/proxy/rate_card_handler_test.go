@@ -144,8 +144,8 @@ func TestCreditsUsedHeaderAndTelemetry(t *testing.T) {
 		t.Fatalf("x-godarai-credits-used = %q, want 4.50", got)
 	}
 
-	if got := resp.Header.Get("x-godarai-cost-irr"); got == "" {
-		t.Fatal("existing IRR header was dropped")
+	if got := resp.Header.Get("x-godarai-cost-irr"); got != "" {
+		t.Fatalf("x-godarai-cost-irr = %q, want absent: the IRR header was removed", got)
 	}
 }
 

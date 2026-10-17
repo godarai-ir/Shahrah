@@ -5,15 +5,13 @@ import {
   BookOpen,
   Building2,
   CircleDollarSign,
-  CreditCard,
+  Coins,
   Eye,
   FileSearch2,
   FileText,
   FlaskConical,
   Gauge,
-  Landmark,
   LayoutDashboard,
-  LineChart,
   KeyRound,
   Plug,
   Route,
@@ -34,10 +32,7 @@ export type AdminNavKey =
   | "quickStart"
   | "billing"
   | "topup"
-  | "bankTransfer"
-  | "billingReports"
   | "billingProfile"
-  | "billingDocuments"
   | "plan"
   | "providerAccounts"
   | "virtualModels"
@@ -82,7 +77,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "bankTransfer", "billingReports", "billingDocuments", "billingProfile", "plan"];
+export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
 
@@ -207,27 +202,11 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
     },
     {
       key: "topup",
-      href: "/billing/topup",
+      href: "/billing/credits",
       title: t("nav.topup"),
-      icon: CreditCard,
-      isActive: pathname.startsWith("/billing/topup"),
-      requiredPermissions: ["billing:manage", "settings:manage", "settings:list"],
-    },
-    {
-      key: "bankTransfer",
-      href: "/billing/bank-transfer",
-      title: t("nav.bankTransfer"),
-      icon: Landmark,
-      isActive: pathname.startsWith("/billing/bank-transfer"),
-      requiredPermissions: ["billing:manage", "settings:manage"],
-    },
-    {
-      key: "billingReports",
-      href: "/billing/reports",
-      title: t("nav.billingReports"),
-      icon: LineChart,
-      isActive: pathname.startsWith("/billing/reports"),
-      requiredPermissions: ["billing:read", "settings:list"],
+      icon: Coins,
+      isActive: pathname.startsWith("/billing/credits") || pathname.startsWith("/billing/topup"),
+      requiredPermissions: ["billing:read", "billing:manage", "settings:list"],
     },
     {
       key: "billingProfile",
@@ -236,14 +215,6 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: UserCog,
       isActive: pathname.startsWith("/billing/profile"),
       requiredPermissions: ["billing:profile_manage", "billing:manage", "settings:manage"],
-    },
-    {
-      key: "billingDocuments",
-      href: "/billing/documents",
-      title: t("nav.billingDocuments"),
-      icon: FileText,
-      isActive: pathname.startsWith("/billing/documents"),
-      requiredPermissions: ["billing:documents_read", "billing:read", "settings:list"],
     },
     {
       key: "plan",

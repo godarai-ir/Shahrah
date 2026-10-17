@@ -64,10 +64,6 @@ func TestBudgetMeErrors(t *testing.T) {
 	status, _ := decodeErrorBody(t, budgetMeApp(&staticBudgetStatus{}, nil))
 	require.Equal(t, fiber.StatusUnauthorized, status)
 
-	status, body := decodeErrorBody(t, budgetMeApp(&staticBudgetStatus{err: billing.ErrCreditBillingRequired}, &platform.AuthContext{TenantID: "t"}))
-	require.Equal(t, fiber.StatusConflict, status)
-	require.Equal(t, "credit_billing_required", body["error"].(map[string]interface{})["code"])
-
 	status, _ = decodeErrorBody(t, budgetMeApp(&staticBudgetStatus{err: billing.ErrBudgetUnavailable}, &platform.AuthContext{TenantID: "t"}))
 	require.Equal(t, fiber.StatusServiceUnavailable, status)
 }

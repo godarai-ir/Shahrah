@@ -1,7 +1,8 @@
 {
   "units": {
     "irr": "ریال",
-    "toman": "تومان"
+    "toman": "تومان",
+    "credits": "کردیت"
   },
   "errorTitle": "خطا",
   "unknownError": "خطای ناشناخته رخ داد.",
@@ -22,20 +23,6 @@
     "expired": "منقضی",
     "refunded": "برگشت‌خورده"
   },
-  "transactionType": {
-    "consumption": "مصرف",
-    "topup": "شارژ",
-    "refund": "بازگشت",
-    "adjustment": "اصلاح"
-  },
-  "discountType": {
-    "fixed": "مبلغ ثابت",
-    "percentage": "درصدی",
-    "gift_credit": "اعتبار هدیه"
-  },
-  "filters": {
-    "all": "همه"
-  },
   "profileType": {
     "label": "نوع",
     "individual": "حقیقی",
@@ -44,33 +31,6 @@
   "jalaliDate": {
     "today": "امروز",
     "hint": "تاریخ را با فرمت شمسی `YYYY-MM-DD` وارد کنید."
-  },
-  "pagination": {
-    "range": "نمایش {from} تا {to} از {total} ردیف",
-    "previous": "قبلی",
-    "next": "بعدی",
-    "page": "صفحه {page} از {pageCount}"
-  },
-  "overview": {
-    "title": "مدیریت مالی",
-    "description": "نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری.",
-    "eyebrow": "Billing",
-    "topUp": "شارژ کیف پول",
-    "bankTransfer": "واریز بانکی",
-    "balance": "اعتبار",
-    "currentMonthUsage": "مصرف ماه جاری",
-    "cacheSavings": "صرفه‌جویی ناشی از کش",
-    "quickActions": "اقدام‌های سریع",
-    "quickTopUp": "شارژ از درگاه",
-    "quickBankTransfer": "ثبت واریز بانکی",
-    "quickReports": "گزارش مصرف",
-    "quickProfile": "پروفایل مالی",
-    "quickDocuments": "اسناد مالی",
-    "topProviders": "ارائه‌دهندگان پر مصرف",
-    "topProvidersDescription": "براساس هزینه نهایی دوره جاری",
-    "unknownProvider": "نامشخص",
-    "requestCount": "{count} درخواست",
-    "noUsage": "داده مصرفی برای این دوره وجود ندارد."
   },
   "bankTransfer": {
     "title": "واریز بانکی",
@@ -100,7 +60,8 @@
       "pickReceipt": "یک تصویر رسید انتخاب کنید",
       "receiptHint": "فقط یک تصویر با فرمت‌های JPG، PNG، WEBP یا GIF و حداکثر حجم ۲ مگابایت.",
       "submitting": "در حال ثبت...",
-      "submit": "ثبت و ارسال برای بررسی"
+      "submit": "ثبت و ارسال برای بررسی",
+      "packAmountHint": "مبلغ سفارش پک؛ دقیقا همین مبلغ را واریز کنید."
     },
     "list": {
       "title": "واریزهای ثبت‌شده",
@@ -117,54 +78,6 @@
       "copy": "کپی",
       "copying": "در حال کپی",
       "copied": "کپی شد"
-    }
-  },
-  "reports": {
-    "title": "گزارش‌های مالی",
-    "description": "مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید.",
-    "summaryError": "گزارش خلاصه دریافت نشد.",
-    "monthlyError": "گزارش ماهانه دریافت نشد.",
-    "invalidMonth": "ماه گزارش باید یک ماه شمسی معتبر باشد.",
-    "columns": {
-      "provider": "ارائه‌دهنده",
-      "requests": "درخواست‌ها",
-      "inputTokens": "توکن ورودی",
-      "outputTokens": "توکن خروجی",
-      "rawCost": "هزینه خام",
-      "discount": "تخفیف",
-      "cacheSavings": "صرفه‌جویی کش",
-      "finalCost": "هزینه نهایی"
-    },
-    "metrics": {
-      "periodUsage": "مصرف دوره",
-      "discount": "تخفیف",
-      "cacheSavings": "صرفه‌جویی کش",
-      "giftCredit": "اعتبار هدیه"
-    },
-    "filter": {
-      "title": "فیلتر گزارش",
-      "description": "گزارش مصرف را در بازه زمانی دلخواه یا به تفکیک ماه مشاهده کنید.",
-      "range": "بازه",
-      "monthly": "فیلتر ماهانه",
-      "refreshing": "در حال دریافت...",
-      "refresh": "به‌روزرسانی"
-    },
-    "presets": {
-      "current_month": "ماه جاری",
-      "current_quarter": "فصل جاری",
-      "current_year": "سال جاری",
-      "last_3_months": "سه ماه اخیر",
-      "last_6_months": "شش ماه اخیر",
-      "last_12_months": "دوازده ماه اخیر"
-    },
-    "monthlyDetail": {
-      "title": "جزئیات ماهانه",
-      "description": "تجمیع مصرف، توکن و هزینه نهایی به تفکیک ارائه‌دهنده برای {month}",
-      "empty": "داده‌ای برای این ماه وجود ندارد."
-    },
-    "providerShare": {
-      "title": "سهم ارائه‌دهنده‌ها",
-      "description": "بر اساس هزینه نهایی"
     }
   },
   "profile": {
@@ -199,53 +112,172 @@
     "saving": "در حال ذخیره...",
     "save": "ذخیره پروفایل"
   },
-  "documents": {
-    "title": "اسناد مالی",
-    "description": "فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری.",
-    "exportCSV": "خروجی CSV",
-    "tabs": {
-      "invoices": "فاکتورها",
-      "transactions": "تراکنش‌ها",
-      "discounts": "تخفیف‌ها"
+  "credits": {
+    "unit": "کردیت",
+    "overview": {
+      "available": "کردیت قابل مصرف",
+      "availableDescription": "در {count, number} بسته فعال",
+      "consumed": "مصرف این ماه",
+      "requestCount": "{count, number} درخواست",
+      "cacheSaved": "صرفه‌جویی کش",
+      "cacheSavedGross": "خالص، پس از کسر هزینه کش معنایی؛ ناخالص {amount}",
+      "unavailable": "در دسترس نیست",
+      "debtTitle": "بدهی کردیت",
+      "debtDescription": "{amount} بدهی کردیت دارید. با خرید پک کردیت یا کردیت ماه بعد پلن تسویه می‌شود.",
+      "loadError": "موجودی کردیت بارگذاری نشد. صفحه را دوباره باز کنید."
     },
-    "invoices": {
-      "number": "شماره",
-      "status": "وضعیت",
-      "periodEnd": "پایان دوره",
-      "finalAmount": "مبلغ نهایی (ریال)",
-      "netAdjustment": "اصلاحیه (ریال)",
-      "empty": "فاکتوری صادر نشده است."
+    "forecast": {
+      "title": "پیش‌بینی اتمام کردیت",
+      "days": "حدود {days, number} روز دیگر",
+      "today": "امروز تمام می‌شود",
+      "noUsage": "بدون تخمین",
+      "noUsageDescription": "در {days, number} روز اخیر مصرفی نبوده است.",
+      "basis": "میانگین روزانه {amount} در {days, number} روز اخیر",
+      "uncertain": "داده کم",
+      "expiryDescription": "کردیت‌ها پیش از مصرف‌شدن در این تاریخ منقضی می‌شوند."
     },
-    "transactions": {
-      "type": "نوع",
-      "status": "وضعیت",
-      "amount": "مبلغ (ریال)",
-      "balanceAfter": "مانده بعد (ریال)",
-      "createdAt": "زمان",
-      "empty": "تراکنشی ثبت نشده است."
+    "lots": {
+      "title": "بسته‌های کردیت",
+      "description": "کردیت‌ها به ترتیب زودترین انقضا مصرف می‌شوند.",
+      "columns": {
+        "source": "منبع",
+        "remaining": "باقی‌مانده",
+        "amount": "مقدار اولیه",
+        "expires": "انقضا"
+      },
+      "noExpiry": "بدون انقضا",
+      "empty": "بسته کردیت قابل مصرفی ندارید.",
+      "sources": {
+        "plan": "کردیت ماهانه پلن",
+        "trial": "کردیت دوره آزمایشی",
+        "promo": "کردیت هدیه",
+        "purchase_addon": "پک خریداری‌شده",
+        "migration": "تبدیل از کیف پول",
+        "compensation": "کردیت جبرانی",
+        "adjust": "اصلاح پشتیبانی",
+        "overage": "اضافه‌مصرف",
+        "other": "سایر"
+      }
     },
-    "discounts": {
-      "code": "کد",
-      "type": "نوع",
-      "status": "وضعیت",
-      "usedAmount": "مصرف‌شده (ریال)",
-      "createdAt": "ثبت",
-      "empty": "تخفیفی استفاده نشده است."
+    "usage": {
+      "title": "مصرف کردیت",
+      "description": "مصرف به تفکیک مدل، تیم، کاربر و محصول. هر بخش ۱۰ مورد پرمصرف را نشان می‌دهد.",
+      "unavailable": "گزارش مصرف فعلا در دسترس نیست.",
+      "preset": "بازه گزارش",
+      "presets": {
+        "current_month": "ماه جاری",
+        "last_3_months": "۳ ماه اخیر",
+        "last_6_months": "۶ ماه اخیر",
+        "last_12_months": "۱۲ ماه اخیر",
+        "current_year": "سال جاری"
+      },
+      "tabs": {
+        "model": "مدل",
+        "team": "تیم",
+        "user": "کاربر",
+        "product": "محصول"
+      },
+      "columns": {
+        "model": "مدل",
+        "team": "تیم",
+        "user": "کاربر",
+        "product": "محصول",
+        "credits": "کردیت",
+        "share": "سهم",
+        "requests": "درخواست"
+      },
+      "noTeam": "بدون تیم",
+      "noUser": "بدون کاربر",
+      "products": {
+        "gateway": "درگاه API",
+        "librechat": "چت",
+        "guardrail": "گاردریل",
+        "semantic_cache": "کش معنایی",
+        "embeddings": "Embedding",
+        "ocr": "OCR",
+        "playground": "زمین بازی",
+        "oidc_app": "اپلیکیشن OIDC",
+        "other": "سایر"
+      },
+      "emptyTitle": "هنوز مصرفی نیست",
+      "emptyDescription": "با ارسال اولین درخواست در این بازه، مصرف کردیت آن اینجا نمایش داده می‌شود.",
+      "emptyGroup": "در این بازه داده‌ای نیست.",
+      "loadError": "گزارش مصرف بارگذاری نشد.",
+      "changelog": "تغییرات قیمت کردیت و جدول نرخ‌ها"
+    },
+    "packs": {
+      "title": "خرید کردیت",
+      "description": "پک کردیت بخرید تا پس از سهمیه ماهانه پلن، درخواست‌ها ادامه پیدا کنند.",
+      "validity": "اعتبار {months, number} ماه",
+      "discount": "{percent}٪ تخفیف",
+      "price": "قیمت",
+      "tax": "مالیات ({percent}٪)",
+      "payable": "مبلغ قابل پرداخت",
+      "payOnline": "پرداخت آنلاین",
+      "payByTransfer": "واریز بانکی",
+      "readOnly": "برای خرید کردیت به دسترسی مدیریت صورت‌حساب نیاز دارید.",
+      "emptyTitle": "پکی برای فروش نیست",
+      "emptyDescription": "در حال حاضر پک کردیتی منتشر نشده است.",
+      "noPaymentURL": "درگاه پرداخت آدرس پرداخت برنگرداند. دوباره تلاش کنید.",
+      "loadError": "فهرست پک‌ها بارگذاری نشد."
+    },
+    "orders": {
+      "title": "سفارش‌های کردیت",
+      "description": "۲۰ سفارش اخیر. سفارش‌های واریز بانکی پس از بررسی فیش تکمیل می‌شوند.",
+      "columns": {
+        "credits": "کردیت",
+        "payable": "مبلغ",
+        "method": "روش پرداخت",
+        "status": "وضعیت",
+        "createdAt": "زمان ثبت",
+        "actions": "عملیات"
+      },
+      "methods": {
+        "online": "آنلاین",
+        "bankTransfer": "واریز بانکی"
+      },
+      "statuses": {
+        "PENDING": "در انتظار پرداخت",
+        "AWAITING_TRANSFER": "در انتظار واریز",
+        "COMPLETED": "تکمیل‌شده",
+        "FAILED": "ناموفق",
+        "CANCELED": "لغوشده",
+        "other": "نامشخص"
+      },
+      "submitReceipt": "ثبت فیش",
+      "empty": "هنوز سفارشی ثبت نکرده‌اید."
+    },
+    "transfer": {
+      "title": "واریز بانکی برای {credits}",
+      "description": "دقیقا {amount} واریز کنید و فیش را ثبت کنید. کردیت‌ها پس از تأیید فیش اضافه می‌شوند.",
+      "close": "بستن"
+    },
+    "payment": {
+      "successTitle": "پرداخت موفق بود",
+      "successDescription": "کردیت‌های پک به موجودی شما اضافه شد.",
+      "failedTitle": "پرداخت انجام نشد",
+      "failedDescription": "مبلغی کسر نشده یا در صورت کسر، بانک آن را برمی‌گرداند. دوباره تلاش کنید."
+    },
+    "settings": {
+      "title": "اضافه‌مصرف",
+      "description": "وقتی کردیت پلن و پک‌ها تمام شد، درخواست‌ها رد شوند یا تا سقف مشخص به‌صورت بدهی ادامه پیدا کنند.",
+      "buyPacks": "خرید پک کردیت",
+      "overage": "اجازه اضافه‌مصرف",
+      "overageDescription": "بدهی کردیت از کردیت بعدی (پلن یا پک) کم می‌شود.",
+      "overageNotAllowed": "پلن فعلی شما اضافه‌مصرف را پشتیبانی نمی‌کند.",
+      "cap": "سقف اضافه‌مصرف (کردیت)",
+      "capDescription": "خالی یعنی سقف پیش‌فرض سامانه. تا دو رقم اعشار.",
+      "capPlaceholder": "مثلا ۵۰۰",
+      "capInvalid": "عدد مثبت با حداکثر دو رقم اعشار وارد کنید.",
+      "save": "ذخیره",
+      "saving": "در حال ذخیره…",
+      "saved": "تنظیمات اضافه‌مصرف ذخیره شد."
     }
   },
-  "credits": {
-    "title": "مصرف به کردیت (پیش‌نمایش)",
-    "description": "اگر صورتحساب این ماه به کردیت محاسبه می‌شد، مصرف شما این‌قدر بود. این ارقام فقط برای مقایسه است و از موجودی کیف پول کم نمی‌شود.",
-    "badge": "حالت سایه",
-    "unit": "کردیت",
-    "total": "کردیت مصرف‌شده در ماه جاری",
-    "cacheSaved": "کردیت صرفه‌جویی‌شده با کش",
-    "byModel": "پرمصرف‌ترین مدل‌ها",
-    "byTeam": "پرمصرف‌ترین تیم‌ها",
-    "noTeam": "بدون تیم",
-    "emptyTitle": "هنوز مصرفی ثبت نشده است",
-    "emptyDescription": "با ارسال اولین درخواست در این ماه، معادل کردیتی آن اینجا نمایش داده می‌شود.",
-    "requestCount": "{count} درخواست",
-    "changelog": "تاریخچه‌ی تغییرات قیمت کردیت و نرخ‌نامه"
+  "overview": {
+    "title": "صورت‌حساب و کردیت",
+    "description": "موجودی کردیت، مصرف، پیش‌بینی اتمام و بسته‌های کردیت فضای کاری.",
+    "buyCredits": "خرید کردیت",
+    "plan": "پلن و اضافه‌مصرف"
   }
 }

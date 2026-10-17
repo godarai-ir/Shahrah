@@ -10,8 +10,8 @@ const model = __ENV.MODEL || 'gpt-4o-mini';
 const timeout = __ENV.TIMEOUT || '30s';
 const ruleID = __ENV.BUDGET_RULE_ID || 'budget-loadtest';
 
-const budgetLimitIRR = positiveNumber('BUDGET_LIMIT_IRR', __ENV.BUDGET_LIMIT_IRR || 400);
-const costToleranceIRR = nonNegativeNumber('COST_TOLERANCE_IRR', __ENV.COST_TOLERANCE_IRR || 1);
+const budgetLimitCredits = positiveNumber('BUDGET_LIMIT_CREDITS', __ENV.BUDGET_LIMIT_CREDITS || 5);
+const creditToleranceCredits = nonNegativeNumber('CREDIT_TOLERANCE', __ENV.CREDIT_TOLERANCE || 0.01);
 const burstRequests = positiveInteger('BURST_REQUESTS', __ENV.BURST_REQUESTS || 30);
 const burstVUs = positiveInteger('BURST_VUS', __ENV.BURST_VUS || Math.min(burstRequests, 30));
 const saturationRequests = positiveInteger('SATURATION_REQUESTS', __ENV.SATURATION_REQUESTS || 3);
@@ -27,7 +27,7 @@ if (minAllowed + minRejected > burstRequests) {
 
 const allowed = new Counter('budget_allowed');
 const rejected = new Counter('budget_rejected');
-const successfulCostIRR = new Counter('budget_successful_cost_irr');
+const successfulCredits = new Counter('budget_successful_credits');
 const saturationRejected = new Counter('budget_saturation_rejected');
 const unexpectedStatuses = new Counter('budget_unexpected_statuses');
 const contractViolations = new Counter('budget_contract_violations');
@@ -53,7 +53,7 @@ export const options = {
     http_req_failed: ['rate==0'],
     'budget_allowed{phase:burst}': [`count>=${minAllowed}`],
     'budget_rejected{phase:burst}': [`count>=${minRejected}`],
-    'budget_successful_cost_irr{phase:burst}': [`count<=${budgetLimitIRR + costToleranceIRR}`],
+    'budget_successful_credits{phase:burst}': [`count<=${budgetLimitCredits + creditToleranceCredits}`],
     'budget_saturation_rejected{phase:saturation}': [`count==${saturationRequests}`],
     budget_unexpected_statuses: ['count==0'],
     budget_contract_violations: ['count==0'],
@@ -152,12 +152,12 @@ function classify(response, phase) {
   rateLimitInterference.add(isRateLimited ? 1 : 0, { phase });
 
   if (isAllowed) {
-    const costIRR = Number(header(response, 'X-Godarai-Cost-IRR'));
-    successfulCostIRR.add(Number.isFinite(costIRR) ? costIRR : 0, { phase });
+    const credits = Number(header(response, 'X-Godarai-Credits-Used'));
+    successfulCredits.add(Number.isFinite(credits) ? credits : 0, { phase });
     allowedDuration.add(response.timings.duration, { phase });
-    if (!Number.isFinite(costIRR) || costIRR <= 0) violations += 1;
+    if (!Number.isFinite(credits) || credits <= 0) violations += 1;
   } else {
-    successfulCostIRR.add(0, { phase });
+    successfulCredits.add(0, { phase });
   }
 
   if (isRejected) {

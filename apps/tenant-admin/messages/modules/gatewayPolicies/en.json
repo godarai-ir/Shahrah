@@ -3,7 +3,7 @@
   "description": "Rate limits and budget caps for gateway requests in one list, in the order the gateway checks them.",
   "searchPlaceholder": "Search by name, ID, model, or requester",
   "evaluationNote": "Rules are checked in priority order (lower numbers first). Every rule that matches a request keeps its own counter, and the first limit that fills rejects the request with 429. Evaluation stops early only after a matching rule set to stop evaluation.",
-  "budgetEvaluationNote": "Order does not matter for budget caps: each request is charged against every active cap it matches, and any full cap rejects it.",
+  "budgetEvaluationNote": "Order does not matter for budget caps: each request is charged against every active cap it matches, and any full cap set to refuse requests rejects it.",
   "overlapWarning": "Overlaps with {count, plural, one {# other rule} other {# other rules}}: {names}",
   "overlapNone": "Does not overlap any other active rule.",
   "overlapExplanation": "A request that matches all of them has to stay under every limit.",
@@ -38,7 +38,7 @@
     "expires": "Until {date}",
     "countOnly": "Count only",
     "stopsEvaluation": "Stops evaluation",
-    "noEffect": "No effect: blocking off"
+    "alertOnly": "Alert only"
   },
   "sections": {
     "rate": "Rate limits · {count, plural, one {# rule} other {# rules}}",
@@ -135,7 +135,7 @@
       "requests": "requests",
       "tokens": "tokens"
     },
-    "budgetLimit": "at most {amount} IRR spent per {period}",
+    "budgetLimit": "at most {amount} credits per {period}",
     "periods": {
       "cost_per_day": "day",
       "cost_per_week": "week",
@@ -247,7 +247,7 @@
       "enforced": "Enforced",
       "countOnly": "Count only",
       "notReached": "Not checked",
-      "noEffect": "No effect"
+      "alertOnly": "Alert only"
     },
     "notReachedNote": "Evaluation stopped at “{name}”.",
     "enforcementNote": "Each rule keeps its own counter; the first limit that fills rejects the request.",

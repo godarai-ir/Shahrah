@@ -51,11 +51,8 @@
     "quickStart": "راهنمای شروع سریع",
     "supportTickets": "پشتیبانی",
     "billing": "داشبورد مالی",
-    "topup": "کیف پول",
-    "bankTransfer": "واریز بانکی",
-    "billingReports": "گزارش‌های مالی",
+    "topup": "خرید کردیت",
     "billingProfile": "هویت مالی",
-    "billingDocuments": "تراکنش‌ها و فاکتورها",
     "plan": "پلن",
     "settings": "تنظیمات حساب",
     "accountSettings": "حساب کاربری",
@@ -103,7 +100,7 @@
       "createRateLimitRule": "ساخت قانون کنترل نرخ",
       "createBudgetLimitRule": "ساخت قانون سقف هزینه",
       "createSupportTicket": "ثبت تیکت پشتیبانی",
-      "topup": "افزایش اعتبار"
+      "topup": "خرید کردیت"
     }
   }
 }

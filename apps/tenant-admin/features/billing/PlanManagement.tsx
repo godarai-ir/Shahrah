@@ -38,6 +38,13 @@ type PlanManagementProps = {
 };
 
 const featureOrder = [
+  "credits.monthly_grant",
+  "credits.trial_grant",
+  "credits.trial_days",
+  "credits.overage_allowed",
+  "credits.rollover_allowed",
+  "credits.bonus_percent",
+  "credits.byok_fee_percent",
   "users.max",
   "teams.enabled",
   "cache.simple.enabled",
@@ -80,6 +87,8 @@ const docsPathByFeature: Record<string, string> = {
   "routing.latency.enabled": "/virtual-model",
   "rate_limit_rules.enabled": "/guides/rate-limiting",
   "budget_limit_rules.enabled": "/guides/budget-limiting",
+  "credits.monthly_grant": "/financial/rate-card",
+  "credits.byok_fee_percent": "/financial/rate-card",
   "logs.retention_days": "/observability-logs",
   "traces.retention_days": "/observability-traces",
   "metadata.custom.enabled": "/observability-logs",
@@ -270,7 +279,13 @@ function formatEntitlementValue(
   if (row.key === "support.tier" || row.key === "support.sla") {
     return formatSupportValue(row.key, row.value, t, common);
   }
-  if (row.key.endsWith(".ttl_days") || row.key.endsWith(".retention_days")) {
+  if (row.key === "credits.monthly_grant" || row.key === "credits.trial_grant") {
+    return t("values.credits", { count: formatLimit(row.value, locale, common, t) });
+  }
+  if (row.key === "credits.bonus_percent" || row.key === "credits.byok_fee_percent") {
+    return t("values.percent", { value: formatLimit(row.value, locale, common, t) });
+  }
+  if (row.key.endsWith(".ttl_days") || row.key.endsWith(".retention_days") || row.key === "credits.trial_days") {
     return formatDayLimit(row.value, locale, common, t);
   }
   return formatLimit(row.value, locale, common, t);
@@ -319,7 +334,18 @@ function formatSupportValue(
   }
 }
 
+const creditFeatureTitleKeys: Record<string, string> = {
+  "credits.monthly_grant": "features.creditsMonthlyGrant",
+  "credits.trial_grant": "features.creditsTrialGrant",
+  "credits.trial_days": "features.creditsTrialDays",
+  "credits.overage_allowed": "features.creditsOverageAllowed",
+  "credits.rollover_allowed": "features.creditsRolloverAllowed",
+  "credits.bonus_percent": "features.creditsBonusPercent",
+  "credits.byok_fee_percent": "features.creditsByokFeePercent",
+};
+
 function getFeatureTitle(key: string, t: ReturnType<typeof useTranslations>): string {
+  if (key in creditFeatureTitleKeys) return t(creditFeatureTitleKeys[key]);
   switch (key) {
     case "users.max":
       return t("features.usersMax");

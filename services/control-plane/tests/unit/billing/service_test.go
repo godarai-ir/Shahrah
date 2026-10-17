@@ -73,13 +73,6 @@ func (s *walletStoreStub) rateCallCount() int {
 	return s.rateCalls
 }
 
-func (s *walletStoreStub) walletCallCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.walletCalls
-}
-
 func registerBillingShutdown(t *testing.T, svc *billing.Service) {
 	t.Helper()
 
@@ -435,67 +428,6 @@ func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *
 	assert.Equal(t, 284, out.OutputTokens)
 	assert.Equal(t, 284, out.TotalTokens)
 	assert.Greater(t, out.TotalCostUSD, 0.0)
-}
-
-func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-	store := &walletStoreStub{
-		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10},
-		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-	}
-	svc := billing.NewServiceWithDependencies(billing.Dependencies{
-		Cache:         memCache,
-		BudgetWindows: memCache,
-		Wallets:       store,
-	}, 850000, "test")
-
-	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
-		TenantID: "tenant-1",
-	}, platform.UsageCostBreakdown{TotalCostIRR: 100})
-	assert.ErrorIs(t, err, billing.ErrBudgetExceeded)
-}
-
-func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-	store := &walletStoreStub{
-		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
-		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-	}
-	svc := billing.NewServiceWithDependencies(billing.Dependencies{
-		Cache:         memCache,
-		BudgetWindows: memCache,
-		Wallets:       store,
-	}, 850000, "test")
-
-	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
-		TenantID: "tenant-1",
-	}, platform.UsageCostBreakdown{TotalCostIRR: 100})
-	require.NoError(t, err)
-}
-
-func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-	store := &walletStoreStub{
-		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
-		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
-	}
-	svc := billing.NewServiceWithDependencies(billing.Dependencies{
-		Cache:         memCache,
-		BudgetWindows: memCache,
-		Wallets:       store,
-	}, 850000, "test")
-
-	for i := 0; i < 2; i++ {
-		err := svc.CheckBudget(context.Background(), &platform.AuthContext{
-			TenantID: "tenant-1",
-		}, platform.UsageCostBreakdown{TotalCostIRR: 100})
-		require.NoError(t, err)
-	}
-
-	assert.Equal(t, 1, store.walletCallCount())
 }
 
 func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {

@@ -42,10 +42,10 @@ function budget(ruleID: string, overrides: Partial<BudgetLimitRule> = {}, condit
       enabled: true,
       priority: 100,
       conditions: { combinator: "AND", conditions },
-      limit_to: 5_000_000,
+      limit: "5000",
       unit: "cost_per_month",
-      block_on_budget_exceed: true,
-      alerts: { enabled: false },
+      on_exceed: "block",
+      alert_thresholds: [80, 100],
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z",
       ...overrides,
@@ -147,12 +147,12 @@ describe("simulateRequest", () => {
   it("enforces every matching blocking budget and reports the rest", () => {
     const rules = [
       budget("blocking"),
-      budget("alert-only", { block_on_budget_exceed: false }),
+      budget("alert-only", { on_exceed: "alert" }),
       budget("off", { enabled: false }, [team("checkout")]),
       rate("later", { effective_from: "2026-12-01T00:00:00Z" }),
     ];
     const result = simulateRequest(rules, request, NOW);
-    expect(result.budget.map(({ rule, outcome }) => [rule.rule_id, outcome])).toEqual([["alert-only", "noEffect"], ["blocking", "enforced"]]);
+    expect(result.budget.map(({ rule, outcome }) => [rule.rule_id, outcome])).toEqual([["alert-only", "alertOnly"], ["blocking", "enforced"]]);
     expect(result.dormant.map(({ item, reason }) => [item.rule.rule_id, reason])).toEqual([["later", "scheduled"], ["off", "disabled"]]);
   });
 });
@@ -177,7 +177,7 @@ describe("ruleSentence", () => {
 
   it("reads a budget rule with its applies-per scope", () => {
     expect(ruleSentence(budget("b", { budget_applies_per: "team" }), format)).toBe(
-      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰٬۰۰۰ ریال هزینه در هر ماه، جدا برای هر تیم",
+      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰ کردیت در هر ماه، جدا برای هر تیم",
     );
   });
 

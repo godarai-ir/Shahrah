@@ -15,10 +15,11 @@ const creditUsageGroupLimit = 10
 var creditUsageGroupExpressions = map[string]string{
 	"model":   "model_name",
 	"team":    "arrayJoin(if(empty(team_ids), [''], team_ids))",
+	"user":    "ifNull(user_email, '')",
 	"product": "if(credit_product = '', 'gateway', credit_product)",
 }
 
-// GetCreditUsageSummary aggregates shadow credits from model events. It reports
+// GetCreditUsageSummary aggregates credits from model events. It reports
 // Available=false until ClickHouse metrics and the credit columns are present.
 func (s *MetricsRepository) GetCreditUsageSummary(
 	ctx context.Context,
@@ -33,6 +34,7 @@ func (s *MetricsRepository) GetCreditUsageSummary(
 		CacheSavedCredits: credits.Format(0),
 		ByModel:           []platform.CreditUsageItem{},
 		ByTeam:            []platform.CreditUsageItem{},
+		ByUser:            []platform.CreditUsageItem{},
 		ByProduct:         []platform.CreditUsageItem{},
 	}
 
@@ -61,6 +63,10 @@ func (s *MetricsRepository) GetCreditUsageSummary(
 	}
 
 	if out.ByTeam, err = s.queryCreditUsageGroup(ctx, "team", tenantID, start, end); err != nil {
+		return nil, err
+	}
+
+	if out.ByUser, err = s.queryCreditUsageGroup(ctx, "user", tenantID, start, end); err != nil {
 		return nil, err
 	}
 

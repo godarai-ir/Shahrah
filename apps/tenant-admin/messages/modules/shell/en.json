@@ -51,11 +51,8 @@
     "quickStart": "Quick Start Guide",
     "supportTickets": "Support",
     "billing": "Billing",
-    "topup": "Wallet",
-    "bankTransfer": "Bank Transfer",
-    "billingReports": "Reports",
+    "topup": "Buy credits",
     "billingProfile": "Financial Identity",
-    "billingDocuments": "Transactions & Invoices",
     "plan": "Plan",
     "settings": "Account Settings",
     "accountSettings": "Account",
@@ -103,7 +100,7 @@
       "createRateLimitRule": "Create rate limit rule",
       "createBudgetLimitRule": "Create budget limit rule",
       "createSupportTicket": "Open support ticket",
-      "topup": "Top up credit"
+      "topup": "Buy credits"
     }
   }
 }

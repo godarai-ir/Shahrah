@@ -34,9 +34,9 @@ const RATE_OUTCOME_STATUS: Record<RateOutcome, "success" | "warning" | "neutral"
   notReached: "neutral",
 };
 
-const BUDGET_OUTCOME_STATUS: Record<BudgetOutcome, "success" | "neutral"> = {
+const BUDGET_OUTCOME_STATUS: Record<BudgetOutcome, "success" | "warning"> = {
   enforced: "success",
-  noEffect: "neutral",
+  alertOnly: "warning",
 };
 
 function parseMetadataEntries(raw: string): string[] {

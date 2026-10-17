@@ -58,14 +58,14 @@ func TestRequestPipelineMeteredUsagePolicies(t *testing.T) {
 
 	failOpen := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
 		MeteredUsagePolicy: CapabilityFailOpen,
-	}, nil, nil)
+	}, nil)
 	actual, err := failOpen.priceMeteredUsage(t.Context(), "mistral-small", "input_tokens", "1", estimated)
 	require.NoError(t, err)
 	assert.Equal(t, estimated, actual)
 
 	failClosed := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
 		MeteredUsagePolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 	_, err = failClosed.priceMeteredUsage(t.Context(), "mistral-small", "input_tokens", "1", estimated)
 	assert.ErrorIs(t, err, errMeteredUsagePricingUnavailable)
 
@@ -73,7 +73,7 @@ func TestRequestPipelineMeteredUsagePolicies(t *testing.T) {
 	disabled := NewRequestPipeline(nil, nil, pricer, BillingCapabilities{
 		MeteredUsage:       pricer,
 		MeteredUsagePolicy: CapabilityDisabled,
-	}, nil, nil)
+	}, nil)
 	actual, err = disabled.priceMeteredUsage(t.Context(), "mistral-small", "input_tokens", "1", estimated)
 	require.NoError(t, err)
 	assert.Equal(t, estimated, actual)
@@ -81,7 +81,7 @@ func TestRequestPipelineMeteredUsagePolicies(t *testing.T) {
 	explicit := NewRequestPipeline(nil, nil, pricer, BillingCapabilities{
 		MeteredUsage:       pricer,
 		MeteredUsagePolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 	actual, err = explicit.priceMeteredUsage(t.Context(), "mistral-small", "input_tokens", "1", estimated)
 	require.NoError(t, err)
 	assert.NotEmpty(t, actual.PricingRevision)
@@ -90,7 +90,7 @@ func TestRequestPipelineMeteredUsagePolicies(t *testing.T) {
 func TestRequestPipelineRejectsMissingFailClosedReservationManager(t *testing.T) {
 	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
 		BudgetReservationPolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 
 	reservation, err := pipeline.Reserve(t.Context(), BudgetRequest{
 		Auth:      &platform.AuthContext{TenantID: "tenant-1"},
