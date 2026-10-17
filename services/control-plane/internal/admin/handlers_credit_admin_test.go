@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -16,23 +18,40 @@ import (
 // interface panics on anything else, which would fail the test loudly.
 type creditAdminStoreFake struct {
 	creditAdminStore
-	unitChanges int
+	conversions int
+	rollbacks   int
+	fleetRuns   int
+	err         error
 }
 
-func (f *creditAdminStoreFake) SetTenantBillingUnitAudited(context.Context, string, platform.SetBillingUnitRequest, platform.SupportActor) error {
-	f.unitChanges++
+func (f *creditAdminStoreFake) ConvertTenantToCredits(_ context.Context, tenantID, reason string, _ platform.SupportActor) (*platform.CreditConversion, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return nil
+	f.conversions++
+
+	return &platform.CreditConversion{TenantID: tenantID, Direction: "to_credit", Reason: reason}, nil
 }
 
-func (f *creditAdminStoreFake) GetTenantCreditOverview(_ context.Context, tenantID string) (*platform.TenantCreditOverview, error) {
-	return &platform.TenantCreditOverview{TenantID: tenantID, BillingUnit: "credit"}, nil
+func (f *creditAdminStoreFake) RollbackCreditConversion(_ context.Context, tenantID, reason string, _ platform.SupportActor) (*platform.CreditConversion, error) {
+	f.rollbacks++
+
+	return &platform.CreditConversion{TenantID: tenantID, Direction: "to_irr", Reason: reason}, nil
 }
 
-func creditAdminApp(store *creditAdminStoreFake, ledgerEnabled bool) *fiber.App {
-	h := &Handlers{billingState: billingState{creditAdmin: store, creditLedgerEnabled: ledgerEnabled}}
+func (f *creditAdminStoreFake) ConvertCreditFleet(context.Context, platform.CreditFleetConversionRequest, platform.SupportActor) (*platform.CreditFleetConversionResult, error) {
+	f.fleetRuns++
+
+	return &platform.CreditFleetConversionResult{}, nil
+}
+
+func creditAdminApp(store *creditAdminStoreFake) *fiber.App {
+	h := &Handlers{billingState: billingState{creditAdmin: store}}
 	app := fiber.New()
-	app.Put("/tenants/:tenantID/credits/billing-unit", h.SetPlatformTenantBillingUnit)
+	app.Post("/tenants/:tenantID/credits/conversion", h.ConvertPlatformTenantToCredits)
+	app.Post("/tenants/:tenantID/credits/conversion/rollback", h.RollbackPlatformTenantCredits)
+	app.Post("/credits/conversions/fleet", h.ConvertPlatformCreditFleet)
 	app.Post("/credits/price-revisions/:revisionID/approve", h.ApprovePlatformCreditPriceRevision)
 
 	return app
@@ -51,22 +70,39 @@ func doCreditAdmin(t *testing.T, app *fiber.App, method, path, body string) int 
 	return resp.StatusCode
 }
 
-func TestBillingUnitChangeNeedsTheCreditLedgerFlag(t *testing.T) {
+func TestConversionRoutesReachTheStore(t *testing.T) {
 	store := &creditAdminStoreFake{}
-	tenantPath := "/tenants/8f14e45f-ceea-467f-a9f0-5b6b7b8c9d0e/credits/billing-unit"
-	body := `{"billing_unit":"credit","reason":"pilot"}`
+	tenantPath := "/tenants/8f14e45f-ceea-467f-a9f0-5b6b7b8c9d0e/credits/conversion"
+	body := `{"reason":"fleet cutover"}`
 
-	require.Equal(t, fiber.StatusConflict, doCreditAdmin(t, creditAdminApp(store, false), fiber.MethodPut, tenantPath, body))
-	require.Zero(t, store.unitChanges)
+	require.Equal(t, fiber.StatusOK, doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, tenantPath, body))
+	require.Equal(t, fiber.StatusOK, doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, "/credits/conversions/fleet", body))
+	require.Equal(t, fiber.StatusOK, doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, tenantPath+"/rollback", body))
+	require.Equal(t, 1, store.conversions)
+	require.Equal(t, 1, store.fleetRuns)
+	require.Equal(t, 1, store.rollbacks)
 
-	require.Equal(t, fiber.StatusOK, doCreditAdmin(t, creditAdminApp(store, true), fiber.MethodPut, tenantPath, body))
-	require.Equal(t, 1, store.unitChanges)
+	require.Equal(t, fiber.StatusBadRequest, doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, "/tenants/not-a-uuid/credits/conversion", body))
+}
 
-	require.Equal(t, fiber.StatusBadRequest, doCreditAdmin(t, creditAdminApp(store, true), fiber.MethodPut, "/tenants/not-a-uuid/credits/billing-unit", body))
+func TestConversionErrorsAreCoded(t *testing.T) {
+	tenantPath := "/tenants/8f14e45f-ceea-467f-a9f0-5b6b7b8c9d0e/credits/conversion"
+
+	cases := map[error]int{
+		apperrors.ErrNotFound:                        fiber.StatusNotFound,
+		billingdomain.ErrCreditConversionNothingToDo: fiber.StatusConflict,
+		billingdomain.ErrDecisionReasonRequired:      fiber.StatusBadRequest,
+		billingdomain.ErrInsufficientWalletBalance:   fiber.StatusConflict,
+	}
+
+	for err, want := range cases {
+		store := &creditAdminStoreFake{err: err}
+		require.Equal(t, want, doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, tenantPath, `{"reason":"x"}`), err.Error())
+	}
 }
 
 func TestCreditPriceDecisionsRejectMalformedIDs(t *testing.T) {
-	status := doCreditAdmin(t, creditAdminApp(&creditAdminStoreFake{}, true), fiber.MethodPost, "/credits/price-revisions/1%27%3B--/approve", `{"reason":"x"}`)
+	status := doCreditAdmin(t, creditAdminApp(&creditAdminStoreFake{}), fiber.MethodPost, "/credits/price-revisions/1%27%3B--/approve", `{"reason":"x"}`)
 	require.Equal(t, fiber.StatusNotFound, status)
 	require.NotEqual(t, http.StatusInternalServerError, status)
 }

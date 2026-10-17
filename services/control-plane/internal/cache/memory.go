@@ -365,7 +365,7 @@ func (m *MemoryCache) CommitBudget(_ context.Context, req BudgetCommitRequest) (
 		actual = 0
 	}
 
-	if window.reservedIRR-reservation.estimatedIRR+window.committedIRR+actual > window.allowanceIRR {
+	if window.reservedIRR-reservation.estimatedIRR+window.committedIRR+actual > window.allowanceIRR && !req.Force {
 		return memoryBudgetResult(window, false, "exhausted"), nil
 	}
 
@@ -375,10 +375,49 @@ func (m *MemoryCache) CommitBudget(_ context.Context, req BudgetCommitRequest) (
 	}
 
 	window.committedIRR += actual
+	if window.committedIRR > window.allowanceIRR {
+		window.overageIRR = window.committedIRR - window.allowanceIRR
+	}
+
 	reservation.status = "committed"
 	reservation.actualIRR = actual
 	m.budgetWindows[req.WindowKey] = window
 	m.budgetReservations[req.ReservationKey] = reservation
+
+	return memoryBudgetResult(window, true, "committed"), nil
+}
+
+// RecordBudgetSpend adds spend to a window without a reservation or an
+// admission check, for usage that already happened.
+func (m *MemoryCache) RecordBudgetSpend(_ context.Context, req BudgetSpendRequest) (*BudgetWindowResult, error) {
+	if req.WindowKey == "" {
+		return nil, fmt.Errorf("budget window key is required")
+	}
+
+	now := req.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.pruneBudgetStateLocked(now)
+
+	window, ok := m.budgetWindows[req.WindowKey]
+	if !ok {
+		return &BudgetWindowResult{Allowed: false, State: "window_unavailable"}, nil
+	}
+
+	if req.Amount > 0 {
+		window.committedIRR += req.Amount
+	}
+
+	if window.committedIRR > window.allowanceIRR {
+		window.overageIRR = window.committedIRR - window.allowanceIRR
+	}
+
+	m.budgetWindows[req.WindowKey] = window
 
 	return memoryBudgetResult(window, true, "committed"), nil
 }

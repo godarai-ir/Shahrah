@@ -102,7 +102,8 @@ func TestIntegration_CreditPlanDraftsMatchThePRDInIRR(t *testing.T) {
 			FROM plan_versions pv WHERE pv.version_id = $1::uuid
 		`, versionID).Scan(&status, &monthlyIRR, &yearlyIRR, &monthlyGrant, &usersMax, &copiedEntitlementsCount))
 
-		require.Equal(t, "draft", status, "%s: a human publishes credit plans", offer.Slug)
+		// 067 seeds drafts; the fleet cutover (072) publishes them.
+		require.Contains(t, []string{"draft", "published"}, status, offer.Slug)
 		require.Equal(t, offer.MonthlyPriceIRR(), monthlyIRR, "%s monthly IRR", offer.Slug)
 		require.Equal(t, offer.YearlyPriceIRR(), yearlyIRR, "%s yearly IRR", offer.Slug)
 		require.Equal(t, offer.MonthlyCredits, monthlyGrant, offer.Slug)

@@ -138,8 +138,14 @@ func (h *ChatCompletionHandler) prepareChatRequest(
 		}
 
 		setGuardrailOverrides(c, guardrailOverrides)
-		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(c.Context(), request, guardrailSelection, guardrailOverrides)
+
+		judgeUsage := &guardrails.JudgeUsage{}
+		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(guardrails.WithJudgeUsage(c.Context(), judgeUsage), request, guardrailSelection, guardrailOverrides)
 		h.recordGuardrailChecks(c, inputResult.Checks)
+
+		// Judge calls are charged even when they block the request: the judge ran.
+		traceID := tracing.TraceIDFromContext(c)
+		h.pipeline.chargeJudgeUsage(c.Context(), h.logs, authInfo, traceID, traceID, requestedModel, "guardrail_input", judgeUsage)
 
 		if inputErr != nil {
 			return handledPreparedChatRequest(writeGuardrailError(c, fiber.StatusBadRequest, "Request blocked by GodarAI guardrail", inputResult.Checks))

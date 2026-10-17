@@ -10,6 +10,14 @@ type CreditRateCard struct {
 	EffectiveFrom time.Time             `json:"effective_from"`
 	Unit          string                `json:"unit"`
 	Models        []CreditRateCardModel `json:"models"`
+	// SideUsage prices the calls GodarAI makes on a request's behalf.
+	SideUsage *CreditSideUsagePrices `json:"side_usage,omitempty"`
+}
+
+// CreditSideUsagePrices lists fixed per-call credit prices of side usage.
+type CreditSideUsagePrices struct {
+	GuardrailJudgeCall     string `json:"guardrail_judge_call"`
+	SemanticCacheEmbedding string `json:"semantic_cache_embedding"`
 }
 
 // CreditRateCardModel lists the credit rates for one model.
@@ -58,4 +66,36 @@ type CreditUsageItem struct {
 	Label        string `json:"label,omitempty"`
 	Credits      string `json:"credits"`
 	RequestCount int64  `json:"request_count"`
+}
+
+// BudgetStatusObject is the object name of a GET /v1/budget/me response.
+const BudgetStatusObject = "budget_status"
+
+// BudgetStatus reports the caller's credit budgets. Amounts are credit strings
+// with two decimals.
+type BudgetStatus struct {
+	Object string             `json:"object"`
+	Unit   string             `json:"unit"`
+	Rules  []BudgetRuleStatus `json:"rules"`
+	// TenantBalance is shown only to callers allowed to read billing.
+	TenantBalance *BudgetBalanceStatus `json:"tenant_balance,omitempty"`
+}
+
+// BudgetRuleStatus is one budget rule that applies to the caller.
+type BudgetRuleStatus struct {
+	RuleID    string    `json:"rule_id"`
+	Name      string    `json:"name,omitempty"`
+	Scope     string    `json:"scope"`
+	Limit     string    `json:"limit"`
+	Spent     string    `json:"spent"`
+	Remaining string    `json:"remaining"`
+	WindowEnd time.Time `json:"window_end"`
+	OnExceed  string    `json:"on_exceed"`
+}
+
+// BudgetBalanceStatus is what the tenant can still spend this month.
+type BudgetBalanceStatus struct {
+	Remaining string    `json:"remaining"`
+	Reserved  string    `json:"reserved"`
+	WindowEnd time.Time `json:"window_end"`
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -68,8 +69,12 @@ type walletState struct {
 	entitlementCache       cache.Cache
 	budgetWindowTTLGrace   time.Duration
 	hotPathDBTimeout       time.Duration
-	ledger                 *WalletLedgerRepository
-	rates                  *ExchangeRateRepository
+	creditOverageCeilingMC int64
+	// runtimeProfileInvalidator recompiles a tenant's runtime profile, for
+	// example after its billing unit changes.
+	runtimeProfileInvalidator RuntimeProfileInvalidator
+	ledger                    *WalletLedgerRepository
+	rates                     *ExchangeRateRepository
 }
 
 // WalletLedgerRepository persists wallet balances, ledger entries, and budget settlements.
@@ -337,16 +342,24 @@ func newWalletRepository(
 	clickhouseMetricsReady bool,
 	logger *zap.Logger,
 	sharedCache cache.Cache,
+	invalidator RuntimeProfileInvalidator,
 	storageConfig Config,
 ) *WalletRepository {
+	ceilingMC := storageConfig.Wallets.CreditOverageCeilingMC
+	if ceilingMC <= 0 {
+		ceilingMC = credits.DefaultOverageCeilingCredits * credits.MillicreditsPerCredit
+	}
+
 	state := &walletState{
-		pool:                   pool,
-		clickhouse:             clickhouse,
-		clickhouseMetricsReady: clickhouseMetricsReady,
-		logger:                 logger,
-		entitlementCache:       sharedCache,
-		budgetWindowTTLGrace:   storageConfig.Wallets.BudgetWindowTTLGrace,
-		hotPathDBTimeout:       storageConfig.HotPath.DatabaseTimeout,
+		pool:                      pool,
+		clickhouse:                clickhouse,
+		clickhouseMetricsReady:    clickhouseMetricsReady,
+		logger:                    logger,
+		entitlementCache:          sharedCache,
+		budgetWindowTTLGrace:      storageConfig.Wallets.BudgetWindowTTLGrace,
+		hotPathDBTimeout:          storageConfig.HotPath.DatabaseTimeout,
+		creditOverageCeilingMC:    ceilingMC,
+		runtimeProfileInvalidator: invalidator,
 	}
 
 	return composeWalletRepository(state)

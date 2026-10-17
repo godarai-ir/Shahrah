@@ -343,8 +343,6 @@ type BillingDependencies struct {
 	CreditPacks creditPackStore
 	// CreditAdmin backs the support-admin credit endpoints.
 	CreditAdmin creditAdminStore
-	// CreditLedgerEnabled allows moving tenants to credit billing.
-	CreditLedgerEnabled bool
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -411,8 +409,6 @@ type billingState struct {
 	creditShadow bool
 	creditPacks  creditPackStore
 	creditAdmin  creditAdminStore
-	// creditLedgerEnabled allows support-admin to move tenants to credit billing.
-	creditLedgerEnabled bool
 }
 
 type onboardingState struct {
@@ -477,8 +473,6 @@ func New(deps Dependencies) *Handlers {
 			creditShadow: deps.Billing.CreditShadowEnabled,
 			creditPacks:  deps.Billing.CreditPacks,
 			creditAdmin:  deps.Billing.CreditAdmin,
-
-			creditLedgerEnabled: deps.Billing.CreditLedgerEnabled,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

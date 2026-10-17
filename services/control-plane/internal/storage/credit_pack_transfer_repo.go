@@ -109,5 +109,7 @@ func (s *FinancialRepository) approveCreditPackBankTransferTx(ctx context.Contex
 		return nil, err
 	}
 
+	s.invalidateCreditTenant(ctx, item.TenantID, "")
+
 	return s.GetBankTransferRequest(ctx, item.TenantID, item.ID)
 }

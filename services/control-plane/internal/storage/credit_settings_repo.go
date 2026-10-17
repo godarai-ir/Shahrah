@@ -126,6 +126,8 @@ func (s *CreditPackRepository) UpdateCreditSettings(ctx context.Context, tenantI
 		return nil, err
 	}
 
+	s.invalidateCreditTenant(ctx, tenantID, "")
+
 	return s.GetCreditSettings(ctx, tenantID)
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -87,6 +88,17 @@ func (s *WalletLedgerRepository) DebitWallet(ctx context.Context, tenantID strin
 		return nil, err
 	}
 	defer rollbackTxWithFreshTimeout(tx)
+
+	// Credit tenants are charged by the credit ledger from their spend logs;
+	// a wallet debit here would charge them twice.
+	var billingUnit string
+	if unitErr := tx.QueryRow(ctx, `SELECT billing_unit FROM tenants WHERE tenant_id::text = $1`, strings.TrimSpace(tenantID)).Scan(&billingUnit); unitErr != nil {
+		return nil, unitErr
+	}
+
+	if billingUnit == credits.BillingUnitCredit {
+		return nil, nil
+	}
 
 	metadata := map[string]interface{}{
 		"request_id": requestID,
@@ -246,7 +258,7 @@ func scanWalletTransactionRow(row pgx.Row) (*platform.Transaction, error) {
 
 func isWalletDebitType(txType string) bool {
 	switch strings.ToLower(strings.TrimSpace(txType)) {
-	case "usage_debit", "invoice_adjustment", "manual_debit", "invoice_debit", "consumption", "withdrawal":
+	case "usage_debit", "invoice_adjustment", "manual_debit", "invoice_debit", "consumption", "withdrawal", walletTxCreditConversionOut:
 		return true
 	default:
 		return false

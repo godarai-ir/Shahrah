@@ -100,6 +100,7 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 
 	now := c.now().UTC()
 	profile := &Profile{
+		SchemaVersion:   ProfileSchemaVersion,
 		TenantID:        tenantID,
 		Version:         version,
 		CompiledAt:      now,

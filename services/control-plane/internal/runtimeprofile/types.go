@@ -19,7 +19,14 @@ var (
 	ErrAuthNotFound       = errors.New("tenant runtime auth context not found")
 )
 
+// ProfileSchemaVersion changes whenever the meaning of a compiled profile
+// changes. A cached or stored profile compiled under an older schema is
+// discarded and recompiled, so a deploy never serves billing state from before
+// it (schema 2: profiles carry the tenant's billing unit).
+const ProfileSchemaVersion = 2
+
 type Profile struct {
+	SchemaVersion   int                                  `json:"schema_version"`
 	TenantID        string                               `json:"tenant_id"`
 	Version         int64                                `json:"version"`
 	Checksum        string                               `json:"checksum"`

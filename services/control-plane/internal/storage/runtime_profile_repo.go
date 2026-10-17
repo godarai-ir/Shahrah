@@ -21,11 +21,11 @@ func (s *TenantRepository) GetTenantByID(ctx context.Context, tenantID string) (
 	var tenant platform.Tenant
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT tenant_id::text, slug, domain, status, created_at
+		SELECT tenant_id::text, slug, domain, status, billing_unit, created_at
 		FROM tenants
 		WHERE tenant_id = $1::uuid
 		LIMIT 1
-	`, tenantID).Scan(&tenant.ID, &tenant.Slug, &tenant.Domain, &tenant.Status, &tenant.CreatedAt)
+	`, tenantID).Scan(&tenant.ID, &tenant.Slug, &tenant.Domain, &tenant.Status, &tenant.BillingUnit, &tenant.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

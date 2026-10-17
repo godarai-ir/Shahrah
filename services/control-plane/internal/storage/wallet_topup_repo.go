@@ -47,6 +47,10 @@ func (s *WalletPaymentRepository) UpdateWalletTopUpSettings(ctx context.Context,
 }
 
 func (s *WalletPaymentRepository) CreateWalletTopUpIntent(ctx context.Context, p billingdomain.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
+	if err := refuseCreditTenantWalletTopUp(ctx, s.pool, p.TenantID); err != nil {
+		return nil, err
+	}
+
 	metaRaw := marshalJSONBestEffort(p.Metadata)
 
 	var out platform.WalletTopUpIntent

@@ -2,10 +2,12 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -29,7 +31,12 @@ type creditAdminStore interface {
 	ListTenantCreditLots(ctx context.Context, tenantID string) ([]platform.CreditLot, error)
 	ListCreditLotAllocations(ctx context.Context, tenantID, lotID string) ([]platform.CreditLotAllocation, error)
 	AdjustCredits(ctx context.Context, tenantID string, req platform.CreditAdjustmentRequest, actor platform.SupportActor) (*platform.TenantCreditOverview, error)
-	SetTenantBillingUnitAudited(ctx context.Context, tenantID string, req platform.SetBillingUnitRequest, actor platform.SupportActor) error
+	PreviewCreditConversion(ctx context.Context, tenantID string) (*platform.CreditConversionPreview, error)
+	ListCreditConversions(ctx context.Context, tenantID string) ([]platform.CreditConversion, error)
+	ConvertTenantToCredits(ctx context.Context, tenantID, reason string, actor platform.SupportActor) (*platform.CreditConversion, error)
+	RollbackCreditConversion(ctx context.Context, tenantID, reason string, actor platform.SupportActor) (*platform.CreditConversion, error)
+	ListCreditConversionPreviews(ctx context.Context, limit int) ([]platform.CreditConversionPreview, error)
+	ConvertCreditFleet(ctx context.Context, req platform.CreditFleetConversionRequest, actor platform.SupportActor) (*platform.CreditFleetConversionResult, error)
 }
 
 func (h *Handlers) requireCreditAdminStore() (creditAdminStore, error) {
@@ -328,33 +335,117 @@ func (h *Handlers) AdjustPlatformTenantCredits(c *fiber.Ctx) error {
 	return c.JSON(overview)
 }
 
-// SetPlatformTenantBillingUnit moves a tenant between IRR and credit billing.
-// It is refused unless the credit ledger is enabled on this deployment.
-func (h *Handlers) SetPlatformTenantBillingUnit(c *fiber.Ctx) error {
+// GetPlatformTenantCreditConversion returns a tenant's conversion dry run and
+// its conversion history.
+func (h *Handlers) GetPlatformTenantCreditConversion(c *fiber.Ctx) error {
 	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {
 		return err
 	}
 
-	if !h.creditLedgerEnabled {
-		return creditPackError(c, billingdomain.ErrBillingUnitChangeDisabled)
+	preview, err := store.PreviewCreditConversion(c.Context(), tenantID)
+	if err != nil {
+		return creditConversionError(c, err)
 	}
 
-	var req platform.SetBillingUnitRequest
+	conversions, err := store.ListCreditConversions(c.Context(), tenantID)
+	if err != nil {
+		return creditConversionError(c, err)
+	}
+
+	return c.JSON(platform.TenantCreditConversionStatus{Preview: *preview, Conversions: conversions})
+}
+
+// ConvertPlatformTenantToCredits converts one tenant to credit billing.
+func (h *Handlers) ConvertPlatformTenantToCredits(c *fiber.Ctx) error {
+	store, tenantID, err := h.creditAdminTenant(c)
+	if err != nil {
+		return err
+	}
+
+	var req platform.CreditConversionRequest
 	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	if changeErr := store.SetTenantBillingUnitAudited(c.Context(), tenantID, req, supportActor(c)); changeErr != nil {
-		return creditPackError(c, changeErr)
+	conversion, err := store.ConvertTenantToCredits(c.Context(), tenantID, req.Reason, supportActor(c))
+	if err != nil {
+		return creditConversionError(c, err)
 	}
 
-	overview, err := store.GetTenantCreditOverview(c.Context(), tenantID)
+	return c.JSON(conversion)
+}
+
+// RollbackPlatformTenantCredits moves a credit tenant back to IRR billing.
+func (h *Handlers) RollbackPlatformTenantCredits(c *fiber.Ctx) error {
+	store, tenantID, err := h.creditAdminTenant(c)
 	if err != nil {
+		return err
+	}
+
+	var req platform.CreditConversionRequest
+	if parseErr := c.BodyParser(&req); parseErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	conversion, err := store.RollbackCreditConversion(c.Context(), tenantID, req.Reason, supportActor(c))
+	if err != nil {
+		return creditConversionError(c, err)
+	}
+
+	return c.JSON(conversion)
+}
+
+// ListPlatformCreditConversionPreviews dry-runs the conversion of IRR tenants.
+func (h *Handlers) ListPlatformCreditConversionPreviews(c *fiber.Ctx) error {
+	store, err := h.requireCreditAdminStore()
+	if err != nil {
+		return err
+	}
+
+	previews, err := store.ListCreditConversionPreviews(c.Context(), c.QueryInt("limit", 0))
+	if err != nil {
+		return creditConversionError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"data": previews})
+}
+
+// ConvertPlatformCreditFleet converts the next batch of IRR tenants.
+func (h *Handlers) ConvertPlatformCreditFleet(c *fiber.Ctx) error {
+	store, err := h.requireCreditAdminStore()
+	if err != nil {
+		return err
+	}
+
+	var req platform.CreditFleetConversionRequest
+	if parseErr := c.BodyParser(&req); parseErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	result, err := store.ConvertCreditFleet(c.Context(), req, supportActor(c))
+	if err != nil {
+		return creditConversionError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+func creditConversionError(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, apperrors.ErrNotFound):
+		return fiber.NewError(fiber.StatusNotFound, "tenant not found")
+	case errors.Is(err, billingdomain.ErrCreditConversionNothingToDo):
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": fiber.Map{
+			"code": "credit_conversion_nothing_to_do", "type": "credit_billing", "message": err.Error(),
+		}})
+	case errors.Is(err, billingdomain.ErrInsufficientWalletBalance):
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": fiber.Map{
+			"code": "insufficient_wallet_balance", "type": "credit_billing", "message": "the wallet could not cover the conversion",
+		}})
+	default:
 		return creditPackError(c, err)
 	}
-
-	return c.JSON(overview)
 }
 
 func (h *Handlers) creditAdminTenant(c *fiber.Ctx) (creditAdminStore, string, error) {

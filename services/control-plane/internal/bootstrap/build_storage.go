@@ -9,6 +9,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
@@ -218,6 +219,9 @@ func (b *builder) buildStorage() error {
 		RuntimeProfiles: b.runtimeProfiles,
 	})
 
+	// Credit enforcement prices reservations with the published rate card.
+	b.buildCreditRateCards()
+
 	b.billing = billing.NewServiceWithDependencies(
 		billing.Dependencies{
 			Cache:           sharedCache,
@@ -225,6 +229,9 @@ func (b *builder) buildStorage() error {
 			Wallets:         store.WalletRepository,
 			Entitlements:    store.PlanRepository,
 			RuntimeProfiles: b.runtimeProfiles,
+			CreditPools:     store.CreditLedgerRepository,
+			CreditRateCards: b.creditRateCards,
+			Logger:          b.logger,
 			Config: &billing.ServiceConfig{
 				ExchangeRateCache: billing.ExchangeRateCacheConfig{
 					FreshTTL: b.cfg.Runtime.BillingExchangeRateTTL,
@@ -331,7 +338,8 @@ func storageConfig(settings config.StorageSettings) *storage.Config {
 			EntitlementCacheTTL: settings.EntitlementCacheTTL,
 		},
 		Wallets: storage.WalletRepositoryConfig{
-			BudgetWindowTTLGrace: settings.BudgetWindowTTLGrace,
+			BudgetWindowTTLGrace:   settings.BudgetWindowTTLGrace,
+			CreditOverageCeilingMC: settings.CreditOverageCeilingCredits * credits.MillicreditsPerCredit,
 		},
 		ProviderAccount: storage.ProviderAccountRepositoryConfig{
 			CredentialCacheTTL: settings.TenantCredentialCacheTTL,

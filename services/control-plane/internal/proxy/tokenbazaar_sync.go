@@ -81,7 +81,7 @@ func tokenBazaarHandleSync(
 		RequestID:   tunnelReq.RequestID,
 		BillingMode: tunnelReq.Deployment.BillingMode,
 	}); err != nil {
-		return cfg.writeError(c, fiber.StatusPaymentRequired, cfg.settleErrorCode, err.Error())
+		return cfg.writeError(c, fiber.StatusPaymentRequired, cfg.settleErrorCode, settlementErrorMessage(err))
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())

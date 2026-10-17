@@ -179,3 +179,87 @@ type SetBillingUnitRequest struct {
 	BillingUnit string `json:"billing_unit"`
 	Reason      string `json:"reason"`
 }
+
+// Credit conversion warnings reported by a dry run.
+const (
+	CreditConversionWarningNoSubscription   = "no_subscription"
+	CreditConversionWarningNoCreditPlan     = "no_published_credit_plan"
+	CreditConversionWarningPendingTopUp     = "pending_wallet_topup"
+	CreditConversionWarningPendingTransfer  = "pending_bank_transfer"
+	CreditConversionWarningUnsettledUsage   = "unsettled_irr_usage"
+	CreditConversionWarningAlreadyConverted = "already_credit"
+)
+
+// CreditConversionPreview is the dry run of converting one tenant to credits.
+type CreditConversionPreview struct {
+	TenantID            string `json:"tenant_id"`
+	TenantSlug          string `json:"tenant_slug"`
+	BillingUnit         string `json:"billing_unit"`
+	PriceTomanPerCredit int64  `json:"price_toman_per_credit"`
+	WalletIRR           int64  `json:"wallet_irr"`
+	// UnsettledIRR is IRR spend committed this month and not yet debited; the
+	// conversion settles it first.
+	UnsettledIRR    int64    `json:"unsettled_irr"`
+	Credits         string   `json:"credits"`
+	ResidueIRR      int64    `json:"residue_irr"`
+	RulesToConvert  int      `json:"rules_to_convert"`
+	PlanSlug        string   `json:"plan_slug,omitempty"`
+	BillingInterval string   `json:"billing_interval,omitempty"`
+	NewPlanPriceIRR *int64   `json:"new_plan_price_irr,omitempty"`
+	NewPlanCredits  string   `json:"new_plan_monthly_credits,omitempty"`
+	Warnings        []string `json:"warnings"`
+}
+
+// CreditConversion is one executed conversion of a tenant.
+type CreditConversion struct {
+	ID                  string    `json:"id"`
+	TenantID            string    `json:"tenant_id"`
+	Sequence            int       `json:"sequence"`
+	Direction           string    `json:"direction"`
+	PriceTomanPerCredit int64     `json:"price_toman_per_credit"`
+	WalletIRR           int64     `json:"wallet_irr"`
+	ConvertedIRR        int64     `json:"converted_irr"`
+	ResidueIRR          int64     `json:"residue_irr"`
+	Credits             string    `json:"credits"`
+	Debt                string    `json:"debt"`
+	UncollectedIRR      int64     `json:"uncollected_irr"`
+	RulesConverted      int       `json:"rules_converted"`
+	PlanSlug            string    `json:"plan_slug,omitempty"`
+	SubscriptionID      string    `json:"subscription_id,omitempty"`
+	Actor               string    `json:"actor"`
+	Reason              string    `json:"reason"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
+// CreditConversionRequest converts or rolls back one tenant.
+type CreditConversionRequest struct {
+	Reason string `json:"reason"`
+}
+
+// CreditFleetConversionRequest converts the next IRR tenants in one batch.
+type CreditFleetConversionRequest struct {
+	Reason string `json:"reason"`
+	// Limit is the batch size, 1 to 100 (default 20).
+	Limit int `json:"limit,omitempty"`
+}
+
+// CreditConversionFailure is a tenant a fleet batch could not convert.
+type CreditConversionFailure struct {
+	TenantID   string `json:"tenant_id"`
+	TenantSlug string `json:"tenant_slug"`
+	Error      string `json:"error"`
+}
+
+// CreditFleetConversionResult reports one fleet batch.
+type CreditFleetConversionResult struct {
+	Converted []CreditConversion        `json:"converted"`
+	Failed    []CreditConversionFailure `json:"failed"`
+	// Remaining is the number of IRR tenants left after the batch.
+	Remaining int `json:"remaining"`
+}
+
+// TenantCreditConversionStatus is a tenant's conversion dry run and history.
+type TenantCreditConversionStatus struct {
+	Preview     CreditConversionPreview `json:"preview"`
+	Conversions []CreditConversion      `json:"conversions"`
+}

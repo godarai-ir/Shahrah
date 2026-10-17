@@ -36,6 +36,9 @@ type StorageSettings struct {
 	GatewayDatabaseTimeout       time.Duration
 	SubscriptionDatabaseTimeout  time.Duration
 	BudgetWindowTTLGrace         time.Duration
+	// CreditOverageCeilingCredits bounds overage for credit tenants that
+	// enabled it without a cap.
+	CreditOverageCeilingCredits int64
 }
 
 // RuntimeSettings is the process-level non-storage runtime configuration snapshot.
@@ -112,6 +115,7 @@ func LoadStorageSettings() StorageSettings {
 		GatewayDatabaseTimeout:       secondsEnv("GATEWAY_DB_TIMEOUT_SECONDS", 3*time.Second),
 		SubscriptionDatabaseTimeout:  secondsEnv("SUBSCRIPTION_LIFECYCLE_DB_TIMEOUT_SECONDS", 5*time.Second),
 		BudgetWindowTTLGrace:         secondsEnv("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 24*time.Hour),
+		CreditOverageCeilingCredits:  positiveInt64Env("BILLING_CREDIT_OVERAGE_DEFAULT_CEILING_CREDITS", 100_000),
 	}
 }
 
@@ -256,9 +260,6 @@ func csvEnv(key string) []string {
 
 // CreditLedgerSettings configures the credit ledger workers (pricing PRD, Phase 2).
 type CreditLedgerSettings struct {
-	// Enabled starts the settlement, expiry, and reconciliation workers and lets
-	// support-admin move tenants to credit billing.
-	Enabled            bool
 	SettlementInterval time.Duration
 	SettleDelay        time.Duration
 	BatchSize          int
@@ -271,7 +272,6 @@ type CreditLedgerSettings struct {
 
 func loadCreditLedgerSettings() CreditLedgerSettings {
 	return CreditLedgerSettings{
-		Enabled:            booleanEnv("BILLING_CREDIT_LEDGER_ENABLED", false),
 		SettlementInterval: secondsEnv("BILLING_CREDIT_SETTLEMENT_INTERVAL_SECONDS", 30*time.Second),
 		SettleDelay:        secondsEnv("BILLING_CREDIT_SETTLE_DELAY_SECONDS", 30*time.Second),
 		BatchSize:          positiveIntEnv("BILLING_CREDIT_SETTLEMENT_BATCH_SIZE", 500),

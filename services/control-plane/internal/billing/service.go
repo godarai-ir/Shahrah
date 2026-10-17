@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"go.uber.org/zap"
 )
 
 var (
@@ -62,6 +63,9 @@ type BudgetService struct {
 	store                walletStore
 	entitlements         entitlementStore
 	runtimeProfiles      RuntimeProfileStore
+	creditPools          CreditPoolStore
+	creditRateCards      CreditRateCardProvider
+	logger               *zap.Logger
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
 }
@@ -90,6 +94,10 @@ type Dependencies struct {
 	Wallets         walletStore
 	Entitlements    entitlementStore
 	RuntimeProfiles RuntimeProfileStore
+	// CreditPools and CreditRateCards enforce credit tenants in credits.
+	CreditPools     CreditPoolStore
+	CreditRateCards CreditRateCardProvider
+	Logger          *zap.Logger
 	Config          *ServiceConfig
 }
 
@@ -198,6 +206,11 @@ func newService(
 		Source:   source,
 	}
 
+	logger := dependencies.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &Service{
 		PricingEngine: &PricingEngine{
 			defaultRate:       defaultRate,
@@ -211,6 +224,9 @@ func newService(
 			store:                dependencies.Wallets,
 			entitlements:         dependencies.Entitlements,
 			runtimeProfiles:      dependencies.RuntimeProfiles,
+			creditPools:          dependencies.CreditPools,
+			creditRateCards:      dependencies.CreditRateCards,
+			logger:               logger,
 			walletCacheTTL:       serviceConfig.WalletCacheTTL,
 			budgetWindowTTLGrace: serviceConfig.BudgetWindowGrace,
 		},

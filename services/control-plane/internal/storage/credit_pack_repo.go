@@ -270,6 +270,8 @@ func (s *CreditPackRepository) CompleteCreditPackOrderByAuthority(ctx context.Co
 		return nil, false, commitErr
 	}
 
+	s.invalidateCreditTenant(ctx, order.TenantID, "")
+
 	completed, err := s.GetCreditPackOrderByAuthority(ctx, authority)
 
 	return completed, false, err

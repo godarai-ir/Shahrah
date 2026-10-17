@@ -61,6 +61,9 @@ type PlanRepositoryConfig struct {
 // WalletRepositoryConfig controls wallet cache synchronization behavior.
 type WalletRepositoryConfig struct {
 	BudgetWindowTTLGrace time.Duration
+	// CreditOverageCeilingMC bounds overage headroom when a tenant enabled
+	// overage without a cap.
+	CreditOverageCeilingMC int64
 }
 
 // ProviderAccountRepositoryConfig controls tenant credential caching.

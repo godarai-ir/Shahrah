@@ -112,6 +112,8 @@ func (s *CreditLedgerRepository) grantDue(ctx context.Context, sub creditSubscri
 		return CreditGrantResult{}, 0, err
 	}
 
+	s.invalidateCreditTenant(ctx, sub.TenantID, "")
+
 	return result, overageMC, nil
 }
 

@@ -280,10 +280,18 @@ func (s *CreditLedgerRepository) AdjustCredits(ctx context.Context, tenantID str
 		return nil, commitErr
 	}
 
+	s.invalidateCreditTenant(ctx, tenantID, "")
+
 	return s.GetTenantCreditOverview(ctx, tenantID)
 }
 
 func debitAdjustmentTx(ctx context.Context, tx pgx.Tx, tenantID string, debitMC int64, key, reason, actor string, now time.Time) (bool, error) {
+	return debitCreditsTx(ctx, tx, tenantID, credits.EntryAdjust, debitMC, key, reason, actor, now)
+}
+
+// debitCreditsTx writes a manual debit of kind across the tenant's lots in
+// consumption order. Repeating the key debits nothing.
+func debitCreditsTx(ctx context.Context, tx pgx.Tx, tenantID string, kind credits.EntryKind, debitMC int64, key, reason, actor string, now time.Time) (bool, error) {
 	entryID := uuid.NewString()
 
 	claimed, err := claimCreditKeyTx(ctx, tx, key, entryID, tenantID, now)
@@ -296,7 +304,7 @@ func debitAdjustmentTx(ctx context.Context, tx pgx.Tx, tenantID string, debitMC 
 	}
 
 	if entryErr := insertCreditEntryTx(ctx, tx, creditEntry{
-		EntryID: entryID, TenantID: tenantID, Kind: credits.EntryAdjust, AmountMC: -debitMC,
+		EntryID: entryID, TenantID: tenantID, Kind: kind, AmountMC: -debitMC,
 		IdempotencyKey: key, OccurredAt: now, Reason: reason, Actor: actor,
 	}); entryErr != nil {
 		return false, entryErr
@@ -350,5 +358,13 @@ func (s *CreditLedgerRepository) SetTenantBillingUnitAudited(ctx context.Context
 		return auditErr
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// The billing unit is compiled into the runtime profile, which decides
+	// how the gateway reserves this tenant's requests.
+	s.invalidateCreditTenant(ctx, tenantID, "billing_unit.changed")
+
+	return nil
 }

@@ -74,7 +74,11 @@ type Handler interface {
 	ListPlatformTenantCreditLots(*fiber.Ctx) error
 	ListPlatformTenantCreditLotAllocations(*fiber.Ctx) error
 	AdjustPlatformTenantCredits(*fiber.Ctx) error
-	SetPlatformTenantBillingUnit(*fiber.Ctx) error
+	GetPlatformTenantCreditConversion(*fiber.Ctx) error
+	ConvertPlatformTenantToCredits(*fiber.Ctx) error
+	RollbackPlatformTenantCredits(*fiber.Ctx) error
+	ListPlatformCreditConversionPreviews(*fiber.Ctx) error
+	ConvertPlatformCreditFleet(*fiber.Ctx) error
 }
 
 // Routes owns billing route registration.
@@ -181,5 +185,9 @@ func (r *Routes) registerPlatformCredits(router fiber.Router) {
 	router.Get("/tenants/:tenantID/credits/lots", r.handler.ListPlatformTenantCreditLots)
 	router.Get("/tenants/:tenantID/credits/lots/:lotID/allocations", r.handler.ListPlatformTenantCreditLotAllocations)
 	router.Post("/tenants/:tenantID/credits/adjustments", r.handler.AdjustPlatformTenantCredits)
-	router.Put("/tenants/:tenantID/credits/billing-unit", r.handler.SetPlatformTenantBillingUnit)
+	router.Get("/credits/conversions/preview", r.handler.ListPlatformCreditConversionPreviews)
+	router.Post("/credits/conversions/fleet", r.handler.ConvertPlatformCreditFleet)
+	router.Get("/tenants/:tenantID/credits/conversion", r.handler.GetPlatformTenantCreditConversion)
+	router.Post("/tenants/:tenantID/credits/conversion", r.handler.ConvertPlatformTenantToCredits)
+	router.Post("/tenants/:tenantID/credits/conversion/rollback", r.handler.RollbackPlatformTenantCredits)
 }

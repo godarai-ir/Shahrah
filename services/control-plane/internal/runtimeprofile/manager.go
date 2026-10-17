@@ -417,6 +417,10 @@ func decodeProfile(raw []byte) (*Profile, error) {
 		return nil, err
 	}
 
+	if profile.SchemaVersion < ProfileSchemaVersion {
+		return nil, ErrProfileUnavailable
+	}
+
 	if profile.ProviderAPIKeys == nil {
 		profile.ProviderAPIKeys = map[string]string{}
 	}

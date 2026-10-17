@@ -573,7 +573,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		Metadata:     req.Metadata,
 	})
 	if err != nil {
-		return err
+		return creditPackError(c, err)
 	}
 
 	provider := h.selectPaymentProvider(providerName)
