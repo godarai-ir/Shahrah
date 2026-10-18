@@ -1,40 +1,9 @@
 'use client';
-import { ArrowLeft, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { SOCIAL_LINKS } from '@/app/lib/social-links';
 import { GodarAILogo } from './GodarAILogo';
 import { solutionHref, solutions } from '@/app/lib/solutions';
-
-export function Trust() {
-  return (
-    <section className="py-16 sm:py-24 lg:py-32 relative overflow-hidden">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 leading-relaxed">
-          گدارAI برای شرایط واقعی تیم‌های ایرانی طراحی شده است؛ با تمرکز بر اتصال قابل‌اعتماد، کنترل هزینه و شفافیت مصرف.
-        </h2>
-        <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-8 sm:mb-12 leading-7 sm:leading-relaxed">
-          هدف ما این است که تیم فنی به‌جای مدیریت چند حساب و چند کلید، روی کیفیت تجربه کاربر و محصول تمرکز کند.
-        </p>
-
-        <div className="flex flex-col items-center">
-          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-6 sm:mb-8">
-            مسیر مصرف مدل‌ها را قابل مدیریت کنید
-          </h3>
-          <div className="flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
-            <Link href="/pricing" className="flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-base sm:text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
-              ۱۵ روز آزمایشی شروع کنید.
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <Link href="/demo" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-8 py-4 text-base font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-500/10 sm:w-auto sm:text-lg">
-              رزرو وقت دمو
-              <CalendarDays className="w-5 h-5" />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export function Footer() {
   return (

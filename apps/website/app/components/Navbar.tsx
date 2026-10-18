@@ -152,7 +152,7 @@ export function Navbar() {
                 href={item.href}
                 className={
                   item.variant === 'primary'
-                    ? 'flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:bg-indigo-600 hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]'
+                    ? 'flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600'
                     : 'text-sm font-medium text-slate-600 transition-colors hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400'
                 }
               >
@@ -257,7 +257,7 @@ export function Navbar() {
                 رزرو وقت دمو
                 <CalendarDays className="h-4 w-4" />
               </Link>
-              <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>۱۵ روز رایگان شروع کنید</Link>
+              <Link href="/onboarding" className="block min-h-12 rounded-xl bg-blue-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>۱۵ روز رایگان شروع کنید</Link>
             </div>
           </div>
         </div>
