@@ -2,23 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Route, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Plus, Route, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { ChipInput } from "@/components/app-ui/ChipInput";
 import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
 import { CopyAction } from "@/components/app-ui/CopyAction";
-import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FormSheet } from "@/components/app-ui/FormSheet";
 import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
-import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { RefreshButton } from "@/components/app-ui/RefreshButton";
-import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
-import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
 import { UnsavedChangesDialog } from "@/components/app-ui/UnsavedChangesDialog";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
@@ -32,13 +28,11 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PrincipalPicker } from "@/components/app-ui/PrincipalPicker";
 import { ProviderLogo } from "@/components/app-ui/ProviderLogo";
 import { type PrincipalSearchKind } from "@/components/app-ui/PrincipalEntitySelect";
 import { buildPrincipalSelectorLabels } from "@/components/app-ui/buildPrincipalSelectorLabels";
-import { cn } from "@/lib/utils";
 import {
   deleteVirtualModel,
   getProviderAccountDetails,
@@ -74,26 +68,13 @@ import {
   validateForm,
   type VirtualModelFormState,
 } from "@/features/virtual-models/domain";
+import { buildTargetPreview, normalizeError } from "@/features/virtual-models/helpers";
+import { VirtualModelTable } from "@/features/virtual-models/VirtualModelTable";
 import { ProviderModelPicker, type ProviderModelOption } from "@/features/virtual-models/ProviderModelPicker";
 
 type FormState = VirtualModelFormState;
 
 type Notice = { kind: "success" | "error"; message: string } | null;
-
-function buildTargetPreview(target: VirtualModelTarget, option?: ProviderModelOption) {
-  const fqnParts = target.model.trim().split(":");
-  const hasFQNParts = fqnParts.length === 3;
-  const provider = option?.provider || target.provider || (hasFQNParts ? fqnParts[0].trim() : "");
-  const accountName = option?.accountName || (hasFQNParts ? fqnParts[1].trim() : "");
-  let modelName = option?.model || (hasFQNParts ? fqnParts[2].trim() : target.model.trim());
-  const providerPrefix = `${provider}/`;
-
-  if (modelName.toLocaleLowerCase().startsWith(providerPrefix.toLocaleLowerCase())) {
-    modelName = modelName.slice(providerPrefix.length);
-  }
-
-  return { provider, accountName, modelName };
-}
 
 export default function VirtualModelManagement({ docsHref }: { docsHref: string }) {
   const t = useTranslations("virtualModels");
@@ -579,80 +560,21 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
             />
           ) : (
             <div className="@container overflow-x-auto rounded-lg border">
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("list.alias")}</TableHead>
-                    <TableHead className="hidden w-24 @sm:table-cell">{t("list.strategy")}</TableHead>
-                    <TableHead className="hidden w-20 @md:table-cell">{t("list.targets")}</TableHead>
-                    <TableHead className="hidden w-40 @4xl:table-cell">{t("list.updatedAt")}</TableHead>
-                    <TableHead className="hidden w-48 @4xl:table-cell">{t("list.createdBy")}</TableHead>
-                    <TableHead className="w-24">{t("list.status")}</TableHead>
-                    <TableHead className="w-16 whitespace-nowrap text-center">{t("list.actions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleItems.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className={cn(selectedID === item.id && "bg-muted/60")}
-                    >
-                      <TableCell>
-                        <ModelNameValue
-                          value={item.alias}
-                          className="w-full flex-row-reverse"
-                          onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("messages.copyAliasError") })}
-                        />
-                      </TableCell>
-                      <TableCell className="hidden @sm:table-cell">{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
-                      <TableCell className="hidden @md:table-cell">{item.targets?.length ?? 0}</TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground @4xl:table-cell"><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }} /></TableCell>
-                      <TableCell className="hidden truncate text-sm text-muted-foreground @4xl:table-cell">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={item.enabled ? "active" : "inactive"}>
-                          {item.enabled ? t("status.enabled") : t("status.disabled")}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell onClick={(event) => event.stopPropagation()}>
-                        <RowActionsMenu
-                          label={t("actions.openMenu", { alias: item.alias })}
-                          dir={locale.startsWith("fa") ? "rtl" : "ltr"}
-                          disabled={isLoading}
-                          actions={[
-                            {
-                              key: "copy",
-                              label: t("actions.copy"),
-                              pendingLabel: t("actions.copying"),
-                              pending: actingID === item.id,
-                              icon: <Copy />,
-                              onSelect: () => void duplicateItem(item),
-                            },
-                            {
-                              key: "edit",
-                              label: t("actions.edit"),
-                              disabled: actingID === item.id,
-                              icon: <Edit3 />,
-                              onSelect: () => void loadDetail(item.id),
-                            },
-                            {
-                              key: "delete",
-                              label: t("actions.delete"),
-                              disabled: actingID === item.id,
-                              destructive: true,
-                              separatorBefore: true,
-                              icon: <Trash2 />,
-                              onSelect: () => {
-                                setPendingDeleteItem(item);
-                                setDeleteDialogOpen(true);
-                              },
-                            },
-                          ]}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <VirtualModelTable
+                items={visibleItems}
+                selectedID={selectedID}
+                locale={locale}
+                userLabelByID={userLabelByID}
+                isLoading={isLoading}
+                actingID={actingID}
+                onDuplicate={(item) => void duplicateItem(item)}
+                onEdit={(item) => void loadDetail(item.id)}
+                onDelete={(item) => {
+                  setPendingDeleteItem(item);
+                  setDeleteDialogOpen(true);
+                }}
+                t={t}
+              />
               {listPageCount > 1 ? (
                 <nav className="flex items-center justify-between gap-3 border-t p-3" aria-label={t("pagination.label")}>
                   <Button
@@ -1172,16 +1094,3 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
     </>
   );
 }
-
-function normalizeError(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
-
-function formatStrategyLabel(
-  value: string,
-  t: ReturnType<typeof useTranslations<"virtualModels">>,
-) {
-  return value === "weighted" ? t("form.weightedValue") : t("form.priorityValue");
-}
-
