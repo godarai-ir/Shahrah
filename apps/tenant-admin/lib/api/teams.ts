@@ -7,7 +7,6 @@ const teamSchema = z.object({
   tenant_id: z.string(),
   alias: z.string(),
   display_name: z.string().optional(),
-  org_unit_id: z.string().nullable().optional(),
   workspace_type: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   created_at: z.string(),
@@ -52,7 +51,6 @@ export type EffectiveEntitlements = z.infer<typeof entitlementSchema>;
 export type TeamPayload = {
   alias: string;
   display_name: string;
-  org_unit_id: string | null;
   workspace_type: string;
   metadata: Record<string, unknown>;
 };
@@ -72,7 +70,7 @@ export function getTeamUsage(params: URLSearchParams, signal: AbortSignal) {
 }
 
 /**
- * Per-team cost breakdown for the org-structure tree's "cost this month" column.
+ * Per-team cost breakdown for the teams table's "cost this month" column.
  * group_by=team_id support on the control-plane analytics endpoint is unconfirmed;
  * callers must treat a failure or an empty/unparseable response as "not available yet", not zero.
  */

@@ -82,10 +82,6 @@
       "one": "تیم",
       "many": "تیم‌های"
     },
-    "organization_unit": {
-      "one": "واحد سازمانی",
-      "many": "واحدهای سازمانی"
-    },
     "virtual_account": {
       "one": "اکانت مجازی",
       "many": "اکانت‌های مجازی"
@@ -145,7 +141,6 @@
     "scopes": {
       "user": "کاربر",
       "team": "تیم",
-      "org_unit": "واحد سازمانی",
       "model": "مدل",
       "virtualaccount": "اکانت مجازی",
       "metadata": "مقدار متادیتای {key}"
@@ -181,7 +176,6 @@
     "picker": {
       "users": "کاربران",
       "teams": "تیم‌ها",
-      "orgUnits": "واحدهای سازمانی",
       "virtualAccounts": "اکانت‌های مجازی",
       "externalIdentities": "هویت خارجی",
       "searchSubject": "جست‌وجوی نام...",

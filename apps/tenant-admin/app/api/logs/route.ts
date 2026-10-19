@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     "payload_mode",
     "actor_type",
     "actor_id",
-    "org_unit_id",
     "team_id",
     "duration_min",
     "duration_max",

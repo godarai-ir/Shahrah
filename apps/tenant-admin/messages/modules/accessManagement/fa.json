@@ -6,7 +6,6 @@
     "externalAuth": "احراز هویت خارجی",
     "personalAccessTokens": "توکن‌های دسترسی شخصی",
     "virtualAccounts": "کاربران مجازی",
-    "orgUnits": "واحدهای سازمانی",
     "roles": "نقش‌ها",
     "auditLogs": "گزارش‌های ممیزی",
     "apiKeys": "کلیدهای API",
@@ -43,7 +42,7 @@
   "roles": {
     "billingManager": "مدیر مالی",
     "member": "عضو",
-    "orgAdmin": "مدیر واحد سازمانی",
+    "orgAdmin": "مدیر سازمان",
     "readOnlyMember": "عضو فقط‌خواندنی",
     "teamAdmin": "مدیر تیم",
     "tenantAdmin": "مدیر فضای کاری"
@@ -202,7 +201,6 @@
     "roles": "نقش‌ها",
     "users": "کاربران",
     "teams": "تیم‌ها",
-    "organization_units": "واحدهای سازمانی",
     "virtual_accounts": "حساب‌های مجازی",
     "provider_accounts": "حساب‌های ارائه‌دهنده",
     "settings": "تنظیمات",
@@ -216,7 +214,6 @@
     "role": "نقش",
     "user": "کاربر",
     "team": "تیم",
-    "org_unit": "واحد سازمانی",
     "virtual_account": "حساب مجازی",
     "provider_account": "حساب ارائه‌دهنده",
     "settings": "تنظیمات",

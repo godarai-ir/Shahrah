@@ -138,7 +138,6 @@ const principalSchema = z.object({
 });
 const lookupEntitySchema = z.object({
   id: z.string().optional(),
-  org_unit_id: z.string().optional(),
   virtual_user_id: z.string().optional(),
   alias: z.string().optional(),
   display_name: z.string().optional(),
@@ -216,10 +215,6 @@ export function searchAccessPrincipals(kind: "user" | "team", query: string) {
     principalsEnvelopeSchema,
     `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query)}&limit=20`,
   );
-}
-
-export function getOrganizationUnitLookups() {
-  return requestParsedJSON(lookupEntitiesEnvelopeSchema, "/api/gateway/lookups/organization-units");
 }
 
 export function getVirtualAccountLookups() {

@@ -5,7 +5,7 @@ Private tenant-facing admin console for Shahrah. This app owns:
 
 - virtual models and provider accounts
 - virtual users and access tokens
-- teams and org units
+- teams
 - billing top-up and plan views
 - trace inspection and privacy settings
 - account settings and profile updates

@@ -28,7 +28,7 @@ export default async function QuickStartPage() {
   const permissions = (permissionsPayload.permissions ?? []).map((item) => item.trim().toLowerCase());
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
 
-  const [subscriptionResult, entitlementsResult, providerAccountsResult, patsResult, virtualUsersResult, teamsResult, orgUnitsResult, rateRulesResult, budgetRulesResult, guardrailsResult, allowedPatModelsResult, allowedVatModelsResult] = await Promise.all([
+  const [subscriptionResult, entitlementsResult, providerAccountsResult, patsResult, virtualUsersResult, teamsResult, rateRulesResult, budgetRulesResult, guardrailsResult, allowedPatModelsResult, allowedVatModelsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -68,14 +68,6 @@ export default async function QuickStartPage() {
           tenantSlug,
           method: "GET",
           path: "/api/v1/teams?limit=1&offset=0",
-          userID: auth.user.id,
-        })
-      : Promise.resolve(emptyResponse()),
-    canAnyPermission(permissions, ["org_unit:create", "org_unit:manage", "org_unit:read", "org_unit:list"])
-      ? fetchControlPlaneJSON({
-          tenantSlug,
-          method: "GET",
-          path: "/api/v1/org-units?limit=1&offset=0",
           userID: auth.user.id,
         })
       : Promise.resolve(emptyResponse()),
@@ -125,7 +117,6 @@ export default async function QuickStartPage() {
     personalAccessTokenCount: countQuickStartResources(patsResult.payload),
     virtualUserCount: countQuickStartResources(virtualUsersResult.payload),
     teamCount: countQuickStartResources(teamsResult.payload),
-    orgUnitCount: countQuickStartResources(orgUnitsResult.payload),
     rateLimitRuleCount: countQuickStartResources(rateRulesResult.payload),
     budgetLimitRuleCount: countQuickStartResources(budgetRulesResult.payload),
     guardrailCount: countQuickStartResources(guardrailsResult.payload),
@@ -135,7 +126,6 @@ export default async function QuickStartPage() {
     personalAccessTokenLabel: parseQuickStartResourceLabel(patsResult.payload),
     virtualUserLabel: parseQuickStartResourceLabel(virtualUsersResult.payload),
     teamLabel: parseQuickStartResourceLabel(teamsResult.payload),
-    orgUnitLabel: parseQuickStartResourceLabel(orgUnitsResult.payload),
     rateLimitRuleLabel: parseQuickStartResourceLabel(rateRulesResult.payload),
     budgetLimitRuleLabel: parseQuickStartResourceLabel(budgetRulesResult.payload),
     guardrailLabel: parseQuickStartResourceLabel(guardrailsResult.payload),

@@ -40,10 +40,8 @@ export async function searchPolicyPrincipals(
     return (payload.data ?? []).map((item) => ({ ...item, type: kind }));
   }
 
-  if (kind !== "org_unit" && kind !== "virtual_account") return [];
-  const path = kind === "org_unit"
-    ? "/api/gateway/lookups/organization-units"
-    : "/api/gateway/lookups/virtual-accounts";
+  if (kind !== "virtual_account") return [];
+  const path = "/api/gateway/lookups/virtual-accounts";
   const payload = await requestParsedJSON(entityListSchema, path);
   const normalizedQuery = query.trim().toLowerCase();
   return (payload.data ?? [])

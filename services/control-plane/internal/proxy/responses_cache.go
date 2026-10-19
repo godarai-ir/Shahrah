@@ -264,7 +264,6 @@ func (h *ResponsesHandler) handleResponsesCacheHit(
 		RequestID:       requestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
 		Model:           req.Model,

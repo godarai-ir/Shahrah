@@ -4,7 +4,7 @@ import { providersResponseSchema } from "@/lib/contracts/provider-catalog";
 import { requestJSON, requestParsedJSON } from "@/lib/http/api-client";
 
 const principalSchema = z.object({
-  type: z.enum(["user", "team", "org_unit", "virtual_account", "everyone"]),
+  type: z.enum(["user", "team", "virtual_account", "everyone"]),
   principal_id: z.string().optional(),
   display_name: z.string().optional(),
 });
@@ -77,7 +77,7 @@ const accessPrincipalSchema = z.object({
   principal_id: z.string(),
   display_name: z.string(),
   secondary: z.string().optional(),
-  type: z.enum(["user", "team", "org_unit", "virtual_account", "external_identity"]).optional(),
+  type: z.enum(["user", "team", "virtual_account", "external_identity"]).optional(),
 });
 const accessPrincipalListSchema = z.object({ data: z.array(accessPrincipalSchema).optional() });
 

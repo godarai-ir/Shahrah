@@ -36,7 +36,6 @@ function makeResources(partial?: Partial<QuickStartResources>): QuickStartResour
     personalAccessTokenCount: 0,
     virtualUserCount: 0,
     teamCount: 0,
-    orgUnitCount: 0,
     rateLimitRuleCount: 0,
     budgetLimitRuleCount: 0,
     guardrailCount: 0,

@@ -275,16 +275,16 @@ func insertClickHouseLogs(t *testing.T, ctx context.Context, db *sql.DB, tenantI
 
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO request_logs_ch (
-			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, team_id,
+			log_id, tenant_id, request_id, trace_id, token_hash, team_id,
 			actor_type, actor_id, provider, provider_model, model, virtual_model, route, request_type,
 			status, status_code, error_type, started_at, duration_ms, input_tokens, output_tokens, total_tokens,
 			cost_usd, cost_irr, cache_status, cache_mode, retry_count, fallback_count, fallback_status,
 			load_balance_status, payload_mode, request_payload_json, response_payload_json,
 			request_payload_meta_json, response_payload_meta_json, request_payload_truncated,
 			response_payload_truncated, metadata_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		"log-integration-1", tenantID, "log-request-1", "trace-integration-1", "token", "org-1", "team-platform",
+		"log-integration-1", tenantID, "log-request-1", "trace-integration-1", "token", "team-platform",
 		"user", "user-1", "openai", "gpt-4.1", "gpt-4.1", "support-bot", "/v1/chat/completions", "chat_completions",
 		"ok", int32(200), "none", start.Add(10*time.Second), int32(130), uint32(10), uint32(20), uint32(30),
 		0.03, 0.0, "none", "none", uint16(0), uint16(0), "none",
