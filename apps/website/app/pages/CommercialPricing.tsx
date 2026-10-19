@@ -158,7 +158,6 @@ const comparisonSections: Array<{
       { label: 'کنترل دسترسی مبتنی بر نقش (RBAC)', values: [false, true, true, 'نقش‌های سفارشی'] },
       { label: 'ورود یکپارچه (SSO)', values: [false, false, true, true] },
       { label: 'مدیریت تیم‌ها', values: [false, true, true, true] },
-      { label: values: [false, false, false, true] },
       { label: 'ثبت وقایع مدیریتی (Audit Log)', values: [false, false, true, true] },
       { label: 'استقرار ابری (SaaS)', values: [true, true, true, true] },
       { label: 'استقرار در محل یا ابر خصوصی (On-premise / VPC)', values: [false, false, false, true] },
