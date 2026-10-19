@@ -102,7 +102,11 @@ func (f *creditPackStoreFake) UpdateCreditSettings(_ context.Context, _ string, 
 }
 
 func creditPackApp(store *creditPackStoreFake, defaultProvider string) *fiber.App {
-	h := &Handlers{billingState: billingState{creditPacks: store, payment: PaymentConfig{DefaultSubscriptionProvider: defaultProvider}.withDefaults()}}
+	return creditPackAppWith(store, PaymentConfig{DefaultSubscriptionProvider: defaultProvider})
+}
+
+func creditPackAppWith(store *creditPackStoreFake, payment PaymentConfig) *fiber.App {
+	h := &Handlers{billingState: billingState{creditPacks: store, payment: payment.withDefaults()}}
 	app := fiber.New()
 	app.Get("/api/v1/credits/packs/payment/callback/:provider", h.CreditPackPaymentCallback)
 
@@ -188,6 +192,56 @@ func TestCreditPackOrderRefusesTheMockGatewayOutsideMockEnvironments(t *testing.
 	require.Equal(t, fiber.StatusCreated, status)
 	require.Equal(t, platform.CreditPackOrderAwaitingTransfer, payload["status"])
 	require.Empty(t, store.attached, "bank transfers never reach a gateway")
+}
+
+func TestProductionNeverAcceptsTheMockGateway(t *testing.T) {
+	// "mock" is also what an unset SUBSCRIPTION_PAYMENT_PROVIDER falls back to
+	// outside production, so production must not inherit it.
+	for _, defaultProvider := range []string{"", "mock"} {
+		store := &creditPackStoreFake{}
+		app := creditPackAppWith(store, PaymentConfig{Production: true, DefaultSubscriptionProvider: defaultProvider})
+
+		for _, body := range []string{`{"pack_slug":"credits-5000"}`, `{"pack_slug":"credits-5000","provider":"mock"}`} {
+			status, payload := postCreditPackOrder(t, app, body)
+			require.Equal(t, fiber.StatusUnprocessableEntity, status, "%q %s", defaultProvider, body)
+			require.Equal(t, "payment_provider_unavailable", payload["error"].(map[string]interface{})["code"])
+		}
+
+		require.Empty(t, store.attached, "no payment URL was ever created")
+	}
+}
+
+func TestProductionCallbackNeverCompletesAMockOrder(t *testing.T) {
+	store := &creditPackStoreFake{}
+
+	status, _ := postCreditPackOrder(t, creditPackApp(store, "mock"), `{"pack_slug":"credits-5000"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+	require.NotEmpty(t, store.attached)
+
+	// The same order reaching a production server, e.g. from a shared database.
+	prod := creditPackAppWith(store, PaymentConfig{Production: true, DefaultSubscriptionProvider: "zarinpal"})
+	callback := httptest.NewRequest(fiber.MethodGet, creditPackCallbackPath+"mock?authority="+url.QueryEscape(store.attached), http.NoBody)
+	callbackResp, err := prod.Test(callback)
+	require.NoError(t, err)
+	require.NoError(t, callbackResp.Body.Close())
+	require.Equal(t, fiber.StatusFound, callbackResp.StatusCode)
+	require.Zero(t, store.completed, "the mock gateway cannot approve a payment in production")
+	require.NotEmpty(t, store.failed)
+	assert.Contains(t, callbackResp.Header.Get("Location"), "payment_status=failed")
+}
+
+func TestMockGatewayIsTheLocalDefaultOnly(t *testing.T) {
+	require.Equal(t, "mock", PaymentConfig{}.withDefaults().DefaultSubscriptionProvider)
+	require.Empty(t, PaymentConfig{Production: true}.withDefaults().DefaultSubscriptionProvider)
+	require.Equal(t, "zarinpal", PaymentConfig{Production: true, DefaultSubscriptionProvider: "zarinpal"}.withDefaults().DefaultSubscriptionProvider)
+
+	local := &Handlers{billingState: billingState{payment: PaymentConfig{}.withDefaults()}}
+	require.IsType(t, &mockProvider{}, local.selectPaymentProvider("mock"))
+	require.IsType(t, &mockProvider{}, local.selectPaymentProvider(""))
+
+	prod := &Handlers{billingState: billingState{payment: PaymentConfig{Production: true}.withDefaults()}}
+	require.IsType(t, &unsupportedProvider{}, prod.selectPaymentProvider("mock"))
+	require.IsType(t, &unsupportedProvider{}, prod.selectPaymentProvider(""))
 }
 
 func TestCreditPackErrorsAreCoded(t *testing.T) {

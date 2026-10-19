@@ -68,7 +68,10 @@ type unsupportedProvider struct{ name string }
 
 // PaymentConfig contains immutable wallet and subscription gateway settings.
 type PaymentConfig struct {
-	FallbackUSDtoIRR            float64
+	FallbackUSDtoIRR float64
+	// Production refuses the mock gateway, which approves every payment, and
+	// stops it from being the default provider.
+	Production                  bool
 	DefaultSubscriptionProvider string
 	ZarinpalMerchantID          string
 	ZarinpalBaseURL             string
@@ -82,7 +85,7 @@ func (c PaymentConfig) withDefaults() PaymentConfig {
 		c.FallbackUSDtoIRR = 1850000
 	}
 
-	if strings.TrimSpace(c.DefaultSubscriptionProvider) == "" {
+	if strings.TrimSpace(c.DefaultSubscriptionProvider) == "" && !c.Production {
 		c.DefaultSubscriptionProvider = "mock"
 	}
 
@@ -142,6 +145,10 @@ func (u *unsupportedProvider) VerifyPayment(c *fiber.Ctx, authority string) (*pa
 func (h *Handlers) selectPaymentProvider(name string) paymentProvider {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "", "mock":
+		if h.payment.Production {
+			return &unsupportedProvider{name: "mock"}
+		}
+
 		return &mockProvider{}
 	case "zarinpal":
 		return &zarinpalProvider{

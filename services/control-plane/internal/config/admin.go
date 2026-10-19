@@ -44,6 +44,8 @@ type AdminOTPMobileSettings struct {
 
 // AdminPaymentSettings configures management payment gateway adapters.
 type AdminPaymentSettings struct {
+	// Production is true when NODE_ENV is production; the mock gateway is refused there.
+	Production                  bool
 	DefaultSubscriptionProvider string
 	ZarinpalMerchantID          string
 	ZarinpalBaseURL             string
@@ -106,6 +108,7 @@ func LoadAdminSettings() AdminSettings {
 			BotID:        botID,
 		},
 		Payment: AdminPaymentSettings{
+			Production:                  strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production"),
 			DefaultSubscriptionProvider: strings.ToLower(stringEnv("SUBSCRIPTION_PAYMENT_PROVIDER", "mock")),
 			ZarinpalMerchantID:          strings.TrimSpace(os.Getenv("ZARINPAL_MERCHANT_ID")),
 			ZarinpalBaseURL:             stringEnv("ZARINPAL_BASE_URL", "https://api.zarinpal.com"),

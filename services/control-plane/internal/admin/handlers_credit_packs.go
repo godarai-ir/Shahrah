@@ -152,14 +152,14 @@ func (h *Handlers) CreateCreditPackOrder(c *fiber.Ctx) error {
 }
 
 // creditPackProviderAllowed accepts real gateways and bank transfer. The mock
-// gateway approves every payment, so it is only accepted where an operator made
-// it the default provider, which only local and test environments do.
+// gateway approves every payment, so it is never accepted in production, and
+// elsewhere only where an operator made it the default provider.
 func (h *Handlers) creditPackProviderAllowed(provider string) bool {
 	switch provider {
 	case "zarinpal", "idpay", platform.CreditPackProviderBankTransfer:
 		return true
 	case "mock":
-		return strings.EqualFold(strings.TrimSpace(h.payment.DefaultSubscriptionProvider), "mock")
+		return !h.payment.Production && strings.EqualFold(strings.TrimSpace(h.payment.DefaultSubscriptionProvider), "mock")
 	default:
 		return false
 	}

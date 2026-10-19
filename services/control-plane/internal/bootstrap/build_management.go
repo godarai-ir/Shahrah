@@ -63,6 +63,7 @@ func (b *builder) buildManagement() error {
 			},
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,
+				Production:                  b.cfg.Admin.Payment.Production,
 				DefaultSubscriptionProvider: b.cfg.Admin.Payment.DefaultSubscriptionProvider,
 				ZarinpalMerchantID:          b.cfg.Admin.Payment.ZarinpalMerchantID,
 				ZarinpalBaseURL:             b.cfg.Admin.Payment.ZarinpalBaseURL,
