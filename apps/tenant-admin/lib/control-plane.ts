@@ -666,6 +666,52 @@ async function fetchControlPlaneRaw(
   }
 }
 
+const PAYMENT_CALLBACK_PATHS = {
+  seats: "/api/v1/seats/payment/callback/",
+  creditPacks: "/api/v1/credits/packs/payment/callback/",
+  subscription: "/api/v1/subscription/payment/callback/",
+} as const;
+
+export type PaymentCallbackKind = keyof typeof PAYMENT_CALLBACK_PATHS;
+
+/**
+ * Relays the browser's return from a payment gateway (a GET, as the mock and
+ * Zarinpal send it) to the control plane's public payment callback. The callback
+ * has no session: the order's authority is the proof, and the control plane
+ * verifies it with the order's own gateway. It answers with a redirect to the
+ * page the buyer started from, which the browser must follow itself.
+ *
+ * The mock gateway approves every payment, so it is never relayed in production.
+ */
+export async function relayPaymentCallback(request: Request, kind: PaymentCallbackKind, provider: string): Promise<NextResponse> {
+  if (process.env.NODE_ENV === "production" && provider.trim().toLowerCase() === "mock") {
+    return NextResponse.json({ error: { message: "Not found." } }, { status: 404 });
+  }
+
+  const target = new URL(normalizePath(`${PAYMENT_CALLBACK_PATHS[kind]}${encodeURIComponent(provider)}`), getControlPlaneBaseURL());
+  target.search = new URL(request.url).search;
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, { method: "GET", redirect: "manual", cache: "no-store" });
+  } catch {
+    return NextResponse.json({ error: { message: "The payment result could not be delivered. Check your orders and try again." } }, { status: 502 });
+  }
+
+  const location = upstream.headers.get("location");
+  if (location && upstream.status >= 300 && upstream.status < 400) {
+    return NextResponse.redirect(new URL(location, request.url), 302);
+  }
+
+  return new NextResponse(await upstream.text(), {
+    status: upstream.status,
+    headers: {
+      "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 function getControlPlaneBaseURL(): string {
   const raw = process.env.SHAHRAH_CONTROL_PLANE_URL ?? "http://127.0.0.1:4000";
   return raw.endsWith("/") ? raw : `${raw}/`;
