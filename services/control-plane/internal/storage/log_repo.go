@@ -30,7 +30,6 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 			log.RequestID,
 			emptyToNil(log.TokenHash),
 			nullUUID(log.TenantID),
-			log.OrganizationID,
 			log.TeamID,
 			attributionUUID(log.UserID),
 			log.Model,
@@ -57,7 +56,7 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 
 	if _, err := s.pool.Exec(ctx, `
 		INSERT INTO spend_logs (
-			request_id, token_hash, tenant_id, organization_id, team_id, user_id, model, input_tokens, output_tokens,
+			request_id, token_hash, tenant_id, team_id, user_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
 			usage_breakdown_json, pricing_snapshot_json,
 			completion_start_time, completion_end_time,
@@ -70,7 +69,7 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 	return s.tokenUsage.queueTokenSpendDeltas(ctx, spendDeltas)
 }
 
-const spendLogInsertColumnCount = 25
+const spendLogInsertColumnCount = 24
 
 // spendLogCreditArgs returns the credit column values, all NULL when credits were not computed.
 func spendLogCreditArgs(credits *platform.SpendLogCredits) []interface{} {

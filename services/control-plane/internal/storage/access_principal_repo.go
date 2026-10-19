@@ -90,11 +90,10 @@ func (s *ProviderAccountRepository) searchTeamPrincipals(ctx context.Context, te
 	like := "%" + query + "%"
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT team_id::text, COALESCE(team_alias, ''), COALESCE(organization_alias, '')
+		SELECT team_id::text, COALESCE(team_alias, '')
 		FROM teams
-		LEFT JOIN organizations ON teams.organization_id = organizations.organization_id
 		WHERE teams.tenant_id = NULLIF($1, '')::uuid
-		  AND ($2 = '' OR team_alias ILIKE $3 OR organization_alias ILIKE $3)
+		  AND ($2 = '' OR team_alias ILIKE $3)
 		ORDER BY teams.updated_at DESC NULLS LAST, teams.created_at DESC NULLS LAST
 		LIMIT $4
 	`, tenantID, query, like, limit)
@@ -107,11 +106,10 @@ func (s *ProviderAccountRepository) searchTeamPrincipals(ctx context.Context, te
 
 	for rows.Next() {
 		var (
-			id       string
-			alias    string
-			orgAlias string
+			id    string
+			alias string
 		)
-		if err := rows.Scan(&id, &alias, &orgAlias); err != nil {
+		if err := rows.Scan(&id, &alias); err != nil {
 			return nil, err
 		}
 
@@ -120,13 +118,10 @@ func (s *ProviderAccountRepository) searchTeamPrincipals(ctx context.Context, te
 			displayName = id
 		}
 
-		secondary := strings.TrimSpace(orgAlias)
-
 		items = append(items, platform.AccessPrincipalCandidate{
 			Type:        platform.PrincipalTypeTeam,
 			PrincipalID: id,
 			DisplayName: displayName,
-			Secondary:   secondary,
 		})
 	}
 
