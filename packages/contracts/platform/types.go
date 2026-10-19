@@ -32,7 +32,6 @@ type Tenant struct {
 // AuthContext is the effective request auth context.
 type AuthContext struct {
 	TenantID                    string                          `json:"tenant_id"`
-	OrganizationID              string                          `json:"organization_id,omitempty"`
 	TeamID                      string                          `json:"team_id,omitempty"`
 	UserID                      string                          `json:"user_id,omitempty"`
 	VirtualUserID               string                          `json:"virtual_user_id,omitempty"`
@@ -171,7 +170,6 @@ type SpendLog struct {
 	RequestID       string                 `json:"request_id"`
 	TokenHash       string                 `json:"token_hash"`
 	TenantID        string                 `json:"tenant_id"`
-	OrganizationID  string                 `json:"organization_id,omitempty"`
 	TeamID          string                 `json:"team_id,omitempty"`
 	UserID          string                 `json:"user_id,omitempty"`
 	Model           string                 `json:"model"`
@@ -395,7 +393,6 @@ type CreateKeyParams struct {
 	Models        []string               `json:"models,omitempty"`
 	AllowedModels []string               `json:"allowed_models,omitempty"`
 	TeamID        string                 `json:"team_id,omitempty"`
-	OrgID         string                 `json:"organization_id,omitempty"`
 	UserID        string                 `json:"user_id,omitempty"`
 	VirtualUserID string                 `json:"virtual_user_id,omitempty"`
 	ExpiresIn     string                 `json:"expires_in,omitempty"`
@@ -414,7 +411,6 @@ type CreatedKey struct {
 	Models          []string   `json:"models"`
 	AllowedModels   []string   `json:"allowed_models,omitempty"`
 	TeamID          string     `json:"team_id,omitempty"`
-	OrgID           string     `json:"organization_id,omitempty"`
 	UserID          string     `json:"user_id,omitempty"`
 	VirtualUserID   string     `json:"virtual_user_id,omitempty"`
 	Spend           float64    `json:"spend"`
@@ -485,7 +481,6 @@ func (p *CreateKeyParams) Normalize() {
 	p.Role = strings.TrimSpace(strings.ToLower(p.Role))
 	p.KeyType = strings.TrimSpace(strings.ToLower(p.KeyType))
 	p.TeamID = strings.TrimSpace(p.TeamID)
-	p.OrgID = strings.TrimSpace(p.OrgID)
 	p.UserID = strings.TrimSpace(p.UserID)
 	p.VirtualUserID = strings.TrimSpace(p.VirtualUserID)
 	p.ExpiresIn = strings.TrimSpace(p.ExpiresIn)
@@ -805,7 +800,6 @@ type RequestLogEntry struct {
 	TraceID                  string                 `json:"trace_id,omitempty"`
 	TokenHash                string                 `json:"token_hash,omitempty"`
 	TenantID                 string                 `json:"tenant_id"`
-	OrganizationID           string                 `json:"organization_id,omitempty"`
 	TeamID                   string                 `json:"team_id,omitempty"`
 	ActorType                string                 `json:"actor_type,omitempty"`
 	ActorID                  string                 `json:"actor_id,omitempty"`

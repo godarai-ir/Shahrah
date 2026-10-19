@@ -387,10 +387,9 @@ func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	createdKey := createVirtualKey(t, app, `{"key_alias":"svc-team-key","models":["openai:default:gpt-4o-mini"],"role":"service_account","team_id":"team-ops","organization_id":"org-platform"}`)
+	createdKey := createVirtualKey(t, app, `{"key_alias":"svc-team-key","models":["openai:default:gpt-4o-mini"],"role":"service_account","team_id":"team-ops"}`)
 	assert.Equal(t, "service_account", createdKey.Role)
 	assert.Equal(t, "team-ops", createdKey.TeamID)
-	assert.Equal(t, "org-platform", createdKey.OrgID)
 
 	keysResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/keys", "Bearer sk-master", "")
 	assert.Equal(t, http.StatusOK, keysResp.StatusCode)
@@ -1662,7 +1661,6 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		Models:          append([]string(nil), params.Models...),
 		AllowedModels:   append([]string(nil), params.AllowedModels...),
 		TeamID:          params.TeamID,
-		OrgID:           params.OrgID,
 		UserID:          params.UserID,
 		VirtualUserID:   params.VirtualUserID,
 		CreatedByUserID: params.UserID,
@@ -1670,17 +1668,16 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	}
 	s.created = append(s.created, created)
 	s.byHash[keyHash] = &platform.AuthContext{
-		TenantID:       params.TenantID,
-		OrganizationID: params.OrgID,
-		TeamID:         params.TeamID,
-		UserID:         params.UserID,
-		VirtualUserID:  params.VirtualUserID,
-		KeyID:          created.ID,
-		KeyAlias:       params.KeyAlias,
-		Role:           params.Role,
-		KeyType:        params.KeyType,
-		AllowedModels:  append([]string(nil), params.AllowedModels...),
-		TokenHash:      keyHash,
+		TenantID:      params.TenantID,
+		TeamID:        params.TeamID,
+		UserID:        params.UserID,
+		VirtualUserID: params.VirtualUserID,
+		KeyID:         created.ID,
+		KeyAlias:      params.KeyAlias,
+		Role:          params.Role,
+		KeyType:       params.KeyType,
+		AllowedModels: append([]string(nil), params.AllowedModels...),
+		TokenHash:     keyHash,
 	}
 
 	return &created, nil
@@ -1978,17 +1975,16 @@ func (s *integrationKeyStore) RotateVATToken(ctx context.Context, tenantID strin
 		created.RevokedAt = nil
 		s.created = append(s.created, created)
 		s.byHash[keyHash] = &platform.AuthContext{
-			TenantID:       created.TenantID,
-			OrganizationID: created.OrgID,
-			TeamID:         created.TeamID,
-			UserID:         created.UserID,
-			VirtualUserID:  created.VirtualUserID,
-			KeyID:          created.ID,
-			KeyAlias:       created.KeyAlias,
-			Role:           created.Role,
-			KeyType:        created.KeyType,
-			AllowedModels:  append([]string(nil), created.AllowedModels...),
-			TokenHash:      keyHash,
+			TenantID:      created.TenantID,
+			TeamID:        created.TeamID,
+			UserID:        created.UserID,
+			VirtualUserID: created.VirtualUserID,
+			KeyID:         created.ID,
+			KeyAlias:      created.KeyAlias,
+			Role:          created.Role,
+			KeyType:       created.KeyType,
+			AllowedModels: append([]string(nil), created.AllowedModels...),
+			TokenHash:     keyHash,
 		}
 
 		if strings.TrimSpace(gracePeriod) == "" {

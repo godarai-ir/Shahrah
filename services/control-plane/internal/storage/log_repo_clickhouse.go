@@ -16,14 +16,14 @@ import (
 )
 
 const logPayloadMaxBytes = 32 * 1024
-const requestLogInsertColumnCount = 39
+const requestLogInsertColumnCount = 38
 
 // SupportsLazyRequestLogPayload reports that the repository materializes payloads after enqueue.
 func (*RequestLogRepository) SupportsLazyRequestLogPayload() bool { return true }
 
 func (s *RequestLogRepository) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 	return s.validateClickHouseColumns(ctx, "request_logs_ch", []string{
-		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "team_id",
+		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "team_id",
 		"actor_type", "actor_id", "provider", "provider_model", "model", "virtual_model", "route", "request_type",
 		"status", "status_code", "error_type", "started_at", "duration_ms", "input_tokens", "output_tokens",
 		"total_tokens", "cost_usd", "cost_irr", "cache_status", "cache_mode", "retry_count", "fallback_count",
@@ -63,7 +63,7 @@ func (s *RequestLogRepository) LogRequests(ctx context.Context, entries []platfo
 
 	_, err := s.clickhouse.ExecContext(ctx, `
 		INSERT INTO request_logs_ch (
-			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, team_id,
+			log_id, tenant_id, request_id, trace_id, token_hash, team_id,
 			actor_type, actor_id, provider, provider_model, model, virtual_model, route, request_type,
 			status, status_code, error_type, started_at, duration_ms, input_tokens, output_tokens, total_tokens,
 			cost_usd, cost_irr, cache_status, cache_mode, retry_count, fallback_count, fallback_status,
@@ -116,7 +116,6 @@ func (s *RequestLogRepository) requestLogInsertArgs(ctx context.Context, entry p
 		strings.TrimSpace(entry.RequestID),
 		strings.TrimSpace(entry.TraceID),
 		strings.TrimSpace(entry.TokenHash),
-		strings.TrimSpace(entry.OrganizationID),
 		strings.TrimSpace(entry.TeamID),
 		strings.TrimSpace(entry.ActorType),
 		strings.TrimSpace(entry.ActorID),
