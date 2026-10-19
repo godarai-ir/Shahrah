@@ -15,9 +15,9 @@ import type { Team } from "@/lib/api/teams";
 
 import { getTeamName, getWorkspaceType, getActiveKeys } from "./helpers";
 
-export type OrgStructureTreeSelection = { kind: "team"; id: string } | null;
+export type TeamsTableSelection = { kind: "team"; id: string } | null;
 
-export function OrgStructureTree({
+export function TeamsTable({
   rows,
   isLoading,
   isSearching,
@@ -31,12 +31,12 @@ export function OrgStructureTree({
   isLoading: boolean;
   isSearching: boolean;
   searchQuery: string;
-  selection: OrgStructureTreeSelection;
+  selection: TeamsTableSelection;
   onSelectTeam: (teamID: string) => void;
   costByTeamID: Map<string, number> | null;
   locale: string;
 }) {
-  const t = useTranslations("orgStructure");
+  const t = useTranslations("teamsPage");
 
   if (isLoading) {
     return (

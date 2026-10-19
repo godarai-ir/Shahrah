@@ -44,7 +44,7 @@ import {
   type TeamMember,
 } from "@/lib/api/teams";
 
-import { OrgStructureTree, type OrgStructureTreeSelection } from "./OrgStructureTree";
+import { TeamsTable, type TeamsTableSelection } from "./TeamsTable";
 import { TeamDetail } from "./TeamDetail";
 import { formatMemberCandidateLabel, TeamMembersSheet } from "./TeamMembersSheet";
 import { getTeamName, getWorkspaceType, normalizeError, readBooleanFeature, toText, WORKSPACE_TYPES, type UsagePeriod } from "./helpers";
@@ -56,7 +56,7 @@ type TeamForm = { alias: string; displayName: string; workspaceType: string; des
 
 const emptyTeamForm: TeamForm = { alias: "", displayName: "", workspaceType: "production", description: "" };
 
-export default function OrgStructure({
+export default function TeamsManagement({
   initialTeams,
   initialError,
   currentUserRole,
@@ -65,7 +65,7 @@ export default function OrgStructure({
   initialError: string | null;
   currentUserRole: string;
 }) {
-  const t = useTranslations("orgStructure");
+  const t = useTranslations("teamsPage");
   const tTeams = useTranslations("teams");
   const locale = useLocale();
   const permissions = usePermissions() ?? [];
@@ -76,7 +76,7 @@ export default function OrgStructure({
   const [teams, setTeams] = useState(initialTeams);
   const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [selection, setSelection] = useState<OrgStructureTreeSelection>(() => selectionFromSearchParams(searchParams));
+  const [selection, setSelection] = useState<TeamsTableSelection>(() => selectionFromSearchParams(searchParams));
 
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -118,7 +118,7 @@ export default function OrgStructure({
     return () => { isMounted = false; };
   }, []);
 
-  function updateSelection(next: OrgStructureTreeSelection) {
+  function updateSelection(next: TeamsTableSelection) {
     setSelection(next);
     setSelectionCostIRR(null);
     if (!next) {
@@ -390,7 +390,7 @@ export default function OrgStructure({
               </div>
             </div>
 
-            <OrgStructureTree
+            <TeamsTable
               rows={rows}
               isLoading={isLoading && teams.length === 0}
               isSearching={query.trim() !== ""}
@@ -430,10 +430,10 @@ export default function OrgStructure({
         description={tTeams("create.description")}
         pending={isSaving}
         closeLabel={t("actions.cancel")}
-        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => setCreateTeamOpen(false)}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="org-structure-create-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : tTeams("create.submit")}</Button>} />}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => setCreateTeamOpen(false)}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="teams-create-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : tTeams("create.submit")}</Button>} />}
       >
         <OperationNotice notice={overlayNotice} labels={noticeLabels} />
-        <TeamFormFields formID="org-structure-create-team-form" form={teamForm} setForm={setTeamForm} onSubmit={submitCreateTeam} />
+        <TeamFormFields formID="teams-create-team-form" form={teamForm} setForm={setTeamForm} onSubmit={submitCreateTeam} />
       </FormSheet>
 
       <FormSheet
@@ -443,10 +443,10 @@ export default function OrgStructure({
         description={tTeams("edit.description")}
         pending={isSaving}
         closeLabel={t("actions.cancel")}
-        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => setEditTeamOpen(false)}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="org-structure-edit-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : tTeams("edit.submit")}</Button>} />}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => setEditTeamOpen(false)}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="teams-edit-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : tTeams("edit.submit")}</Button>} />}
       >
         <OperationNotice notice={overlayNotice} labels={noticeLabels} />
-        <TeamFormFields formID="org-structure-edit-team-form" form={teamForm} setForm={setTeamForm} onSubmit={submitEditTeam} />
+        <TeamFormFields formID="teams-edit-team-form" form={teamForm} setForm={setTeamForm} onSubmit={submitEditTeam} />
       </FormSheet>
 
       <TeamMembersSheet
@@ -499,16 +499,16 @@ function TeamFormFields({ formID, form, setForm, onSubmit }: { formID: string; f
   return (
     <form id={formID} className="flex flex-col gap-4" onSubmit={onSubmit}>
       <FieldGroup>
-        <DisplayNameField id="org-structure-team-display" label={tTeams("form.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
-        <IdentifierField id="org-structure-team-alias" label={tTeams("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
+        <DisplayNameField id="teams-team-display" label={tTeams("form.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
+        <IdentifierField id="teams-team-alias" label={tTeams("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
         <AppSelectField label={tTeams("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: tTeams(`workspace.${type}`) }))} />
-        <Field><FieldLabel htmlFor="org-structure-team-description">{tTeams("form.description")}</FieldLabel><Input id="org-structure-team-description" value={form.description} onChange={(event) => update("description", event.target.value)} /></Field>
+        <Field><FieldLabel htmlFor="teams-team-description">{tTeams("form.description")}</FieldLabel><Input id="teams-team-description" value={form.description} onChange={(event) => update("description", event.target.value)} /></Field>
       </FieldGroup>
     </form>
   );
 }
 
-function selectionFromSearchParams(searchParams: Pick<URLSearchParams, "get">): OrgStructureTreeSelection {
+function selectionFromSearchParams(searchParams: Pick<URLSearchParams, "get">): TeamsTableSelection {
   const raw = searchParams.get("sel");
   if (!raw) return null;
   const [kind, ...rest] = raw.split(":");

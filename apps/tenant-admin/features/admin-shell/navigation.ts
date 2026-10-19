@@ -44,7 +44,7 @@ export type AdminNavKey =
   | "accessManagement"
   | "personalAccessTokens"
   | "oidcClients"
-  | "orgStructure"
+  | "teams"
   | "users"
   | "logs"
   | "traces"
@@ -72,7 +72,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "personalAccessTokens",
   "oidcClients",
   "accessManagement",
-  "orgStructure",
+  "teams",
   "virtualUsers",
 ];
 
@@ -338,11 +338,11 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["settings:list"],
     },
     {
-      key: "orgStructure",
-      href: "/org-structure",
-      title: t("nav.orgStructure"),
+      key: "teams",
+      href: "/teams",
+      title: t("nav.teams"),
       icon: Building2,
-      isActive: ["/org-structure", "/teams"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/teams"].some((prefix) => pathname.startsWith(prefix)),
       requiredPermissions: ["team:read", "team:manage"],
     },
     {
@@ -384,7 +384,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/users",
       title: t("nav.accessAndUsers"),
       icon: Users,
-      isActive: ["/users", "/org-structure", "/teams", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/users", "/teams", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
       // Personal access tokens are open to everyone; the individual tabs gate themselves.
       requiredPermissions: [],
     },

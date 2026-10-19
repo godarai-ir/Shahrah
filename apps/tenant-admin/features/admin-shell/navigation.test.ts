@@ -18,7 +18,7 @@ function t(key: string) {
     "nav.roles": "نقش‌ها",
     "nav.users": "کاربران",
     "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
-    "nav.orgStructure": "تیم‌ها",
+    "nav.teams": "تیم‌ها",
     "nav.virtualUsers": "کاربران مجازی",
     "nav.supportTickets": "پشتیبانی",
   };
@@ -42,7 +42,7 @@ describe("admin access navigation items", () => {
       "personalAccessTokens",
       "oidcClients",
       "accessManagement",
-      "orgStructure",
+      "teams",
       "virtualUsers",
     ]);
   });
@@ -108,13 +108,13 @@ describe("admin sidebar sections", () => {
     expect(activeKeys("/gateway-policies/budget-limiting-rules")).toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
-    expect(activeKeys("/teams")).toContain("orgStructure");
+    expect(activeKeys("/teams")).toContain("teams");
     expect(activeKeys("/billing/topup")).toContain("billing");
   });
 
   it("keeps every retired key reachable as a tab key", () => {
     const tabKeys = [...ACCESS_NAV_ITEM_KEYS, ...OBSERVE_TAB_KEYS, ...BILLING_TAB_KEYS];
-    for (const key of ["users", "orgStructure", "logs", "metrics", "topup", "plan"] as const) {
+    for (const key of ["users", "teams", "logs", "metrics", "topup", "plan"] as const) {
       expect(tabKeys).toContain(key);
     }
   });

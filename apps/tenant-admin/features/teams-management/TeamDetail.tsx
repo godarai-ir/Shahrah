@@ -40,7 +40,7 @@ export function TeamDetail({
   onManageMembers: () => void;
   onDelete: () => void;
 }) {
-  const t = useTranslations("orgStructure");
+  const t = useTranslations("teamsPage");
   const tTeams = useTranslations("teams");
 
   const activeKeys = getActiveKeys(team);

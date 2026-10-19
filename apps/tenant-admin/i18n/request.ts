@@ -25,7 +25,7 @@ const MESSAGE_NAMESPACES = [
   "virtualUsers",
   "accessManagement",
   "teams",
-  "orgStructure",
+  "teamsPage",
   "personalAccessTokens",
   "oidcClients",
   "traces",
