@@ -289,7 +289,6 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 		"feature":                  {},
 		"endpoint":                 {},
 		"key_type":                 {},
-		"org_unit_id":              {},
 		"team_id":                  {},
 		"tenant_slug":              {},
 		"playground_source":        {},

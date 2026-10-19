@@ -18,7 +18,6 @@ var identityScopes = map[string]bool{
 	string(platform.BudgetAppliesPerTenant):         true,
 	string(platform.BudgetAppliesPerUser):           true,
 	string(platform.BudgetAppliesPerTeam):           true,
-	string(platform.BudgetAppliesPerOrgUnit):        true,
 	string(platform.BudgetAppliesPerVirtualAccount): true,
 }
 
@@ -213,10 +212,10 @@ func structuredIdentityConditionsMatch(raw interface{}, auth *platform.AuthConte
 
 func isIdentityConditionKey(key string) bool {
 	switch strings.TrimSpace(key) {
-	case "tenant_id", "user_id", "team_id", "org_unit_id", "organization_id", "virtual_account_id", "virtual_account",
+	case "tenant_id", "user_id", "team_id", "organization_id", "virtual_account_id", "virtual_account",
 		"key_id", "key_alias", "key_type", "role", "virtual_user_id",
 		string(platform.BudgetAppliesPerUser), string(platform.BudgetAppliesPerTeam),
-		string(platform.BudgetAppliesPerOrgUnit), string(platform.BudgetAppliesPerVirtualAccount):
+		string(platform.BudgetAppliesPerVirtualAccount):
 		return true
 	default:
 		return false

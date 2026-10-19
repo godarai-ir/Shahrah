@@ -953,7 +953,6 @@ func validateBudgetAppliesPer(value string) error {
 	case string(platform.BudgetAppliesPerTenant),
 		string(platform.BudgetAppliesPerUser),
 		string(platform.BudgetAppliesPerTeam),
-		string(platform.BudgetAppliesPerOrgUnit),
 		string(platform.BudgetAppliesPerModel),
 		string(platform.BudgetAppliesPerVirtualAccount):
 		return nil

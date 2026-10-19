@@ -1092,7 +1092,6 @@ func (h *ResponsesHandler) handleSync(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           req.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -1129,7 +1128,6 @@ func (h *ResponsesHandler) handleSync(
 			"endpoint":    "/v1/responses",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 		}), tunnelReq.Deployment),
 	})
@@ -1345,7 +1343,6 @@ func (h *ResponsesHandler) handleStream(
 				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
 				UserID:          authInfo.UserID,
-				OrgUnitID:       authInfo.OrgUnitID,
 				Model:           req.Model,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -1383,7 +1380,6 @@ func (h *ResponsesHandler) handleStream(
 					"endpoint":    "/v1/responses",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})

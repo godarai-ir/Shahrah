@@ -273,7 +273,6 @@ func (h *ChatCompletionHandler) observeBlockedChat(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           request.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -326,7 +325,6 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           request.Model,
 		InputTokens:     result.finalCost.InputTokens,
 		OutputTokens:    result.finalCost.OutputTokens,
@@ -366,7 +364,6 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 		}), tunnelRequest.RequestMetadata), tunnelRequest.Deployment),
 	})

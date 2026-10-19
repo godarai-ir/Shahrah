@@ -33,7 +33,6 @@ type creditConsumption struct {
 	Model           string
 	UserID          string
 	TeamID          string
-	OrgUnitID       string
 	CreditsMC       int64
 	Product         string
 	BillingMode     string
@@ -220,7 +219,7 @@ func (s *CreditLedgerRepository) settleOne(ctx context.Context, conn *pgxpool.Co
 	if entryErr := insertCreditEntryTx(ctx, tx, creditEntry{
 		EntryID: entryID, TenantID: row.TenantID, Kind: credits.EntryConsume, AmountMC: -amountMC,
 		IdempotencyKey: key, OccurredAt: row.OccurredAt, RequestID: row.RequestID, TraceID: row.TraceID,
-		Model: row.Model, UserID: row.UserID, TeamID: row.TeamID, OrgUnitID: row.OrgUnitID,
+		Model: row.Model, UserID: row.UserID, TeamID: row.TeamID,
 		Product: row.Product, BillingMode: row.BillingMode, PricingRevision: row.PricingRevision,
 		RateCardVersion: row.RateCardVersion, InternalCostUSD: row.CostUSD,
 		CreditEquivalentMC: equivalentMC, SpendLogID: &spendLogID,
@@ -287,7 +286,7 @@ func creditSettlementWindow(ctx context.Context, conn *pgxpool.Conn, cursor int6
 func listCreditConsumptions(ctx context.Context, conn *pgxpool.Conn, filter string, args ...interface{}) ([]creditConsumption, error) {
 	rows, err := conn.Query(ctx, `
 		SELECT s.id, s.tenant_id::text, COALESCE(s.request_id, ''), COALESCE(s.model, ''),
-		       COALESCE(s.user_id::text, ''), COALESCE(s.team_id::text, ''), COALESCE(s.org_unit_id::text, ''),
+		       COALESCE(s.user_id::text, ''), COALESCE(s.team_id::text, ''),
 		       s.credits_mc, COALESCE(NULLIF(s.product, ''), '`+platform.CreditProductGateway+`'),
 		       COALESCE(s.billing_mode, ''), COALESCE(s.rate_card_version, 0),
 		       COALESCE(s.cost_usd::text, ''), COALESCE(s.pricing_snapshot_json->>'revision', ''),
@@ -305,7 +304,7 @@ func listCreditConsumptions(ctx context.Context, conn *pgxpool.Conn, filter stri
 		var item creditConsumption
 
 		scanErr := row.Scan(&item.SpendLogID, &item.TenantID, &item.RequestID, &item.Model,
-			&item.UserID, &item.TeamID, &item.OrgUnitID, &item.CreditsMC, &item.Product,
+			&item.UserID, &item.TeamID, &item.CreditsMC, &item.Product,
 			&item.BillingMode, &item.RateCardVersion, &item.CostUSD, &item.PricingRevision,
 			&item.TraceID, &item.OccurredAt)
 		item.OccurredAt = item.OccurredAt.UTC()

@@ -1093,7 +1093,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, UserID: authInfo.UserID, OrgUnitID: authInfo.OrgUnitID, Model: req.Model,
+		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, UserID: authInfo.UserID, Model: req.Model,
 		CostUSD: 0, CostIRR: 0, ResponseTimeMS: responseTimeMS, Status: "success",
 		RequestMetadata: metadata, CompletionStart: start, CompletionEnd: time.Now(),
 	})
@@ -1306,7 +1306,6 @@ func (h *ChatCompletionHandler) handleStream(
 				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
 				UserID:          authInfo.UserID,
-				OrgUnitID:       authInfo.OrgUnitID,
 				Model:           req.Model,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -1345,7 +1344,6 @@ func (h *ChatCompletionHandler) handleStream(
 					"endpoint":    "/v1/chat/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.RequestMetadata), tunnelReq.Deployment),
 			})

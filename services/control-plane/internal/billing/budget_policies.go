@@ -195,8 +195,6 @@ func budgetStructuredConditionMatches(condition map[string]interface{}, auth *pl
 			key = "team_id"
 		case "virtual_account":
 			key = "virtual_account_id"
-		case "organization_unit":
-			key = "org_unit_id"
 		}
 
 		actual, _ := budgetContextValue(key, auth, breakdown)
@@ -308,8 +306,6 @@ func budgetContextValue(key string, auth *platform.AuthContext, breakdown platfo
 		return strings.TrimSpace(auth.UserID), true
 	case string(platform.BudgetAppliesPerTeam), "team_id":
 		return strings.TrimSpace(auth.TeamID), true
-	case string(platform.BudgetAppliesPerOrgUnit), "org_unit_id":
-		return strings.TrimSpace(auth.OrgUnitID), true
 	case "organization_id":
 		return strings.TrimSpace(auth.OrganizationID), true
 	case string(platform.BudgetAppliesPerVirtualAccount), "virtual_account", "virtual_account_id", "key_id":

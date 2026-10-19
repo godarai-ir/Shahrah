@@ -68,7 +68,6 @@ type ListRequestLogsV2Params struct {
 	PayloadMode       string
 	ActorType         string
 	ActorID           string
-	OrgUnitID         string
 	TeamID            string
 	StatusCode        *int
 	From              *time.Time

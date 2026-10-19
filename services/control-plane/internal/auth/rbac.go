@@ -68,27 +68,6 @@ func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
 	}
 }
 
-// IsOrgAdminOrHigherForOrgUnit returns true when caller can manage the given OrgUnit.
-// For org_admin: checks if they are member of the OrgUnit
-// For tenant_admin/proxy_admin: always returns true.
-func IsOrgAdminOrHigherForOrgUnit(authInfo *platform.AuthContext, orgUnitID string) bool {
-	if authInfo == nil {
-		return false
-	}
-
-	normalizedRole := normalizeRole(authInfo.Role)
-	// proxy_admin and tenant_admin can manage any OrgUnit
-	if normalizedRole == roleProxyAdmin || normalizedRole == roleTenantAdmin {
-		return true
-	}
-	// org_admin can only manage their assigned OrgUnits
-	if normalizedRole == roleOrgAdmin {
-		return authInfo.OrgUnitID == orgUnitID
-	}
-
-	return false
-}
-
 // CheckRouteAuthorization validates whether the current auth context can access the given route.
 func CheckRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
 	if authInfo == nil {
@@ -191,8 +170,6 @@ func checkAPIV1PolicyRouteAuthorization(method, route string, authInfo *platform
 
 func checkAPIV1OrganizationRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
 	switch {
-	case strings.HasPrefix(route, "/api/v1/org-units"):
-		return true, checkOrgUnitRouteAuthorization(method, authInfo)
 	case strings.HasPrefix(route, "/api/v1/teams/") && strings.Contains(route, "/members"):
 		return true, requireTeamAdmin(authInfo)
 	case strings.HasPrefix(route, "/api/v1/virtual-users"):
@@ -373,12 +350,8 @@ func checkAccessPrincipalRouteAuthorization(route string, authInfo *platform.Aut
 		if hasPermission(authInfo, "team:read") || hasPermission(authInfo, "team:manage") {
 			return nil
 		}
-	case "org_unit":
-		if hasPermission(authInfo, "org_unit:read") || hasPermission(authInfo, "org_unit:list") || hasPermission(authInfo, "org_unit:manage") {
-			return nil
-		}
 	default:
-		if hasPermission(authInfo, "user:list") || hasPermission(authInfo, "team:read") || hasPermission(authInfo, "org_unit:read") {
+		if hasPermission(authInfo, "user:list") || hasPermission(authInfo, "team:read") {
 			return nil
 		}
 	}
@@ -422,33 +395,6 @@ func checkRolesRouteAuthorization(method string, authInfo *platform.AuthContext)
 	}
 
 	return fmt.Errorf("insufficient permissions for roles route")
-}
-
-func checkOrgUnitRouteAuthorization(method string, authInfo *platform.AuthContext) error {
-	if IsTenantAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	switch strings.ToUpper(strings.TrimSpace(method)) {
-	case "GET", "HEAD", "OPTIONS":
-		if hasPermission(authInfo, "org_unit:read") || hasPermission(authInfo, "org_unit:list") || hasPermission(authInfo, "org_unit:manage") {
-			return nil
-		}
-	case "POST":
-		if hasPermission(authInfo, "org_unit:create") || hasPermission(authInfo, "org_unit:manage") {
-			return nil
-		}
-	case "PATCH", "PUT":
-		if hasPermission(authInfo, "org_unit:manage") {
-			return nil
-		}
-	case "DELETE":
-		if hasPermission(authInfo, "org_unit:delete") || hasPermission(authInfo, "org_unit:manage") {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("insufficient permissions for org unit route")
 }
 
 func checkModelsRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {

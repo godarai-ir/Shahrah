@@ -32,7 +32,6 @@ var systemRolePermissions = map[string][]string{
 		"role:list", "role:manage",
 		"user:list", "user:manage",
 		"team:create", "team:read", "team:manage", "team:delete",
-		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
@@ -45,7 +44,6 @@ var systemRolePermissions = map[string][]string{
 		"role:list", "role:manage",
 		"user:list", "user:manage",
 		"team:create", "team:read", "team:manage", "team:delete",
-		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
@@ -61,7 +59,6 @@ var systemRolePermissions = map[string][]string{
 		"policy:list",
 		"role:list",
 		"user:list", "user:manage",
-		"org_unit:read", "org_unit:manage", "org_unit:list",
 		"team:create", "team:read", "team:manage",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
 		"provider_account:read",
@@ -793,7 +790,7 @@ func normalizeResourceType(resourceType string) string {
 	switch strings.TrimSpace(strings.ToLower(resourceType)) {
 	case "", "tenant":
 		return "tenant"
-	case "org_unit", "team", "workspace":
+	case "team", "workspace":
 		return strings.TrimSpace(strings.ToLower(resourceType))
 	default:
 		return ""

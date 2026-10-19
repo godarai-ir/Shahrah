@@ -74,7 +74,6 @@ type PrincipalType string
 const (
 	PrincipalTypeUser     PrincipalType = "user"
 	PrincipalTypeTeam     PrincipalType = "team"
-	PrincipalTypeOrgUnit  PrincipalType = "org_unit"
 	PrincipalTypeEveryone PrincipalType = "everyone"
 )
 

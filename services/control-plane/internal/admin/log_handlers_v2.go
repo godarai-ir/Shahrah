@@ -649,7 +649,6 @@ func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLo
 		PayloadMode:       strings.TrimSpace(c.Query("payload_mode")),
 		ActorType:         strings.TrimSpace(c.Query("actor_type")),
 		ActorID:           strings.TrimSpace(c.Query("actor_id")),
-		OrgUnitID:         strings.TrimSpace(c.Query("org_unit_id")),
 		TeamID:            strings.TrimSpace(c.Query("team_id")),
 		StatusCode:        statusCode,
 		From:              from,
@@ -808,7 +807,6 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	out.PayloadMode = filterString(filters, "payload_mode")
 	out.ActorType = filterString(filters, "actor_type")
 	out.ActorID = filterString(filters, "actor_id")
-	out.OrgUnitID = filterString(filters, "org_unit_id")
 	out.TeamID = filterString(filters, "team_id")
 	out.SortBy = defaultString(filterString(filters, "sort_by"), out.SortBy)
 

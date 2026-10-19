@@ -10,11 +10,11 @@ import (
 
 type directoryRepositoryStub struct {
 	directoryRepository
-	orgUnit *platform.OrgUnit
+	team *platform.Team
 }
 
-func (s directoryRepositoryStub) GetOrgUnit(context.Context, string, string) (*platform.OrgUnit, error) {
-	return s.orgUnit, nil
+func (s directoryRepositoryStub) GetTeam(context.Context, string, string) (*platform.Team, error) {
+	return s.team, nil
 }
 
 type accessRepositoryStub struct{ accessRepository }
@@ -27,11 +27,11 @@ func TestNewServiceRejectsNilDirectoryRepository(t *testing.T) {
 }
 
 func TestServiceDelegatesIAMUseCase(t *testing.T) {
-	want := &platform.OrgUnit{ID: "org-1"}
-	service, err := NewService(directoryRepositoryStub{orgUnit: want}, accessRepositoryStub{})
+	want := &platform.Team{ID: "team-1"}
+	service, err := NewService(directoryRepositoryStub{team: want}, accessRepositoryStub{})
 	require.NoError(t, err)
 
-	got, err := service.GetOrgUnit(context.Background(), "tenant-1", "org-1")
+	got, err := service.GetTeam(context.Background(), "tenant-1", "team-1")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

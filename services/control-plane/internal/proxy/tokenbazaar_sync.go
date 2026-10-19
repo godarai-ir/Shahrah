@@ -104,7 +104,6 @@ func tokenBazaarHandleSync(
 		OrganizationID: authInfo.OrganizationID,
 		TeamID:         authInfo.TeamID,
 		UserID:         authInfo.UserID,
-		OrgUnitID:      authInfo.OrgUnitID,
 		Model:          requestedModel,
 		InputTokens:    finalized.InputTokens,
 		OutputTokens:   finalized.OutputTokens,
@@ -141,7 +140,6 @@ func tokenBazaarHandleSync(
 				"endpoint":    cfg.metricEndpoint,
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
-				"org_unit_id": authInfo.OrgUnitID,
 				"tenant_slug": tenantSlug,
 			}, tunnelReq.Deployment),
 		})
