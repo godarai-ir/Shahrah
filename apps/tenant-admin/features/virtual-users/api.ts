@@ -12,7 +12,6 @@ const vatTokenSchema = z.object({
   allowed_models: z.array(z.string()).optional(),
   models: z.array(z.string()).optional(),
   team_id: z.string().optional(),
-  org_unit_id: z.string().optional(),
   virtual_user_id: z.string().optional(),
   created_at: z.string().optional(),
   expires_at: z.string().optional(),
@@ -32,7 +31,6 @@ export type VirtualUserPayload = {
   alias: string;
   display_name?: string;
   team_id?: string;
-  org_unit_id?: string;
   metadata: Record<string, unknown>;
   active?: boolean;
 };

@@ -6,9 +6,9 @@ import {
 } from "@/lib/contracts/provider-catalog";
 import { APIContractError, requestJSON, requestParsedJSON } from "@/lib/http/api-client";
 
-const principalKindSchema = z.enum(["user", "team", "org_unit", "virtual_account", "external_identity"]);
+const principalKindSchema = z.enum(["user", "team", "virtual_account", "external_identity"]);
 const accessPrincipalSchema = z.object({
-  type: z.enum(["user", "team", "org_unit", "everyone"]),
+  type: z.enum(["user", "team", "everyone"]),
   principal_id: z.string().optional(),
   display_name: z.string().optional(),
 });

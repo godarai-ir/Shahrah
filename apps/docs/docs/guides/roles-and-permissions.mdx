@@ -22,7 +22,6 @@ description: نقش‌های سیستمی و سفارشی گدارAI را بشن
 | `proxy_admin` | نقش سطح بالا برای مدیریت گسترده؛ معمولاً برای کاربران عادی مستندات لازم نیست |
 | `tenant_admin` | مدیر فضای کاری با اختیار گسترده |
 | `billing_manager` | مدیریت امور مالی، کیف پول، گزارش‌ها و اسناد مالی |
-| `org_admin` | مدیریت در محدوده واحد سازمانی |
 | `team_admin` | مدیریت روزمره تیم و کاربران مجازی/توکن‌های تیمی |
 | `member` | عضو عادی با دسترسی محدود |
 | `readonly_member` | مشاهده محدود بدون تغییر |
@@ -61,7 +60,6 @@ description: نقش‌های سیستمی و سفارشی گدارAI را بشن
 | نقش‌ها | `role:list`، `role:manage` | مشاهده یا مدیریت نقش‌ها |
 | کاربران | `user:list`، `user:manage` | مشاهده، دعوت و مدیریت کاربران |
 | تیم‌ها | `team:create`، `team:read`، `team:manage`، `team:delete` | ساخت و مدیریت تیم‌ها |
-| واحدهای سازمانی | `org_unit:create`، `org_unit:read`، `org_unit:manage`، `org_unit:delete`، `org_unit:list` | مدیریت ساختار سازمانی |
 | کاربران مجازی | `virtual_account:create`، `virtual_account:read`، `virtual_account:manage`، `virtual_account:delete` | مدیریت کاربر مجازی و VAT |
 | حساب‌های ارائه‌دهنده | `provider_account:create`، `provider_account:read`، `provider_account:manage`، `provider_account:delete` | مدیریت اتصال‌های مدل |
 | تنظیمات | `settings:list`، `settings:manage` | مشاهده یا تغییر تنظیمات فضای کاری |
@@ -93,7 +91,7 @@ description: نقش‌های سیستمی و سفارشی گدارAI را بشن
 
 یک کاربر ممکن است بیش از یک نقش داشته باشد. گدارAI برای نمایش، یک «نقش اصلی» انتخاب می‌کند؛ اما مجوزهای مؤثر از مجموع نقش‌ها و عضویت‌های معتبر محاسبه می‌شود.
 
-اولویت نمایش نقش معمولاً از نقش‌های پرقدرت‌تر شروع می‌شود؛ مثل `tenant_admin`، سپس `org_admin`، `team_admin`، `member` و `readonly_member`.
+اولویت نمایش نقش معمولاً از نقش‌های پرقدرت‌تر شروع می‌شود؛ مثل `tenant_admin`، سپس `team_admin`، `member` و `readonly_member`.
 
 ## تفاوت نقش با مجوز عضو تیم
 

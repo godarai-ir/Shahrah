@@ -518,3 +518,4 @@ VAT: sk-ci-cd-platform
 2. **Pagination**: All list endpoints support pagination
 3. **Batch operations**: Support bulk operations where possible
 4. **Lazy loading**: Don't load all relations by default
+> **Update 2026-10-19:** the organizational unit concept described here was removed from the product. Teams are now the only grouping inside a workspace. See the org-unit removal PRs and migration 074.

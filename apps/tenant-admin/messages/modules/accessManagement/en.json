@@ -6,7 +6,6 @@
     "externalAuth": "External Auth",
     "personalAccessTokens": "Personal Access Tokens",
     "virtualAccounts": "Virtual Accounts",
-    "orgUnits": "Organization Units",
     "roles": "Roles",
     "auditLogs": "Audit Logs",
     "apiKeys": "API keys",
@@ -42,8 +41,7 @@
   },
   "roles": {
     "billingManager": "Billing Manager",
-    "member": "Member",
-    "orgAdmin": "Organization Admin",
+    "member": "Member",
     "readOnlyMember": "Read-only member",
     "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
@@ -202,7 +200,6 @@
     "roles": "Roles",
     "users": "Users",
     "teams": "Teams",
-    "organization_units": "Organization units",
     "virtual_accounts": "Virtual accounts",
     "provider_accounts": "Provider accounts",
     "settings": "Settings",
@@ -216,7 +213,6 @@
     "role": "roles",
     "user": "users",
     "team": "teams",
-    "org_unit": "organization units",
     "virtual_account": "virtual accounts",
     "provider_account": "provider accounts",
     "settings": "settings",

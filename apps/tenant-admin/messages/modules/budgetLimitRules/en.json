@@ -104,7 +104,6 @@
         "tenant": "Per tenant",
         "user": "Per user",
         "team": "Per team",
-        "orgUnit": "Per organization unit",
         "model": "Per model",
         "virtualAccount": "Per virtual account",
         "metadataProjectId": "Per metadata.project_id"
@@ -127,7 +126,6 @@
     "principal": {
       "users": "Users",
       "teams": "Teams",
-      "orgUnits": "Org units",
       "virtualAccounts": "Virtual accounts",
       "externalIdentities": "External identities",
       "everyone": "Everyone",

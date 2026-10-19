@@ -306,8 +306,6 @@ func budgetContextValue(key string, auth *platform.AuthContext, breakdown platfo
 		return strings.TrimSpace(auth.UserID), true
 	case string(platform.BudgetAppliesPerTeam), "team_id":
 		return strings.TrimSpace(auth.TeamID), true
-	case "organization_id":
-		return strings.TrimSpace(auth.OrganizationID), true
 	case string(platform.BudgetAppliesPerVirtualAccount), "virtual_account", "virtual_account_id", "key_id":
 		return strings.TrimSpace(auth.KeyID), true
 	case "key_alias":

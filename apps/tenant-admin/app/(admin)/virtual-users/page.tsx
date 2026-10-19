@@ -7,7 +7,6 @@ import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { parseVirtualUserListPayload } from "@/features/virtual-users/api";
 import { parseTeamListPayload } from "@/lib/api/teams";
-import { parseOrgUnitListPayload } from "@/lib/api/org-units";
 import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +26,7 @@ export default async function VirtualUsersPage() {
     "team:manage",
   ]);
 
-  const [virtualUsersResult, teamsResult, orgUnitsResult] = await Promise.all([
+  const [virtualUsersResult, teamsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -40,17 +39,10 @@ export default async function VirtualUsersPage() {
       path: "/api/v1/teams?limit=200&offset=0",
       userID: auth.user.id,
     }),
-    fetchControlPlaneJSON({
-      tenantSlug,
-      method: "GET",
-      path: "/api/v1/org-units?limit=200&offset=0",
-      userID: auth.user.id,
-    }),
   ]);
 
   const virtualUsersPayload = parseVirtualUserListPayload(virtualUsersResult.payload);
   const teamsPayload = parseTeamListPayload(teamsResult.payload);
-  const orgUnitsPayload = parseOrgUnitListPayload(orgUnitsResult.payload);
   const initialVirtualUsers = virtualUsersResult.ok ? virtualUsersPayload.data ?? [] : [];
   const currentUser = {
     id: auth.user.id,
@@ -70,7 +62,6 @@ export default async function VirtualUsersPage() {
         initialTotal={virtualUsersResult.ok ? virtualUsersPayload.total ?? initialVirtualUsers.length : 0}
         initialError={virtualUsersResult.ok ? null : virtualUsersResult.errorMessage ?? "Request failed."}
         teams={teamsResult.ok ? teamsPayload.data ?? [] : []}
-        orgUnits={orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : []}
       />
     </AdminShell>
   );

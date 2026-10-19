@@ -15,7 +15,7 @@ const componentBudgets = [
   ["features/metrics/ModelMetricsDashboard.tsx", 600],
   ["features/dashboard/DashboardAnalytics.tsx", 550],
   ["features/virtual-models/VirtualModelManagement.tsx", 1_125],
-  ["features/org-structure/OrgStructure.tsx", 950],
+  ["features/teams-management/TeamsManagement.tsx", 950],
   ["features/quick-start/QuickStartManagement.tsx", 975],
   ["features/playground/PlaygroundPage.tsx", 950],
   ["features/prompts/PromptDetailPage.tsx", 900],

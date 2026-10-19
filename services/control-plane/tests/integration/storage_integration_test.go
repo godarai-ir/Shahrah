@@ -135,7 +135,7 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"tenant_id", "slug", "domain", "status", "created_at",
 		},
 		"verification_tokens": {
-			"id", "tenant_id", "organization_id", "team_id", "key_alias", "key_name", "token_hash",
+			"id", "tenant_id", "team_id", "key_alias", "key_name", "token_hash",
 			"models", "spend", "expires", "blocked", "virtual_user_id", "rotated_from_token_id",
 			"rotation_grace_expires_at", "revoked_reason", "created_at", "updated_at",
 		},
@@ -159,7 +159,7 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"rate_id", "source", "symbol", "usd_to_irr", "fetched_at", "updated_at",
 		},
 		"spend_logs": {
-			"request_id", "token_hash", "tenant_id", "organization_id", "team_id", "model",
+			"request_id", "token_hash", "tenant_id", "team_id", "model",
 			"input_tokens", "output_tokens", "total_tokens", "cost_usd", "cost_irr",
 			"response_time_ms", "status", "request_metadata", "completion_start_time", "completion_end_time",
 		},
@@ -792,24 +792,17 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	ctx := context.Background()
 	userID := uuid.NewString()
 	teamID := uuid.NewString()
-	orgID := uuid.NewString()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
-	`, teamID, orgID)
+	`, teamID)
 	require.NoError(t, err)
 
 	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
@@ -944,17 +937,9 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	userBID := uuid.NewString()
 	teamAID := uuid.NewString()
 	teamBID := uuid.NewString()
-	orgID := uuid.NewString()
-
-	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
 
 	for _, uid := range []string{userManagerID, userAID, userBID} {
-		_, err = pool.Exec(ctx, `
+		_, err := pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
@@ -963,15 +948,15 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	}
 
 	for _, tid := range []string{teamAID, teamBID} {
-		_, err = pool.Exec(ctx, `
-			INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-			SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		_, err := pool.Exec(ctx, `
+			INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+			SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
-		`, tid, orgID)
+		`, tid)
 		require.NoError(t, err)
 	}
 
-	_, err = pool.Exec(ctx, `
+	_, err := pool.Exec(ctx, `
 		INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
 		SELECT t.tenant_id, t.team_id, $2::uuid, 'team_member', NOW(), NOW()
 		FROM teams t
@@ -1322,25 +1307,18 @@ func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.NewString()
-	orgID := uuid.NewString()
 	teamID := uuid.NewString()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
-	`, teamID, orgID)
+	`, teamID)
 	require.NoError(t, err)
 
 	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
@@ -1388,18 +1366,11 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 	resetPersistentState(t, pool)
 
 	ctx := context.Background()
-	orgID := uuid.NewString()
 	managerUserID := uuid.NewString()
 	nonManagerUserID := uuid.NewString()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
 
 	for _, uid := range []string{managerUserID, nonManagerUserID} {
-		_, err = pool.Exec(ctx, `
+		_, err := pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'

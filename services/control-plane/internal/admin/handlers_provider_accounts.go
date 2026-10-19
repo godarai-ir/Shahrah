@@ -1385,7 +1385,7 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	return c.JSON(account)
 }
 
-// ListAccessPrincipals returns user/team/org-unit principals for access picker controls.
+// ListAccessPrincipals returns user/team principals for access picker controls.
 func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {

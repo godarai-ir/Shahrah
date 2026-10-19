@@ -143,7 +143,7 @@ type PromptRepository struct {
 	pool *pgxpool.Pool
 }
 
-// IAMRepository persists organizational units, teams, virtual users, and memberships.
+// IAMRepository persists teams, virtual users, and memberships.
 type IAMRepository struct {
 	pool                      *pgxpool.Pool
 	runtimeProfileInvalidator RuntimeProfileInvalidator

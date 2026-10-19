@@ -10,7 +10,6 @@ import (
 const (
 	roleProxyAdmin     = "proxy_admin"
 	roleTenantAdmin    = "tenant_admin"
-	roleOrgAdmin       = "org_admin"
 	roleTeamAdmin      = "team_admin"
 	roleMember         = "member"
 	roleReadOnlyMember = "readonly_member"
@@ -40,28 +39,14 @@ func IsTenantAdminOrHigher(authInfo *platform.AuthContext) bool {
 	}
 }
 
-// IsOrgAdminOrHigher returns true for proxy admin, tenant admin, and org admin.
-func IsOrgAdminOrHigher(authInfo *platform.AuthContext) bool {
-	if authInfo == nil {
-		return false
-	}
-
-	switch normalizeRole(authInfo.Role) {
-	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsTeamAdminOrHigher returns true for proxy admin, tenant admin, org admin, and team admin.
+// IsTeamAdminOrHigher returns true for proxy admin, tenant admin, and team admin.
 func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
 	if authInfo == nil {
 		return false
 	}
 
 	switch normalizeRole(authInfo.Role) {
-	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin:
+	case roleProxyAdmin, roleTenantAdmin, roleTeamAdmin:
 		return true
 	default:
 		return false
@@ -234,7 +219,7 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 
 	role := normalizeRole(authInfo.Role)
 	switch role {
-	case roleProxyAdmin, roleTenantAdmin, roleOrgAdmin, roleTeamAdmin, roleMember, roleReadOnlyMember:
+	case roleProxyAdmin, roleTenantAdmin, roleTeamAdmin, roleMember, roleReadOnlyMember:
 		return nil
 	default:
 		return fmt.Errorf("insufficient permissions for personal access token route")

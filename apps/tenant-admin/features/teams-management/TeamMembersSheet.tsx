@@ -46,7 +46,7 @@ export function TeamMembersSheet({
   onRemoveMember: (userID: string) => Promise<void>;
 }) {
   const t = useTranslations("teams");
-  const tShared = useTranslations("orgStructure");
+  const tShared = useTranslations("teamsPage");
   const [userInput, setUserInput] = useState("");
   const [role, setRole] = useState("team_member");
   const [permissions, setPermissions] = useState<string[]>(DEFAULT_PERMISSIONS);
@@ -69,16 +69,16 @@ export function TeamMembersSheet({
       description={t("members.description")}
       pending={isSaving}
       closeLabel={tShared("actions.cancel")}
-      footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => onOpenChange(false)}>{tShared("actions.cancel")}</Button>} primary={<Button type="submit" form="org-structure-add-team-member-form" disabled={!canManage || isSaving}>{t("members.add")}</Button>} />}
+      footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => onOpenChange(false)}>{tShared("actions.cancel")}</Button>} primary={<Button type="submit" form="teams-add-team-member-form" disabled={!canManage || isSaving}>{t("members.add")}</Button>} />}
     >
       <OperationNotice notice={notice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
 
-      <form id="org-structure-add-team-member-form" onSubmit={submit} className="flex flex-col gap-3 border-b border-border pb-5">
+      <form id="teams-add-team-member-form" onSubmit={submit} className="flex flex-col gap-3 border-b border-border pb-5">
         <FieldGroup className="gap-3">
           <Field>
-            <FieldLabel htmlFor="org-structure-member-user">{t("members.user")}</FieldLabel>
+            <FieldLabel htmlFor="teams-member-user">{t("members.user")}</FieldLabel>
             <FilterCombobox
-              id="org-structure-member-user"
+              id="teams-member-user"
               value={userInput}
               onValueChange={setUserInput}
               options={candidateOptions.map((user) => ({ value: user.userID, label: user.label }))}

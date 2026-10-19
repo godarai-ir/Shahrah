@@ -38,7 +38,7 @@ export const budgetLimitConditionSchema = z
     values: z.array(z.string().min(1)).optional(),
     value: z.union([z.string(), z.number(), z.boolean()]).optional(),
     metadataKey: z.string().optional(),
-    subjectKind: z.enum(["user", "team", "virtual_account", "organization_unit"]).optional(),
+    subjectKind: z.enum(["user", "team", "virtual_account"]).optional(),
     /** Display names captured when the value was picked; the gateway ignores this key. */
     valueLabels: z.record(z.string(), z.string()).optional(),
   })
@@ -88,7 +88,6 @@ export const budgetLimitRuleSchema = z.object({
         value === "tenant" ||
         value === "user" ||
         value === "team" ||
-        value === "org_unit" ||
         value === "model" ||
         value === "virtualaccount" ||
         value.startsWith("metadata."),

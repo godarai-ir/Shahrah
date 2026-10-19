@@ -18,8 +18,8 @@ vi.mock("next/navigation", () => ({
 const role = {
   id: "role-1",
   tenant_id: "tenant-1",
-  name: "org_admin",
-  display_name: "Org Admin",
+  name: "team_admin",
+  display_name: "Team Admin",
   description: "System role",
   is_system: true,
   permissions: ["role:list"],
@@ -50,10 +50,10 @@ describe("RoleEditManagement", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const roleSlug = screen.getByRole("textbox", { name: "rolesPage.technicalIdentifier" });
     const displayName = screen.getByRole("textbox", { name: "rolesPage.form.displayName" });
-    expect(roleSlug).toHaveValue("org_admin");
+    expect(roleSlug).toHaveValue("team_admin");
     expect(roleSlug).toHaveAttribute("dir", "ltr");
     expect(roleSlug).toHaveAttribute("pattern", "[A-Za-z0-9_-]+");
-    expect(displayName).toHaveValue("Org Admin");
+    expect(displayName).toHaveValue("Team Admin");
     expect(displayName).toHaveAttribute("dir", "ltr");
     expect(screen.getByRole("textbox", { name: "rolesPage.form.description" })).toHaveValue("System role");
   });
@@ -72,7 +72,7 @@ describe("RoleEditManagement", () => {
     render(<RoleEditManagement initialRole={role} initialPermissionCatalog={permissionCatalog} />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "rolesPage.form.displayName" }), {
-      target: { value: "مدیر سازمان" },
+      target: { value: "مدیر تیم" },
     });
     expect(screen.getByRole("textbox", { name: "rolesPage.form.displayName" })).toHaveAttribute("dir", "rtl");
     fireEvent.click(screen.getByRole("button", { name: "rolesPage.actions.save" }));
@@ -83,7 +83,7 @@ describe("RoleEditManagement", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
-          display_name: "مدیر سازمان",
+          display_name: "مدیر تیم",
           description: "System role",
           permissions: ["role:list"],
         }),

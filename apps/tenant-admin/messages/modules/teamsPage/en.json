@@ -1,0 +1,53 @@
+{
+  "title": "Teams",
+  "subtitle": "Manage your teams, their members, and their usage from one place.",
+  "actions": {
+    "newTeam": "New team",
+    "refresh": "Refresh",
+    "manageMembers": "Manage members",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "saving": "Saving..."
+  },
+  "search": {
+    "placeholder": "Search teams by alias or name"
+  },
+  "tree": {
+    "root": "Tenant root",
+    "name": "Name",
+    "environment": "Environment",
+    "activeKeys": "Active keys",
+    "monthCost": "Cost this month",
+    "teamCount": "{count} teams",
+    "loading": "Loading organizational structure...",
+    "emptyTeams": "No teams yet.",
+    "emptySearch": "No teams match \"{query}\"."
+  },
+  "period": {
+    "label": "Usage period",
+    "current_month": "Current month",
+    "last_30_days": "Last 30 days",
+    "last_7_days": "Last 7 days"
+  },
+  "detail": {
+    "empty": "Select a team to see its details.",
+    "team": {
+      "members": "Members",
+      "membersSubtitle": "{count} team admin(s)",
+      "activeKeys": "Active keys",
+      "activeKeysSubtitle": "{count} virtual user(s)",
+      "costMonth": "Cost this month",
+      "membersPreview": "Members",
+      "noMembers": "No team members found.",
+      "andMore": "+{count} more",
+      "deleteGuardTitle": "Cannot delete this team",
+      "deleteGuardDescription": "Delete is blocked while this team has active keys, virtual users, or members."
+    }
+  },
+  "entitlements": {
+    "upgrade": "Upgrade or buy a plan",
+    "disabledTitle": "Teams are not available on your plan",
+    "disabledDescription": "Teams are not included in your current commercial plan. Upgrade your plan to use this feature."
+  }
+}

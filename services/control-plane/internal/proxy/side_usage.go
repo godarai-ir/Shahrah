@@ -56,14 +56,13 @@ func (p *RequestPipeline) ChargeSideUsage(ctx context.Context, logs usageLogger,
 
 	now := time.Now()
 	logSpendBestEffort(p.logger, logs, ctx, platform.SpendLog{
-		RequestID:      strings.TrimSpace(charge.RequestID) + ":" + charge.Stage,
-		TokenHash:      charge.Auth.TokenHash,
-		TenantID:       charge.Auth.TenantID,
-		OrganizationID: charge.Auth.OrganizationID,
-		TeamID:         charge.Auth.TeamID,
-		UserID:         charge.Auth.UserID,
-		Model:          charge.Model,
-		Status:         "success",
+		RequestID: strings.TrimSpace(charge.RequestID) + ":" + charge.Stage,
+		TokenHash: charge.Auth.TokenHash,
+		TenantID:  charge.Auth.TenantID,
+		TeamID:    charge.Auth.TeamID,
+		UserID:    charge.Auth.UserID,
+		Model:     charge.Model,
+		Status:    "success",
 		// The ledger reads the trace id from the metadata, which links the
 		// side call to the request it served.
 		RequestMetadata: map[string]interface{}{

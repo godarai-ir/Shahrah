@@ -7,7 +7,7 @@ Go implementation of Shahrah's control-plane and API gateway. This service owns:
 - tenant-scoped management APIs under `/api/v1`
 - gateway proxy endpoints under `/v1`
 - auth, RBAC, onboarding, and login-discovery flows
-- provider account, model, team, org-unit, virtual-user, PAT, and role management
+- provider account, model, team, virtual-user, PAT, and role management
 - billing, wallet, and top-up flows
 - request traces, trace privacy, metrics, and observability
 - platform service-account administration for privileged automation
@@ -49,7 +49,7 @@ Important groups include:
 
 - `/health`, `/ready`, and `/metrics`
 - `/v1/*` gateway endpoints for chat, completions, responses, embeddings, moderations, images, and model listing
-- `/api/v1/*` management APIs for onboarding, PATs, teams, org units, virtual users, virtual models, wallets, traces, prompts, policies, providers, roles, users, and settings
+- `/api/v1/*` management APIs for onboarding, PATs, teams, virtual users, virtual models, wallets, traces, prompts, policies, providers, roles, users, and settings
 - `/api/v2/traces/*` trace-detail endpoints used by tenant-admin
 - `/api/v1/platform/*` platform-admin endpoints protected by `MASTER_KEY` or a scoped platform service account token
 
