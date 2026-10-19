@@ -384,7 +384,6 @@ func (h *EmbeddingsHandler) handleSync(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           req.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,

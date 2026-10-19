@@ -267,7 +267,6 @@ func (h *ResponsesHandler) handleResponsesCacheHit(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           req.Model,
 		ResponseTimeMS:  responseTimeMS,
 		Status:          "success",

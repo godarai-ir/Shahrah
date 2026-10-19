@@ -392,7 +392,6 @@ func (h *AudioSpeechHandler) handleSync(
 		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
 		UserID:          authInfo.UserID,
-		OrgUnitID:       authInfo.OrgUnitID,
 		Model:           requestedModel,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -529,7 +528,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: tunnelReq.RequestID, TokenHash: authInfo.TokenHash,
-		TenantID: authInfo.TenantID, OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, UserID: authInfo.UserID, OrgUnitID: authInfo.OrgUnitID,
+		TenantID: authInfo.TenantID, OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, UserID: authInfo.UserID,
 		Model: requestedModel, InputTokens: finalCost.InputTokens, OutputTokens: finalCost.OutputTokens,
 		TotalTokens: finalCost.TotalTokens, CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR,
 		ResponseTimeMS: responseTimeMS, Status: "success",
@@ -672,7 +671,6 @@ func (h *AudioSpeechHandler) handleStream(
 				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
 				UserID:          authInfo.UserID,
-				OrgUnitID:       authInfo.OrgUnitID,
 				Model:           requestedModel,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,

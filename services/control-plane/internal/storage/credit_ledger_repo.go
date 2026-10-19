@@ -65,7 +65,6 @@ type creditEntry struct {
 	Model              string
 	UserID             string
 	TeamID             string
-	OrgUnitID          string
 	Product            string
 	BillingMode        string
 	PricingRevision    string
@@ -335,20 +334,20 @@ func insertCreditEntryTx(ctx context.Context, tx pgx.Tx, entry creditEntry) erro
 	_, err := tx.Exec(ctx, `
 		INSERT INTO credit_ledger (
 			entry_id, tenant_id, kind, amount_mc, idempotency_key, occurred_at, lot_id,
-			request_id, trace_id, model, user_id, team_id, org_unit_id, product, billing_mode,
+			request_id, trace_id, model, user_id, team_id, product, billing_mode,
 			pricing_revision, rate_card_version, internal_cost_usd, credit_equivalent_mc, spend_log_id,
 			reason, actor
 		)
 		VALUES (
 			$1::uuid, $2::uuid, $3, $4, $5, $6, NULLIF($7, '')::uuid,
 			NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''), NULLIF($11, '')::uuid, NULLIF($12, '')::uuid,
-			NULLIF($13, '')::uuid, NULLIF($14, ''), NULLIF($15, ''),
-			NULLIF($16, ''), $17, NULLIF($18, ''), $19, $20,
-			NULLIF($21, ''), NULLIF($22, '')
+			NULLIF($13, ''), NULLIF($14, ''),
+			NULLIF($15, ''), $16, NULLIF($17, ''), $18, $19,
+			NULLIF($20, ''), NULLIF($21, '')
 		)
 	`, entry.EntryID, entry.TenantID, string(entry.Kind), entry.AmountMC, entry.IdempotencyKey, entry.OccurredAt, entry.LotID,
 		entry.RequestID, entry.TraceID, entry.Model, entry.UserID, entry.TeamID,
-		entry.OrgUnitID, entry.Product, entry.BillingMode,
+		entry.Product, entry.BillingMode,
 		entry.PricingRevision, rateCardVersion, entry.InternalCostUSD, entry.CreditEquivalentMC, entry.SpendLogID,
 		entry.Reason, entry.Actor)
 

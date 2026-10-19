@@ -62,7 +62,6 @@ func (p *RequestPipeline) ChargeSideUsage(ctx context.Context, logs usageLogger,
 		OrganizationID: charge.Auth.OrganizationID,
 		TeamID:         charge.Auth.TeamID,
 		UserID:         charge.Auth.UserID,
-		OrgUnitID:      charge.Auth.OrgUnitID,
 		Model:          charge.Model,
 		Status:         "success",
 		// The ledger reads the trace id from the metadata, which links the
