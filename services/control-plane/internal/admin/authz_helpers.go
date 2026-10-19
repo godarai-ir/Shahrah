@@ -62,7 +62,7 @@ func delegatedUserID(c *fiber.Ctx) string {
 
 func requireTeamRead(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -71,7 +71,7 @@ func requireTeamRead(c *fiber.Ctx) error {
 
 func requireTeamCreate(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -89,7 +89,7 @@ func requireTeamManage(c *fiber.Ctx) error {
 
 func requireTeamDelete(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 

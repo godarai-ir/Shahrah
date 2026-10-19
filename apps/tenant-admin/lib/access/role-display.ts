@@ -8,7 +8,6 @@ export const protectedSystemRoles = new Set(["proxy_admin", "tenant_admin"]);
 const LOCALIZED_ROLE_KEYS: Record<string, string> = {
   billing_manager: "billingManager",
   member: "member",
-  org_admin: "orgAdmin",
   readonly_member: "readOnlyMember",
   team_admin: "teamAdmin",
   tenant_admin: "tenantAdmin",

@@ -104,7 +104,7 @@ export default function TeamsManagement({
 
   const isTeamsFeatureEnabled = hasLoadedEntitlements ? readBooleanFeature(entitlements?.[FEATURE_TEAMS_ENABLED], false) : null;
 
-  const canManageTeam = ["tenant_admin", "proxy_admin", "org_admin", "team_admin"].includes(currentUserRole) || canAnyPermission(permissions, ["team:manage"]);
+  const canManageTeam = ["tenant_admin", "proxy_admin", "team_admin"].includes(currentUserRole) || canAnyPermission(permissions, ["team:manage"]);
   const canCreateTeam = canManageTeam || canAnyPermission(permissions, ["team:create"]);
   const canDeleteTeam = canAnyPermission(permissions, ["team:delete"]);
 

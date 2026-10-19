@@ -41,8 +41,7 @@
   },
   "roles": {
     "billingManager": "Billing Manager",
-    "member": "Member",
-    "orgAdmin": "Organization Admin",
+    "member": "Member",
     "readOnlyMember": "Read-only member",
     "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
