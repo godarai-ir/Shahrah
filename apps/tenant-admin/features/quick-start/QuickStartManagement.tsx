@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ArrowUpRight,
-  Building2,
   Check,
   CheckCircle2,
   CircleDollarSign,
@@ -104,7 +103,6 @@ const exploreChipPriority: QuickStartExploreCardID[] = [
   "prompts",
   "billing_plan",
   "virtual_users",
-  "org_units",
   "provider_accounts",
   "metrics",
   "logs",
@@ -951,7 +949,6 @@ const exploreHrefMap: Record<QuickStartExploreCardID, string> = {
   provider_accounts: "/provider-accounts",
   virtual_users: "/virtual-users",
   teams: "/teams",
-  org_units: "/org-units",
   guardrails: "/guardrails",
   prompts: "/prompts",
   metrics: "/metrics",
@@ -963,7 +960,6 @@ const exploreIconMap: Record<QuickStartExploreCardID, typeof Network> = {
   provider_accounts: Network,
   virtual_users: KeyRound,
   teams: Users,
-  org_units: Building2,
   guardrails: ShieldCheck,
   prompts: Sparkles,
   metrics: Gauge,

@@ -20,7 +20,6 @@ export type GatewayRequestContext = {
   model?: string;
   userId?: string;
   apiKeyId?: string;
-  organizationUnitId?: string;
   teamId?: string;
   metadata?: Record<string, string | number | boolean>;
 };

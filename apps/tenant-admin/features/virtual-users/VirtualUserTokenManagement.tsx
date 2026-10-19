@@ -62,20 +62,12 @@ type Team = {
   id: string;
   alias: string;
   display_name?: string;
-  org_unit_id?: string | null;
-};
-
-type OrgUnit = {
-  id: string;
-  alias: string;
-  display_name?: string;
 };
 
 type VirtualUserForm = {
   alias: string;
   displayName: string;
   teamID: string;
-  orgUnitID: string;
   active: boolean;
 };
 
@@ -91,11 +83,10 @@ type TokenAction = { type: "revoke" | "rotate"; token: VATToken };
 const PAGE_SIZE = 25;
 const FEATURE_VAT_ENABLED = "auth.vat.enabled";
 const VIRTUAL_USER_COLUMN_CLASS = {
-  identity: "w-1/3",
-  team: "w-1/6",
-  orgUnit: "w-1/6",
-  status: "w-1/6",
-  actions: "w-1/6 text-end",
+  identity: "w-2/5",
+  team: "w-1/5",
+  status: "w-1/5",
+  actions: "w-1/5 text-end",
 } as const;
 const VAT_COLUMN_CLASS = {
   name: "w-1/5",
@@ -110,7 +101,6 @@ const emptyVirtualUserForm: VirtualUserForm = {
   alias: "",
   displayName: "",
   teamID: "",
-  orgUnitID: "",
   active: true,
 };
 const emptyTokenForm: TokenForm = {
@@ -124,13 +114,11 @@ export default function VirtualUserTokenManagement({
   initialTotal,
   initialError,
   teams,
-  orgUnits,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
-  orgUnits: OrgUnit[];
 }) {
   const t = useTranslations("virtualUsers");
   const locale = useLocale();
@@ -408,7 +396,6 @@ export default function VirtualUserTokenManagement({
       alias: virtualUser.alias,
       displayName: virtualUser.display_name ?? "",
       teamID: virtualUser.team_id ?? "",
-      orgUnitID: virtualUser.org_unit_id ?? "",
       active: virtualUser.active,
     });
     setEditUserOpen(true);
@@ -469,7 +456,6 @@ export default function VirtualUserTokenManagement({
               <TableRow>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.identity}>{t("usersTable.identity")}</TableHead>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.team}>{t("usersTable.team")}</TableHead>
-                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.orgUnit}>{t("usersTable.orgUnit")}</TableHead>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.status}>{t("usersTable.status")}</TableHead>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.actions}>{t("usersTable.actions")}</TableHead>
               </TableRow>
@@ -508,9 +494,6 @@ export default function VirtualUserTokenManagement({
                     </TableCell>
                     <TableCell className={VIRTUAL_USER_COLUMN_CLASS.team}>
                       <span className="block truncate">{getTeamName(item.team_id, teams)}</span>
-                    </TableCell>
-                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.orgUnit}>
-                      <span className="block truncate">{getOrgUnitName(item.org_unit_id, orgUnits)}</span>
                     </TableCell>
                     <TableCell className={VIRTUAL_USER_COLUMN_CLASS.status}>
                       <AppStatusBadge status={item.active ? "active" : "inactive"}>{item.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>
@@ -731,7 +714,6 @@ export default function VirtualUserTokenManagement({
             form={virtualUserForm}
             setForm={setVirtualUserForm}
             teams={teams}
-            orgUnits={orgUnits}
             onSubmit={createVirtualUser}
             mode="create"
           />
@@ -757,7 +739,6 @@ export default function VirtualUserTokenManagement({
             form={virtualUserForm}
             setForm={setVirtualUserForm}
             teams={teams}
-            orgUnits={orgUnits}
             onSubmit={updateVirtualUser}
             mode="edit"
           />
@@ -838,7 +819,6 @@ function VirtualUserFormView({
   form,
   setForm,
   teams,
-  orgUnits,
   onSubmit,
   mode,
 }: {
@@ -846,7 +826,6 @@ function VirtualUserFormView({
   form: VirtualUserForm;
   setForm: (value: VirtualUserForm) => void;
   teams: Team[];
-  orgUnits: OrgUnit[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   mode: "create" | "edit";
 }) {
@@ -863,16 +842,6 @@ function VirtualUserFormView({
         options={[
           { value: "none", label: t("common.notSet") },
           ...teams.map((team) => ({ value: team.id, label: team.display_name || team.alias })),
-        ]}
-      />
-      <AppSelectField
-        label={t("fields.orgUnit")}
-        ariaLabel={t("fields.orgUnit")}
-        value={form.orgUnitID || "none"}
-        onValueChange={(value) => update("orgUnitID", value === "none" ? "" : value)}
-        options={[
-          { value: "none", label: t("common.notSet") },
-          ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias })),
         ]}
       />
       {mode === "edit" ? (
@@ -925,7 +894,6 @@ function buildVirtualUserPayload(form: VirtualUserForm, includeActive = false) {
     alias: form.alias.trim(),
     display_name: form.displayName.trim() || undefined,
     team_id: form.teamID.trim() || undefined,
-    org_unit_id: form.orgUnitID.trim() || undefined,
     ...(includeActive ? { active: form.active } : {}),
     metadata: {},
   };
@@ -942,12 +910,6 @@ function getTeamName(teamID: string | undefined, teams: Team[]) {
   if (!teamID) return "-";
   const team = teams.find((item) => item.id === teamID);
   return team ? team.display_name || team.alias : teamID;
-}
-
-function getOrgUnitName(orgUnitID: string | undefined, orgUnits: OrgUnit[]) {
-  if (!orgUnitID) return "-";
-  const org = orgUnits.find((item) => item.id === orgUnitID);
-  return org ? org.display_name || org.alias : orgUnitID;
 }
 
 function modelSummary(models: string[], t: ReturnType<typeof useTranslations>) {

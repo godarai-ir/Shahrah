@@ -53,7 +53,6 @@ import {
   getLogRangeStats,
   getLogs,
   getLogSummary,
-  getOrganizationUnitLookups,
   getVirtualAccountLookups,
   parseInitialAnalytics,
   parseInitialFacets,
@@ -495,10 +494,6 @@ export default function LogsCommandCenter({
         type: kind,
       }));
     }
-    if (kind === "org_unit") {
-      const payload = await getOrganizationUnitLookups();
-      return filterLookupPrincipals(payload.data ?? [], normalized, "org_unit");
-    }
     if (kind === "virtual_account") {
       const payload = await getVirtualAccountLookups();
       return filterLookupPrincipals(payload.data ?? [], normalized, "virtual_account");
@@ -830,7 +825,6 @@ const LogsFilters = memo(function LogsFilters({
     onSetFilter("actor_type", joinUnique(users.map((item) => item.type === "virtual_account" ? "virtual_user" : "user")));
     onSetFilter("actor_id", joinUnique(users.map((item) => item.principal_id ?? "")));
     onSetFilter("team_id", joinUnique(items.filter((item) => item.type === "team").map((item) => item.principal_id ?? "")));
-    onSetFilter("org_unit_id", joinUnique(items.filter((item) => item.type === "org_unit").map((item) => item.principal_id ?? "")));
   }, [onSetFilter]);
 
   return (
@@ -879,7 +873,7 @@ const LogsFilters = memo(function LogsFilters({
             allowEveryone={false}
             addLabel={t("filters.addPrincipal")}
             removeLabel={t("filters.removePrincipal")}
-            kinds={["user", "virtual_account", "team", "org_unit"]}
+            kinds={["user", "virtual_account", "team"]}
             variant="filter"
           />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1157,7 +1151,6 @@ function activeFilterChips(filters: Filters, t: ReturnType<typeof useTranslation
     actor_type: t("filters.actor_type"),
     actor_id: t("filters.actor_id"),
     team_id: t("filters.team_id"),
-    org_unit_id: t("filters.org_unit_id"),
     duration_min: t("filters.duration_min"),
     duration_max: t("filters.duration_max"),
     tokens_min: t("filters.tokens_min"),
@@ -1187,10 +1180,6 @@ function principalsFromFilters(filters: Filters, namesByKey: Record<string, stri
     const key = `team:${id}`;
     items.push({ type: "team", principal_id: id, display_name: namesByKey[key] ?? id });
   }
-  for (const id of splitFilterList(filters.org_unit_id)) {
-    const key = `org_unit:${id}`;
-    items.push({ type: "org_unit", principal_id: id, display_name: namesByKey[key] ?? id });
-  }
   return items;
 }
 
@@ -1208,7 +1197,7 @@ function joinUnique(values: string[]) {
 }
 
 function filterLookupPrincipals(
-  items: Array<{ id?: string; org_unit_id?: string; virtual_user_id?: string; alias?: string; display_name?: string; name?: string }>,
+  items: Array<{ id?: string; virtual_user_id?: string; alias?: string; display_name?: string; name?: string }>,
   query: string,
   type: PrincipalSearchKind,
 ): PrincipalSearchOption[] {
@@ -1217,7 +1206,7 @@ function filterLookupPrincipals(
     .filter((item) => `${item.display_name ?? ""} ${item.name ?? ""} ${item.alias ?? ""}`.toLowerCase().includes(normalized))
     .slice(0, 20)
     .map((item) => {
-      const principalID = item.id ?? item.org_unit_id ?? item.virtual_user_id ?? item.alias ?? "";
+      const principalID = item.id ?? item.virtual_user_id ?? item.alias ?? "";
       const displayName = item.display_name || item.name || item.alias || principalID;
       return {
         principal_id: principalID,

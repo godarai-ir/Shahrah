@@ -35,7 +35,6 @@ describe("VirtualUserTokenManagement", () => {
         initialTotal={0}
         initialError={null}
         teams={[]}
-        orgUnits={[]}
       />,
     );
 
@@ -61,7 +60,6 @@ describe("VirtualUserTokenManagement", () => {
         initialTotal={1}
         initialError={null}
         teams={[{ id: "team-1", alias: "ops" }]}
-        orgUnits={[]}
       />,
     );
 
@@ -110,7 +108,6 @@ describe("VirtualUserTokenManagement", () => {
         initialTotal={0}
         initialError={null}
         teams={[{ id: "team-1", alias: "ops" }]}
-        orgUnits={[]}
       />,
     );
 
@@ -148,7 +145,6 @@ describe("VirtualUserTokenManagement", () => {
         initialTotal={0}
         initialError={null}
         teams={[]}
-        orgUnits={[]}
       />,
     );
 

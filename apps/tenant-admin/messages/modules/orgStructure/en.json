@@ -1,9 +1,8 @@
 {
-  "title": "Organizational structure",
-  "subtitle": "See which teams sit under which org unit, and manage both from one place.",
+  "title": "Teams",
+  "subtitle": "Manage your teams, their members, and their usage from one place.",
   "actions": {
     "newTeam": "New team",
-    "newOrgUnit": "New org unit",
     "refresh": "Refresh",
     "manageMembers": "Manage members",
     "edit": "Edit",
@@ -22,7 +21,6 @@
     "monthCost": "Cost this month",
     "teamCount": "{count} teams",
     "loading": "Loading organizational structure...",
-    "emptyUnits": "No organization units yet.",
     "emptyTeams": "No teams yet.",
     "emptySearch": "No teams match \"{query}\"."
   },
@@ -33,28 +31,13 @@
     "last_7_days": "Last 7 days"
   },
   "detail": {
-    "empty": "Select a team or an org unit to see its details.",
-    "unit": {
-      "teams": "Teams",
-      "members": "Members",
-      "costMonth": "Cost this month",
-      "childTeams": "Teams in this unit",
-      "noChildTeams": "No teams are assigned to this unit yet.",
-      "admins": "Org unit admins",
-      "noAdmins": "No org unit admins assigned.",
-      "lastChange": "Last changed",
-      "rawMetadata": "Raw metadata",
-      "deleteGuardTitle": "Cannot delete while teams remain",
-      "deleteGuardDescription": "This unit has {count} team(s). Move or delete them before deleting the unit."
-    },
+    "empty": "Select a team to see its details.",
     "team": {
       "members": "Members",
       "membersSubtitle": "{count} team admin(s)",
       "activeKeys": "Active keys",
       "activeKeysSubtitle": "{count} virtual user(s)",
       "costMonth": "Cost this month",
-      "inheritanceTitle": "Access inheritance",
-      "inheritanceDescription": "Org unit and team rate-limit and budget rules both apply to this team at once; the stricter one wins. Neither level overrides the other.",
       "membersPreview": "Members",
       "noMembers": "No team members found.",
       "andMore": "+{count} more",
@@ -63,11 +46,8 @@
     }
   },
   "entitlements": {
-    "teamsFlatListTitle": "Teams only",
-    "teamsFlatListDescription": "Organization units are not available on your plan. Teams are shown as a flat list.",
-    "orgUnitsNoTeamsDescription": "Team creation is not available on your plan. Org units are shown without child teams.",
-    "bothDisabledTitle": "Organizational structure is not available on your plan",
-    "bothDisabledDescription": "Teams and organization units are not included in your current commercial plan. Upgrade your plan to use this feature.",
-    "upgrade": "Upgrade or buy a plan"
+    "upgrade": "Upgrade or buy a plan",
+    "disabledTitle": "Teams are not available on your plan",
+    "disabledDescription": "Teams are not included in your current commercial plan. Upgrade your plan to use this feature."
   }
 }

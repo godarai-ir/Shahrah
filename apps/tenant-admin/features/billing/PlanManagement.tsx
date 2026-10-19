@@ -69,7 +69,6 @@ const featureOrder = [
   "auth.vat.enabled",
   "rbac.enabled",
   "sso.enabled",
-  "org_units.enabled",
   "admin_audit.enabled",
   "deployment.saas.enabled",
   "deployment.vpc.enabled",
@@ -103,7 +102,6 @@ const docsPathByFeature: Record<string, string> = {
   "auth.pat.enabled": "/guides/api-keys",
   "auth.vat.enabled": "/guides/virtual-account-management",
   "rbac.enabled": "/guides/roles-and-permissions",
-  "org_units.enabled": "/guides/org-unit-management",
 };
 
 export default function PlanManagement({
@@ -395,8 +393,6 @@ function getFeatureTitle(key: string, t: ReturnType<typeof useTranslations>): st
       return t("features.rbacEnabled");
     case "sso.enabled":
       return t("features.ssoEnabled");
-    case "org_units.enabled":
-      return t("features.orgUnitsEnabled");
     case "admin_audit.enabled":
       return t("features.adminAuditEnabled");
     case "deployment.saas.enabled":

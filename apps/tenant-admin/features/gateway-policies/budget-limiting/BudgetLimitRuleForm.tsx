@@ -166,7 +166,6 @@ export function BudgetLimitRuleForm({ initialRule, rules, onCancel, onSaved }: B
                   { value: "tenant", label: t("form.options.applyPer.tenant") },
                   { value: "user", label: t("form.options.applyPer.user") },
                   { value: "team", label: t("form.options.applyPer.team") },
-                  { value: "org_unit", label: t("form.options.applyPer.orgUnit") },
                   { value: "model", label: t("form.options.applyPer.model") },
                   { value: "virtualaccount", label: t("form.options.applyPer.virtualAccount") },
                   { value: "metadata.project_id", label: t("form.options.applyPer.metadataProjectId") },

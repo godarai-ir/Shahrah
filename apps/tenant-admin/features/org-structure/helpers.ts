@@ -1,4 +1,3 @@
-import type { OrgUnit } from "@/lib/api/org-units";
 import type { Team } from "@/lib/api/teams";
 
 export const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal", "general"] as const;
@@ -6,10 +5,6 @@ const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
 
 export function getTeamName(team: Team): string {
   return team.display_name || toText(team.metadata?.display_name) || team.alias;
-}
-
-export function getOrgUnitName(orgUnit: OrgUnit): string {
-  return orgUnit.display_name || toText(orgUnit.metadata?.display_name) || orgUnit.alias;
 }
 
 export function getWorkspaceType(team: Team): string {

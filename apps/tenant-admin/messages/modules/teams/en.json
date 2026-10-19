@@ -1,6 +1,6 @@
 {
   "title": "Teams",
-  "subtitle": "Manage team workspaces, members, permissions, and organizational scope.",
+  "subtitle": "Manage team workspaces, members, and permissions.",
   "breadcrumb": {
     "tenant": "Tenant"
   },
@@ -24,7 +24,6 @@
   },
   "filters": {
     "search": "Search alias or display name",
-    "orgAll": "All org units",
     "workspaceAll": "All workspace types",
     "statusAll": "All statuses",
     "sortLabel": "Sort teams"
@@ -49,9 +48,6 @@
   "table": {
     "loading": "Loading teams...",
     "team": "Team",
-    "orgUnit": "Org unit",
-    "orgUnknown": "Unknown org unit",
-    "tenantRoot": "Tenant root",
     "workspaceType": "Workspace type",
     "membersAdmins": "Members/Admins",
     "activeKeys": "Active keys",
@@ -75,7 +71,6 @@
   "detail": {
     "empty": "Select a team to inspect its members, scope, and permissions.",
     "access": "Access scope",
-    "orgInheritance": "Org unit scope: {value}",
     "permissions": "Permission set size: {value}",
     "members": "Members",
     "membersDescription": "Members with direct access to this team and their access level.",
@@ -86,12 +81,12 @@
   },
   "create": {
     "title": "Create team",
-    "description": "Create a team with an optional organizational unit scope.",
+    "description": "Create a team workspace.",
     "submit": "Create team"
   },
   "edit": {
     "title": "Edit team",
-    "description": "Update the team identity, organizational scope, and workspace type.",
+    "description": "Update the team identity and workspace type.",
     "submit": "Save changes"
   },
   "delete": {
@@ -118,15 +113,42 @@
     "teamAdminAccessTitle": "Team admin access",
     "teamAdminAccessDescription": "Team admins receive access to all key operations in this team through their RBAC role and do not need separate permissions.",
     "permissionOptions": {
-      "info": { "label": "View key details", "description": "View a key's information and configuration" },
-      "list": { "label": "List keys", "description": "See keys that belong to this team" },
-      "generate": { "label": "Create keys", "description": "Create a new key for this team" },
-      "update": { "label": "Edit keys", "description": "Change team key configuration" },
-      "delete": { "label": "Delete keys", "description": "Permanently delete team keys" },
-      "regenerate": { "label": "Rotate keys", "description": "Regenerate a key's secret value" },
-      "block": { "label": "Block keys", "description": "Temporarily stop a key from being used" },
-      "unblock": { "label": "Unblock keys", "description": "Reactivate a blocked key" },
-      "health": { "label": "Check key health", "description": "View key health and availability" }
+      "info": {
+        "label": "View key details",
+        "description": "View a key's information and configuration"
+      },
+      "list": {
+        "label": "List keys",
+        "description": "See keys that belong to this team"
+      },
+      "generate": {
+        "label": "Create keys",
+        "description": "Create a new key for this team"
+      },
+      "update": {
+        "label": "Edit keys",
+        "description": "Change team key configuration"
+      },
+      "delete": {
+        "label": "Delete keys",
+        "description": "Permanently delete team keys"
+      },
+      "regenerate": {
+        "label": "Rotate keys",
+        "description": "Regenerate a key's secret value"
+      },
+      "block": {
+        "label": "Block keys",
+        "description": "Temporarily stop a key from being used"
+      },
+      "unblock": {
+        "label": "Unblock keys",
+        "description": "Reactivate a blocked key"
+      },
+      "health": {
+        "label": "Check key health",
+        "description": "View key health and availability"
+      }
     },
     "unknownUser": "Unknown user",
     "add": "Add member",
@@ -137,7 +159,6 @@
   "form": {
     "alias": "Technical identifier",
     "displayName": "Display name",
-    "orgUnit": "Org unit (optional)",
     "workspaceType": "Workspace type",
     "description": "Description"
   },

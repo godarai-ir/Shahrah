@@ -18,7 +18,7 @@ function t(key: string) {
     "nav.roles": "نقش‌ها",
     "nav.users": "کاربران",
     "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
-    "nav.orgStructure": "ساختار سازمانی",
+    "nav.orgStructure": "تیم‌ها",
     "nav.virtualUsers": "کاربران مجازی",
     "nav.supportTickets": "پشتیبانی",
   };
@@ -58,11 +58,7 @@ describe("admin access navigation items", () => {
   });
 
   it("shows the org structure item for team:read only", () => {
-    expect(getVisibleTitles(["team:read"])).toContain("ساختار سازمانی");
-  });
-
-  it("shows the org structure item for org_unit:read only", () => {
-    expect(getVisibleTitles(["org_unit:read"])).toContain("ساختار سازمانی");
+    expect(getVisibleTitles(["team:read"])).toContain("تیم‌ها");
   });
 
   it("shows the users item for user:list only", () => {
@@ -113,7 +109,6 @@ describe("admin sidebar sections", () => {
     expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
     expect(activeKeys("/teams")).toContain("orgStructure");
-    expect(activeKeys("/org-units")).toContain("orgStructure");
     expect(activeKeys("/billing/topup")).toContain("billing");
   });
 
