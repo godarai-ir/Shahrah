@@ -60,42 +60,6 @@ func delegatedUserID(c *fiber.Ctx) string {
 	return apiheaders.GetUserID(c)
 }
 
-func requireOrgUnitCreate(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit create permission required", []string{"org_unit:create", "org_unit:manage"})
-}
-
-func requireOrgUnitRead(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit read permission required", []string{"org_unit:list", "org_unit:read", "org_unit:manage"})
-}
-
-func requireOrgUnitManage(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit manage permission required", []string{"org_unit:manage"})
-}
-
-func requireOrgUnitDelete(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit delete permission required", []string{"org_unit:delete", "org_unit:manage"})
-}
-
 func requireTeamRead(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
 	if auth.IsOrgAdminOrHigher(authInfo) {
@@ -211,10 +175,6 @@ func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
 		}
 	case "team":
 		if has("team:read") || has("team:manage") {
-			return nil
-		}
-	case "org_unit":
-		if has("org_unit:read") || has("org_unit:list") || has("org_unit:manage") {
 			return nil
 		}
 	}

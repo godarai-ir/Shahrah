@@ -16,14 +16,14 @@ import (
 )
 
 const logPayloadMaxBytes = 32 * 1024
-const requestLogInsertColumnCount = 40
+const requestLogInsertColumnCount = 39
 
 // SupportsLazyRequestLogPayload reports that the repository materializes payloads after enqueue.
 func (*RequestLogRepository) SupportsLazyRequestLogPayload() bool { return true }
 
 func (s *RequestLogRepository) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 	return s.validateClickHouseColumns(ctx, "request_logs_ch", []string{
-		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "org_unit_id", "team_id",
+		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "team_id",
 		"actor_type", "actor_id", "provider", "provider_model", "model", "virtual_model", "route", "request_type",
 		"status", "status_code", "error_type", "started_at", "duration_ms", "input_tokens", "output_tokens",
 		"total_tokens", "cost_usd", "cost_irr", "cache_status", "cache_mode", "retry_count", "fallback_count",
@@ -63,7 +63,7 @@ func (s *RequestLogRepository) LogRequests(ctx context.Context, entries []platfo
 
 	_, err := s.clickhouse.ExecContext(ctx, `
 		INSERT INTO request_logs_ch (
-			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, org_unit_id, team_id,
+			log_id, tenant_id, request_id, trace_id, token_hash, organization_id, team_id,
 			actor_type, actor_id, provider, provider_model, model, virtual_model, route, request_type,
 			status, status_code, error_type, started_at, duration_ms, input_tokens, output_tokens, total_tokens,
 			cost_usd, cost_irr, cache_status, cache_mode, retry_count, fallback_count, fallback_status,
@@ -117,7 +117,6 @@ func (s *RequestLogRepository) requestLogInsertArgs(ctx context.Context, entry p
 		strings.TrimSpace(entry.TraceID),
 		strings.TrimSpace(entry.TokenHash),
 		strings.TrimSpace(entry.OrganizationID),
-		strings.TrimSpace(entry.OrgUnitID),
 		strings.TrimSpace(entry.TeamID),
 		strings.TrimSpace(entry.ActorType),
 		strings.TrimSpace(entry.ActorID),
@@ -263,7 +262,6 @@ func (s *RequestLogRepository) getRequestLogV2FromClickHouse(ctx context.Context
 		metadataJSON        string
 		actorType           string
 		actorID             string
-		orgUnitID           string
 		teamID              string
 	)
 
@@ -274,7 +272,7 @@ func (s *RequestLogRepository) getRequestLogV2FromClickHouse(ctx context.Context
 			total_tokens, toFloat64(cost_usd), toFloat64(cost_irr), cache_status, retry_count, fallback_count,
 			fallback_status, load_balance_status, payload_mode, request_payload_json, response_payload_json,
 			request_payload_meta_json, response_payload_meta_json, request_payload_truncated, response_payload_truncated,
-			metadata_json, actor_type, actor_id, org_unit_id, team_id
+			metadata_json, actor_type, actor_id, team_id
 		FROM request_logs_ch
 		WHERE tenant_id = ? AND log_id = ?
 		ORDER BY started_at DESC
@@ -286,7 +284,7 @@ func (s *RequestLogRepository) getRequestLogV2FromClickHouse(ctx context.Context
 		&item.Log.CostUSD, &item.Log.CostIRR, &item.Log.CacheStatus, &retryCount, &fallbackCount,
 		&item.Log.FallbackStatus, &item.Log.LoadBalanceStatus, &item.Log.PayloadMode, &requestPayloadJSON,
 		&responsePayloadJSON, &requestMetaJSON, &responseMetaJSON, &requestTruncated, &responseTruncated,
-		&metadataJSON, &actorType, &actorID, &orgUnitID, &teamID,
+		&metadataJSON, &actorType, &actorID, &teamID,
 	)
 	if err != nil {
 		if errorsIsNoRows(err) {
@@ -304,7 +302,7 @@ func (s *RequestLogRepository) getRequestLogV2FromClickHouse(ctx context.Context
 	item.Log.RetryCount = int(retryCount)
 	item.Log.FallbackCount = int(fallbackCount)
 	item.Actor = map[string]string{"type": actorType, "id": actorID}
-	item.Scope = map[string]string{"org_unit_id": orgUnitID, "team_id": teamID}
+	item.Scope = map[string]string{"team_id": teamID}
 
 	item.ContentVisibility = platform.RequestLogContentVisibilityV2{
 		CanViewContent:    includeContent,
@@ -923,7 +921,6 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 	appendFilter(params.PayloadMode, "payload_mode = ?")
 	appendMultiFilter(params.ActorType, "actor_type")
 	appendMultiFilter(params.ActorID, "actor_id")
-	appendMultiFilter(params.OrgUnitID, "org_unit_id")
 	appendMultiFilter(params.TeamID, "team_id")
 
 	if params.StatusCode != nil {
@@ -1060,8 +1057,6 @@ func normalizeLogAnalyticsGroupBy(groupBy string) string {
 		return "payload_mode"
 	case "team_id":
 		return "team_id"
-	case "org_unit_id":
-		return "org_unit_id"
 	default:
 		return ""
 	}

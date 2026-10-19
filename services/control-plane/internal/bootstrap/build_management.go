@@ -27,7 +27,6 @@ func (b *builder) buildManagement() error {
 	dependencies := admin.Dependencies{
 		IAM: admin.IAMDependencies{
 			Keys:         b.iamApplication,
-			OrgUnits:     b.iamApplication,
 			Memberships:  b.iamApplication,
 			Users:        b.tenantAdminApplication,
 			VirtualUsers: b.iamApplication,

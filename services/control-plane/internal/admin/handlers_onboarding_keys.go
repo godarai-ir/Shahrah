@@ -152,10 +152,6 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		}
 
 		req.VirtualUserID = virtualUser.ID
-		if req.OrgUnitID == "" {
-			req.OrgUnitID = virtualUser.OrgUnitID
-			req.OrgID = virtualUser.OrgUnitID
-		}
 	}
 
 	if req.KeyType == platform.KeyTypeVAT && req.VirtualUserID != "" && h.virtualUsers != nil {
@@ -174,11 +170,6 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 
 		if req.TeamID == "" {
 			req.TeamID = virtualUser.TeamID
-		}
-
-		if req.OrgUnitID == "" {
-			req.OrgUnitID = virtualUser.OrgUnitID
-			req.OrgID = virtualUser.OrgUnitID
 		}
 	}
 
@@ -295,14 +286,6 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 	req.VirtualUserID = virtualUser.ID
 	if req.TeamID == "" {
 		req.TeamID = virtualUser.TeamID
-	}
-
-	if req.OrgUnitID == "" {
-		req.OrgUnitID = virtualUser.OrgUnitID
-	}
-
-	if req.OrgID == "" {
-		req.OrgID = req.OrgUnitID
 	}
 
 	if req.TeamID == "" {
@@ -612,7 +595,6 @@ func (h *Handlers) ensureLegacyVATVirtualUser(c *fiber.Ctx, tenantID string, req
 	created, err := h.virtualUsers.CreateVirtualUser(c.Context(), tenantID, platform.CreateVirtualUserRequest{
 		Alias:       alias,
 		DisplayName: "Legacy VAT " + req.TeamID,
-		OrgUnitID:   req.OrgUnitID,
 		TeamID:      req.TeamID,
 		Metadata: map[string]interface{}{
 			"source": "legacy_vat_key_endpoint",

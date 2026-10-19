@@ -418,7 +418,6 @@ func (h *EmbeddingsHandler) handleSync(
 			"endpoint":            "/v1/embeddings",
 			"key_type":            authInfo.KeyType,
 			"team_id":             authInfo.TeamID,
-			"org_unit_id":         authInfo.OrgUnitID,
 			"tenant_slug":         tenantSlug,
 			"input_count":         embeddingInputCount(req.Input),
 			"encoding_format":     embeddingEncodingValue(req.EncodingFormat),

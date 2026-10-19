@@ -482,7 +482,6 @@ func (h *CompletionsHandler) handleSync(
 				"endpoint":    "/v1/completions",
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
-				"org_unit_id": authInfo.OrgUnitID,
 				"tenant_slug": tenantSlug,
 			}, tunnelReq.Deployment),
 		})
@@ -655,7 +654,6 @@ func (h *CompletionsHandler) handleStream(
 					"endpoint":    "/v1/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})

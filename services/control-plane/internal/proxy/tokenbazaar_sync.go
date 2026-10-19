@@ -141,7 +141,6 @@ func tokenBazaarHandleSync(
 				"endpoint":    cfg.metricEndpoint,
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
-				"org_unit_id": authInfo.OrgUnitID,
 				"tenant_slug": tenantSlug,
 			}, tunnelReq.Deployment),
 		})

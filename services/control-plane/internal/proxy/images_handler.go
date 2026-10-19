@@ -469,7 +469,6 @@ func (h *ImagesHandler) handleSync(
 			"endpoint":    "/v1" + op.Path,
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 			"operation":   op.Name,
 		}, tunnelReq.Deployment),

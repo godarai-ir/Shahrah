@@ -73,7 +73,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 		auth.KeyType = deriveKeyType(auth.TeamID)
 	}
 
-	auth.OrgUnitID = auth.OrganizationID
 	auth.ExpiresAt = expiresAt
 	auth.VirtualModelSnapshots = parseVirtualModelSnapshots(rawMetadata)
 
@@ -225,43 +224,6 @@ func (s *AuthRepository) listRuntimeAllowedModelsByProviderAccount(ctx context.C
 				)
 			)
 			OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
-			OR (
-				ac.principal_type = 'org_unit'
-				AND ac.principal_id IS NOT NULL
-				AND (
-					(
-						NULLIF($3, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM organization_memberships om
-							WHERE om.tenant_id = $1::uuid
-							  AND om.organization_id::text = ac.principal_id::text
-							  AND om.user_id::text = NULLIF($3, '')
-						)
-					)
-					OR (
-						NULLIF($3, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM team_memberships tm
-							JOIN teams t ON t.team_id = tm.team_id
-							WHERE tm.tenant_id = $1::uuid
-							  AND tm.user_id::text = NULLIF($3, '')
-							  AND t.org_unit_id::text = ac.principal_id::text
-						)
-					)
-					OR (
-						NULLIF($2, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM teams t
-							WHERE t.tenant_id = $1::uuid
-							  AND t.team_id::text = NULLIF($2, '')
-							  AND t.org_unit_id::text = ac.principal_id::text
-						)
-					)
-				)
-			)
 		  )
 	`, tenantID, teamID, userID)
 	if err != nil {
@@ -417,7 +379,6 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 
 		params.TeamID = teamID
 		params.OrgID = orgID
-		params.OrgUnitID = orgID
 	}
 
 	rawKey := "sk-" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -484,7 +445,6 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 		AllowedModels:   append([]string(nil), params.Models...),
 		TeamID:          params.TeamID,
 		OrgID:           params.OrgID,
-		OrgUnitID:       params.OrgUnitID,
 		UserID:          params.UserID,
 		VirtualUserID:   params.VirtualUserID,
 		CreatedAt:       &now,
@@ -533,7 +493,6 @@ func (s *AuthRepository) ListKeys(ctx context.Context, tenantID string) ([]platf
 			item.KeyType = deriveKeyType(item.TeamID)
 		}
 
-		item.OrgUnitID = item.OrgID
 		keys = append(keys, item)
 	}
 
@@ -637,7 +596,6 @@ func (s *AuthRepository) ListPATs(ctx context.Context, tenantID string, userID s
 		item.AllowedModels = append([]string(nil), models...)
 		item.Role = platform.LegacyKeyRoleVirtualKey
 		item.KeyType = platform.KeyTypePAT
-		item.OrgUnitID = item.OrgID
 		items = append(items, item)
 	}
 
@@ -970,8 +928,6 @@ func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
 		item.KeyType = deriveKeyType(item.TeamID)
 	}
 
-	item.OrgUnitID = item.OrgID
-
 	return &item, nil
 }
 
@@ -982,15 +938,14 @@ func (s *AuthRepository) resolveVATVirtualUserScope(ctx context.Context, tenantI
 
 	var (
 		teamID string
-		orgID  string
 		active bool
 	)
 	if err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), COALESCE(active, true)
+		SELECT COALESCE(team_id::text, ''), COALESCE(active, true)
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid
 		  AND virtual_user_id = $2::uuid
-	`, strings.TrimSpace(tenantID), strings.TrimSpace(virtualUserID)).Scan(&teamID, &orgID, &active); err != nil {
+	`, strings.TrimSpace(tenantID), strings.TrimSpace(virtualUserID)).Scan(&teamID, &active); err != nil {
 		return "", "", err
 	}
 
@@ -1005,19 +960,11 @@ func (s *AuthRepository) resolveVATVirtualUserScope(ctx context.Context, tenantI
 		return "", "", fmt.Errorf("team_id does not match virtual user scope")
 	}
 
-	if orgID != "" && requestedOrgID != "" && requestedOrgID != orgID {
-		return "", "", fmt.Errorf("org_unit_id does not match virtual user scope")
-	}
-
 	if requestedTeamID != "" {
 		teamID = requestedTeamID
 	}
 
-	if requestedOrgID != "" {
-		orgID = requestedOrgID
-	}
-
-	return teamID, orgID, nil
+	return teamID, requestedOrgID, nil
 }
 
 func deriveKeyRole(teamID string) string {

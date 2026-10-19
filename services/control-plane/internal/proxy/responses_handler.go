@@ -1129,7 +1129,6 @@ func (h *ResponsesHandler) handleSync(
 			"endpoint":    "/v1/responses",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 		}), tunnelReq.Deployment),
 	})
@@ -1383,7 +1382,6 @@ func (h *ResponsesHandler) handleStream(
 					"endpoint":    "/v1/responses",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})

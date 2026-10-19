@@ -102,18 +102,6 @@ type providerAccountStore interface {
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
 }
 
-type orgUnitStore interface {
-	CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error)
-	ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error)
-	GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error)
-	UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error)
-	DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error
-	ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error)
-	AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error
-}
-
 type virtualUserStore interface {
 	CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error)
 	ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error)
@@ -313,7 +301,6 @@ type platformProviderCredentialService interface {
 // IAMDependencies contains identity and access management ports.
 type IAMDependencies struct {
 	Keys         keyStore
-	OrgUnits     orgUnitStore
 	Memberships  membershipStore
 	Users        userStore
 	VirtualUsers virtualUserStore
@@ -384,7 +371,6 @@ type Dependencies struct {
 
 type iamState struct {
 	keys         keyStore
-	orgUnits     orgUnitStore
 	memberships  membershipStore
 	users        userStore
 	virtualUsers virtualUserStore
@@ -450,7 +436,6 @@ func New(deps Dependencies) *Handlers {
 	return &Handlers{
 		iamState: iamState{
 			keys:         deps.IAM.Keys,
-			orgUnits:     deps.IAM.OrgUnits,
 			memberships:  deps.IAM.Memberships,
 			users:        deps.IAM.Users,
 			virtualUsers: deps.IAM.VirtualUsers,

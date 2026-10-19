@@ -475,8 +475,6 @@ func rateLimitScopeFields(rule platform.RateLimitRule) []string {
 					fields = append(fields, "team_id")
 				case "virtual_account":
 					fields = append(fields, "key_id")
-				case "organization_unit":
-					fields = append(fields, "org_unit_id")
 				default:
 					fields = append(fields, "user_id")
 				}

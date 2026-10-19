@@ -140,7 +140,7 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"rotation_grace_expires_at", "revoked_reason", "created_at", "updated_at",
 		},
 		"virtual_users": {
-			"virtual_user_id", "tenant_id", "team_id", "org_unit_id", "alias", "display_name",
+			"virtual_user_id", "tenant_id", "team_id", "alias", "display_name",
 			"metadata", "active", "created_at", "updated_at",
 		},
 		"model_deployments": {
@@ -1645,7 +1645,6 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
 			IAM: admin.IAMDependencies{
 				Keys:         store,
-				OrgUnits:     store,
 				Memberships:  store,
 				Users:        store,
 				VirtualUsers: store,

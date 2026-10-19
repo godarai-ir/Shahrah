@@ -11,7 +11,6 @@ const (
 	FeatureTracesRetentionDays     = "traces.retention_days"
 	FeatureVATEnabled              = "auth.vat.enabled"
 	FeatureRBACEnabled             = "rbac.enabled"
-	FeatureOrgUnitsEnabled         = "org_units.enabled"
 )
 
 type CommercialPlan struct {

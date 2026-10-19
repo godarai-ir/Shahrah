@@ -1345,7 +1345,6 @@ func (h *ChatCompletionHandler) handleStream(
 					"endpoint":    "/v1/chat/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.RequestMetadata), tunnelReq.Deployment),
 			})

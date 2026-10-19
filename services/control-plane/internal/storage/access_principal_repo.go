@@ -26,8 +26,6 @@ func (s *ProviderAccountRepository) SearchAccessPrincipals(ctx context.Context, 
 		return s.searchUserPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	case "team":
 		return s.searchTeamPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
-	case "org_unit":
-		return s.searchOrgUnitPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	default:
 		return []platform.AccessPrincipalCandidate{}, nil
 	}
@@ -129,48 +127,6 @@ func (s *ProviderAccountRepository) searchTeamPrincipals(ctx context.Context, te
 			PrincipalID: id,
 			DisplayName: displayName,
 			Secondary:   secondary,
-		})
-	}
-
-	return items, rows.Err()
-}
-
-func (s *ProviderAccountRepository) searchOrgUnitPrincipals(ctx context.Context, tenantID, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
-	like := "%" + query + "%"
-
-	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id::text, COALESCE(organization_alias, '')
-		FROM organizations
-		WHERE tenant_id = NULLIF($1, '')::uuid
-		  AND ($2 = '' OR organization_alias ILIKE $3)
-		ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-		LIMIT $4
-	`, tenantID, query, like, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.AccessPrincipalCandidate, 0)
-
-	for rows.Next() {
-		var (
-			id    string
-			alias string
-		)
-		if err := rows.Scan(&id, &alias); err != nil {
-			return nil, err
-		}
-
-		displayName := strings.TrimSpace(alias)
-		if displayName == "" {
-			displayName = id
-		}
-
-		items = append(items, platform.AccessPrincipalCandidate{
-			Type:        platform.PrincipalTypeOrgUnit,
-			PrincipalID: id,
-			DisplayName: displayName,
 		})
 	}
 

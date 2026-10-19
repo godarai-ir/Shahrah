@@ -13,15 +13,6 @@ type Handler interface {
 	PersonalAccessTokenExists(*fiber.Ctx) error
 	RevokeAllPersonalAccessTokens(*fiber.Ctx) error
 	RevokePersonalAccessToken(*fiber.Ctx) error
-	ListOrgUnits(*fiber.Ctx) error
-	CreateOrgUnit(*fiber.Ctx) error
-	GetOrgUnit(*fiber.Ctx) error
-	UpdateOrgUnit(*fiber.Ctx) error
-	DeleteOrgUnit(*fiber.Ctx) error
-	ListOrgUnitMembers(*fiber.Ctx) error
-	AddOrgUnitMember(*fiber.Ctx) error
-	UpdateOrgUnitMember(*fiber.Ctx) error
-	DeleteOrgUnitMember(*fiber.Ctx) error
 	ListTeams(*fiber.Ctx) error
 	CreateTeam(*fiber.Ctx) error
 	GetTeam(*fiber.Ctx) error
@@ -78,15 +69,6 @@ func (r *Routes) RegisterTenant(router fiber.Router) {
 	router.Get("/personal-access-tokens/exists", r.handler.PersonalAccessTokenExists)
 	router.Delete("/personal-access-tokens/revoke/all", r.handler.RevokeAllPersonalAccessTokens)
 	router.Delete("/personal-access-tokens/:id", r.handler.RevokePersonalAccessToken)
-	router.Get("/org-units", r.handler.ListOrgUnits)
-	router.Post("/org-units", r.handler.CreateOrgUnit)
-	router.Get("/org-units/:orgUnitID", r.handler.GetOrgUnit)
-	router.Patch("/org-units/:orgUnitID", r.handler.UpdateOrgUnit)
-	router.Delete("/org-units/:orgUnitID", r.handler.DeleteOrgUnit)
-	router.Get("/org-units/:orgUnitID/members", r.handler.ListOrgUnitMembers)
-	router.Post("/org-units/:orgUnitID/members", r.handler.AddOrgUnitMember)
-	router.Patch("/org-units/:orgUnitID/members/:userID", r.handler.UpdateOrgUnitMember)
-	router.Delete("/org-units/:orgUnitID/members/:userID", r.handler.DeleteOrgUnitMember)
 	router.Get("/teams", r.handler.ListTeams)
 	router.Post("/teams", r.handler.CreateTeam)
 	router.Get("/teams/:teamID", r.handler.GetTeam)

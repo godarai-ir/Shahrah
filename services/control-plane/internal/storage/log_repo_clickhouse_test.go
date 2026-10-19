@@ -35,7 +35,6 @@ func TestBuildRequestLogsWhereIncludesEnterpriseFilters(t *testing.T) {
 		LoadBalanceStatus: "weighted",
 		PayloadMode:       "metadata_only",
 		ActorID:           "user-1",
-		OrgUnitID:         "org-1",
 		TeamID:            "team-1",
 		StatusCode:        &statusCode,
 		DurationMin:       &durationMin,
@@ -58,7 +57,6 @@ func TestBuildRequestLogsWhereIncludesEnterpriseFilters(t *testing.T) {
 		"load_balance_status = ?",
 		"payload_mode = ?",
 		"actor_id = ?",
-		"org_unit_id = ?",
 		"team_id = ?",
 		"duration_ms >= ?",
 		"duration_ms <= ?",
@@ -74,7 +72,7 @@ func TestBuildRequestLogsWhereIncludesEnterpriseFilters(t *testing.T) {
 		}
 	}
 
-	if got, want := len(args), 26; got != want {
+	if got, want := len(args), 25; got != want {
 		t.Fatalf("unexpected arg count: got %d want %d", got, want)
 	}
 }

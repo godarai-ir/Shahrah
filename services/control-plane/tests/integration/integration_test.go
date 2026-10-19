@@ -413,7 +413,7 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 
 	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys/vat", "Bearer sk-master", `{"key_alias":"svc-team-key","allowed_models":["openai:default:gpt-4o-mini"],"team_id":"team-ops","org_unit_id":"org-platform"}`)
+	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/keys/vat", "Bearer sk-master", `{"key_alias":"svc-team-key","allowed_models":["openai:default:gpt-4o-mini"],"team_id":"team-ops"}`)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var out platform.CreatedKey
@@ -421,8 +421,6 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 	assert.Equal(t, platform.KeyTypeVAT, out.KeyType)
 	assert.Equal(t, platform.LegacyKeyRoleServiceAccount, out.Role)
 	assert.Equal(t, "team-ops", out.TeamID)
-	assert.Equal(t, "org-platform", out.OrgUnitID)
-	assert.Equal(t, "org-platform", out.OrgID)
 	assert.Equal(t, []string{"openai:default:gpt-4o-mini"}, out.AllowedModels)
 }
 
@@ -673,41 +671,6 @@ func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T
 	assert.Equal(t, "member", out.Invitation.Role)
 }
 
-func TestIntegration_OrgUnitCRUD(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer provider.Close()
-
-	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-
-	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering","display_name":"Engineering"}`)
-	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
-
-	var created platform.OrgUnit
-	decodeJSONBody(t, createResp, &created)
-	assert.Equal(t, "engineering", created.Alias)
-	assert.Equal(t, "Engineering", created.DisplayName)
-
-	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units?limit=20&offset=0", "Bearer sk-master", "")
-	assert.Equal(t, http.StatusOK, listResp.StatusCode)
-
-	var listed platform.OrgUnitListResponse
-	decodeJSONBody(t, listResp, &listed)
-	require.Len(t, listed.Data, 1)
-
-	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+created.ID, "Bearer sk-master", `{"display_name":"Platform Engineering"}`)
-	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
-
-	var updated platform.OrgUnit
-	decodeJSONBody(t, updateResp, &updated)
-	assert.Equal(t, "Platform Engineering", updated.DisplayName)
-
-	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/org-units/"+created.ID, "Bearer sk-master", "")
-	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
-}
-
 func TestIntegration_VirtualUserCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
@@ -756,7 +719,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 
-	vuResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"deploy-bot","display_name":"Deploy Bot","team_id":"team-ops","org_unit_id":"org-platform"}`)
+	vuResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/virtual-users", "Bearer sk-master", `{"alias":"deploy-bot","display_name":"Deploy Bot","team_id":"team-ops"}`)
 	assert.Equal(t, http.StatusCreated, vuResp.StatusCode)
 
 	var virtualUser platform.VirtualUser
@@ -771,7 +734,6 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 	assert.Equal(t, platform.KeyTypeVAT, created.KeyType)
 	assert.Equal(t, virtualUser.ID, created.VirtualUserID)
 	assert.Equal(t, "team-ops", created.TeamID)
-	assert.Equal(t, "org-platform", created.OrgUnitID)
 
 	authInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
 	require.NoError(t, err)
@@ -811,45 +773,6 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 	revokedAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(rotated.Key))
 	require.NoError(t, err)
 	assert.True(t, revokedAuthInfo.Blocked)
-}
-
-func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	memCache, _ := testcache.New(t, logger)
-
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer provider.Close()
-
-	app, _, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
-	orgResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units", "Bearer sk-master", `{"alias":"engineering"}`)
-	assert.Equal(t, http.StatusCreated, orgResp.StatusCode)
-
-	var org platform.OrgUnit
-	decodeJSONBody(t, orgResp, &org)
-
-	addResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", `{"user_id":"user-1","role":"org_admin"}`)
-	assert.Equal(t, http.StatusCreated, addResp.StatusCode)
-
-	var added platform.OrgUnitMembership
-	decodeJSONBody(t, addResp, &added)
-	assert.Equal(t, "org_admin", added.Role)
-
-	listResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/org-units/"+org.ID+"/members", "Bearer sk-master", "")
-	assert.Equal(t, http.StatusOK, listResp.StatusCode)
-
-	var listed platform.OrgUnitMembershipListResponse
-	decodeJSONBody(t, listResp, &listed)
-	require.Len(t, listed.Data, 1)
-
-	updateResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/org-units/"+org.ID+"/members/user-1", "Bearer sk-master", `{"role":"member"}`)
-	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
-
-	var updated platform.OrgUnitMembership
-	decodeJSONBody(t, updateResp, &updated)
-	assert.Equal(t, "member", updated.Role)
-
-	deleteResp := performJSONRequest(t, app, http.MethodDelete, "http://localhost/api/v1/org-units/"+org.ID+"/members/user-1", "Bearer sk-master", "")
-	assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
 }
 
 func TestIntegration_TeamMembershipCRUD(t *testing.T) {
@@ -1675,14 +1598,12 @@ func (noopKeyStore) ResolveTenantUserAuth(ctx context.Context, tenantID string, 
 }
 
 type integrationKeyStore struct {
-	mu                 sync.RWMutex
-	nextID             int
-	byHash             map[string]*platform.AuthContext
-	created            []platform.CreatedKey
-	orgUnits           []platform.OrgUnit
-	orgUnitMemberships []platform.OrgUnitMembership
-	teamMemberships    []platform.TeamMembership
-	virtualUsers       []platform.VirtualUser
+	mu              sync.RWMutex
+	nextID          int
+	byHash          map[string]*platform.AuthContext
+	created         []platform.CreatedKey
+	teamMemberships []platform.TeamMembership
+	virtualUsers    []platform.VirtualUser
 }
 
 func newIntegrationKeyStore() *integrationKeyStore {
@@ -1742,7 +1663,6 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 		AllowedModels:   append([]string(nil), params.AllowedModels...),
 		TeamID:          params.TeamID,
 		OrgID:           params.OrgID,
-		OrgUnitID:       params.OrgUnitID,
 		UserID:          params.UserID,
 		VirtualUserID:   params.VirtualUserID,
 		CreatedByUserID: params.UserID,
@@ -1752,7 +1672,6 @@ func (s *integrationKeyStore) CreateKey(ctx context.Context, params platform.Cre
 	s.byHash[keyHash] = &platform.AuthContext{
 		TenantID:       params.TenantID,
 		OrganizationID: params.OrgID,
-		OrgUnitID:      params.OrgUnitID,
 		TeamID:         params.TeamID,
 		UserID:         params.UserID,
 		VirtualUserID:  params.VirtualUserID,
@@ -2061,7 +1980,6 @@ func (s *integrationKeyStore) RotateVATToken(ctx context.Context, tenantID strin
 		s.byHash[keyHash] = &platform.AuthContext{
 			TenantID:       created.TenantID,
 			OrganizationID: created.OrgID,
-			OrgUnitID:      created.OrgUnitID,
 			TeamID:         created.TeamID,
 			UserID:         created.UserID,
 			VirtualUserID:  created.VirtualUserID,
@@ -2102,186 +2020,6 @@ func (s *integrationKeyStore) addSpend(tokenHash string, amount float64) {
 			s.created[i].Spend += amount
 		}
 	}
-}
-
-func (s *integrationKeyStore) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	item := platform.OrgUnit{
-		ID:          fmt.Sprintf("org-%03d", len(s.orgUnits)+1),
-		TenantID:    tenantID,
-		Alias:       req.Alias,
-		DisplayName: req.DisplayName,
-		Metadata:    req.Metadata,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
-	}
-	s.orgUnits = append(s.orgUnits, item)
-
-	return &item, nil
-}
-
-func (s *integrationKeyStore) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	filtered := make([]platform.OrgUnit, 0, len(s.orgUnits))
-	for _, item := range s.orgUnits {
-		if item.TenantID != tenantID {
-			continue
-		}
-
-		if query != "" && !strings.Contains(strings.ToLower(item.Alias), strings.ToLower(query)) {
-			continue
-		}
-
-		filtered = append(filtered, item)
-	}
-
-	total := len(filtered)
-	if offset >= total {
-		return []platform.OrgUnit{}, total, nil
-	}
-
-	end := offset + limit
-	if end > total {
-		end = total
-	}
-
-	return filtered[offset:end], total, nil
-}
-
-func (s *integrationKeyStore) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	for _, item := range s.orgUnits {
-		if item.TenantID == tenantID && item.ID == orgUnitID {
-			cloned := item
-			return &cloned, nil
-		}
-	}
-
-	return nil, pgx.ErrNoRows
-}
-
-func (s *integrationKeyStore) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i := range s.orgUnits {
-		if s.orgUnits[i].TenantID != tenantID || s.orgUnits[i].ID != orgUnitID {
-			continue
-		}
-
-		if req.Alias != "" {
-			s.orgUnits[i].Alias = req.Alias
-		}
-
-		if req.DisplayName != "" {
-			s.orgUnits[i].DisplayName = req.DisplayName
-		}
-
-		if req.Metadata != nil {
-			s.orgUnits[i].Metadata = req.Metadata
-		}
-
-		s.orgUnits[i].UpdatedAt = time.Now().UTC()
-		cloned := s.orgUnits[i]
-
-		return &cloned, nil
-	}
-
-	return nil, pgx.ErrNoRows
-}
-
-func (s *integrationKeyStore) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i := range s.orgUnits {
-		if s.orgUnits[i].TenantID == tenantID && s.orgUnits[i].ID == orgUnitID {
-			s.orgUnits = append(s.orgUnits[:i], s.orgUnits[i+1:]...)
-			return nil
-		}
-	}
-
-	return pgx.ErrNoRows
-}
-
-func (s *integrationKeyStore) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	items := make([]platform.OrgUnitMembership, 0)
-
-	for _, item := range s.orgUnitMemberships {
-		if item.TenantID == tenantID && item.OrgUnitID == orgUnitID {
-			items = append(items, item)
-		}
-	}
-
-	return items, nil
-}
-
-func (s *integrationKeyStore) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i := range s.orgUnitMemberships {
-		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == req.UserID {
-			s.orgUnitMemberships[i].Role = req.Role
-			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
-			cloned := s.orgUnitMemberships[i]
-
-			return &cloned, nil
-		}
-	}
-
-	item := platform.OrgUnitMembership{
-		ID:        fmt.Sprintf("oum-%03d", len(s.orgUnitMemberships)+1),
-		TenantID:  tenantID,
-		OrgUnitID: orgUnitID,
-		UserID:    req.UserID,
-		Role:      req.Role,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-	}
-	s.orgUnitMemberships = append(s.orgUnitMemberships, item)
-
-	return &item, nil
-}
-
-func (s *integrationKeyStore) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i := range s.orgUnitMemberships {
-		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
-			s.orgUnitMemberships[i].Role = req.Role
-			s.orgUnitMemberships[i].UpdatedAt = time.Now().UTC()
-			cloned := s.orgUnitMemberships[i]
-
-			return &cloned, nil
-		}
-	}
-
-	return nil, pgx.ErrNoRows
-}
-
-func (s *integrationKeyStore) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i := range s.orgUnitMemberships {
-		if s.orgUnitMemberships[i].TenantID == tenantID && s.orgUnitMemberships[i].OrgUnitID == orgUnitID && s.orgUnitMemberships[i].UserID == userID {
-			s.orgUnitMemberships = append(s.orgUnitMemberships[:i], s.orgUnitMemberships[i+1:]...)
-			return nil
-		}
-	}
-
-	return pgx.ErrNoRows
 }
 
 func (s *integrationKeyStore) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
@@ -2378,7 +2116,6 @@ func (s *integrationKeyStore) CreateVirtualUser(ctx context.Context, tenantID st
 	item := platform.VirtualUser{
 		ID:          fmt.Sprintf("vu-%03d", len(s.virtualUsers)+1),
 		TenantID:    tenantID,
-		OrgUnitID:   req.OrgUnitID,
 		TeamID:      req.TeamID,
 		Alias:       req.Alias,
 		DisplayName: req.DisplayName,
@@ -2455,10 +2192,6 @@ func (s *integrationKeyStore) UpdateVirtualUser(ctx context.Context, tenantID st
 
 		if req.TeamID != "" {
 			s.virtualUsers[i].TeamID = req.TeamID
-		}
-
-		if req.OrgUnitID != "" {
-			s.virtualUsers[i].OrgUnitID = req.OrgUnitID
 		}
 
 		if req.Active != nil {
@@ -2567,7 +2300,6 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCac
 		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
 			IAM: admin.IAMDependencies{
 				Keys:         keyStore,
-				OrgUnits:     keyStore,
 				Memberships:  keyStore,
 				VirtualUsers: keyStore,
 				Users:        modelStore,

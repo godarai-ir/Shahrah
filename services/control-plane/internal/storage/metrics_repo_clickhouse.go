@@ -1135,7 +1135,6 @@ func sanitizeMetadataKey(v string) string {
 		"feature":     {},
 		"endpoint":    {},
 		"key_type":    {},
-		"org_unit_id": {},
 		"team_id":     {},
 	}
 	if _, ok := allowed[v]; ok {

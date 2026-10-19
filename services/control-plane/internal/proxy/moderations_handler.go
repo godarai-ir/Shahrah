@@ -409,7 +409,6 @@ func (h *ModerationsHandler) handleSync(
 			"endpoint":    "/v1/moderations",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 			"input_count": moderationInputCount(req.Input),
 		}, tunnelReq.Deployment),

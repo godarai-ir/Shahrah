@@ -33,7 +33,6 @@ type Tenant struct {
 type AuthContext struct {
 	TenantID                    string                          `json:"tenant_id"`
 	OrganizationID              string                          `json:"organization_id,omitempty"`
-	OrgUnitID                   string                          `json:"org_unit_id,omitempty"`
 	TeamID                      string                          `json:"team_id,omitempty"`
 	UserID                      string                          `json:"user_id,omitempty"`
 	VirtualUserID               string                          `json:"virtual_user_id,omitempty"`
@@ -398,7 +397,6 @@ type CreateKeyParams struct {
 	AllowedModels []string               `json:"allowed_models,omitempty"`
 	TeamID        string                 `json:"team_id,omitempty"`
 	OrgID         string                 `json:"organization_id,omitempty"`
-	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
 	UserID        string                 `json:"user_id,omitempty"`
 	VirtualUserID string                 `json:"virtual_user_id,omitempty"`
 	ExpiresIn     string                 `json:"expires_in,omitempty"`
@@ -418,7 +416,6 @@ type CreatedKey struct {
 	AllowedModels   []string   `json:"allowed_models,omitempty"`
 	TeamID          string     `json:"team_id,omitempty"`
 	OrgID           string     `json:"organization_id,omitempty"`
-	OrgUnitID       string     `json:"org_unit_id,omitempty"`
 	UserID          string     `json:"user_id,omitempty"`
 	VirtualUserID   string     `json:"virtual_user_id,omitempty"`
 	Spend           float64    `json:"spend"`
@@ -490,18 +487,9 @@ func (p *CreateKeyParams) Normalize() {
 	p.KeyType = strings.TrimSpace(strings.ToLower(p.KeyType))
 	p.TeamID = strings.TrimSpace(p.TeamID)
 	p.OrgID = strings.TrimSpace(p.OrgID)
-	p.OrgUnitID = strings.TrimSpace(p.OrgUnitID)
 	p.UserID = strings.TrimSpace(p.UserID)
 	p.VirtualUserID = strings.TrimSpace(p.VirtualUserID)
 	p.ExpiresIn = strings.TrimSpace(p.ExpiresIn)
-
-	if p.OrgUnitID == "" {
-		p.OrgUnitID = p.OrgID
-	}
-
-	if p.OrgID == "" {
-		p.OrgID = p.OrgUnitID
-	}
 
 	if len(p.AllowedModels) == 0 && len(p.Models) > 0 {
 		p.AllowedModels = append([]string(nil), p.Models...)
@@ -819,7 +807,6 @@ type RequestLogEntry struct {
 	TokenHash                string                 `json:"token_hash,omitempty"`
 	TenantID                 string                 `json:"tenant_id"`
 	OrganizationID           string                 `json:"organization_id,omitempty"`
-	OrgUnitID                string                 `json:"org_unit_id,omitempty"`
 	TeamID                   string                 `json:"team_id,omitempty"`
 	ActorType                string                 `json:"actor_type,omitempty"`
 	ActorID                  string                 `json:"actor_id,omitempty"`
