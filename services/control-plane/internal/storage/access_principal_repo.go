@@ -7,7 +7,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-// SearchAccessPrincipals returns platform users/teams/org-units for tenant-admin access pickers.
+// SearchAccessPrincipals returns platform users/teams for tenant-admin access pickers.
 func (s *ProviderAccountRepository) SearchAccessPrincipals(ctx context.Context, tenantID, kind, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	normalizedKind := strings.TrimSpace(strings.ToLower(kind))
 	normalizedQuery := strings.TrimSpace(query)
