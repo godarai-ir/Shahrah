@@ -30,7 +30,6 @@ function compareNumeric(operator: RateLimitCondition["operator"], actual: number
 function subjectValue(request: GatewayRequestContext, kind: RateLimitCondition["subjectKind"]): string {
   if (kind === "team") return toStringValue(request.teamId);
   if (kind === "virtual_account") return toStringValue(request.apiKeyId);
-  if (kind === "organization_unit") return toStringValue(request.organizationUnitId);
   return toStringValue(request.userId);
 }
 

@@ -161,7 +161,6 @@ export type Filters = {
   actor_type: string;
   actor_id: string;
   team_id: string;
-  org_unit_id: string;
   duration_min: string;
   duration_max: string;
   tokens_min: string;
@@ -221,7 +220,6 @@ export const DEFAULT_FILTERS: Filters = {
   actor_type: "",
   actor_id: "",
   team_id: "",
-  org_unit_id: "",
   duration_min: "",
   duration_max: "",
   tokens_min: "",

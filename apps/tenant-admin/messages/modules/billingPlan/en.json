@@ -47,7 +47,6 @@
     "authVatEnabled": "Virtual access token",
     "rbacEnabled": "Role-based access control",
     "ssoEnabled": "Single sign-on",
-    "orgUnitsEnabled": "Organization unit management",
     "adminAuditEnabled": "Administrative audit log",
     "deploymentSaasEnabled": "Cloud deployment",
     "deploymentVpcEnabled": "On-premise or private cloud deployment",

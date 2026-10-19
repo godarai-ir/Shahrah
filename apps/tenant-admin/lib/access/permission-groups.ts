@@ -6,7 +6,6 @@ const PERMISSION_GROUPS = new Set([
   "roles",
   "users",
   "teams",
-  "organization_units",
   "virtual_accounts",
   "provider_accounts",
   "settings",

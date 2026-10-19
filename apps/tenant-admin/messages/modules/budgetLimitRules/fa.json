@@ -104,7 +104,6 @@
         "tenant": "به‌ازای کل فضای کاری",
         "user": "به‌ازای هر کاربر",
         "team": "به‌ازای هر تیم",
-        "orgUnit": "به‌ازای هر واحد سازمانی",
         "model": "به‌ازای هر مدل",
         "virtualAccount": "به‌ازای هر اکانت مجازی",
         "metadataProjectId": "به‌ازای metadata.project_id"
@@ -127,7 +126,6 @@
     "principal": {
       "users": "کاربران",
       "teams": "تیم‌ها",
-      "orgUnits": "واحدهای سازمانی",
       "virtualAccounts": "اکانت‌های مجازی",
       "externalIdentities": "هویت‌های خارجی",
       "everyone": "همه",

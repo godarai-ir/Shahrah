@@ -11,9 +11,9 @@ export async function GET(request: NextRequest) {
   const q = (url.searchParams.get("q") ?? "").trim();
   const limit = (url.searchParams.get("limit") ?? "").trim();
 
-  if (kind !== "user" && kind !== "team" && kind !== "org_unit") {
+  if (kind !== "user" && kind !== "team") {
     return NextResponse.json(
-      { error: { message: "kind must be user, team, or org_unit." } },
+      { error: { message: "kind must be user or team." } },
       { status: 400 },
     );
   }

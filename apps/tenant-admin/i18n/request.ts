@@ -24,7 +24,6 @@ const MESSAGE_NAMESPACES = [
   "virtualModels",
   "virtualUsers",
   "accessManagement",
-  "orgUnits",
   "teams",
   "orgStructure",
   "personalAccessTokens",

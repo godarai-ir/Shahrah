@@ -26,7 +26,7 @@ import {
   type SubjectPickerKind,
 } from "../rule-targets";
 
-const ALL_PICKER_KINDS: SubjectPickerKind[] = ["team", "user", "org_unit", "virtual_account"];
+const ALL_PICKER_KINDS: SubjectPickerKind[] = ["team", "user", "virtual_account"];
 const METADATA_OPERATORS = ["equals", "not_equals", "contains", "starts_with", "ends_with", "exists", "not_exists", "gt", "gte", "lt", "lte"] as const;
 const VALUELESS_OPERATORS = new Set<string>(["exists", "not_exists"]);
 
@@ -69,7 +69,6 @@ export function RuleTargetsEditor({ value, onChange, disabled, storedTargets }: 
   const principalLabels: PrincipalEntitySelectLabels = {
     users: t("editor.picker.users"),
     teams: t("editor.picker.teams"),
-    orgUnits: t("editor.picker.orgUnits"),
     virtualAccounts: t("editor.picker.virtualAccounts"),
     externalIdentities: t("editor.picker.externalIdentities"),
     everyone: t("targets.anySubject"),

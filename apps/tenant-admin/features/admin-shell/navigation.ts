@@ -342,8 +342,8 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/org-structure",
       title: t("nav.orgStructure"),
       icon: Building2,
-      isActive: ["/org-structure", "/teams", "/org-units"].some((prefix) => pathname.startsWith(prefix)),
-      requiredPermissions: ["team:read", "team:manage", "org_unit:list", "org_unit:read"],
+      isActive: ["/org-structure", "/teams"].some((prefix) => pathname.startsWith(prefix)),
+      requiredPermissions: ["team:read", "team:manage"],
     },
     {
       // Rate and budget rules share one list at the section root; the old per-type routes redirect here.
@@ -384,7 +384,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/users",
       title: t("nav.accessAndUsers"),
       icon: Users,
-      isActive: ["/users", "/org-structure", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/users", "/org-structure", "/teams", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
       // Personal access tokens are open to everyone; the individual tabs gate themselves.
       requiredPermissions: [],
     },

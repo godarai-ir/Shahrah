@@ -12,15 +12,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactIrr } from "@/lib/compact-number";
 import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 import type { Team, TeamMember } from "@/lib/api/teams";
-import type { OrgUnit } from "@/lib/api/org-units";
 
-import { getActiveKeys, getAdminCount, getOrgUnitName, getTeamName, getVirtualUsers, getWorkspaceType } from "./helpers";
+import { getActiveKeys, getAdminCount, getTeamName, getVirtualUsers, getWorkspaceType } from "./helpers";
 
 const MEMBER_PREVIEW_LIMIT = 4;
 
 export function TeamDetail({
   team,
-  orgUnit,
   members,
   isLoading,
   costIRR,
@@ -32,7 +30,6 @@ export function TeamDetail({
   onDelete,
 }: {
   team: Team;
-  orgUnit: OrgUnit | null;
   members: TeamMember[];
   isLoading: boolean;
   costIRR: number | null;
@@ -82,16 +79,6 @@ export function TeamDetail({
         </div>
       </AppCard>
 
-      <AppCard title={t("detail.team.inheritanceTitle")} contentClassName="flex flex-col gap-2 text-sm">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="secondary">{tTeams("breadcrumb.tenant")}</Badge>
-          <span className="text-muted-foreground">‹</span>
-          <Badge variant="secondary">{orgUnit ? getOrgUnitName(orgUnit) : tTeams("table.tenantRoot")}</Badge>
-          <span className="text-muted-foreground">‹</span>
-          <Badge>{getTeamName(team)}</Badge>
-        </div>
-        <p className="text-muted-foreground">{t("detail.team.inheritanceDescription")}</p>
-      </AppCard>
 
       <AppCard
         title={

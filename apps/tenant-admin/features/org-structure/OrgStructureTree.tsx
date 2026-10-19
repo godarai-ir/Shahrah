@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ChevronDown, ChevronRight, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCompactIrr } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
-import { TENANT_ROOT_ID, type OrgTreeRow } from "./org-tree";
-import { getTeamName, getOrgUnitName, getWorkspaceType, getActiveKeys } from "./helpers";
+import type { Team } from "@/lib/api/teams";
 
-export type OrgStructureTreeSelection = { kind: "unit"; id: string } | { kind: "team"; id: string } | null;
+import { getTeamName, getWorkspaceType, getActiveKeys } from "./helpers";
+
+export type OrgStructureTreeSelection = { kind: "team"; id: string } | null;
 
 export function OrgStructureTree({
   rows,
@@ -22,20 +23,16 @@ export function OrgStructureTree({
   isSearching,
   searchQuery,
   selection,
-  onSelectUnit,
   onSelectTeam,
-  onToggleExpand,
   costByTeamID,
   locale,
 }: {
-  rows: OrgTreeRow[];
+  rows: Team[];
   isLoading: boolean;
   isSearching: boolean;
   searchQuery: string;
   selection: OrgStructureTreeSelection;
-  onSelectUnit: (unitID: string) => void;
   onSelectTeam: (teamID: string) => void;
-  onToggleExpand: (id: string) => void;
   costByTeamID: Map<string, number> | null;
   locale: string;
 }) {
@@ -54,8 +51,8 @@ export function OrgStructureTree({
   if (rows.length === 0) {
     return (
       <EmptyState
-        icon={isSearching ? Users : Building2}
-        title={isSearching ? t("tree.emptySearch", { query: searchQuery }) : t("tree.emptyUnits")}
+        icon={Users}
+        title={isSearching ? t("tree.emptySearch", { query: searchQuery }) : t("tree.emptyTeams")}
         className="min-h-40"
       />
     );
@@ -73,71 +70,20 @@ export function OrgStructureTree({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row) => {
-            if (row.kind === "unit") {
-              const isSelected = selection?.kind === "unit" && selection.id === row.id;
-              return (
-                <TableRow key={row.id} className={cn("cursor-pointer bg-muted/20", isSelected && "bg-muted/60")} onClick={() => onSelectUnit(row.id)}>
-                  <TableCell colSpan={1}>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <button
-                        type="button"
-                        aria-label={row.expanded ? "collapse" : "expand"}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
-                        onClick={(event) => { event.stopPropagation(); onToggleExpand(row.id); }}
-                      >
-                        {row.expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                      </button>
-                      <Building2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <span className="truncate font-medium" title={getOrgUnitName(row.unit)}>{getOrgUnitName(row.unit)}</span>
-                      <Badge variant="secondary" className="shrink-0">{t("tree.teamCount", { count: row.teamCount })}</Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden @md:table-cell" />
-                  <TableCell colSpan={2} className="text-end text-muted-foreground">—</TableCell>
-                </TableRow>
-              );
-            }
-
-            if (row.kind === "root") {
-              const isSelected = selection?.kind === "unit" && selection.id === TENANT_ROOT_ID;
-              return (
-                <TableRow key={row.id} className={cn("cursor-pointer bg-muted/10", isSelected && "bg-muted/50")} onClick={() => onToggleExpand(row.id)}>
-                  <TableCell colSpan={1}>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <button
-                        type="button"
-                        aria-label={row.expanded ? "collapse" : "expand"}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
-                        onClick={(event) => { event.stopPropagation(); onToggleExpand(row.id); }}
-                      >
-                        {row.expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                      </button>
-                      <span className="truncate text-muted-foreground">{t("tree.root")}</span>
-                      <Badge variant="outline" className="shrink-0">{t("tree.teamCount", { count: row.teamCount })}</Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden @md:table-cell" />
-                  <TableCell colSpan={2} />
-                </TableRow>
-              );
-            }
-
-            const isSelected = selection?.kind === "team" && selection.id === row.id;
-            const costIRR = costByTeamID?.get(row.team.id) ?? null;
+          {rows.map((team) => {
+            const isSelected = selection?.kind === "team" && selection.id === team.id;
+            const costIRR = costByTeamID?.get(team.id) ?? null;
             return (
-              <TableRow key={row.id} className={cn("cursor-pointer", isSelected && "bg-muted/50")} onClick={() => onSelectTeam(row.id)}>
+              <TableRow key={team.id} className={cn("cursor-pointer", isSelected && "bg-muted/50")} onClick={() => onSelectTeam(team.id)}>
                 <TableCell>
-                  <div className={cn("flex min-w-0 items-center gap-2", !isSearching && "ps-7")}>
-                    <span className="truncate font-medium" title={getTeamName(row.team)}>{getTeamName(row.team)}</span>
-                    {isSearching && row.unitName ? <span className="shrink-0 truncate text-xs text-muted-foreground">/ {row.unitName}</span> : null}
-                    {isSearching && !row.unitId ? <span className="shrink-0 truncate text-xs text-muted-foreground">/ {t("tree.root")}</span> : null}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium" title={getTeamName(team)}>{getTeamName(team)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden @md:table-cell">
-                  <Badge variant="outline">{getWorkspaceType(row.team)}</Badge>
+                  <Badge variant="outline">{getWorkspaceType(team)}</Badge>
                 </TableCell>
-                <TableCell className="text-end tabular-nums">{getActiveKeys(row.team)}</TableCell>
+                <TableCell className="text-end tabular-nums">{getActiveKeys(team)}</TableCell>
                 <TableCell className="text-end tabular-nums">
                   {costIRR === null ? <span className="text-muted-foreground">—</span> : <CompactValue dir="ltr" display={formatCompactIrr(costIRR, { locale })} />}
                 </TableCell>

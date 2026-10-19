@@ -9,7 +9,6 @@ const tenantKeySchema = z.object({
   key_name: z.string().optional(),
   key_type: z.string().optional(),
   team_id: z.string().optional(),
-  org_unit_id: z.string().optional(),
   virtual_user_id: z.string().optional(),
   created_by_user_id: z.string().optional(),
   spend: z.number().optional(),

@@ -38,7 +38,7 @@ export type ProviderConnectionSchema = {
   fields: ProviderConnectionSchemaField[];
 };
 
-export type PrincipalType = "user" | "team" | "org_unit" | "everyone";
+export type PrincipalType = "user" | "team" | "everyone";
 export type SetupStep = 1 | 2 | 3 | 4 | 5;
 export type WorkspaceTab = "overview" | "models" | "access" | "credentials";
 export type WorkspaceMode = "overview" | "setup" | "workspace";

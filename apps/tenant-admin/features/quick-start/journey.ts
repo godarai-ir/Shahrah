@@ -16,7 +16,6 @@ export type QuickStartResources = {
   personalAccessTokenCount: number;
   virtualUserCount: number;
   teamCount: number;
-  orgUnitCount: number;
   rateLimitRuleCount: number;
   budgetLimitRuleCount: number;
   guardrailCount: number;
@@ -32,7 +31,6 @@ export type QuickStartResources = {
   personalAccessTokenLabel?: string | null;
   virtualUserLabel?: string | null;
   teamLabel?: string | null;
-  orgUnitLabel?: string | null;
   rateLimitRuleLabel?: string | null;
   budgetLimitRuleLabel?: string | null;
   guardrailLabel?: string | null;
@@ -47,7 +45,6 @@ export type QuickStartStepID =
   | "create_budget_limit_rule"
   | "create_guardrail"
   | "create_team"
-  | "create_org_unit"
   | "send_first_request"
   | "inspect_activity";
 
@@ -62,7 +59,6 @@ export type QuickStartExploreCardID =
   | "provider_accounts"
   | "virtual_users"
   | "teams"
-  | "org_units"
   | "guardrails"
   | "prompts"
   | "metrics"
@@ -118,7 +114,6 @@ const FEATURE_RATE_LIMIT_RULES_ENABLED = "rate_limit_rules.enabled";
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
 const FEATURE_TEAMS_ENABLED = "teams.enabled";
 const FEATURE_GUARDRAIL_WEBHOOK_ENABLED = "guardrails.webhook.enabled";
-const FEATURE_ORG_UNITS_ENABLED = "org_units.enabled";
 
 export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJourney {
   const plan = normalizePlanSlug(input.subscription?.plan_slug);
@@ -136,14 +131,12 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
   const canManageVirtualUsers = hasAnyPermission(permissions, ["virtual_account:create", "virtual_account:manage"]);
   const canManageTeams = hasAnyPermission(permissions, ["team:create", "team:manage", "team:read"]);
   const canCreateTeams = hasAnyPermission(permissions, ["team:create", "team:manage"]);
-  const canCreateOrgUnits = hasAnyPermission(permissions, ["org_unit:create", "org_unit:manage"]);
   const canInspectTelemetry = hasAnyPermission(permissions, ["settings:list", "logs:read_metadata", "logs:read_content"]);
   const canManagePat = readBooleanFeature(features[FEATURE_PAT_ENABLED], true);
   const canUseVatFeature = readBooleanFeature(features[FEATURE_VAT_ENABLED], false);
   const canUseRateLimitFeature = readBooleanFeature(features[FEATURE_RATE_LIMIT_RULES_ENABLED], false);
   const canUseBudgetLimitFeature = readBooleanFeature(features[FEATURE_BUDGET_LIMIT_RULES_ENABLED], false);
   const canUseTeamsFeature = readBooleanFeature(features[FEATURE_TEAMS_ENABLED], false);
-  const canUseOrgUnitsFeature = readBooleanFeature(features[FEATURE_ORG_UNITS_ENABLED], false);
   const canUseGuardrailWebhookFeature = readBooleanFeature(features[FEATURE_GUARDRAIL_WEBHOOK_ENABLED], false);
 
   const availableTokenTypes: Array<"pat" | "vat"> = [];
@@ -262,11 +255,6 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
         available: () => canManageProvider,
       },
       {
-        id: "create_org_unit",
-        requirement: () => resources.orgUnitCount > 0,
-        available: () => canUseOrgUnitsFeature && canCreateOrgUnits,
-      },
-      {
         id: "create_team",
         requirement: () => resources.teamCount > 0,
         available: () => canUseTeamsFeature && canCreateTeams,
@@ -331,7 +319,6 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
               canUseRateLimitFeature,
               canUseBudgetLimitFeature,
               canUseGuardrailWebhookFeature,
-              canUseOrgUnitsFeature,
               canUseTeamsFeature,
             })
             ? "feature"
@@ -349,7 +336,6 @@ export function deriveQuickStartJourney(input: DeriveJourneyInput): QuickStartJo
     canManageTeams,
     canManageVirtualUsers,
     canUseGuardrailWebhookFeature,
-    canUseOrgUnitsFeature,
     canUseTeamsFeature,
   });
 
@@ -386,7 +372,6 @@ const STEP_MINUTES: Record<QuickStartStepID, number> = {
   create_budget_limit_rule: 2,
   create_guardrail: 3,
   create_team: 2,
-  create_org_unit: 2,
   send_first_request: 2,
   inspect_activity: 1,
 };
@@ -407,8 +392,6 @@ function resultForStep(stepID: QuickStartStepID, resources: QuickStartResources)
       return resources.guardrailLabel ?? null;
     case "create_team":
       return resources.teamLabel ?? null;
-    case "create_org_unit":
-      return resources.orgUnitLabel ?? null;
     case "send_first_request":
       return resources.sampleRequestModel ?? null;
     case "inspect_activity":
@@ -492,11 +475,6 @@ function actionForStep(
         type: "link",
         href: "/teams",
       };
-    case "create_org_unit":
-      return {
-        type: "link",
-        href: "/org-units",
-      };
     case "send_first_request":
       return {
         type: "anchor",
@@ -518,7 +496,6 @@ function isFeatureBlocked(
     canUseRateLimitFeature: boolean;
     canUseBudgetLimitFeature: boolean;
     canUseGuardrailWebhookFeature: boolean;
-    canUseOrgUnitsFeature: boolean;
     canUseTeamsFeature: boolean;
   },
 ): boolean {
@@ -533,8 +510,6 @@ function isFeatureBlocked(
       return !flags.canUseBudgetLimitFeature;
     case "create_guardrail":
       return !flags.canUseGuardrailWebhookFeature;
-    case "create_org_unit":
-      return !flags.canUseOrgUnitsFeature;
     case "create_team":
       return !flags.canUseTeamsFeature;
     default:
@@ -549,14 +524,12 @@ function buildExploreCards(flags: {
   canManageTeams: boolean;
   canManageVirtualUsers: boolean;
   canUseGuardrailWebhookFeature: boolean;
-  canUseOrgUnitsFeature: boolean;
   canUseTeamsFeature: boolean;
 }): QuickStartExploreCardID[] {
   const cards: QuickStartExploreCardID[] = ["billing_plan"];
   if (flags.canManageProvider) cards.push("provider_accounts");
   if (flags.canManageVirtualUsers) cards.push("virtual_users");
   if (flags.canUseTeamsFeature && flags.canManageTeams) cards.push("teams");
-  if (flags.canUseOrgUnitsFeature) cards.push("org_units");
   if (flags.canManagePolicyList) cards.push("prompts");
   if (flags.canUseGuardrailWebhookFeature && flags.canManagePolicyList) cards.push("guardrails");
   if (flags.canInspectTelemetry) {

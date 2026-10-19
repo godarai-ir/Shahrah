@@ -9,7 +9,6 @@ export function buildPrincipalSelectorLabels(
   return {
     users: t("principal.users"),
     teams: t("principal.teams"),
-    orgUnits: t("principal.orgUnits"),
     virtualAccounts: t("principal.virtualAccounts"),
     externalIdentities: t("principal.externalIdentities"),
     everyone: t("principal.everyone"),

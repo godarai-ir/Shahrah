@@ -72,12 +72,12 @@ describe("readRuleTargets / buildRuleConditions", () => {
 
   it("writes raw IDs with subjectKind, keeps labels that differ from the ID, and drops empty groups", () => {
     const conditions = buildRuleConditions({
-      subject: { kind: "organization_unit", ids: ["ou-1", "ou-2"], labels: { "ou-1": "Finance", "ou-2": "ou-2" } },
+      subject: { kind: "virtual_account", ids: ["ou-1", "ou-2"], labels: { "ou-1": "Finance", "ou-2": "ou-2" } },
       models: [],
       metadata: [{ field: "metadata", operator: "exists", metadataKey: "project" }],
     });
     expect(conditions).toEqual([
-      { field: "subject", operator: "in", subjectKind: "organization_unit", values: ["ou-1", "ou-2"], valueLabels: { "ou-1": "Finance" } },
+      { field: "subject", operator: "in", subjectKind: "virtual_account", values: ["ou-1", "ou-2"], valueLabels: { "ou-1": "Finance" } },
       { field: "metadata", operator: "exists", metadataKey: "project" },
     ]);
   });

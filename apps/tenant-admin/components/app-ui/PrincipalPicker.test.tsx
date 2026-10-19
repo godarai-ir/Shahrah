@@ -18,7 +18,6 @@ vi.mock("@/components/app-ui/PrincipalEntitySelect", () => ({
 const labels = {
   users: "Users",
   teams: "Teams",
-  orgUnits: "Org units",
   virtualAccounts: "Virtual accounts",
   externalIdentities: "External identities",
   everyone: "Everyone",

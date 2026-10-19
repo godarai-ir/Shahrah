@@ -80,7 +80,7 @@
   "form": {
     "addTitle": "Add New Rule",
     "editTitle": "Edit Rule",
-    "headerDescription": "Define a rate limit rule for people, teams, organization units, models, and request metadata.",
+    "headerDescription": "Define a rate limit rule for people, teams, models, and request metadata.",
     "ruleIdPlaceholder": "Enter rule ID",
     "stickyDescription": "Saving returns you to the rate limiting rules list.",
     "sections": {
@@ -189,7 +189,6 @@
     "principal": {
       "users": "Users",
       "teams": "Teams",
-      "orgUnits": "Org units",
       "virtualAccounts": "Virtual accounts",
       "externalIdentities": "External identities",
       "everyone": "Everyone",

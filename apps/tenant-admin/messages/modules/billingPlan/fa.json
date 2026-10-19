@@ -47,7 +47,6 @@
     "authVatEnabled": "کلید دسترسی مجازی",
     "rbacEnabled": "کنترل دسترسی مبتنی بر نقش",
     "ssoEnabled": "ورود یکپارچه",
-    "orgUnitsEnabled": "مدیریت واحدهای سازمان",
     "adminAuditEnabled": "ثبت وقایع مدیریتی",
     "deploymentSaasEnabled": "استقرار ابری",
     "deploymentVpcEnabled": "استقرار در محل یا ابر خصوصی",

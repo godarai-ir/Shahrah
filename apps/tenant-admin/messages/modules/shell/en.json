@@ -74,9 +74,8 @@
     "gatewayPolicies": "Gateway Policies",
     "gatewayRules": "Limit rules",
     "guardrails": "Guardrails",
-    "orgUnits": "Org Units",
     "teams": "Teams",
-    "orgStructure": "Org structure",
+    "orgStructure": "Teams",
     "observe": "Observe",
     "accessAndUsers": "Users & access",
     "sectionTabs": "Subsections"

@@ -27,7 +27,6 @@
     "loading": "Loading virtual users...",
     "identity": "Identity",
     "team": "Team",
-    "orgUnit": "Org unit",
     "status": "Status",
     "actions": "Actions",
     "empty": "No virtual users found.",
@@ -51,7 +50,6 @@
     "emptyTitle": "Select a virtual user",
     "emptyDescription": "Choose a service identity to manage its production gateway tokens.",
     "team": "Team",
-    "orgUnit": "Org unit",
     "tokens": "Tokens"
   },
   "tokens": {
@@ -69,7 +67,6 @@
     "alias": "Technical ID",
     "displayName": "Display name",
     "team": "Team",
-    "orgUnit": "Org unit",
     "active": "Active",
     "tokenName": "Token name",
     "expiresIn": "Expires in",

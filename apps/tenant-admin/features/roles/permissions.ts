@@ -9,7 +9,6 @@ const PERMISSION_RESOURCES = new Set([
   "role",
   "user",
   "team",
-  "org_unit",
   "virtual_account",
   "provider_account",
   "settings",
