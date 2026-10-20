@@ -21,26 +21,21 @@ const mistralOCRReservationPages = 100
 // MistralOCRHandler implements the native Mistral OCR contract without
 // exposing an arbitrary provider path.
 type MistralOCRHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logger           *zap.Logger
-	resources        providerNativeResourceStore
-	logs             usageLogger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logger     *zap.Logger
+	resources  providerNativeResourceStore
+	logs       usageLogger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 func NewMistralOCRHandlerWithDependencies(deps BaseHandlerDependencies) *MistralOCRHandler {
-	return &MistralOCRHandler{llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter(), providerFeatures: deps.ProviderFeatures}
+	return &MistralOCRHandler{llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter()}
 }
 
 func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	startedAt := time.Now()
-
-	if !mistralEndpointEnabled(h.providerFeatures, "ocr") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI OCR is disabled", "provider_disabled")
-	}
 
 	authInfo := auth.GetAuthInfo(c)
 

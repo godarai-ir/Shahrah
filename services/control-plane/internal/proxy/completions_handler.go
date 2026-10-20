@@ -23,25 +23,23 @@ import (
 
 // CompletionsHandler handles legacy text completion requests.
 type CompletionsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 // NewCompletionsHandlerWithDependencies creates a completions handler from explicit dependencies.
 func NewCompletionsHandlerWithDependencies(deps BaseHandlerDependencies) *CompletionsHandler {
 	return &CompletionsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -244,10 +242,6 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "fim_completions") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI FIM completions are disabled", "provider_disabled")
 	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)

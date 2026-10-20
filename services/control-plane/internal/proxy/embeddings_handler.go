@@ -21,13 +21,12 @@ import (
 
 // EmbeddingsHandler serves embeddings requests.
 type EmbeddingsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type embeddingValidationError struct {
@@ -62,13 +61,12 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 // NewEmbeddingsHandlerWithDependencies creates an embeddings handler from explicit dependencies.
 func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *EmbeddingsHandler {
 	return &EmbeddingsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -210,10 +208,6 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsEmbeddingsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Embeddings API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "embeddings") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI embeddings are disabled", "provider_disabled")
 	}
 
 	if isGoogleGeminiProvider(dep.Provider) {

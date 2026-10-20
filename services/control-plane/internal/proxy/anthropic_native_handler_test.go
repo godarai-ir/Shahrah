@@ -7,26 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnthropicNativeFeatureFlagsAreIndependent(t *testing.T) {
-	handler := &AnthropicNativeHandler{
-		nativeEnabled:  true,
-		filesEnabled:   false,
-		batchesEnabled: true,
-	}
-
-	if !handler.operationEnabled(platform.ProviderOperationAnthropicMessages) {
-		t.Fatal("messages should remain enabled")
-	}
-
-	if handler.operationEnabled(platform.ProviderOperationAnthropicFilesCreate) {
-		t.Fatal("files should be disabled independently")
-	}
-
-	if !handler.operationEnabled(platform.ProviderOperationAnthropicBatchesCreate) {
-		t.Fatal("batches should remain enabled")
-	}
-}
-
 func TestAnthropicNativeAccountAllowlist(t *testing.T) {
 	handler := &AnthropicNativeHandler{
 		accountAllowlist: map[string]struct{}{"account-enabled": {}},

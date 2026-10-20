@@ -134,19 +134,12 @@ type BaseHandlerDependencies struct {
 // ProviderFeatureConfig is an immutable provider endpoint rollout snapshot.
 type ProviderFeatureConfig struct {
 	Configured                   bool
-	MistralEnabled               bool
-	MistralEndpoints             map[string]bool
 	MistralFilesEnabled          bool
 	MistralBatchEnabled          bool
 	MistralAgentsEnabled         bool
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
-	AnthropicNativeEnabled       bool
-	AnthropicFilesEnabled        bool
-	AnthropicBatchesEnabled      bool
 	AnthropicAccountIDs          []string
-	ZAIEnabled                   bool
-	ZAILayoutParsingEnabled      bool
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.

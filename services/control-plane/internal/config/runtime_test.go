@@ -10,14 +10,12 @@ import (
 func TestLoadStorageSettingsUsesDefaultsForInvalidValues(t *testing.T) {
 	t.Setenv("POSTGRES_POOL_MAX_CONNS", "invalid")
 	t.Setenv("POSTGRES_POOL_MIN_CONNS", "-1")
-	t.Setenv("TOKEN_USAGE_AGGREGATION_ENABLED", "invalid")
 	t.Setenv("GATEWAY_DB_TIMEOUT_SECONDS", "0")
 
 	settings := LoadStorageSettings()
 
 	require.Equal(t, int32(32), settings.PostgresMaxConnections)
 	require.Equal(t, int32(4), settings.PostgresMinConnections)
-	require.True(t, settings.TokenUsageEnabled)
 	require.Equal(t, 3*time.Second, settings.GatewayDatabaseTimeout)
 }
 
