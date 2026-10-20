@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dust Expert"
+  short_description: "Design GodarAI features as a Dust product designer."
+  default_prompt: "Use $dust-expert to turn Dust (dust.tt) product ideas into GodarAI / GodarChat design recommendations."

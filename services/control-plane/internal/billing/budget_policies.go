@@ -21,6 +21,10 @@ const (
 	budgetTargetPolicy       = "policy"
 )
 
+// tehranTime is Iran Standard Time. Iran has observed no daylight saving
+// since 2022, so a fixed offset is exact and needs no tzdata on the host.
+var tehranTime = time.FixedZone("IRST", 3*60*60+30*60)
+
 type budgetReservationTarget struct {
 	platform.BudgetReservationTarget
 	tenantID     string
@@ -375,15 +379,15 @@ func budgetPolicyWindowForTime(unit platform.BudgetLimitUnit, now time.Time) (st
 		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
 		return start.Format("20060102"), start.AddDate(0, 0, 1), nil
 	case platform.BudgetLimitCostPerWeek:
-		weekday := int(utc.Weekday())
-		if weekday == 0 {
-			weekday = 7
-		}
+		// Weeks start on Saturday midnight in Tehran, the first day of the
+		// Iranian week. The id names the Tehran start date, so it never
+		// collides with the former ISO-week ids ("2026W42") of windows that
+		// may still be live.
+		local := utc.In(tehranTime)
+		daysSinceSaturday := (int(local.Weekday()) - int(time.Saturday) + 7) % 7
+		start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, tehranTime).AddDate(0, 0, -daysSinceSaturday)
 
-		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, 1-weekday)
-		year, week := start.ISOWeek()
-
-		return fmt.Sprintf("%04dW%02d", year, week), start.AddDate(0, 0, 7), nil
+		return "W" + start.Format("20060102"), start.AddDate(0, 0, 7).UTC(), nil
 	case platform.BudgetLimitCostPerMonth:
 		windowID, windowEnd := budgetWindowForTime(utc)
 		return windowID, windowEnd, nil

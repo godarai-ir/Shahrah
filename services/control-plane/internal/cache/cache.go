@@ -672,9 +672,10 @@ local allowance = tonumber(redis.call('HGET', windowKey, 'allowance_irr') or '0'
 local reserved = tonumber(redis.call('HGET', windowKey, 'reserved_irr') or '0')
 local committed = tonumber(redis.call('HGET', windowKey, 'committed_irr') or '0')
 local overage = tonumber(redis.call('HGET', windowKey, 'overage_irr') or '0')
-if (reserved + committed + estimate) > allowance then
-  local remaining = allowance - reserved - committed
-  return {0, 'exhausted', allowance, reserved, committed, remaining, overage}
+-- A window with no headroom left refuses even a zero estimate.
+local headroom = allowance - reserved - committed
+if headroom <= 0 or estimate > headroom then
+  return {0, 'exhausted', allowance, reserved, committed, headroom, overage}
 end
 
 reserved = tonumber(redis.call('HINCRBYFLOAT', windowKey, 'reserved_irr', estimate))
