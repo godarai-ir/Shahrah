@@ -231,6 +231,7 @@ func (b *builder) buildStorage() error {
 			RuntimeProfiles: b.runtimeProfiles,
 			CreditPools:     store.CreditLedgerRepository,
 			CreditRateCards: b.creditRateCards,
+			SeatCredits:     store.SeatRepository,
 			Logger:          b.logger,
 			Config: &billing.ServiceConfig{
 				ExchangeRateCache: billing.ExchangeRateCacheConfig{

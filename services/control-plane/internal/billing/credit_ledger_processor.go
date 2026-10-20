@@ -8,6 +8,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"go.uber.org/zap"
 )
@@ -32,6 +33,11 @@ type creditLedgerStore interface {
 	ApproveCreditPriceRevision(ctx context.Context, revisionID string, actor platform.SupportActor, reason string, now time.Time) (*platform.CreditPriceRevision, error)
 	PublishDueRevisionPlanVersions(ctx context.Context, now time.Time) (int, error)
 	PublishDueRateCards(ctx context.Context, now time.Time) (int, error)
+}
+
+// seatLifecycleStore runs the member-seat lifecycle alongside plan grants.
+type seatLifecycleStore interface {
+	RunSeatLifecycle(ctx context.Context, now time.Time) (seats.LifecycleResult, error)
 }
 
 // CreditLedgerConfig controls the credit ledger background worker.
@@ -199,6 +205,30 @@ func (p *CreditLedgerProcessor) Grant(ctx context.Context) {
 
 	if result.Granted > 0 {
 		p.logger.Info("credit plan grants written", zap.Int("grants", result.Granted), zap.Int64("granted_mc", result.GrantedMC))
+	}
+
+	p.runSeatLifecycle(ctx)
+}
+
+// runSeatLifecycle gives members their free seat, applies due seat changes,
+// removes lapsed paid seats, and grants seat credits.
+func (p *CreditLedgerProcessor) runSeatLifecycle(ctx context.Context) {
+	store, ok := p.store.(seatLifecycleStore)
+	if !ok {
+		return
+	}
+
+	result, err := store.RunSeatLifecycle(ctx, p.now().UTC())
+	if err != nil {
+		p.fail("seats", err)
+
+		return
+	}
+
+	if result.AutoAssigned+result.DowngradesApplied+result.LapsedAssignments+result.Granted > 0 {
+		p.logger.Info("seat lifecycle applied",
+			zap.Int("auto_assigned", result.AutoAssigned), zap.Int("downgrades", result.DowngradesApplied),
+			zap.Int("lapsed", result.LapsedAssignments), zap.Int("grants", result.Granted), zap.Int64("granted_mc", result.GrantedMC))
 	}
 }
 

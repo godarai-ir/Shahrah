@@ -54,6 +54,7 @@ func (b *builder) buildManagement() error {
 			CreditUsage:   b.store.MetricsRepository,
 			CreditBalance: b.store.CreditLedgerRepository,
 			CreditPacks:   b.store.CreditPackRepository,
+			Seats:         b.store.SeatRepository,
 			CreditAdmin: creditAdminStore{
 				CreditLedgerRepository:   b.store.CreditLedgerRepository,
 				CreditPackRepository:     b.store.CreditPackRepository,

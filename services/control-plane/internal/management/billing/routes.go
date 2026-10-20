@@ -80,6 +80,22 @@ type Handler interface {
 	RollbackPlatformTenantCredits(*fiber.Ctx) error
 	ListPlatformCreditConversionPreviews(*fiber.Ctx) error
 	ConvertPlatformCreditFleet(*fiber.Ctx) error
+	GetSeatSummary(*fiber.Ctx) error
+	ListSeatMembers(*fiber.Ctx) error
+	SetMemberSeat(*fiber.Ctx) error
+	CancelPendingSeatChange(*fiber.Ctx) error
+	QuoteSeats(*fiber.Ctx) error
+	QuoteSeatRenewal(*fiber.Ctx) error
+	UpdateSeatRenewal(*fiber.Ctx) error
+	ListSeatOrders(*fiber.Ctx) error
+	CreateSeatOrder(*fiber.Ctx) error
+	SeatPaymentCallback(*fiber.Ctx) error
+	ListSeatRequests(*fiber.Ctx) error
+	ApproveSeatRequest(*fiber.Ctx) error
+	DenySeatRequest(*fiber.Ctx) error
+	ListPlatformSeatTypes(*fiber.Ctx) error
+	UpdatePlatformSeatType(*fiber.Ctx) error
+	GetPlatformTenantSeats(*fiber.Ctx) error
 }
 
 // Routes owns billing route registration.
@@ -99,6 +115,8 @@ func (r *Routes) RegisterPublic(router fiber.Router) {
 	router.Post("/api/v1/subscription/payment/callback/:provider", r.handler.SubscriptionPaymentCallback)
 	router.Get("/api/v1/credits/packs/payment/callback/:provider", r.handler.CreditPackPaymentCallback)
 	router.Post("/api/v1/credits/packs/payment/callback/:provider", r.handler.CreditPackPaymentCallback)
+	router.Get("/api/v1/seats/payment/callback/:provider", r.handler.SeatPaymentCallback)
+	router.Post("/api/v1/seats/payment/callback/:provider", r.handler.SeatPaymentCallback)
 }
 
 // RegisterTenant registers authenticated tenant billing endpoints.
@@ -139,6 +157,23 @@ func (r *Routes) registerTenantCredits(router fiber.Router) {
 	router.Get("/billing/credits/orders/:orderID", r.handler.GetCreditPackOrder)
 	router.Get("/billing/credits/settings", r.handler.GetCreditSettings)
 	router.Put("/billing/credits/settings", r.handler.UpdateCreditSettings)
+	r.registerTenantSeats(router)
+}
+
+// registerTenantSeats registers member seat endpoints.
+func (r *Routes) registerTenantSeats(router fiber.Router) {
+	router.Get("/billing/seats", r.handler.GetSeatSummary)
+	router.Get("/billing/seats/members", r.handler.ListSeatMembers)
+	router.Put("/billing/seats/members/:userID", r.handler.SetMemberSeat)
+	router.Delete("/billing/seats/members/:userID/pending", r.handler.CancelPendingSeatChange)
+	router.Post("/billing/seats/quote", r.handler.QuoteSeats)
+	router.Get("/billing/seats/renewal", r.handler.QuoteSeatRenewal)
+	router.Put("/billing/seats/renewal", r.handler.UpdateSeatRenewal)
+	router.Get("/billing/seats/orders", r.handler.ListSeatOrders)
+	router.Post("/billing/seats/orders", r.handler.CreateSeatOrder)
+	router.Get("/billing/seats/requests", r.handler.ListSeatRequests)
+	router.Post("/billing/seats/requests/:requestID/approve", r.handler.ApproveSeatRequest)
+	router.Post("/billing/seats/requests/:requestID/deny", r.handler.DenySeatRequest)
 }
 
 // RegisterPlatform registers platform billing endpoints.
@@ -192,4 +227,7 @@ func (r *Routes) registerPlatformCredits(router fiber.Router) {
 	router.Get("/tenants/:tenantID/credits/conversion", r.handler.GetPlatformTenantCreditConversion)
 	router.Post("/tenants/:tenantID/credits/conversion", r.handler.ConvertPlatformTenantToCredits)
 	router.Post("/tenants/:tenantID/credits/conversion/rollback", r.handler.RollbackPlatformTenantCredits)
+	router.Get("/seat-types", r.handler.ListPlatformSeatTypes)
+	router.Put("/seat-types/:seatType", r.handler.UpdatePlatformSeatType)
+	router.Get("/tenants/:tenantID/seats", r.handler.GetPlatformTenantSeats)
 }

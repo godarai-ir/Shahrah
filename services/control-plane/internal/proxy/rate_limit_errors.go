@@ -70,7 +70,26 @@ func writeGeminiBudgetError(c *fiber.Ctx, err error) error {
 	return c.Status(status).JSON(fiber.Map{"error": body})
 }
 
+// seatBlockMessages are the client-safe messages of chat requests refused by
+// a member's seat. GodarChat shows its own localized text per code.
+var seatBlockMessages = map[string]string{
+	"seat_unassigned":        "You have no seat in this organization yet",
+	"seat_credits_exhausted": "Your free seat credits are used up",
+	"personal_limit_reached": "You reached your personal usage limit for this month",
+	"budget_rule_reached":    "A budget set for you or your team is used up",
+	"pool_exhausted":         "Your organization has no credits left",
+}
+
 func budgetCheckErrorResponse(err error) (int, string, string) {
+	if code := billing.BudgetErrorCode(err); code != "" && isBudgetExceeded(err) {
+		message, ok := seatBlockMessages[code]
+		if !ok {
+			message = billing.ErrBudgetExceeded.Error()
+		}
+
+		return fiber.StatusPaymentRequired, message, code
+	}
+
 	if isBudgetExceeded(err) {
 		return fiber.StatusPaymentRequired, billing.ErrBudgetExceeded.Error(), budgetExceededCode
 	}

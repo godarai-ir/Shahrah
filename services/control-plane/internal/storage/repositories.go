@@ -114,6 +114,7 @@ type WalletRepository struct {
 	*CreditLedgerRepository
 	*CreditPackRepository
 	*CreditPriceRepository
+	*SeatRepository
 }
 
 // SupportRepository persists support tickets and support-only tenant operations.
@@ -380,6 +381,7 @@ func composeWalletRepository(state *walletState) *WalletRepository {
 		CreditLedgerRepository:   &CreditLedgerRepository{walletState: state},
 		CreditPackRepository:     &CreditPackRepository{walletState: state},
 		CreditPriceRepository:    &CreditPriceRepository{walletState: state},
+		SeatRepository:           &SeatRepository{walletState: state},
 	}
 }
 

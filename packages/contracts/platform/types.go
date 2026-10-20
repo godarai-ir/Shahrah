@@ -290,6 +290,11 @@ type BudgetReservation struct {
 	BYOKFeePercent string                    `json:"byok_fee_percent,omitempty"`
 	CreatedAt      time.Time                 `json:"created_at"`
 	Targets        []BudgetReservationTarget `json:"targets,omitempty"`
+	// SeatUserID is set when the request spends a member's seat credits first;
+	// only what overflows the seat reaches the pool and the seat pool limit.
+	SeatUserID string `json:"seat_user_id,omitempty"`
+	// SeatPoolLimitMC is the member's monthly pool limit, if any.
+	SeatPoolLimitMC *int64 `json:"seat_pool_limit_mc,omitempty"`
 }
 
 // Deployment represents a configured provider target.

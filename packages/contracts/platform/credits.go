@@ -116,6 +116,8 @@ type BudgetStatus struct {
 	Rules  []BudgetRuleStatus `json:"rules"`
 	// TenantBalance is shown only to callers allowed to read billing.
 	TenantBalance *BudgetBalanceStatus `json:"tenant_balance,omitempty"`
+	// Seat is the caller's own member seat, for members of credit tenants.
+	Seat *SeatStatus `json:"seat,omitempty"`
 }
 
 // BudgetRuleStatus is one budget rule that applies to the caller.

@@ -29,6 +29,10 @@ func registerBudgetRoutes(v1 fiber.Router, deps Dependencies) {
 	if deps.BudgetMeHandler != nil {
 		v1.Get("/budget/me", deps.BudgetMeHandler)
 	}
+
+	if deps.SeatRequestHandler != nil {
+		v1.Post("/seat-requests", deps.SeatRequestHandler)
+	}
 }
 
 // registerGeminiNativeRoutes registers Gemini-native and TokenBazaar generateContent routes.

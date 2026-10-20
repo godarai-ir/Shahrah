@@ -19,13 +19,17 @@ func tenantSeatCountSQL(tenant string) string {
 		   WHERE i.tenant_id = ` + tenant + ` AND i.status = 'pending' AND i.expires_at > NOW()))`
 }
 
-// tenantSeatUsage is the user-cap state of one tenant.
+// tenantSeatUsage is the user-cap state of one tenant. The plan's users.max
+// is its free seats; every paid seat the tenant bought adds one more member.
 type tenantSeatUsage struct {
-	Used    int
-	Active  int
-	Pending int
-	Limit   int
-	Limited bool
+	Used        int
+	Active      int
+	Pending     int
+	Limit       int
+	Limited     bool
+	FreeLimit   int
+	FreeLimited bool
+	PaidSeats   int
 }
 
 // rowQuerier is satisfied by both a pool and a transaction.
@@ -101,7 +105,9 @@ func tenantSeatUsageTx(ctx context.Context, tx rowQuerier, tenantID string) (ten
 				 WHERE pe.version_id = ts.version_id AND pe.feature_key = $2),
 				(SELECT fc.default_value::text FROM feature_catalog fc WHERE fc.feature_key = $2),
 				'null'),
-			COALESCE((SELECT s.trial_max_users FROM commercial_signup_settings s WHERE s.settings_id = true), $4)
+			COALESCE((SELECT s.trial_max_users FROM commercial_signup_settings s WHERE s.settings_id = true), $4),
+			(SELECT COALESCE(SUM(b.quantity), 0)::int FROM tenant_seat_blocks b
+			 WHERE b.tenant_id = t.tenant_id AND b.paid_through > NOW())
 		FROM tenants t
 		LEFT JOIN LATERAL (
 			SELECT status, version_id FROM tenant_subscriptions
@@ -111,7 +117,7 @@ func tenantSeatUsageTx(ctx context.Context, tx rowQuerier, tenantID string) (ten
 		) ts ON true
 		WHERE t.tenant_id = $1::uuid
 	`, tenantID, credits.FeatureUsersMax, credits.BillingUnitCredit, credits.TrialMaxUsers).Scan(
-		&usage.Active, &usage.Pending, &hasPlan, &trialingCredit, &raw, &trialMaxUsers,
+		&usage.Active, &usage.Pending, &hasPlan, &trialingCredit, &raw, &trialMaxUsers, &usage.PaidSeats,
 	)
 	if err != nil {
 		return usage, err
@@ -120,7 +126,8 @@ func tenantSeatUsageTx(ctx context.Context, tx rowQuerier, tenantID string) (ten
 	usage.Used = usage.Active + usage.Pending
 
 	if hasPlan {
-		usage.Limit, usage.Limited = credits.UserLimit(raw, trialingCredit, trialMaxUsers)
+		usage.FreeLimit, usage.FreeLimited = credits.UserLimit(raw, trialingCredit, trialMaxUsers)
+		usage.Limit, usage.Limited = usage.FreeLimit+usage.PaidSeats, usage.FreeLimited
 	}
 
 	return usage, nil
@@ -130,8 +137,8 @@ func tenantSeatUsageTx(ctx context.Context, tx rowQuerier, tenantID string) (ten
 // is below the seats the tenant already uses.
 func (s *SubscriptionRepository) ensurePlanFitsSeats(ctx context.Context, tenantID, versionID string) error {
 	var (
-		used int
-		raw  string
+		used, paid int
+		raw        string
 	)
 
 	err := s.pool.QueryRow(ctx, `
@@ -144,14 +151,16 @@ func (s *SubscriptionRepository) ensurePlanFitsSeats(ctx context.Context, tenant
 				 LIMIT 1),
 				(SELECT pe.value_json::text FROM plan_entitlements pe
 				 WHERE pe.version_id = $2::uuid AND pe.feature_key = $3),
-				'null')
-	`, tenantID, versionID, credits.FeatureUsersMax).Scan(&used, &raw)
+				'null'),
+			(SELECT COALESCE(SUM(b.quantity), 0)::int FROM tenant_seat_blocks b
+			 WHERE b.tenant_id = $1::uuid AND b.paid_through > NOW())
+	`, tenantID, versionID, credits.FeatureUsersMax).Scan(&used, &raw, &paid)
 	if err != nil {
 		return err
 	}
 
 	limit, limited := credits.UserLimit(raw, false, 0)
-	if limited && used > limit {
+	if limited && used > limit+paid {
 		return billing.ErrPlanUserLimitReached
 	}
 

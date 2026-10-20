@@ -11,7 +11,10 @@ type InvitePayload = {
   email?: unknown;
   role?: unknown;
   accept_invite_client_url?: unknown;
+  seat_type?: unknown;
 };
+
+const INVITE_SEAT_TYPES = new Set(["free", "pro", "max", "unassigned"]);
 
 const inviteUpstreamResponseSchema = z.object({
   link: z.string().optional(),
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const role = typeof body.role === "string" ? body.role.trim() : "member";
+    const seatType = typeof body.seat_type === "string" && INVITE_SEAT_TYPES.has(body.seat_type.trim()) ? body.seat_type.trim() : undefined;
     const acceptInviteClientURL =
       typeof body.accept_invite_client_url === "string"
         ? body.accept_invite_client_url.trim()
@@ -76,6 +80,7 @@ export async function POST(request: NextRequest) {
         email,
         role: role || "member",
         accept_invite_client_url: acceptInviteClientURL || undefined,
+        seat_type: seatType,
       },
     });
 

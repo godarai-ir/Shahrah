@@ -16,6 +16,7 @@ type runtimeProfileSources struct {
 	models   *virtualmodels.Service
 	policies *policies.Service
 	plans    *storage.EntitlementRepository
+	seats    *storage.SeatRepository
 }
 
 func newRuntimeProfileSources(
@@ -29,7 +30,17 @@ func newRuntimeProfileSources(
 		models:   models,
 		policies: policyApplication,
 		plans:    store.EntitlementRepository,
+		seats:    store.SeatRepository,
 	}
+}
+
+// GetSeatProfile lets profiles carry member seats for chat admission.
+func (s runtimeProfileSources) GetSeatProfile(ctx context.Context, tenantID string) (*platform.SeatProfile, error) {
+	if s.seats == nil {
+		return nil, nil
+	}
+
+	return s.seats.GetSeatProfile(ctx, tenantID)
 }
 
 func (s runtimeProfileSources) GetTenantByID(ctx context.Context, tenantID string) (*platform.Tenant, error) {

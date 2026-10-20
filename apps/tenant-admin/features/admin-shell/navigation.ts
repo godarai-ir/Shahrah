@@ -6,6 +6,7 @@ import {
   Building2,
   CircleDollarSign,
   Coins,
+  Armchair,
   Eye,
   FileSearch2,
   FileText,
@@ -32,6 +33,7 @@ export type AdminNavKey =
   | "quickStart"
   | "billing"
   | "topup"
+  | "seats"
   | "billingProfile"
   | "plan"
   | "providerAccounts"
@@ -77,7 +79,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "billingProfile", "plan"];
+export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "seats", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
 
@@ -207,6 +209,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: Coins,
       isActive: pathname.startsWith("/billing/credits") || pathname.startsWith("/billing/topup"),
       requiredPermissions: ["billing:read", "billing:manage", "settings:list"],
+    },
+    {
+      key: "seats",
+      href: "/billing/seats",
+      title: t("nav.seats"),
+      icon: Armchair,
+      isActive: pathname.startsWith("/billing/seats"),
+      requiredPermissions: ["billing:read", "billing:manage", "settings:list", "user:list", "user:manage"],
     },
     {
       key: "billingProfile",

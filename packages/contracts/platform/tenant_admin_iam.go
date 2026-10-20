@@ -39,6 +39,9 @@ type InviteTenantAdminUserRequest struct {
 	LastName              string `json:"last_name,omitempty"`
 	Role                  string `json:"role,omitempty"`
 	AcceptInviteClientURL string `json:"accept_invite_client_url,omitempty"`
+	// SeatType is the seat the member gets on acceptance: free, pro, max, or
+	// unassigned. Empty means the free seat when one is left.
+	SeatType string `json:"seat_type,omitempty"`
 }
 
 // UpdateTenantAdminUserProfileRequest sets the first and last name of a tenant member.

@@ -9,6 +9,7 @@ import {
 } from '@/lib/support-credits';
 import { controlPlaneRequest, formatDate } from '@/lib/support-tenants';
 import { FleetConversion } from './fleet-conversion';
+import { SeatTypesCard } from './seat-types-card';
 
 /** Credit price policy, rate-card multipliers, and the add-on pack catalog. */
 export function CreditsWorkspace() {
@@ -110,6 +111,8 @@ export function CreditsWorkspace() {
         <Card><h2 className="text-lg font-semibold">Add-on packs</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-zinc-400"><tr><th className="py-2">Pack</th><th>Credits</th><th>Discount</th><th>Validity</th><th>Status</th><th /></tr></thead><tbody className="divide-y divide-zinc-800">{packs.map((item) => <tr key={`${item.slug}-${item.version}`}><td className="py-3">{item.slug} v{item.version}</td><td>{item.credits.toLocaleString()}</td><td>{item.discount_percent}%</td><td>{item.validity_months} months</td><td>{item.status}</td><td>{item.status === 'draft' ? <button type="button" className="text-cyan-300 hover:underline" onClick={() => publishPack(item)}>Publish</button> : null}</td></tr>)}</tbody></table></div><p className="mt-3 text-xs text-zinc-500">Prices follow the active list price less the pack discount; orders keep the price they were placed at.</p></Card>
         <Card><h2 className="text-lg font-semibold">New pack version</h2><form className="mt-4 flex flex-col gap-3" onSubmit={createPack}><Input placeholder="Slug, e.g. credits-5000" value={pack.slug} onChange={(e) => setPack({ ...pack, slug: e.target.value })} /><Input inputMode="numeric" placeholder="Credits" value={pack.credits} onChange={(e) => setPack({ ...pack, credits: e.target.value })} /><label className="text-xs text-zinc-400">Discount off the list price (%)<Input inputMode="decimal" value={pack.discount} onChange={(e) => setPack({ ...pack, discount: e.target.value })} /></label><label className="text-xs text-zinc-400">Validity (months)<Input inputMode="numeric" value={pack.months} onChange={(e) => setPack({ ...pack, months: e.target.value })} /></label><label className="text-xs text-zinc-400">Sort order<Input inputMode="numeric" value={pack.sort} onChange={(e) => setPack({ ...pack, sort: e.target.value })} /></label><Button type="submit">Create draft</Button></form></Card>
       </section>
+
+      <SeatTypesCard />
     </div>
   );
 }

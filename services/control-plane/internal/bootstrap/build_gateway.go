@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
+	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
 
@@ -150,6 +151,7 @@ func (b *builder) buildGateway() error {
 		CreditSurface:                     b.creditSurfaceMiddleware(),
 		RateCardHandler:                   proxy.NewRateCardHandler(b.billing, b.creditRateCards),
 		BudgetMeHandler:                   proxy.NewBudgetMeHandler(b.billing),
+		SeatRequestHandler:                b.seatRequestHandler(),
 		PricingChangelogHandler:           b.pricingChangelogHandler(),
 	}
 
@@ -209,4 +211,13 @@ func (b *builder) buildHTTP() error {
 	b.httpApp = app
 
 	return nil
+}
+
+// seatRequestHandler lets members ask for a better seat from the gateway.
+func (b *builder) seatRequestHandler() fiber.Handler {
+	if b.store == nil || b.store.SeatRepository == nil {
+		return nil
+	}
+
+	return proxy.NewSeatRequestHandler(b.store.SeatRepository)
 }

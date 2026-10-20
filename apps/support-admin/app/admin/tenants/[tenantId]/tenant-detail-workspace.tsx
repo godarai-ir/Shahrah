@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TenantCreditsPanel } from './tenant-credits-panel';
+import { TenantSeatsPanel } from './tenant-seats-panel';
 import {
   controlPlaneRequest, formatDate, formatIRR, type SubscriptionPaymentIntent, type TenantDetail, type TenantEvent, type WalletTransaction,
 } from '@/lib/support-tenants';
 
-const tabs = ['overview', 'subscription', 'wallet', 'credits', 'events', 'controls'] as const;
+const tabs = ['overview', 'subscription', 'wallet', 'credits', 'seats', 'events', 'controls'] as const;
 type Tab = typeof tabs[number];
 
 export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
@@ -126,6 +127,8 @@ export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
       </div> : null}
 
       {tab === 'credits' ? <TenantCreditsPanel tenantId={tenantId} tenantSlug={tenant.slug} /> : null}
+
+      {tab === 'seats' ? <TenantSeatsPanel tenantId={tenantId} /> : null}
 
       {tab === 'events' ? <Card><h2 className="text-lg font-semibold">Important events</h2><ol className="mt-4 divide-y divide-zinc-800">{events.map((item) => <li key={item.id} className="py-4"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium">{item.type}</span><time className="text-sm text-zinc-400">{formatDate(item.created_at)}</time></div><p className="mt-1 text-sm text-zinc-300">{item.reason || 'No operator reason'}</p><p className="mt-1 text-xs text-zinc-500">{item.actor_role || 'system'} {item.actor_id ? `· ${item.actor_id}` : ''}</p></li>)}</ol>{events.length === 0 ? <p className="mt-4 text-sm text-zinc-400">No tenant events recorded.</p> : null}</Card> : null}
 

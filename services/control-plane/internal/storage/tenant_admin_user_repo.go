@@ -12,6 +12,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -192,6 +193,17 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 		return nil, "", ErrInvalidInvitationEmail
 	}
 
+	seatType := ""
+
+	if strings.TrimSpace(req.SeatType) != "" {
+		parsed, seatErr := seats.ParseType(req.SeatType)
+		if seatErr != nil {
+			return nil, "", seatErr
+		}
+
+		seatType = string(parsed)
+	}
+
 	now := time.Now().UTC()
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -280,13 +292,13 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO "tenant_admin_invitations" (
 			"invitation_id", "tenant_id", "tenantSlug", "email", "mobile", "role", "status",
-			"token_hash", "expires_at", "created_at", "updated_at", "first_name", "last_name"
+			"token_hash", "expires_at", "created_at", "updated_at", "first_name", "last_name", "seat_type"
 		) VALUES (
 			$1, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), $6, 'pending',
-			$7, $8, $9, $9, NULLIF($10, ''), NULLIF($11, '')
+			$7, $8, $9, $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, '')
 		)
 		RETURNING "accepted_at"
-	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now, firstName, lastName).Scan(&acceptedAt); err != nil {
+	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now, firstName, lastName, seatType).Scan(&acceptedAt); err != nil {
 		return nil, "", err
 	}
 
@@ -335,13 +347,14 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		updatedAt  time.Time
 		firstName  string
 		lastName   string
+		seatType   string
 	)
 
 	queryErr := tx.QueryRow(ctx, `
 		SELECT "invitation_id"::text, "tenant_id"::text, "tenantSlug",
 		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'member'),
 		       "status", "expires_at", "accepted_at", "created_at", "updated_at",
-		       COALESCE("first_name", ''), COALESCE("last_name", '')
+		       COALESCE("first_name", ''), COALESCE("last_name", ''), COALESCE("seat_type", '')
 		FROM "tenant_admin_invitations"
 		WHERE "token_hash" = $1
 		FOR UPDATE
@@ -359,6 +372,7 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		&updatedAt,
 		&firstName,
 		&lastName,
+		&seatType,
 	)
 	if queryErr != nil {
 		return nil, nil, queryErr
@@ -392,6 +406,10 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 
 	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role, firstName, lastName)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := assignInvitedSeatTx(ctx, tx, invitation.TenantID, user.ID, seatType, now); err != nil {
 		return nil, nil, err
 	}
 
@@ -503,6 +521,13 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 			WHERE "tenantSlug" = $1 AND "userID" = $2
 		`, tenantSlug, userID); revokeErr != nil {
 			return nil, revokeErr
+		}
+
+		// A departing member's paid seat goes back to the tenant's stock.
+		if _, releaseErr := s.pool.Exec(ctx, `
+			DELETE FROM tenant_seat_assignments WHERE tenant_id = $1::uuid AND user_id::text = $2
+		`, tenantID, userID); releaseErr != nil {
+			return nil, releaseErr
 		}
 	}
 
@@ -669,4 +694,33 @@ func (s *TenantAdminRepository) reactivateWithinUserCap(ctx context.Context, ten
 	}
 
 	return tx.Commit(ctx)
+}
+
+// assignInvitedSeatTx gives a new member the seat their invitation named, or
+// the free seat when it named none. A seat that is no longer available leaves
+// the member without one; the seat worker gives them the free seat later if
+// one frees up. The savepoint keeps a refused seat from failing the acceptance.
+func assignInvitedSeatTx(ctx context.Context, tx pgx.Tx, tenantID, userID, seatType string, now time.Time) error {
+	target := seats.Free
+	if seatType != "" {
+		target = seats.Type(seatType)
+	}
+
+	if target == seats.Unassigned {
+		return nil
+	}
+
+	if _, err := tx.Exec(ctx, `SAVEPOINT invited_seat`); err != nil {
+		return err
+	}
+
+	if _, err := setMemberSeatTx(ctx, tx, tenantID, userID, target, "invitation", now); err != nil {
+		_, rollbackErr := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT invited_seat`)
+
+		return rollbackErr
+	}
+
+	_, err := tx.Exec(ctx, `RELEASE SAVEPOINT invited_seat`)
+
+	return err
 }

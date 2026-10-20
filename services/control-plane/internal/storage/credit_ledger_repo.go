@@ -32,6 +32,9 @@ type CreditGrant struct {
 	SourceRef         map[string]interface{}
 	Reason            string
 	Actor             string
+	// OwnerUserID makes the lot a member's personal seat credits. Personal lots
+	// never repay the tenant's debt and are spent only by their owner.
+	OwnerUserID string
 }
 
 // CreditGrantResult reports the outcome of a grant.
@@ -134,6 +137,8 @@ func validateCreditGrant(grant CreditGrant) error {
 		return fmt.Errorf("%w: idempotency key is required", ErrInvalidCreditGrant)
 	case !credits.ValidLotSource(grant.Source):
 		return fmt.Errorf("%w: unknown lot source %q", ErrInvalidCreditGrant, grant.Source)
+	case credits.PersonalLotSource(grant.Source) != (strings.TrimSpace(grant.OwnerUserID) != ""):
+		return fmt.Errorf("%w: seat lots, and only seat lots, need an owner", ErrInvalidCreditGrant)
 	}
 
 	switch grant.Kind {
@@ -181,7 +186,12 @@ func grantCreditsTx(ctx context.Context, tx pgx.Tx, grant CreditGrant) (CreditGr
 		return CreditGrantResult{}, lotErr
 	}
 
-	repaid, repayAllocations, err := repayCreditDebtTx(ctx, tx, grant.TenantID, lotID, grant.AmountMC, state.DebtMC)
+	debtMC := state.DebtMC
+	if grant.OwnerUserID != "" {
+		debtMC = 0
+	}
+
+	repaid, repayAllocations, err := repayCreditDebtTx(ctx, tx, grant.TenantID, lotID, grant.AmountMC, debtMC)
 	if err != nil {
 		return CreditGrantResult{}, err
 	}
@@ -195,9 +205,10 @@ func grantCreditsTx(ctx context.Context, tx pgx.Tx, grant CreditGrant) (CreditGr
 	}
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO credit_lot_balances (lot_id, tenant_id, remaining_mc, expires_at, source_rank, lot_created_at)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)
-	`, lotID, grant.TenantID, grant.AmountMC-repaid, grant.ExpiresAt, credits.SourceRank(grant.Source), grant.OccurredAt); err != nil {
+		INSERT INTO credit_lot_balances (lot_id, tenant_id, remaining_mc, expires_at, source_rank, lot_created_at, owner_user_id)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, NULLIF($7, '')::uuid)
+	`, lotID, grant.TenantID, grant.AmountMC-repaid, grant.ExpiresAt, credits.SourceRank(grant.Source), grant.OccurredAt,
+		grant.OwnerUserID); err != nil {
 		return CreditGrantResult{}, err
 	}
 
@@ -217,11 +228,11 @@ func insertCreditLotTx(ctx context.Context, tx pgx.Tx, lotID, entryID string, gr
 	_, err := tx.Exec(ctx, `
 		INSERT INTO credit_lots (
 			lot_id, tenant_id, source, amount_mc, expires_at, purchase_price_irr,
-			price_per_credit_irr, source_ref, grant_entry_id, created_at
+			price_per_credit_irr, source_ref, grant_entry_id, created_at, owner_user_id
 		)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, NULLIF($7, '')::numeric, $8, $9::uuid, $10)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, NULLIF($7, '')::numeric, $8, $9::uuid, $10, NULLIF($11, '')::uuid)
 	`, lotID, grant.TenantID, string(grant.Source), grant.AmountMC, grant.ExpiresAt, grant.PurchasePriceIRR,
-		grant.PricePerCreditIRR, mustJSON(sourceRef), entryID, grant.OccurredAt)
+		grant.PricePerCreditIRR, mustJSON(sourceRef), entryID, grant.OccurredAt, grant.OwnerUserID)
 
 	return err
 }
@@ -391,57 +402,105 @@ func applyCreditTenantDeltaTx(ctx context.Context, tx pgx.Tx, tenantID string, a
 	return err
 }
 
-// debitCreditLotsTx spends amountMC from the tenant's lots valid at occurredAt,
-// in consumption order, and returns the allocations, including any debt.
+// creditDebit is the outcome of spending from a tenant's lots.
+type creditDebit struct {
+	Allocations []creditAllocation
+	// PersonalMC was spent from the owner's personal lots, DebtMC is the
+	// shortfall, and the rest came from the pool.
+	PersonalMC int64
+	DebtMC     int64
+}
+
+// debitCreditLotsTx spends amountMC from the tenant's pool lots valid at
+// occurredAt, in consumption order, and returns the allocations, including any
+// debt. Personal lots are never touched.
 func debitCreditLotsTx(ctx context.Context, tx pgx.Tx, tenantID, entryID string, amountMC int64, occurredAt time.Time) ([]creditAllocation, int64, error) {
+	debit, err := debitCreditLotsForTx(ctx, tx, tenantID, "", entryID, amountMC, occurredAt)
+
+	return debit.Allocations, debit.DebtMC, err
+}
+
+// debitCreditLotsForTx spends amountMC from ownerUserID's personal lots first,
+// then from the pool, in consumption order within each. An empty owner spends
+// the pool only. Admission decides who may reach the pool; settlement records
+// what was served, so it always falls through to the pool and then to debt.
+func debitCreditLotsForTx(ctx context.Context, tx pgx.Tx, tenantID, ownerUserID, entryID string, amountMC int64, occurredAt time.Time) (creditDebit, error) {
 	if amountMC <= 0 {
-		return nil, 0, nil
+		return creditDebit{}, nil
 	}
 
-	rows, err := tx.Query(ctx, `
-		SELECT lot_id::text, remaining_mc, expires_at, source_rank, lot_created_at
-		FROM credit_lot_balances
-		WHERE tenant_id = $1::uuid AND remaining_mc > 0 AND (expires_at IS NULL OR expires_at > $2)
-		ORDER BY expires_at ASC NULLS LAST, source_rank, lot_created_at, lot_id
-		FOR UPDATE
-	`, tenantID, occurredAt)
+	var personal []credits.SpendableLot
+
+	if strings.TrimSpace(ownerUserID) != "" {
+		lots, err := spendableCreditLotsTx(ctx, tx, tenantID, ownerUserID, occurredAt)
+		if err != nil {
+			return creditDebit{}, err
+		}
+
+		personal = lots
+	}
+
+	pool, err := spendableCreditLotsTx(ctx, tx, tenantID, "", occurredAt)
 	if err != nil {
-		return nil, 0, err
+		return creditDebit{}, err
 	}
 
-	lots, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (credits.SpendableLot, error) {
-		var lot credits.SpendableLot
+	credits.SortForConsumption(personal)
+	credits.SortForConsumption(pool)
 
-		scanErr := row.Scan(&lot.ID, &lot.RemainingMC, &lot.ExpiresAt, &lot.SourceRank, &lot.CreatedAt)
-
-		return lot, scanErr
-	})
-	if err != nil {
-		return nil, 0, err
+	personalIDs := make(map[string]bool, len(personal))
+	for _, lot := range personal {
+		personalIDs[lot.ID] = true
 	}
 
-	credits.SortForConsumption(lots)
-
-	debits := credits.AllocateDebit(lots, amountMC)
-	allocations := make([]creditAllocation, 0, len(debits))
-
-	var debtMC int64
+	debits := credits.AllocateDebit(append(personal, pool...), amountMC)
+	out := creditDebit{Allocations: make([]creditAllocation, 0, len(debits))}
 
 	for _, debit := range debits {
-		allocations = append(allocations, creditAllocation{EntryID: entryID, LotID: debit.LotID, AmountMC: debit.AmountMC})
-		if debit.LotID == "" {
-			debtMC -= debit.AmountMC
+		out.Allocations = append(out.Allocations, creditAllocation{EntryID: entryID, LotID: debit.LotID, AmountMC: debit.AmountMC})
+
+		switch {
+		case debit.LotID == "":
+			out.DebtMC -= debit.AmountMC
 
 			continue
+		case personalIDs[debit.LotID]:
+			out.PersonalMC -= debit.AmountMC
 		}
 
 		if _, err := tx.Exec(ctx, `
 			UPDATE credit_lot_balances SET remaining_mc = remaining_mc + $2, updated_at = NOW()
 			WHERE lot_id = $1::uuid
 		`, debit.LotID, debit.AmountMC); err != nil {
-			return nil, 0, err
+			return creditDebit{}, err
 		}
 	}
 
-	return allocations, debtMC, nil
+	return out, nil
+}
+
+// spendableCreditLotsTx locks the lots valid at occurredAt that belong to
+// ownerUserID, or to the pool when the owner is empty.
+func spendableCreditLotsTx(ctx context.Context, tx pgx.Tx, tenantID, ownerUserID string, occurredAt time.Time) ([]credits.SpendableLot, error) {
+	ownerUserID = strings.TrimSpace(ownerUserID)
+
+	rows, err := tx.Query(ctx, `
+		SELECT lot_id::text, remaining_mc, expires_at, source_rank, lot_created_at
+		FROM credit_lot_balances
+		WHERE tenant_id = $1::uuid AND remaining_mc > 0 AND (expires_at IS NULL OR expires_at > $2)
+		  AND owner_user_id IS NOT DISTINCT FROM NULLIF($3, '')::uuid
+		ORDER BY expires_at ASC NULLS LAST, source_rank, lot_created_at, lot_id
+		FOR UPDATE
+	`, tenantID, occurredAt, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (credits.SpendableLot, error) {
+		var lot credits.SpendableLot
+
+		scanErr := row.Scan(&lot.ID, &lot.RemainingMC, &lot.ExpiresAt, &lot.SourceRank, &lot.CreatedAt)
+
+		return lot, scanErr
+	})
 }

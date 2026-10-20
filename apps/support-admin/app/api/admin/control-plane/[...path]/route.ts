@@ -159,6 +159,8 @@ function creditPermission(joined: string, method: string): AdminPermission | und
     if (joined.endsWith('/credits/adjustments')) return 'wallet:adjust';
     return 'platform:admin';
   }
+  // Seat types set what members get and pay, like the pack catalog.
+  if (joined.startsWith('seat-types')) return method === 'GET' ? 'catalog:read' : 'catalog:write';
   if (!joined.startsWith('credits/')) return undefined;
   if (method === 'GET') return 'billing:read';
   if (joined.startsWith('credits/conversions')) return 'platform:admin';

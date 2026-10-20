@@ -73,6 +73,7 @@ type Dependencies struct {
 	CreditSurface                     fiber.Handler
 	RateCardHandler                   fiber.Handler
 	BudgetMeHandler                   fiber.Handler
+	SeatRequestHandler                fiber.Handler
 	PricingChangelogHandler           fiber.Handler
 }
 

@@ -22,6 +22,10 @@ const (
 	LotSourceCompensation  LotSource = "compensation"
 	LotSourceAdjust        LotSource = "adjust"
 	LotSourceOverage       LotSource = "overage"
+	// LotSourceSeat and LotSourceSeatFree are a member's personal seat credits.
+	// They have an owner and are never spent by the tenant pool.
+	LotSourceSeat     LotSource = "seat"
+	LotSourceSeatFree LotSource = "seat_free"
 )
 
 // EntryKind is the kind of a credit ledger entry.
@@ -55,9 +59,9 @@ var DefaultBYOKFeePercent = decimal.NewFromInt(5)
 // first, then trial, promo, and compensation credits, then purchased add-ons.
 func SourceRank(source LotSource) int16 {
 	switch source {
-	case LotSourcePlan:
+	case LotSourcePlan, LotSourceSeat:
 		return 0
-	case LotSourceTrial, LotSourcePromo, LotSourceCompensation:
+	case LotSourceTrial, LotSourcePromo, LotSourceCompensation, LotSourceSeatFree:
 		return 1
 	case LotSourcePurchaseAddon:
 		return 2
@@ -70,11 +74,17 @@ func SourceRank(source LotSource) int16 {
 func ValidLotSource(source LotSource) bool {
 	switch source {
 	case LotSourcePlan, LotSourceTrial, LotSourcePromo, LotSourcePurchaseAddon,
-		LotSourceMigration, LotSourceCompensation, LotSourceAdjust, LotSourceOverage:
+		LotSourceMigration, LotSourceCompensation, LotSourceAdjust, LotSourceOverage,
+		LotSourceSeat, LotSourceSeatFree:
 		return true
 	default:
 		return false
 	}
+}
+
+// PersonalLotSource reports whether lots of source belong to one member.
+func PersonalLotSource(source LotSource) bool {
+	return source == LotSourceSeat || source == LotSourceSeatFree
 }
 
 // SpendableLot is a lot with a positive remaining balance.

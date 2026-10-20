@@ -114,6 +114,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [inviteFirstName, setInviteFirstName] = useState("");
   const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
+  // "auto" lets the control plane pick: the free seat while one is left.
+  const [inviteSeat, setInviteSeat] = useState("auto");
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError ? { kind: "error", message: props.initialError } : null,
   );
@@ -395,6 +397,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         role: inviteRole,
         first_name: inviteFirstName.trim(),
         last_name: inviteLastName.trim(),
+        seat_type: inviteSeat === "auto" ? undefined : inviteSeat,
       });
       showFeedbackToast({
         kind: "success",
@@ -405,6 +408,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       setInviteFirstName("");
       setInviteLastName("");
       setInviteRole(resolveDefaultInviteRole(availableRoles));
+      setInviteSeat("auto");
       setInviteOpen(false);
       await loadUsers();
     } catch (error) {
@@ -781,6 +785,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               label: resolveRoleDisplayName(role.name, availableRoles, t),
             }))}
             disabled={availableRoles.length === 0}
+          />
+          <AppSelectField
+            label={t("form.seat")}
+            ariaLabel={t("form.seat")}
+            description={t("form.seatHint")}
+            value={inviteSeat}
+            onValueChange={setInviteSeat}
+            triggerClassName="h-10 w-full"
+            options={["auto", "free", "pro", "max", "unassigned"].map((seat) => ({ value: seat, label: t(`form.seatOptions.${seat}`) }))}
           />
         </form>
       </FormSheet>

@@ -28,6 +28,7 @@ var (
 	ErrInvalidCreditPack                 = errors.New("credit pack needs a slug, positive credits, a discount below 100, and 1-36 months")
 	ErrInvalidCreditAdjustment           = errors.New("adjustment needs a non-zero amount with at most two decimals, a reason, and an idempotency key")
 	ErrInvalidOverageCap                 = errors.New("overage cap must be a positive amount of credits with at most two decimals")
+	ErrInvalidSeatPoolLimit              = errors.New("seat pool limit must be a positive amount of credits with at most two decimals")
 	ErrCreditConversionNothingToDo       = errors.New("the tenant is already billed in credits and has no IRR balance to convert")
 	ErrWalletTopUpForCreditTenant        = errors.New("credit tenants buy credit packs instead of topping up the IRR wallet")
 	ErrSubscriptionNotFound              = errors.New("tenant subscription not found")

@@ -37,7 +37,16 @@
     "emailPlaceholder": "user@company.com",
     "role": "Role",
     "firstName": "First name",
-    "lastName": "Last name"
+    "lastName": "Last name",
+    "seat": "Seat",
+    "seatHint": "By default the free seat while one is left. A paid seat is taken from the organization's stock.",
+    "seatOptions": {
+      "auto": "Automatic (free if available)",
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "unassigned": "No seat"
+    }
   },
   "roles": {
     "billingManager": "Billing Manager",
