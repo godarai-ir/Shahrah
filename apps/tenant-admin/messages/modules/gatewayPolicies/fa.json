@@ -131,7 +131,7 @@
       "requests": "درخواست",
       "tokens": "توکن"
     },
-    "budgetLimit": "حداکثر {amount} کردیت در هر {period}",
+    "budgetLimit": "حداکثر {amount} اعتبار در هر {period}",
     "periods": {
       "cost_per_day": "روز",
       "cost_per_week": "هفته",

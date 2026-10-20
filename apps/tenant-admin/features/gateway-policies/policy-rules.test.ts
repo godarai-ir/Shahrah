@@ -177,7 +177,7 @@ describe("ruleSentence", () => {
 
   it("reads a budget rule with its applies-per scope", () => {
     expect(ruleSentence(budget("b", { budget_applies_per: "team" }), format)).toBe(
-      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰ کردیت در هر ماه، جدا برای هر تیم",
+      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰ اعتبار در هر ماه، جدا برای هر تیم",
     );
   });
 

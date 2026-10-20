@@ -51,7 +51,7 @@
     "quickStart": "راهنمای شروع سریع",
     "supportTickets": "پشتیبانی",
     "billing": "داشبورد مالی",
-    "topup": "خرید کردیت",
+    "topup": "خرید اعتبار",
     "billingProfile": "هویت مالی",
     "plan": "پلن",
     "settings": "تنظیمات حساب",
@@ -98,7 +98,7 @@
       "createRateLimitRule": "ساخت قانون کنترل نرخ",
       "createBudgetLimitRule": "ساخت قانون سقف هزینه",
       "createSupportTicket": "ثبت تیکت پشتیبانی",
-      "topup": "خرید کردیت"
+      "topup": "خرید اعتبار"
     }
   }
 }
