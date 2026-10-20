@@ -81,7 +81,12 @@ export function SubscriptionOverview({ summary, initialError }: SubscriptionOver
 
         {summary.renewal_due && summary.period_end ? (
           <Alert>
-            <AlertDescription>{t("renewalDue", { date: format.date(summary.period_end) })}</AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              {t("renewalDue", { date: format.date(summary.period_end) })}
+              <Button asChild size="sm" variant="outline">
+                <Link href="/billing/seats/renew">{t("renewSeats")}</Link>
+              </Button>
+            </AlertDescription>
           </Alert>
         ) : null}
 

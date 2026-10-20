@@ -54,7 +54,7 @@
     "noPaymentURL": "The payment gateway returned no payment link. Try again.",
     "interval": "Billing interval",
     "intervalHint": "Every seat bought later follows this interval.",
-    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on this page during the 7 days before its period ends.",
+    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on the Renew seats page during the 7 days before its period ends.",
     "monthlyCredits": "{credits} personal credits a month",
     "back": "Back to seats",
     "formTitle": "Seat and quantity",
@@ -119,14 +119,15 @@
     "empty": "No orders yet. Seat purchases and renewals are recorded here."
   },
   "renewal": {
-    "title": "Seat renewal",
-    "description": "Paid seats don't renew on their own. Pay for the renewal during the last 7 days of the period; otherwise paid seats are taken back from members.",
-    "dueTitle": "Renew seats through {date}",
-    "dueDescription": "{seats, number} seats need payment for the next period ({amount}). Seats not renewed are taken from members when the current period ends.",
-    "keep": "{seat} seats to renew",
-    "keepHint": "You hold {held, number} seats; {assigned, number} are assigned to members.",
-    "saveKeep": "Save count",
-    "pay": "Pay renewal {amount}"
+    "title": "Renew seats",
+    "open": "Renewal is open until {date}. If you don't renew, paid seats end when the period does.",
+    "closed": "Renewal opens on {date}. When it does, you choose there how many seats to renew.",
+    "done": "Every paid seat is paid for the next period.",
+    "action": "Renew seats",
+    "view": "View renewal",
+    "seatLabel": "{seat} seats",
+    "periodEnd": "Current period ends",
+    "held": "{held, number} seats · {assigned, number} given to members"
   },
   "settings": {
     "title": "Seat settings",
@@ -170,5 +171,98 @@
     "invalid_seat_pool_limit": "The limit must be a positive number with at most two decimals.",
     "payment_provider_unavailable": "The payment gateway is unavailable.",
     "seat_interval_locked": "New seats follow the billing interval of your seat subscription."
+  },
+  "renew": {
+    "title": "Renew seats",
+    "pageDescription": "Choose which paid seats stay for the next period, see which members lose their seat, and pay for the renewal.",
+    "back": "Back to seats",
+    "noAccess": "Paying for a renewal needs the billing management permission.",
+    "status": {
+      "openTitle": "Renewal is open",
+      "open": "You have until {date}. You choose how many seats to renew right here, right now; if you don't renew, paid seats end when the period does.",
+      "closedTitle": "Renewal is not open yet",
+      "closed": "Renewal opens on {date}. When it does, you choose here how many seats to renew; until then there is nothing to do.",
+      "doneTitle": "Renewal is done",
+      "done": "Every paid seat is paid through {date}. Nothing else to do."
+    },
+    "empty": {
+      "title": "No paid seats to renew",
+      "description": "Only Pro and Max seats renew. Buying the first paid seat starts the seat subscription.",
+      "action": "Buy seats"
+    },
+    "counts": {
+      "title": "Seats to renew",
+      "description": "Say how many seats of each type stay for the next period. Seats you don't renew end when the period does."
+    },
+    "seat": {
+      "stats": "{held} seats · {assigned} given to members · {available} available",
+      "bar": "{kept} renew · {ends} end when the period does",
+      "keep": "{seat} seats to renew",
+      "keepHint": "A number from 0 to {held, number}.",
+      "keepAll": "Renew all {held, number} {seat} seats",
+      "invalid": "Enter a number from 0 to {held, number}.",
+      "renewedNote": "{count, number} seats are already paid for the next period."
+    },
+    "impact": {
+      "title": "Effect on members",
+      "loading": "Calculating the effect of renewing",
+      "none": "No member loses their seat.",
+      "noneDescription": "With these counts, every member holding a paid seat keeps it.",
+      "someTitle": "{count, number} members lose their seat",
+      "someDescription": "When the period ends, these members lose their paid seat and can send messages in GodarChat only if they get a free seat.",
+      "group": "{seat}: {count, number} members",
+      "assignedAt": "Seat since {date}",
+      "fallbackFree": "Gets a free seat",
+      "fallbackUnassigned": "Left without a seat",
+      "memberHidden": "Member (seeing names needs the permission to view users)",
+      "rule": "Members are ranked by when they got their seat: the later someone got it, the sooner they lose it.",
+      "unpaid": "If you don't pay for the renewal, all {count, number} members holding a paid seat are left without one when the period ends.",
+      "manageMembers": "Change members' seats",
+      "confirm": "I understand that these {count, number} members lose their paid seat when the period ends."
+    },
+    "summary": {
+      "title": "Renewal summary",
+      "line": "{count, number} × {seat}",
+      "currentEnd": "Current period ends",
+      "newEnd": "New period until",
+      "nothingToPay": "Nothing to pay for these counts.",
+      "noSeatsKept": "No seats renew. Every paid seat ends when the period does.",
+      "payLockedConfirm": "Tick the confirmation above to pay."
+    },
+    "actions": {
+      "pay": "Pay {amount}"
+    },
+    "payment": {
+      "successTitle": "Renewal done",
+      "successDescription": "The renewal is paid and the chosen seats stay for the next period.",
+      "failedTitle": "Renewal payment failed",
+      "failedDescription": "You were not charged, or the amount is returned. You can pay again."
+    },
+    "timeline": {
+      "label": "Where today falls in the current period",
+      "daysLeft": "{days, number} days until the period ends",
+      "lastDay": "Today is the last day of the period",
+      "start": "Period starts",
+      "opens": "Renewal opens",
+      "end": "Period ends"
+    },
+    "current": {
+      "title": "Your paid seats",
+      "description": "These seats end when the period does, unless you renew them while renewal is open."
+    },
+    "rules": {
+      "title": "Important renewal rules",
+      "description": "Read these before paying; every one of them applies.",
+      "items": {
+        "counts": "You choose how many seats to renew at the moment you renew; nothing is saved beforehand.",
+        "noAuto": "Renewal is not automatic and is open only during the last 7 days of the period.",
+        "pays": "Renewing buys one whole next period (one Jalali month or year, in Tehran time) for the seats you choose, plus VAT.",
+        "notRenewed": "Seats you don't renew keep working until the current period ends, then they end.",
+        "order": "If you renew fewer seats than are given to members, the members who got their seat later lose it sooner. This order is worked out for each seat type separately.",
+        "fallback": "A member whose paid seat ends gets a free seat only if they have never had one and free seats are left; otherwise they are left without a seat and cannot send messages in GodarChat.",
+        "unpaid": "If you don't pay for the renewal, all paid seats end when the period does and the subscription returns to the free plan.",
+        "chooseYourself": "Before the period ends, you can choose yourself who keeps a seat on the members page."
+      }
+    }
   }
 }

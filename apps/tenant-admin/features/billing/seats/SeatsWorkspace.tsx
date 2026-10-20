@@ -29,7 +29,7 @@ import {
   type SeatRequest,
   type SeatSummary,
 } from "./api";
-import { SeatRenewalCard } from "./SeatRenewalCard";
+import { SeatRenewalSummary } from "./SeatRenewalSummary";
 import { SeatRequestsTable } from "./SeatRequestsTable";
 import { SeatSettingsCard } from "./SeatSettingsCard";
 import { SeatSummaryCards } from "./SeatSummaryCards";
@@ -60,7 +60,7 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
   const format = useBillingFormat();
   const locale = useAppLocale();
   const router = useRouter();
-  const [summary, setSummary] = useState(props.summary);
+  const { summary } = props;
   const [pendingID, setPendingID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const openRequests = requests.filter((request) => request.status === "pending").length;
@@ -175,7 +175,7 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         </TabsContent>
       </Tabs>
 
-      <SeatRenewalCard summary={summary} canManage={canManageBilling} onSummaryChange={setSummary} />
+      <SeatRenewalSummary summary={summary} />
       {settings ? <SeatSettingsCard initialSettings={settings} canManage={canManageBilling} /> : null}
     </div>
   );

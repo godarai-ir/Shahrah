@@ -4,21 +4,19 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import AdminShell from "@/features/admin-shell/AdminShell";
 import { parseCreditSettings } from "@/features/billing/credits/api";
 import { parseSeatOrders, parseSeatRequests, parseSeatSummary } from "@/features/billing/seats/api";
+import { SEAT_READ_PERMISSIONS } from "@/features/billing/seats/permissions";
 import { SeatsWorkspace } from "@/features/billing/seats/SeatsWorkspace";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { canAnyPermission } from "@/lib/authz";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import type { Permission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
   searchParams: Promise<{ payment_status?: string }>;
 };
-
-const SEAT_READ_PERMISSIONS: Permission[] = ["billing:read", "billing:manage", "settings:list", "user:list", "user:manage"];
 
 export default async function BillingSeatsPage({ searchParams }: PageProps) {
   const auth = await requireAuth("/login?next=/billing/seats");

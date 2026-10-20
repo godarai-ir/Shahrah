@@ -58,7 +58,39 @@ export const seatSummarySchema = z.object({
   offers: z.array(seatOfferSchema),
   pending_requests: z.number(),
   renewal_due: seatRenewalQuoteSchema.nullish(),
+  /** When the running subscription's renewal window opens. */
+  renewal_opens_at: z.string().nullish(),
   tax_percent: z.string(),
+});
+
+export const seatRenewalPreviewMemberSchema = z.object({
+  user_id: z.string(),
+  email: z.string().optional().default(""),
+  name: z.string().optional().default(""),
+  assigned_at: z.string().nullish(),
+  /** What the member holds after losing the paid seat. */
+  fallback: z.enum(["free", "unassigned"]),
+});
+
+export const seatRenewalPreviewLineSchema = z.object({
+  seat: paidSeatType,
+  /** Seats of the type the tenant holds, and how many are already paid for the next period. */
+  held: z.number(),
+  renewed: z.number(),
+  keep: z.number(),
+  assigned: z.number(),
+  unit_price_irr: z.number(),
+  losing: z.array(seatRenewalPreviewMemberSchema).nullish().transform((value) => value ?? []),
+});
+
+export const seatRenewalPreviewSchema = z.object({
+  period_end: z.string(),
+  next_period_end: z.string(),
+  lines: z.array(seatRenewalPreviewLineSchema),
+  price_irr: z.number(),
+  tax_percent: z.string(),
+  tax_irr: z.number(),
+  payable_irr: z.number(),
 });
 
 export const seatQuoteSchema = z.object({
@@ -121,6 +153,9 @@ export type SeatOffer = z.infer<typeof seatOfferSchema>;
 export type SeatTypeCount = z.infer<typeof seatTypeCountSchema>;
 export type SeatRenewalQuote = z.infer<typeof seatRenewalQuoteSchema>;
 export type SeatSummary = z.infer<typeof seatSummarySchema>;
+export type SeatRenewalPreview = z.infer<typeof seatRenewalPreviewSchema>;
+export type SeatRenewalPreviewLine = z.infer<typeof seatRenewalPreviewLineSchema>;
+export type SeatRenewalPreviewMember = z.infer<typeof seatRenewalPreviewMemberSchema>;
 export type SeatQuote = z.infer<typeof seatQuoteSchema>;
 export type SeatOrder = z.infer<typeof seatOrderSchema>;
 export type SeatRequest = z.infer<typeof seatRequestSchema>;
@@ -137,6 +172,14 @@ export function quoteSeats(input: { seat: PaidSeatType; quantity: number; billin
 
 export function updateSeatRenewal(input: { seat: PaidSeatType; quantity: number }) {
   return requestParsedJSON(seatSummarySchema, "/api/billing/seats/renewal", { method: "PUT", body: JSON.stringify(input) });
+}
+
+/** What renewing the given number of seats per type costs and which members lose their seat; a missing type uses the saved count. */
+export function previewSeatRenewal(keep: Partial<Record<PaidSeatType, number>>, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  for (const [seat, count] of Object.entries(keep)) query.set(seat, String(count));
+
+  return requestParsedJSON(seatRenewalPreviewSchema, `/api/billing/seats/renewal/preview?${query.toString()}`, { signal });
 }
 
 export function createSeatOrder(input: {
@@ -168,6 +211,11 @@ export function denySeatRequest(requestID: string, note: string) {
 
 export function parseSeatSummary(payload: unknown): SeatSummary | null {
   const parsed = seatSummarySchema.safeParse(payload);
+  return parsed.success ? parsed.data : null;
+}
+
+export function parseSeatRenewalPreview(payload: unknown): SeatRenewalPreview | null {
+  const parsed = seatRenewalPreviewSchema.safeParse(payload);
   return parsed.success ? parsed.data : null;
 }
 
