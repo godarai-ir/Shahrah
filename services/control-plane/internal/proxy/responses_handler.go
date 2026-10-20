@@ -209,7 +209,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	estimated.Metadata = req.Metadata
 
-	rateLimitErr := h.checkResponsesRateLimit(c, authInfo, requestedModel, estimated.TotalTokens, startTime, quotaStart, requestLog)
+	rateLimitErr := h.checkResponsesRateLimit(c, authInfo, requestedModel, startTime, quotaStart, requestLog)
 	if rateLimitErr != nil {
 		return rateLimitErr
 	}
@@ -472,12 +472,11 @@ func (h *ResponsesHandler) checkResponsesRateLimit(
 	c *fiber.Ctx,
 	authInfo *platform.AuthContext,
 	requestedModel string,
-	estimatedTokens int,
 	startTime time.Time,
 	quotaStart time.Time,
 	requestLog *requestLogLifecycle,
 ) error {
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimatedTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err == nil {

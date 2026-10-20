@@ -119,8 +119,7 @@
     },
     "options": {
       "dimension": {
-        "requests": "تعداد درخواست",
-        "tokens": "توکن"
+        "requests": "تعداد درخواست"
       },
       "windowUnit": {
         "minute": "در دقیقه",
@@ -209,7 +208,6 @@
   "aria": {
     "filterFieldType": "نوع فیلتر",
     "metadataOperator": "عملگر فراداده",
-    "limitDimension": "واحد محدودیت",
     "windowUnit": "بازه زمانی",
     "conflictBehavior": "رفتار تعارض",
     "removeFilter": "حذف فیلتر",

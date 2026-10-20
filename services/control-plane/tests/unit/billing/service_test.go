@@ -442,7 +442,7 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 		res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{
 			TenantID:  "tenant-1",
 			TokenHash: "key-a",
-		}, "gpt-4", 500)
+		}, "gpt-4")
 		require.NoError(t, err)
 		assert.Nil(t, res)
 	}
@@ -464,7 +464,7 @@ func TestBillingService_ShouldAllowTrialingSubscriptionWithoutRequestQuota(t *te
 	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
 	for range 3 {
-		_, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+		_, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4")
 		require.NoError(t, err)
 	}
 
@@ -488,7 +488,7 @@ func TestBillingService_ShouldRejectInactiveSubscription(t *testing.T) {
 	}
 	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
-	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
+	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4")
 	assert.ErrorIs(t, err, billing.ErrSubscriptionInactive)
 	assert.Nil(t, res)
 }

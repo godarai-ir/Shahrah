@@ -157,17 +157,7 @@ export function RateLimitRuleForm({ initialRule, rules, onCancel, onSaved }: Rat
                 aria-invalid={Boolean(errors.limit?.max) || undefined}
                 {...form.register("limit.max", { valueAsNumber: true })}
               />
-              <AppSelectField
-                ariaLabel={t("aria.limitDimension")}
-                className="w-auto"
-                triggerClassName="min-w-28 rounded-lg"
-                value={values.limit?.dimension ?? "requests"}
-                onValueChange={(value) => set("limit.dimension", value as "requests" | "tokens")}
-                options={[
-                  { value: "requests", label: tp("sentence.dimensions.requests") },
-                  { value: "tokens", label: tp("sentence.dimensions.tokens") },
-                ]}
-              />
+              <span>{tp("sentence.dimensions.requests")}</span>
               <span>{tp("editor.limitSentence.per")}</span>
               <Input
                 type="number"

@@ -107,7 +107,7 @@ func (h *ZAILayoutParsingHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, zaiOCRReservationTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {

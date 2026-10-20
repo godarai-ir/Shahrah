@@ -236,7 +236,7 @@ func (h *ChatCompletionHandler) admitChatRequest(
 		}
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), prepared.authInfo, prepared.requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), prepared.authInfo, prepared.requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {

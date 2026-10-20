@@ -128,8 +128,7 @@
       "month": "months"
     },
     "dimensions": {
-      "requests": "requests",
-      "tokens": "tokens"
+      "requests": "requests"
     },
     "budgetLimit": "at most {amount} credits per {period}",
     "periods": {

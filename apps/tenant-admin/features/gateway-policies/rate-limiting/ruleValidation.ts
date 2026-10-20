@@ -68,7 +68,7 @@ export const rateLimitRuleSchema = z.object({
     conditions: z.array(rateLimitConditionSchema).default([]),
   }),
   limit: z.object({
-    dimension: z.enum(["requests", "tokens"]).default("requests"),
+    dimension: z.literal("requests").default("requests"),
     max: z.number().int().min(1, "Limit must be greater than zero."),
     window: z.object({
       value: z.number().int().min(1, "Time window value must be greater than zero."),

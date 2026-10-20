@@ -131,7 +131,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, 0)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
