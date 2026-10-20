@@ -67,6 +67,12 @@ type CreditSettings struct {
 	OverageEnabled bool   `json:"overage_enabled"`
 	// OverageCapCredits is a decimal string with two places, or nil for no cap.
 	OverageCapCredits *string `json:"overage_cap_credits"`
+	// SeatUpgradeRequestsEnabled lets members ask for a better seat.
+	SeatUpgradeRequestsEnabled bool `json:"seat_upgrade_requests_enabled"`
+	// SeatPoolLimit*Credits cap how much pool credit a Pro or Max member may use
+	// per month after their seat credits; nil means no cap.
+	SeatPoolLimitProCredits *string `json:"seat_pool_limit_pro_credits"`
+	SeatPoolLimitMaxCredits *string `json:"seat_pool_limit_max_credits"`
 }
 
 // UpdateCreditSettingsRequest changes a tenant's credit billing preferences.
@@ -74,4 +80,8 @@ type CreditSettings struct {
 type UpdateCreditSettingsRequest struct {
 	OverageEnabled    *bool   `json:"overage_enabled,omitempty"`
 	OverageCapCredits *string `json:"overage_cap_credits,omitempty"`
+	// Seat settings follow the same rule: an empty limit string removes it.
+	SeatUpgradeRequestsEnabled *bool   `json:"seat_upgrade_requests_enabled,omitempty"`
+	SeatPoolLimitProCredits    *string `json:"seat_pool_limit_pro_credits,omitempty"`
+	SeatPoolLimitMaxCredits    *string `json:"seat_pool_limit_max_credits,omitempty"`
 }

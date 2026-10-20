@@ -65,6 +65,25 @@ func cloneProfile(in *Profile) *Profile {
 		out.RateLimitRules[i].Limit = cloneInterfaceMap(out.RateLimitRules[i].Limit)
 	}
 
+	if in.Seats != nil {
+		seats := *in.Seats
+		seats.Members = cloneStringMap(in.Seats.Members)
+
+		if in.Seats.PoolLimitMC != nil {
+			seats.PoolLimitMC = make(map[string]int64, len(in.Seats.PoolLimitMC))
+			for key, value := range in.Seats.PoolLimitMC {
+				seats.PoolLimitMC[key] = value
+			}
+		}
+
+		if in.Seats.EnforcedFrom != nil {
+			enforcedFrom := *in.Seats.EnforcedFrom
+			seats.EnforcedFrom = &enforcedFrom
+		}
+
+		out.Seats = &seats
+	}
+
 	out.BudgetRules = append([]platform.BudgetLimitRule(nil), in.BudgetRules...)
 	for i := range out.BudgetRules {
 		out.BudgetRules[i].Conditions = cloneInterfaceMap(out.BudgetRules[i].Conditions)

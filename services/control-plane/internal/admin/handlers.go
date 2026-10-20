@@ -334,6 +334,10 @@ type BillingDependencies struct {
 	CreditPacks creditPackStore
 	// CreditAdmin backs the support-admin credit endpoints.
 	CreditAdmin creditAdminStore
+	// Seats manages member seats; nil disables the seat endpoints.
+	Seats seatStore
+	// SeatsEnabled reports whether seat limits are switched on (SEATS_ENABLED).
+	SeatsEnabled bool
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -399,6 +403,8 @@ type billingState struct {
 	creditBalance creditBalanceStore
 	creditPacks   creditPackStore
 	creditAdmin   creditAdminStore
+	seats         seatStore
+	seatsEnabled  bool
 }
 
 type onboardingState struct {
@@ -462,6 +468,8 @@ func New(deps Dependencies) *Handlers {
 			creditBalance: deps.Billing.CreditBalance,
 			creditPacks:   deps.Billing.CreditPacks,
 			creditAdmin:   deps.Billing.CreditAdmin,
+			seats:         deps.Billing.Seats,
+			seatsEnabled:  deps.Billing.SeatsEnabled,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

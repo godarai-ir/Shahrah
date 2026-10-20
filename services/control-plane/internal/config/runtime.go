@@ -43,23 +43,26 @@ type StorageSettings struct {
 
 // RuntimeSettings is the process-level non-storage runtime configuration snapshot.
 type RuntimeSettings struct {
-	RuntimeProfileVersionCheck    time.Duration
-	RuntimeProfileStaleGrace      time.Duration
-	RuntimeProfileL2TTL           time.Duration
-	RouterDeploymentCacheTTL      time.Duration
-	PlatformCredentialEnv         string
-	RedisSentinelAddresses        []string
-	RedisMasterName               string
-	RedisSentinelPassword         string
-	GatewayDetachedWorkTimeout    time.Duration
-	VirtualModelAliasCacheTTL     time.Duration
-	VirtualModelNegativeTTL       time.Duration
-	BillingExchangeRateTTL        time.Duration
-	BillingExchangeRateStale      time.Duration
-	BillingPricingCacheEnabled    bool
-	BillingPricingCacheTTL        time.Duration
-	BillingCreditRateCardTTL      time.Duration
-	BillingCreditLedger           CreditLedgerSettings
+	RuntimeProfileVersionCheck time.Duration
+	RuntimeProfileStaleGrace   time.Duration
+	RuntimeProfileL2TTL        time.Duration
+	RouterDeploymentCacheTTL   time.Duration
+	PlatformCredentialEnv      string
+	RedisSentinelAddresses     []string
+	RedisMasterName            string
+	RedisSentinelPassword      string
+	GatewayDetachedWorkTimeout time.Duration
+	VirtualModelAliasCacheTTL  time.Duration
+	VirtualModelNegativeTTL    time.Duration
+	BillingExchangeRateTTL     time.Duration
+	BillingExchangeRateStale   time.Duration
+	BillingPricingCacheEnabled bool
+	BillingPricingCacheTTL     time.Duration
+	BillingCreditRateCardTTL   time.Duration
+	BillingCreditLedger        CreditLedgerSettings
+	// SeatsEnabled turns on member seats: personal seat credits for chat usage
+	// and the seat lifecycle worker.
+	SeatsEnabled                  bool
 	RateLimitPolicyFailOpen       bool
 	NobitexExchangeRateEnabled    bool
 	NobitexExchangeRateConfigured bool
@@ -135,6 +138,7 @@ func LoadRuntimeSettings() RuntimeSettings {
 		BillingPricingCacheTTL:        secondsEnv("BILLING_PRICING_CACHE_TTL_SECONDS", 5*time.Minute),
 		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
 		BillingCreditLedger:           loadCreditLedgerSettings(),
+		SeatsEnabled:                  booleanEnv("SEATS_ENABLED", false),
 		RateLimitPolicyFailOpen:       booleanEnv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		NobitexExchangeRateEnabled:    nobitexEnabled,
 		NobitexExchangeRateConfigured: nobitexConfigured,

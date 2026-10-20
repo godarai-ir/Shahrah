@@ -133,11 +133,13 @@ func (b *builder) buildCreditLedgerWorker() error {
 		ReconcileInterval:  settings.ReconcileInterval,
 		PriceInterval:      settings.PriceInterval,
 		PriceAutoApply:     settings.PriceAutoApply,
+		SeatsEnabled:       b.cfg.Runtime.SeatsEnabled,
 		Timeout:            settings.Timeout,
 	}, creditLedgerWorkerStore{
 		CreditLedgerRepository:   b.store.CreditLedgerRepository,
 		CreditPriceRepository:    b.store.CreditPriceRepository,
 		CreditRateCardRepository: b.store.CreditRateCardRepository,
+		SeatRepository:           b.store.SeatRepository,
 	}, b.logger)
 
 	return b.lifecycle.AddWorker("credit ledger processor", func(context.Context) error {
@@ -317,4 +319,5 @@ type creditLedgerWorkerStore struct {
 	*storage.CreditLedgerRepository
 	*storage.CreditPriceRepository
 	*storage.CreditRateCardRepository
+	*storage.SeatRepository
 }

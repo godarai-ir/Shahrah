@@ -29,7 +29,11 @@ func (s *walletState) creditPoolAllowance(ctx context.Context, q rowQuerier, ten
 	var overageEnabled bool
 
 	if err := q.QueryRow(ctx, `
-		SELECT COALESCE(b.available_mc, 0), COALESCE(b.debt_mc, 0), COALESCE(w.settled_mc, 0),
+		SELECT COALESCE(b.available_mc, 0) - COALESCE((
+		           SELECT SUM(lb.remaining_mc) FROM credit_lot_balances lb
+		           WHERE lb.tenant_id = t.tenant_id AND lb.owner_user_id IS NOT NULL AND lb.remaining_mc > 0
+		       ), 0),
+		       COALESCE(b.debt_mc, 0), COALESCE(w.settled_mc, 0),
 		       COALESCE(cs.overage_enabled, false), cs.overage_cap_mc
 		FROM tenants t
 		LEFT JOIN credit_tenant_balances b ON b.tenant_id = t.tenant_id
@@ -69,6 +73,29 @@ func addCreditWindowSettledTx(ctx context.Context, tx pgx.Tx, tenantID string, o
 		ON CONFLICT (tenant_id, window_id) DO UPDATE
 		SET settled_mc = credit_budget_window_settlements.settled_mc + EXCLUDED.settled_mc, updated_at = NOW()
 	`, tenantID, windowID, amountMC)
+
+	return err
+}
+
+// addUserWindowSettledTx records what the ledger settled for one member in the
+// calendar-month window of its occurrence: from their personal lots, and from
+// the pool on their behalf.
+func addUserWindowSettledTx(ctx context.Context, tx pgx.Tx, tenantID, userID string, occurredAt time.Time, personalMC, poolMC int64) error {
+	personalMC, poolMC = max(personalMC, 0), max(poolMC, 0)
+	if personalMC == 0 && poolMC == 0 {
+		return nil
+	}
+
+	windowID, _ := credits.PoolWindow(occurredAt)
+
+	_, err := tx.Exec(ctx, `
+		INSERT INTO credit_user_window_settlements (tenant_id, user_id, window_id, settled_mc, pool_settled_mc)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+		ON CONFLICT (tenant_id, user_id, window_id) DO UPDATE
+		SET settled_mc = credit_user_window_settlements.settled_mc + EXCLUDED.settled_mc,
+		    pool_settled_mc = credit_user_window_settlements.pool_settled_mc + EXCLUDED.pool_settled_mc,
+		    updated_at = NOW()
+	`, tenantID, userID, windowID, personalMC, poolMC)
 
 	return err
 }

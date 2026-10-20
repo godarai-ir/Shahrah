@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/shopspring/decimal"
@@ -28,6 +29,8 @@ const alertDedupeTTL = 32 * 24 * time.Hour
 // ErrBudgetExceeded, and Scope is safe to show clients.
 type BudgetExceededError struct {
 	Scope string
+	// Code is the seat block reason of a refused chat request, or "".
+	Code string
 }
 
 func (e *BudgetExceededError) Error() string {
@@ -118,18 +121,42 @@ func (s *BudgetService) reserveCreditBudget(
 		reservation.BYOKFeePercent = byokFeePercent(profile).String()
 	}
 
+	admission, err := s.seatAdmissionFor(ctx, auth, profile, billingMode, now)
+	if err != nil {
+		return nil, err
+	}
+
 	// Admission reserves nothing: a request is admitted while each window still
 	// has headroom, and its actual cost is committed after it is served. A
 	// window can therefore overshoot its limit by in-flight requests, and the
 	// next request is refused once it is exhausted. breakdown only matches
 	// rules here; its estimated cost is not used.
-	targets := append([]budgetReservationTarget{s.creditPoolTarget(tenantID, reservationID, 0, now)},
-		s.creditPolicyTargets(profile, auth, breakdown, reservationID, 0, now)...)
+	reserved := make([]budgetReservationTarget, 0, 2)
+	targets := make([]budgetReservationTarget, 0, 1)
 
-	reserved, err := s.reserveCreditTargets(ctx, targets, reservationID, now)
+	if admission.applies {
+		reserved, err = s.reserveSeatTargets(ctx, tenantID, admission, reservationID, now)
+		if err != nil {
+			return nil, err
+		}
+
+		reservation.SeatUserID, reservation.SeatPoolLimitMC = admission.userID, admission.poolLimitMC
+	} else {
+		targets = append(targets, s.creditPoolTarget(tenantID, reservationID, 0, now))
+	}
+
+	targets = append(targets, s.creditPolicyTargets(profile, auth, breakdown, reservationID, 0, now)...)
+
+	more, err := s.reserveCreditTargets(ctx, targets, reservationID, now)
 	if err != nil {
+		if admission.applies {
+			err = errors.Join(withSeatRefusalCode(err), s.releaseBudgetTargetsBestEffort(ctx, s.budgetWindows, reserved, now))
+		}
+
 		return nil, err
 	}
+
+	reserved = append(reserved, more...)
 
 	reservation.Targets = make([]platform.BudgetReservationTarget, 0, len(reserved))
 	for _, target := range reserved {
@@ -340,10 +367,39 @@ func (s *BudgetService) commitCreditBudget(ctx context.Context, reservation *pla
 
 	var commitErrors []error
 
+	// A seat request spends the member's seat window first; the pool and the
+	// member's pool limit are charged only what overflows it.
+	seatOverflowMC := poolMC
+
+	if reservation.SeatUserID != "" {
+		for _, target := range reservation.Targets {
+			if target.Kind != budgetTargetSeatCredit {
+				continue
+			}
+
+			result, commitErr := s.commitCreditTarget(ctx, target, actualMC, now)
+			if commitErr != nil {
+				commitErrors = append(commitErrors, commitErr)
+
+				continue
+			}
+
+			seatOverflowMC = seats.Overflow(int64(result.AllowanceIRR), int64(result.CommittedIRR), actualMC)
+		}
+
+		if err := s.commitSeatOverflow(ctx, reservation, seatOverflowMC, now); err != nil {
+			commitErrors = append(commitErrors, err)
+		}
+	}
+
 	for _, target := range reservation.Targets {
 		amountMC := actualMC
-		if target.Kind == budgetTargetTenantCredit {
-			amountMC = poolMC
+
+		switch target.Kind {
+		case budgetTargetSeatCredit:
+			continue
+		case budgetTargetTenantCredit, budgetTargetSeatPoolLimit:
+			amountMC = seatOverflowMC
 		}
 
 		result, commitErr := s.commitCreditTarget(ctx, target, amountMC, now)

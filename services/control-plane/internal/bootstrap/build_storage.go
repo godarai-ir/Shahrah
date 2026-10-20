@@ -231,6 +231,7 @@ func (b *builder) buildStorage() error {
 			RuntimeProfiles: b.runtimeProfiles,
 			CreditPools:     store.CreditLedgerRepository,
 			CreditRateCards: b.creditRateCards,
+			SeatCredits:     store.SeatRepository,
 			Logger:          b.logger,
 			Config: &billing.ServiceConfig{
 				ExchangeRateCache: billing.ExchangeRateCacheConfig{
@@ -243,6 +244,7 @@ func (b *builder) buildStorage() error {
 				},
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
 				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
+				SeatsEnabled:      b.cfg.Runtime.SeatsEnabled,
 			},
 		},
 		b.cfg.BillingSettings.DefaultUSDtoIRR,

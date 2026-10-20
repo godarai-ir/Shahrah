@@ -24,6 +24,12 @@ type SourceRepository interface {
 	ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error)
 }
 
+// SeatSource is implemented by sources that know the tenant's member seats.
+// It is optional so profiles compile without seats in tests and tools.
+type SeatSource interface {
+	GetSeatProfile(ctx context.Context, tenantID string) (*platform.SeatProfile, error)
+}
+
 type Compiler struct {
 	repo SourceRepository
 	now  func() time.Time
@@ -83,6 +89,15 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		return nil, fmt.Errorf("list runtime budget-limit rules: %w", err)
 	}
 
+	var seats *platform.SeatProfile
+
+	if seatSource, ok := c.repo.(SeatSource); ok {
+		seats, err = seatSource.GetSeatProfile(ctx, tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("load runtime seats: %w", err)
+		}
+	}
+
 	sort.SliceStable(rateRules, func(i, j int) bool {
 		if rateRules[i].Priority == rateRules[j].Priority {
 			return runtimeRateLimitRuleID(rateRules[i]) < runtimeRateLimitRuleID(rateRules[j])
@@ -113,6 +128,7 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		Entitlements:    entitlements,
 		RateLimitRules:  rateRules,
 		BudgetRules:     budgetRules,
+		Seats:           seats,
 		ProviderAPIKeys: make(map[string]string),
 	}
 

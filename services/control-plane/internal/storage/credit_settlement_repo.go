@@ -227,12 +227,16 @@ func (s *CreditLedgerRepository) settleOne(ctx context.Context, conn *pgxpool.Co
 		return creditSettleOutcome{}, entryErr
 	}
 
-	allocations, debtMC, err := debitCreditLotsTx(ctx, tx, row.TenantID, entryID, amountMC, row.OccurredAt)
+	owner := seatCreditOwner(row)
+
+	debit, err := debitCreditLotsForTx(ctx, tx, row.TenantID, owner, entryID, amountMC, row.OccurredAt)
 	if err != nil {
 		return creditSettleOutcome{}, err
 	}
 
-	if err := insertCreditAllocationsTx(ctx, tx, row.TenantID, row.OccurredAt, allocations); err != nil {
+	debtMC := debit.DebtMC
+
+	if err := insertCreditAllocationsTx(ctx, tx, row.TenantID, row.OccurredAt, debit.Allocations); err != nil {
 		return creditSettleOutcome{}, err
 	}
 
@@ -240,8 +244,16 @@ func (s *CreditLedgerRepository) settleOne(ctx context.Context, conn *pgxpool.Co
 		return creditSettleOutcome{}, err
 	}
 
-	if err := addCreditWindowSettledTx(ctx, tx, row.TenantID, row.OccurredAt, amountMC); err != nil {
+	// The pool window only ever commits what a request took from the pool, so
+	// only that part is added back to its allowance.
+	if err := addCreditWindowSettledTx(ctx, tx, row.TenantID, row.OccurredAt, amountMC-debit.PersonalMC); err != nil {
 		return creditSettleOutcome{}, err
+	}
+
+	if owner != "" {
+		if err := addUserWindowSettledTx(ctx, tx, row.TenantID, owner, row.OccurredAt, debit.PersonalMC, amountMC-debit.PersonalMC); err != nil {
+			return creditSettleOutcome{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -249,6 +261,16 @@ func (s *CreditLedgerRepository) settleOne(ctx context.Context, conn *pgxpool.Co
 	}
 
 	return creditSettleOutcome{settled: true, debtMC: debtMC}, nil
+}
+
+// seatCreditOwner is the member whose personal seat credits pay for a
+// consumption: chat usage of a known member. Everything else is pool-only.
+func seatCreditOwner(row creditConsumption) string {
+	if row.Product != platform.CreditProductLibreChat || row.BillingMode == creditSettlementBillingKey {
+		return ""
+	}
+
+	return strings.TrimSpace(row.UserID)
 }
 
 func clampCreditBatch(batchSize int) int {

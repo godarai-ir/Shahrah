@@ -33,13 +33,15 @@ type budgetReservationTarget struct {
 	ttl          time.Duration
 	// seedCreditPool seeds the window from the tenant's credit balance.
 	seedCreditPool bool
+	// seedSeatUser seeds the window from this member's seat credits.
+	seedSeatUser string
 }
 
 func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
 	// Rule windows are re-seeded on every reservation so a changed limit
 	// applies at once; the pool window is seeded on first use and refreshed
 	// when the balance changes.
-	if !target.seedCreditPool {
+	if !target.seedCreditPool && target.seedSeatUser == "" {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
 		}
@@ -83,6 +85,10 @@ func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache Bud
 func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget) error {
 	if target.seedCreditPool {
 		return s.seedCreditPoolWindow(ctx, budgetCache, target)
+	}
+
+	if target.seedSeatUser != "" {
+		return s.seedSeatWindow(ctx, budgetCache, target)
 	}
 
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{

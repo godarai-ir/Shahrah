@@ -39,14 +39,16 @@ func resolveTenantFeatureJSON(ctx context.Context, q rowQuerier, tenantID, featu
 func (s *CreditPackRepository) GetCreditSettings(ctx context.Context, tenantID string) (*platform.CreditSettings, error) {
 	settings := &platform.CreditSettings{}
 
-	var capMC *int64
+	var capMC, proLimitMC, maxLimitMC *int64
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT t.billing_unit, COALESCE(cs.overage_enabled, false), cs.overage_cap_mc
+		SELECT t.billing_unit, COALESCE(cs.overage_enabled, false), cs.overage_cap_mc,
+		       COALESCE(cs.seat_upgrade_requests_enabled, true), cs.seat_pool_limit_pro_mc, cs.seat_pool_limit_max_mc
 		FROM tenants t
 		LEFT JOIN credit_tenant_settings cs ON cs.tenant_id = t.tenant_id
 		WHERE t.tenant_id = $1::uuid
-	`, tenantID).Scan(&settings.BillingUnit, &settings.OverageEnabled, &capMC)
+	`, tenantID).Scan(&settings.BillingUnit, &settings.OverageEnabled, &capMC,
+		&settings.SeatUpgradeRequestsEnabled, &proLimitMC, &maxLimitMC)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, billingdomain.ErrCreditBillingNotEnabled
 	}
@@ -62,10 +64,9 @@ func (s *CreditPackRepository) GetCreditSettings(ctx context.Context, tenantID s
 
 	settings.OverageAllowed = strings.TrimSpace(raw) == "true"
 
-	if capMC != nil {
-		formatted := credits.Format(credits.Millicredits(*capMC))
-		settings.OverageCapCredits = &formatted
-	}
+	settings.OverageCapCredits = formatOptionalCredits(capMC)
+	settings.SeatPoolLimitProCredits = formatOptionalCredits(proLimitMC)
+	settings.SeatPoolLimitMaxCredits = formatOptionalCredits(maxLimitMC)
 
 	return settings, nil
 }
@@ -101,6 +102,11 @@ func (s *CreditPackRepository) UpdateCreditSettings(ctx context.Context, tenantI
 		capMC = &capValue
 	}
 
+	seatSettings, err := resolveSeatSettings(current, req)
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -108,17 +114,29 @@ func (s *CreditPackRepository) UpdateCreditSettings(ctx context.Context, tenantI
 	defer rollbackTxBestEffort(ctx, tx)
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO credit_tenant_settings (tenant_id, overage_enabled, overage_cap_mc, updated_by)
-		VALUES ($1::uuid, $2, $3, NULLIF($4, ''))
+		INSERT INTO credit_tenant_settings (
+			tenant_id, overage_enabled, overage_cap_mc, updated_by,
+			seat_upgrade_requests_enabled, seat_pool_limit_pro_mc, seat_pool_limit_max_mc
+		)
+		VALUES ($1::uuid, $2, $3, NULLIF($4, ''), $5, $6, $7)
 		ON CONFLICT (tenant_id) DO UPDATE
 		SET overage_enabled = EXCLUDED.overage_enabled, overage_cap_mc = EXCLUDED.overage_cap_mc,
+		    seat_upgrade_requests_enabled = EXCLUDED.seat_upgrade_requests_enabled,
+		    seat_pool_limit_pro_mc = EXCLUDED.seat_pool_limit_pro_mc,
+		    seat_pool_limit_max_mc = EXCLUDED.seat_pool_limit_max_mc,
 		    updated_by = EXCLUDED.updated_by, updated_at = NOW()
-	`, tenantID, enabled, capMC, actor.ID); err != nil {
+	`, tenantID, enabled, capMC, actor.ID,
+		seatSettings.requestsEnabled, seatSettings.proLimitMC, seatSettings.maxLimitMC); err != nil {
 		return nil, err
 	}
 
 	if err := insertFinancialAuditTx(ctx, tx, tenantID, "credit_settings.updated", actor, "credit_tenant_settings", tenantID, "",
-		map[string]interface{}{"overage_enabled": enabled, "overage_cap_mc": capMC}); err != nil {
+		map[string]interface{}{
+			"overage_enabled": enabled, "overage_cap_mc": capMC,
+			"seat_upgrade_requests_enabled": seatSettings.requestsEnabled,
+			"seat_pool_limit_pro_mc":        seatSettings.proLimitMC,
+			"seat_pool_limit_max_mc":        seatSettings.maxLimitMC,
+		}); err != nil {
 		return nil, err
 	}
 
@@ -126,9 +144,43 @@ func (s *CreditPackRepository) UpdateCreditSettings(ctx context.Context, tenantI
 		return nil, err
 	}
 
-	s.invalidateCreditTenant(ctx, tenantID, "")
+	// Seat pool limits are compiled into the runtime profile.
+	s.invalidateCreditTenant(ctx, tenantID, "credit_settings_updated")
 
 	return s.GetCreditSettings(ctx, tenantID)
+}
+
+// seatSettingsUpdate is the resolved seat part of a settings update.
+type seatSettingsUpdate struct {
+	requestsEnabled bool
+	proLimitMC      *int64
+	maxLimitMC      *int64
+}
+
+func resolveSeatSettings(current *platform.CreditSettings, req platform.UpdateCreditSettingsRequest) (seatSettingsUpdate, error) {
+	out := seatSettingsUpdate{requestsEnabled: current.SeatUpgradeRequestsEnabled}
+	if req.SeatUpgradeRequestsEnabled != nil {
+		out.requestsEnabled = *req.SeatUpgradeRequestsEnabled
+	}
+
+	for _, limit := range []struct {
+		current, requested *string
+		target             **int64
+	}{
+		{current.SeatPoolLimitProCredits, req.SeatPoolLimitProCredits, &out.proLimitMC},
+		{current.SeatPoolLimitMaxCredits, req.SeatPoolLimitMaxCredits, &out.maxLimitMC},
+	} {
+		value, has, err := overageCapMC(limit.current, limit.requested)
+		if err != nil {
+			return seatSettingsUpdate{}, billingdomain.ErrInvalidSeatPoolLimit
+		}
+
+		if has {
+			*limit.target = &value
+		}
+	}
+
+	return out, nil
 }
 
 // overageCapMC applies a requested cap change: nil keeps the current cap, an
