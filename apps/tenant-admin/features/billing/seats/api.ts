@@ -18,6 +18,7 @@ export const seatOfferSchema = z.object({
   lifetime: z.boolean(),
   pool_access: z.boolean(),
   discount_percent: z.string(),
+  yearly_discount_percent: z.string().optional(),
   monthly_price_irr: z.number(),
   yearly_price_irr: z.number(),
   active: z.boolean(),

@@ -44,9 +44,11 @@ type SeatTypeOffer struct {
 	Lifetime        bool   `json:"lifetime"`
 	PoolAccess      bool   `json:"pool_access"`
 	DiscountPercent string `json:"discount_percent"`
-	MonthlyPriceIRR int64  `json:"monthly_price_irr"`
-	YearlyPriceIRR  int64  `json:"yearly_price_irr"`
-	Active          bool   `json:"active"`
+	// YearlyDiscountPercent is the extra discount of yearly billing.
+	YearlyDiscountPercent string `json:"yearly_discount_percent"`
+	MonthlyPriceIRR       int64  `json:"monthly_price_irr"`
+	YearlyPriceIRR        int64  `json:"yearly_price_irr"`
+	Active                bool   `json:"active"`
 }
 
 // SeatTypeCount is how many seats of one paid type a tenant holds and uses.
@@ -263,7 +265,8 @@ type SeatStatus struct {
 
 // SeatTypeUpdate changes one seat type's quota or discount (support admin).
 type SeatTypeUpdate struct {
-	MonthlyCredits  *int64  `json:"monthly_credits,omitempty"`
-	DiscountPercent *string `json:"discount_percent,omitempty"`
-	Active          *bool   `json:"active,omitempty"`
+	MonthlyCredits        *int64  `json:"monthly_credits,omitempty"`
+	DiscountPercent       *string `json:"discount_percent,omitempty"`
+	YearlyDiscountPercent *string `json:"yearly_discount_percent,omitempty"`
+	Active                *bool   `json:"active,omitempty"`
 }

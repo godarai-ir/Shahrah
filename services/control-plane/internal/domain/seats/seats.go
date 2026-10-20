@@ -34,6 +34,9 @@ type Offer struct {
 	Lifetime bool
 	// DiscountPercent is the discount on the credit list price.
 	DiscountPercent int64
+	// YearlyDiscountPercent is the extra discount of yearly billing. Max gets
+	// less than Pro so its yearly price stays above the margin floor.
+	YearlyDiscountPercent int64
 	// PoolAccess lets the member spend from the tenant pool after the seat's credits.
 	PoolAccess bool
 }
@@ -41,8 +44,8 @@ type Offer struct {
 // Offers are the launch seat types.
 var Offers = map[Type]Offer{
 	Free: {Type: Free, MonthlyCredits: 500, Lifetime: true},
-	Pro:  {Type: Pro, MonthlyCredits: 2_000, DiscountPercent: 10, PoolAccess: true},
-	Max:  {Type: Max, MonthlyCredits: 8_000, DiscountPercent: 20, PoolAccess: true},
+	Pro:  {Type: Pro, MonthlyCredits: 2_000, DiscountPercent: 10, YearlyDiscountPercent: 10, PoolAccess: true},
+	Max:  {Type: Max, MonthlyCredits: 8_000, DiscountPercent: 20, YearlyDiscountPercent: 5, PoolAccess: true},
 }
 
 // PaidTypes lists the seat types tenants buy, in rank order.
@@ -126,7 +129,7 @@ func MonthlyPriceIRR(offer Offer, listPriceIRRPerCredit int64) int64 {
 }
 
 // PeriodPriceIRR is one seat for a whole billing period before VAT. Yearly
-// billing gets the same discount as yearly plans; credits still arrive monthly.
+// billing gets the seat type's yearly discount; credits still arrive monthly.
 func PeriodPriceIRR(offer Offer, listPriceIRRPerCredit int64, interval string) (int64, error) {
 	monthly := MonthlyPriceIRR(offer, listPriceIRRPerCredit)
 
@@ -134,7 +137,7 @@ func PeriodPriceIRR(offer Offer, listPriceIRRPerCredit int64, interval string) (
 	case "monthly":
 		return monthly, nil
 	case "yearly":
-		return monthly * 12 * (100 - credits.YearlyDiscountPercent) / 100, nil
+		return monthly * 12 * (100 - offer.YearlyDiscountPercent) / 100, nil
 	default:
 		return 0, ErrIntervalNotSupported
 	}

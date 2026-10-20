@@ -21,7 +21,8 @@ func TestSeatPricesAtLaunchListPrice(t *testing.T) {
 		{Pro, "yearly", 18_000_000 * 12 * 90 / 100},
 		// 8,000 credits × 1,000 toman × 80% = 6,400,000 toman.
 		{Max, "monthly", 64_000_000},
-		{Max, "annual", 64_000_000 * 12 * 90 / 100},
+		// Max yearly is 5% off, keeping it above the 28% margin floor.
+		{Max, "annual", 64_000_000 * 12 * 95 / 100},
 		{Free, "monthly", 0},
 	}
 

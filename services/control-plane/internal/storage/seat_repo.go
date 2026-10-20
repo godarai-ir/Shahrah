@@ -62,6 +62,7 @@ type seatTypeRow struct {
 	MonthlyGrantMC int64
 	Lifetime       bool
 	Discount       decimal.Decimal
+	YearlyDiscount decimal.Decimal
 	PoolAccess     bool
 	Active         bool
 }
@@ -69,7 +70,7 @@ type seatTypeRow struct {
 func (r seatTypeRow) offer() seats.Offer {
 	return seats.Offer{
 		Type: r.Type, MonthlyCredits: r.MonthlyGrantMC / credits.MillicreditsPerCredit, Lifetime: r.Lifetime,
-		DiscountPercent: r.Discount.IntPart(), PoolAccess: r.PoolAccess,
+		DiscountPercent: r.Discount.IntPart(), YearlyDiscountPercent: r.YearlyDiscount.IntPart(), PoolAccess: r.PoolAccess,
 	}
 }
 
@@ -79,7 +80,7 @@ type rowsQuerier interface {
 
 func loadSeatTypes(ctx context.Context, q rowsQuerier) (map[seats.Type]seatTypeRow, error) {
 	rows, err := q.Query(ctx, `
-		SELECT seat_type, monthly_grant_mc, lifetime, discount_percent::text, pool_access, active
+		SELECT seat_type, monthly_grant_mc, lifetime, discount_percent::text, yearly_discount_percent::text, pool_access, active
 		FROM seat_types ORDER BY rank
 	`)
 	if err != nil {
@@ -88,19 +89,24 @@ func loadSeatTypes(ctx context.Context, q rowsQuerier) (map[seats.Type]seatTypeR
 
 	items, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (seatTypeRow, error) {
 		var (
-			item     seatTypeRow
-			seatType string
-			discount string
+			item             seatTypeRow
+			seatType         string
+			discount, yearly string
 		)
 
-		if scanErr := row.Scan(&seatType, &item.MonthlyGrantMC, &item.Lifetime, &discount, &item.PoolAccess, &item.Active); scanErr != nil {
+		if scanErr := row.Scan(&seatType, &item.MonthlyGrantMC, &item.Lifetime, &discount, &yearly, &item.PoolAccess, &item.Active); scanErr != nil {
 			return item, scanErr
 		}
 
 		item.Type = seats.Type(seatType)
 
 		parsed, parseErr := decimal.NewFromString(discount)
+		if parseErr != nil {
+			return item, parseErr
+		}
+
 		item.Discount = parsed
+		item.YearlyDiscount, parseErr = decimal.NewFromString(yearly)
 
 		return item, parseErr
 	})
@@ -340,7 +346,7 @@ func (s *SeatRepository) seatOffers(ctx context.Context) ([]platform.SeatTypeOff
 
 		out = append(out, platform.SeatTypeOffer{
 			Type: string(seatType), MonthlyCredits: offer.MonthlyCredits, Lifetime: row.Lifetime, PoolAccess: row.PoolAccess,
-			DiscountPercent: row.Discount.StringFixed(2), MonthlyPriceIRR: monthly, YearlyPriceIRR: yearly, Active: row.Active,
+			DiscountPercent: row.Discount.StringFixed(2), YearlyDiscountPercent: row.YearlyDiscount.StringFixed(2), MonthlyPriceIRR: monthly, YearlyPriceIRR: yearly, Active: row.Active,
 		})
 	}
 
@@ -384,26 +390,25 @@ func (s *SeatRepository) UpdateSeatType(ctx context.Context, seatType string, re
 		grantMC = &value
 	}
 
-	var discount *string
+	discount, err := wholePercent(req.DiscountPercent)
+	if err != nil {
+		return nil, err
+	}
 
-	if req.DiscountPercent != nil {
-		value, parseErr := decimal.NewFromString(strings.TrimSpace(*req.DiscountPercent))
-		if parseErr != nil || value.IsNegative() || value.GreaterThanOrEqual(decimal.NewFromInt(100)) || !value.Equal(value.Truncate(0)) {
-			return nil, fmt.Errorf("%w: discount must be a whole percentage below 100", seats.ErrInvalidSeatType)
-		}
-
-		text := value.String()
-		discount = &text
+	yearly, err := wholePercent(req.YearlyDiscountPercent)
+	if err != nil {
+		return nil, err
 	}
 
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE seat_types
 		SET monthly_grant_mc = COALESCE($2, monthly_grant_mc),
 		    discount_percent = COALESCE($3::numeric, discount_percent),
+		    yearly_discount_percent = COALESCE($6::numeric, yearly_discount_percent),
 		    active = COALESCE($4, active),
 		    updated_by = NULLIF($5, ''), updated_at = NOW()
 		WHERE seat_type = $1
-	`, string(parsed), grantMC, discount, req.Active, actor)
+	`, string(parsed), grantMC, discount, req.Active, actor, yearly)
 	if err != nil {
 		return nil, err
 	}
@@ -413,6 +418,23 @@ func (s *SeatRepository) UpdateSeatType(ctx context.Context, seatType string, re
 	}
 
 	return s.seatOffers(ctx)
+}
+
+// wholePercent validates an optional discount: a whole percentage below 100,
+// so seat prices stay whole rials.
+func wholePercent(raw *string) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	value, err := decimal.NewFromString(strings.TrimSpace(*raw))
+	if err != nil || value.IsNegative() || value.GreaterThanOrEqual(decimal.NewFromInt(100)) || !value.Equal(value.Truncate(0)) {
+		return nil, fmt.Errorf("%w: discount must be a whole percentage below 100", seats.ErrInvalidSeatType)
+	}
+
+	text := value.String()
+
+	return &text, nil
 }
 
 // seatMemberColumns selects one member's seat and credit usage. $1 is the

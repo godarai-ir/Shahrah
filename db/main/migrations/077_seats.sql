@@ -12,6 +12,9 @@ CREATE TABLE public.seat_types (
     monthly_grant_mc bigint NOT NULL,
     lifetime boolean NOT NULL DEFAULT false,
     discount_percent numeric(5,2) NOT NULL DEFAULT 0,
+    -- yearly_discount_percent is the extra discount of yearly billing. Max gets
+    -- less than Pro so its yearly price stays above the margin floor.
+    yearly_discount_percent numeric(5,2) NOT NULL DEFAULT 0,
     pool_access boolean NOT NULL DEFAULT false,
     rank smallint NOT NULL,
     active boolean NOT NULL DEFAULT true,
@@ -19,14 +22,15 @@ CREATE TABLE public.seat_types (
     updated_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT chk_seat_types_type CHECK (seat_type IN ('free', 'pro', 'max')),
     CONSTRAINT chk_seat_types_grant CHECK (monthly_grant_mc > 0),
-    CONSTRAINT chk_seat_types_discount CHECK (discount_percent >= 0 AND discount_percent < 100)
+    CONSTRAINT chk_seat_types_discount CHECK (discount_percent >= 0 AND discount_percent < 100),
+    CONSTRAINT chk_seat_types_yearly_discount CHECK (yearly_discount_percent >= 0 AND yearly_discount_percent < 100)
 );
 
-INSERT INTO public.seat_types (seat_type, monthly_grant_mc, lifetime, discount_percent, pool_access, rank, updated_by)
+INSERT INTO public.seat_types (seat_type, monthly_grant_mc, lifetime, discount_percent, yearly_discount_percent, pool_access, rank, updated_by)
 VALUES
-    ('free', 500000, true, 0, false, 1, 'migration'),
-    ('pro', 2000000, false, 10, true, 2, 'migration'),
-    ('max', 8000000, false, 20, true, 3, 'migration');
+    ('free', 500000, true, 0, 0, false, 1, 'migration'),
+    ('pro', 2000000, false, 10, 10, true, 2, 'migration'),
+    ('max', 8000000, false, 20, 5, true, 3, 'migration');
 
 -- Paid seats a tenant bought, as blocks paid through a date. A mid-period
 -- purchase is one block paid through the subscription's period end; a renewal
@@ -206,7 +210,7 @@ ALTER TABLE public.credit_tenant_settings
     );
 
 -- Existing members of credit tenants get their free seat now. Seat limits
--- start with the tenant's next billing period, so nobody's chat stops mid-period.
+-- apply at once (seats_enforced_from stays NULL); there is no grace period.
 INSERT INTO public.tenant_seat_assignments (tenant_id, user_id, seat_type, assigned_by, assigned_at)
 SELECT u.tenant_id, u.user_id, 'free', 'migration', now()
 FROM public.users u
@@ -218,13 +222,6 @@ INSERT INTO public.tenant_free_seat_grants (tenant_id, user_id, granted_at)
 SELECT tenant_id, user_id, assigned_at FROM public.tenant_seat_assignments WHERE seat_type = 'free'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.credit_tenant_settings (tenant_id, seats_enforced_from, updated_by)
-SELECT ts.tenant_id, ts.current_period_end, 'migration'
-FROM public.tenant_subscriptions ts
-JOIN public.tenants t ON t.tenant_id = ts.tenant_id AND t.billing_unit = 'credit'
-WHERE ts.status = 'active' AND ts.current_period_end > now()
-ON CONFLICT (tenant_id) DO UPDATE
-SET seats_enforced_from = EXCLUDED.seats_enforced_from, updated_at = now();
 -- +goose StatementEnd
 
 -- +goose Down
