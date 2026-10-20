@@ -7,11 +7,9 @@ import (
 )
 
 func TestLoadProviderFeatureSettingsFailsClosedForInvalidExplicitFlags(t *testing.T) {
-	t.Setenv("SHAHRAH_MISTRAL_OCR_ENABLED", "invalid")
-	t.Setenv("ANTHROPIC_NATIVE_API_ENABLED", "invalid")
+	t.Setenv("SHAHRAH_MISTRAL_FILES_ENABLED", "invalid")
 
 	settings := LoadProviderFeatureSettings()
 
-	require.False(t, settings.MistralEndpoints["ocr"])
-	require.False(t, settings.AnthropicNativeEnabled)
+	require.False(t, settings.MistralFilesEnabled)
 }

@@ -239,7 +239,7 @@ func (b *builder) buildStorage() error {
 					MaxStale: b.cfg.Runtime.BillingExchangeRateStale,
 				},
 				PricingCache: billing.PricingCacheConfig{
-					Enabled: b.cfg.Runtime.BillingPricingCacheEnabled,
+					Enabled: true,
 					TTL:     b.cfg.Runtime.BillingPricingCacheTTL,
 				},
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
@@ -316,7 +316,7 @@ func storageConfig(settings config.StorageSettings) *storage.Config {
 			RetryDelay: settings.ClickHouseRetryDelay,
 		},
 		TokenUsage: storage.TokenUsageConfig{
-			Enabled:          settings.TokenUsageEnabled,
+			Enabled:          true,
 			FailOpen:         settings.TokenUsageFailOpen,
 			KeyPrefix:        settings.TokenUsageKeyPrefix,
 			FlushInterval:    settings.TokenUsageFlushInterval,

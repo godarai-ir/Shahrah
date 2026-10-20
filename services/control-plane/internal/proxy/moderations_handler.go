@@ -21,13 +21,12 @@ import (
 
 // ModerationsHandler serves moderation requests.
 type ModerationsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type moderationValidationError struct {
@@ -62,13 +61,12 @@ func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 // NewModerationsHandlerWithDependencies creates a moderations handler from explicit dependencies.
 func NewModerationsHandlerWithDependencies(deps BaseHandlerDependencies) *ModerationsHandler {
 	return &ModerationsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -212,10 +210,6 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsModerationsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Moderations API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "moderations") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI moderations are disabled", "provider_disabled")
 	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)

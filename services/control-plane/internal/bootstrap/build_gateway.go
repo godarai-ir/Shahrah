@@ -64,19 +64,12 @@ func (b *builder) buildGateway() error {
 		ResponseCache:             responseCache,
 		ProviderFeatures: proxy.ProviderFeatureConfig{
 			Configured:                   true,
-			MistralEnabled:               b.cfg.ProviderFeatures.MistralEnabled,
-			MistralEndpoints:             b.cfg.ProviderFeatures.MistralEndpoints,
 			MistralFilesEnabled:          b.cfg.ProviderFeatures.MistralFilesEnabled,
 			MistralBatchEnabled:          b.cfg.ProviderFeatures.MistralBatchEnabled,
 			MistralAgentsEnabled:         b.cfg.ProviderFeatures.MistralAgentsEnabled,
 			MistralConversationsEnabled:  b.cfg.ProviderFeatures.MistralConversationsEnabled,
 			MistralConversationStreaming: b.cfg.ProviderFeatures.MistralConversationStreaming,
-			AnthropicNativeEnabled:       b.cfg.ProviderFeatures.AnthropicNativeEnabled,
-			AnthropicFilesEnabled:        b.cfg.ProviderFeatures.AnthropicFilesEnabled,
-			AnthropicBatchesEnabled:      b.cfg.ProviderFeatures.AnthropicBatchesEnabled,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
-			ZAIEnabled:                   b.cfg.ProviderFeatures.ZAIEnabled,
-			ZAILayoutParsingEnabled:      b.cfg.ProviderFeatures.ZAILayoutParsingEnabled,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {

@@ -48,7 +48,7 @@ Importer اختصاصی فقط ۱۰ مدل زیر را می‌پذیرد و در
 - اعتبارسنجی BYOK و Platform-managed هر دو نام ارائه‌دهنده را به یک قرارداد متصل می‌کنند.
 - میزبان نشانی پایه فقط از allowlist ارائه‌دهنده پذیرفته می‌شود.
 
-کل ارائه‌دهنده با `SHAHRAH_MISTRAL_ENABLED=false` خاموش می‌شود. هر سطح هم پرچم مستقل دارد؛ برای نمونه `SHAHRAH_MISTRAL_OCR_ENABLED=false` یا `SHAHRAH_MISTRAL_AUDIO_TRANSCRIPTIONS_ENABLED=false`. مقدار نامعتبر نیز آن سطح را fail-closed خاموش می‌کند.
+سطوح OpenAI-compatible میسترال دیگر پرچم env ندارند و همیشه فعال‌اند؛ دسترسی از طریق deploymentها و مدل‌های تننت کنترل می‌شود.
 
 ## محاسبه هزینه
 

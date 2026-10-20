@@ -19,7 +19,6 @@ type StorageSettings struct {
 	ClickHouseAttempts           int
 	ClickHouseRetryDelay         time.Duration
 	RequestLoggingModeTTL        time.Duration
-	TokenUsageEnabled            bool
 	TokenUsageFailOpen           bool
 	TokenUsageKeyPrefix          string
 	TokenUsageFlushInterval      time.Duration
@@ -56,7 +55,6 @@ type RuntimeSettings struct {
 	VirtualModelNegativeTTL       time.Duration
 	BillingExchangeRateTTL        time.Duration
 	BillingExchangeRateStale      time.Duration
-	BillingPricingCacheEnabled    bool
 	BillingPricingCacheTTL        time.Duration
 	BillingCreditRateCardTTL      time.Duration
 	BillingCreditLedger           CreditLedgerSettings
@@ -92,7 +90,6 @@ func LoadStorageSettings() StorageSettings {
 		ClickHouseAttempts:           positiveIntEnv("CLICKHOUSE_INIT_ATTEMPTS", 10),
 		ClickHouseRetryDelay:         secondsEnv("CLICKHOUSE_INIT_RETRY_SECONDS", time.Second),
 		RequestLoggingModeTTL:        secondsEnv("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", time.Minute),
-		TokenUsageEnabled:            booleanEnv("TOKEN_USAGE_AGGREGATION_ENABLED", true),
 		TokenUsageFailOpen:           booleanEnv("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
 		TokenUsageKeyPrefix:          stringEnv("TOKEN_USAGE_REDIS_KEY_PREFIX", "usage"),
 		TokenUsageFlushInterval:      secondsEnv("TOKEN_USAGE_FLUSH_INTERVAL_SECONDS", 5*time.Second),
@@ -131,7 +128,6 @@ func LoadRuntimeSettings() RuntimeSettings {
 		VirtualModelNegativeTTL:       secondsEnv("VIRTUAL_MODEL_ALIAS_NEGATIVE_CACHE_TTL_SECONDS", 10*time.Second),
 		BillingExchangeRateTTL:        secondsEnv("BILLING_EXCHANGE_RATE_CACHE_TTL_SECONDS", time.Minute),
 		BillingExchangeRateStale:      secondsEnv("BILLING_EXCHANGE_RATE_CACHE_MAX_STALE_SECONDS", 10*time.Minute),
-		BillingPricingCacheEnabled:    booleanEnv("BILLING_PRICING_CACHE_ENABLED", true),
 		BillingPricingCacheTTL:        secondsEnv("BILLING_PRICING_CACHE_TTL_SECONDS", 5*time.Minute),
 		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
 		BillingCreditLedger:           loadCreditLedgerSettings(),
