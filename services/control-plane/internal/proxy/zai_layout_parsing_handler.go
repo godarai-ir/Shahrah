@@ -23,30 +23,23 @@ const zaiOCRReservationTokens = 2_000_000
 
 // ZAILayoutParsingHandler implements Z.ai's native layout-parsing contract.
 type ZAILayoutParsingHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logger           *zap.Logger
-	logs             usageLogger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logger     *zap.Logger
+	logs       usageLogger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 func NewZAILayoutParsingHandlerWithDependencies(deps BaseHandlerDependencies) *ZAILayoutParsingHandler {
 	return &ZAILayoutParsingHandler{
 		llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing,
 		logger: deps.Logger, logs: deps.logger(), emitMetric: deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
 	}
 }
 
 func (h *ZAILayoutParsingHandler) Handle(c *fiber.Ctx) error {
 	startedAt := time.Now()
-
-	if h.providerFeatures.Configured &&
-		(!h.providerFeatures.ZAIEnabled || !h.providerFeatures.ZAILayoutParsingEnabled) {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Z.ai layout parsing is disabled", "provider_disabled")
-	}
 
 	authInfo := auth.GetAuthInfo(c)
 

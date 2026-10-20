@@ -32,13 +32,12 @@ const (
 
 // AudioSpeechHandler serves OpenAI-compatible text-to-speech requests.
 type AudioSpeechHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type audioSpeechMetadata struct {
@@ -71,13 +70,12 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 // NewAudioSpeechHandlerWithDependencies creates an audio speech handler from explicit dependencies.
 func NewAudioSpeechHandlerWithDependencies(deps BaseHandlerDependencies) *AudioSpeechHandler {
 	return &AudioSpeechHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -224,10 +222,6 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsAudioSpeechProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Text to speech API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "audio_speech") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio speech is disabled", "provider_disabled")
 	}
 
 	if isMistralProvider(dep.Provider) {

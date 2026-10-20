@@ -40,9 +40,6 @@ type AnthropicNativeHandler struct {
 	billing          budgeter
 	runtimeProfiles  anthropicModelRuntimeProfileResolver
 	logger           *zap.Logger
-	nativeEnabled    bool
-	filesEnabled     bool
-	batchesEnabled   bool
 	accountAllowlist map[string]struct{}
 }
 
@@ -51,9 +48,6 @@ func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthrop
 		router: deps.Router, deployments: deployments, pipeline: deps.requestPipeline(),
 		resources: deps.AnthropicResources, billing: deps.Billing,
 		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
-		nativeEnabled:    !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicNativeEnabled,
-		filesEnabled:     !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicFilesEnabled,
-		batchesEnabled:   !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicBatchesEnabled,
 		accountAllowlist: anthropicAccountAllowlist(deps.ProviderFeatures.AnthropicAccountIDs),
 	}
 }
@@ -79,10 +73,6 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 	operation, input, err := anthropicOperationFromRequest(c)
 	if err != nil {
 		return writeAnthropicError(c, fiber.StatusBadRequest, "invalid_request_error", err.Error())
-	}
-
-	if !h.operationEnabled(operation) {
-		return writeAnthropicError(c, fiber.StatusServiceUnavailable, "api_error", "Anthropic operation is disabled")
 	}
 
 	if operation == platform.ProviderOperationAnthropicFilesCreate ||
@@ -333,29 +323,6 @@ func (h *AnthropicNativeHandler) accountEnabled(accountID string) bool {
 	_, ok := h.accountAllowlist[strings.TrimSpace(accountID)]
 
 	return ok
-}
-
-func (h *AnthropicNativeHandler) operationEnabled(operation platform.ProviderOperation) bool {
-	if !h.nativeEnabled {
-		return false
-	}
-
-	switch operation {
-	case platform.ProviderOperationAnthropicFilesCreate,
-		platform.ProviderOperationAnthropicFilesList,
-		platform.ProviderOperationAnthropicFilesGet,
-		platform.ProviderOperationAnthropicFilesDelete,
-		platform.ProviderOperationAnthropicFilesContent:
-		return h.filesEnabled
-	case platform.ProviderOperationAnthropicBatchesCreate,
-		platform.ProviderOperationAnthropicBatchesList,
-		platform.ProviderOperationAnthropicBatchesGet,
-		platform.ProviderOperationAnthropicBatchesCancel,
-		platform.ProviderOperationAnthropicBatchesResults:
-		return h.batchesEnabled
-	default:
-		return true
-	}
 }
 
 func (h *AnthropicNativeHandler) resolveDeployment(ctx context.Context, tenantID string, requestedModels []string, accountSelector string) (*platform.Deployment, []string, error) {
