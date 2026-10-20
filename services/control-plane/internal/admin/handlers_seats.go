@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ type seatStore interface {
 	CancelPendingSeatChange(ctx context.Context, tenantID, userID string, now time.Time) (*platform.SeatMember, error)
 	QuoteSeats(ctx context.Context, tenantID string, req platform.SeatQuoteRequest, now time.Time) (*platform.SeatQuote, error)
 	QuoteSeatRenewal(ctx context.Context, tenantID string, now time.Time) (*platform.SeatRenewalQuote, error)
+	PreviewSeatRenewal(ctx context.Context, tenantID string, keep map[seats.Type]int, now time.Time) (*platform.SeatRenewalPreview, error)
 	UpdateSeatRenewal(ctx context.Context, tenantID string, req platform.UpdateSeatRenewalRequest, now time.Time) (*platform.SeatSummary, error)
 	CreateSeatOrder(ctx context.Context, tenantID string, req platform.CreateSeatOrderRequest, callbackURL, returnURL, actor string, now time.Time) (*platform.SeatOrder, error)
 	AttachSeatOrderGatewayData(ctx context.Context, publicID, authority, paymentURL string, raw map[string]interface{}) error
@@ -215,6 +217,52 @@ func (h *Handlers) QuoteSeatRenewal(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(quote)
+}
+
+// PreviewSeatRenewal prices renewing the requested number of seats per type
+// (`pro` and `max` query parameters; a missing one uses the saved count) and
+// lists the members who lose their seat, without changing anything. Member names
+// and emails are only shown to callers who may list users.
+func (h *Handlers) PreviewSeatRenewal(c *fiber.Ctx) error {
+	if err := requireSeatRead(c); err != nil {
+		return err
+	}
+
+	store, currentTenant, err := h.seatContext(c)
+	if err != nil {
+		return err
+	}
+
+	keep := map[seats.Type]int{}
+
+	for _, seatType := range seats.PaidTypes {
+		raw := strings.TrimSpace(c.Query(string(seatType)))
+		if raw == "" {
+			continue
+		}
+
+		count, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || count < 0 {
+			return seatError(c, seats.ErrInvalidRenewal)
+		}
+
+		keep[seatType] = count
+	}
+
+	preview, err := store.PreviewSeatRenewal(c.Context(), currentTenant.ID, keep, time.Now())
+	if err != nil {
+		return seatError(c, err)
+	}
+
+	if requireUserListOrManage(c) != nil {
+		for i := range preview.Lines {
+			for j := range preview.Lines[i].Losing {
+				preview.Lines[i].Losing[j].Email, preview.Lines[i].Losing[j].Name = "", ""
+			}
+		}
+	}
+
+	return c.JSON(preview)
 }
 
 // UpdateSeatRenewal sets how many paid seats of a type the next renewal keeps.

@@ -80,7 +80,9 @@ type SeatSummary struct {
 	// RenewalDue is set while the seat subscription's renewal window is open
 	// and some paid seats are not yet paid for the next period.
 	RenewalDue *SeatRenewalQuote `json:"renewal_due,omitempty"`
-	TaxPercent string            `json:"tax_percent"`
+	// RenewalOpensAt is when the running subscription's renewal window opens.
+	RenewalOpensAt *time.Time `json:"renewal_opens_at,omitempty"`
+	TaxPercent     string     `json:"tax_percent"`
 }
 
 // SeatMember is one tenant member with their seat and usage.
@@ -168,6 +170,45 @@ type SeatRenewalQuote struct {
 	TaxPercent string            `json:"tax_percent"`
 	TaxIRR     int64             `json:"tax_irr"`
 	PayableIRR int64             `json:"payable_irr"`
+}
+
+// SeatRenewalPreviewMember is a member who loses a paid seat at the period end
+// when the tenant keeps fewer seats than members hold them.
+type SeatRenewalPreviewMember struct {
+	UserID     string     `json:"user_id"`
+	Email      string     `json:"email,omitempty"`
+	Name       string     `json:"name,omitempty"`
+	AssignedAt *time.Time `json:"assigned_at,omitempty"`
+	// Fallback is "free" when the member gets a free seat after losing the paid
+	// one, and "unassigned" when they are left without a seat.
+	Fallback string `json:"fallback"`
+}
+
+// SeatRenewalPreviewLine is one paid seat type in a renewal preview.
+type SeatRenewalPreviewLine struct {
+	Seat string `json:"seat"`
+	// Held is how many seats of the type the tenant holds, Renewed how many of
+	// them are already paid for the next period, Keep how many stay after this
+	// renewal, and Assigned how many members hold one.
+	Held         int                        `json:"held"`
+	Renewed      int                        `json:"renewed"`
+	Keep         int                        `json:"keep"`
+	Assigned     int                        `json:"assigned"`
+	UnitPriceIRR int64                      `json:"unit_price_irr"`
+	Losing       []SeatRenewalPreviewMember `json:"losing"`
+}
+
+// SeatRenewalPreview is what renewing a chosen number of seats of each type
+// costs and which members lose their seat, without changing anything. Amounts
+// are IRR.
+type SeatRenewalPreview struct {
+	PeriodEnd     time.Time                `json:"period_end"`
+	NextPeriodEnd time.Time                `json:"next_period_end"`
+	Lines         []SeatRenewalPreviewLine `json:"lines"`
+	PriceIRR      int64                    `json:"price_irr"`
+	TaxPercent    string                   `json:"tax_percent"`
+	TaxIRR        int64                    `json:"tax_irr"`
+	PayableIRR    int64                    `json:"payable_irr"`
 }
 
 // CreateSeatOrderRequest starts a seat purchase or renewal.

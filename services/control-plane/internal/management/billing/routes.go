@@ -87,6 +87,7 @@ type Handler interface {
 	CancelPendingSeatChange(*fiber.Ctx) error
 	QuoteSeats(*fiber.Ctx) error
 	QuoteSeatRenewal(*fiber.Ctx) error
+	PreviewSeatRenewal(*fiber.Ctx) error
 	UpdateSeatRenewal(*fiber.Ctx) error
 	ListSeatOrders(*fiber.Ctx) error
 	CreateSeatOrder(*fiber.Ctx) error
@@ -169,6 +170,7 @@ func (r *Routes) registerTenantSeats(router fiber.Router) {
 	router.Delete("/billing/seats/members/:userID/pending", r.handler.CancelPendingSeatChange)
 	router.Post("/billing/seats/quote", r.handler.QuoteSeats)
 	router.Get("/billing/seats/renewal", r.handler.QuoteSeatRenewal)
+	router.Get("/billing/seats/renewal/preview", r.handler.PreviewSeatRenewal)
 	router.Put("/billing/seats/renewal", r.handler.UpdateSeatRenewal)
 	router.Get("/billing/seats/orders", r.handler.ListSeatOrders)
 	router.Post("/billing/seats/orders", r.handler.CreateSeatOrder)

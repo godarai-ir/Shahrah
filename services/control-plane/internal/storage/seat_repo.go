@@ -265,6 +265,9 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, no
 		summary.SubscriptionKind = seats.SeatsPlanSlug
 		summary.BillingInterval = seats.NormalizeInterval(sub.Interval)
 		summary.PeriodStart, summary.PeriodEnd = &sub.PeriodStart, &sub.PeriodEnd
+
+		opensAt := seats.RenewalOpensAt(sub.PeriodEnd)
+		summary.RenewalOpensAt = &opensAt
 	}
 
 	if usage.FreeLimited {

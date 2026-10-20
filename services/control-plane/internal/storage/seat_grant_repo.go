@@ -139,6 +139,8 @@ func (s *SeatRepository) RunSeatLifecycle(ctx context.Context, now time.Time) (s
 
 	// A block that lapsed without renewal leaves more members holding a paid
 	// seat than the tenant pays for; the most recently assigned lose it first.
+	// The ranking (assigned_at, user_id) must match seats.LosingHolders, which
+	// the renewal preview uses to tell the admin who loses a seat.
 	lapsed, err := s.collectSeatTenants(ctx, changed, `
 		WITH held AS (
 			SELECT tenant_id, seat_type, SUM(quantity)::int AS purchased
