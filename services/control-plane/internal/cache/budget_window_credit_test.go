@@ -127,3 +127,45 @@ func TestBudgetWindowRecordSpendNeedsAWindow(t *testing.T) {
 		})
 	}
 }
+
+func TestBudgetWindowZeroEstimateIsAdmittedUntilExhausted(t *testing.T) {
+	for name, build := range budgetWindowImplementations(t) {
+		t.Run(name, func(t *testing.T) {
+			ops := build(t)
+			ctx := context.Background()
+			key := "credit:tenant:t1:window:202610"
+			seedTestWindow(t, ops, key, 100)
+
+			reserve := func(id string) *BudgetWindowResult {
+				t.Helper()
+
+				result, err := ops.ReserveBudget(ctx, BudgetReservationRequest{
+					WindowKey: key, ReservationKey: key + ":res:" + id, ReservationID: id, TTL: time.Hour, Now: time.Now().UTC(),
+				})
+				require.NoError(t, err)
+
+				return result
+			}
+
+			commit := func(id string, actual float64) {
+				t.Helper()
+
+				result, err := ops.CommitBudget(ctx, BudgetCommitRequest{
+					WindowKey: key, ReservationKey: key + ":res:" + id, ActualIRR: actual, Force: true, Now: time.Now().UTC(),
+				})
+				require.NoError(t, err)
+				require.True(t, result.Allowed)
+			}
+
+			require.True(t, reserve("r1").Allowed)
+			commit("r1", 99)
+
+			require.True(t, reserve("r2").Allowed, "headroom is left")
+			commit("r2", 1)
+
+			exhausted := reserve("r3")
+			require.False(t, exhausted.Allowed, "a window spent exactly to its allowance refuses")
+			require.Equal(t, "exhausted", exhausted.State)
+		})
+	}
+}

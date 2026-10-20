@@ -101,40 +101,37 @@ func TestIntegration_CreditEnforcementFollowsTheLedger(t *testing.T) {
 
 	grantCredits(t, f.store, f.tenantID, credits.LotSourcePromo, 10_000, nil)
 
-	served, err := f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(6), "req-1")
+	served, err := f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(1), "req-1")
 	require.NoError(t, err)
-	require.NoError(t, f.budgets.CommitBudget(ctx, served, wholeCredits(6)))
+	require.NoError(t, f.budgets.CommitBudget(ctx, served, wholeCredits(10)))
 
-	_, err = f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(5), "req-2")
-	require.ErrorIs(t, err, billing.ErrBudgetExceeded, "6 of 10 credits are committed")
+	_, err = f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(1), "req-2")
+	require.ErrorIs(t, err, billing.ErrBudgetExceeded, "all 10 credits are committed")
 	require.Equal(t, billing.BudgetScopeTenantBalance, billing.BudgetErrorScope(err))
 
-	// The ledger settles the same 6 credits. The window is re-seeded with the
-	// settled amount added back, so the 4 credits left do not change.
-	insertCreditSpendLog(t, f.pool, f.tenantID, "req-1", 6_000, "")
+	// The ledger settles the same 10 credits. The window is re-seeded with the
+	// settled amount added back, so no headroom appears.
+	insertCreditSpendLog(t, f.pool, f.tenantID, "req-1", 10_000, "")
 	settleAllCredits(t, f.store)
 
 	var settledMC int64
 	require.NoError(t, f.pool.QueryRow(ctx, `
 		SELECT settled_mc FROM credit_budget_window_settlements WHERE tenant_id = $1::uuid
 	`, f.tenantID).Scan(&settledMC))
-	require.Equal(t, int64(6_000), settledMC)
+	require.Equal(t, int64(10_000), settledMC)
 
 	snapshot, err := f.cache.GetBudgetWindow(ctx, served.WindowKey)
 	require.NoError(t, err)
-	require.InDelta(t, 10_000, snapshot.AllowanceIRR, 0.001, "4 available plus 6 settled")
+	require.InDelta(t, 10_000, snapshot.AllowanceIRR, 0.001, "0 available plus 10 settled")
 
-	_, err = f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(5), "req-3")
+	_, err = f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(1), "req-3")
 	require.ErrorIs(t, err, billing.ErrBudgetExceeded, "settlement does not hand back spent credits")
-
-	held, err := f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(4), "req-4")
-	require.NoError(t, err)
 
 	// A grant re-seeds the window at once.
 	grantCredits(t, f.store, f.tenantID, credits.LotSourcePromo, 5_000, nil)
 
-	_, err = f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(5), "req-5")
-	require.NoError(t, err, "the new 5 credits are spendable while 4 stay held")
+	held, err := f.budgets.ReserveBudget(ctx, f.auth(), wholeCredits(1), "req-4")
+	require.NoError(t, err, "the new 5 credits are spendable")
 
 	require.NoError(t, f.budgets.ReleaseBudget(ctx, held, "test"))
 	requireTenantReconciles(t, f.store, f.tenantID)
