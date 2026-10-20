@@ -684,7 +684,9 @@ export type PaymentCallbackKind = keyof typeof PAYMENT_CALLBACK_PATHS;
  * The mock gateway approves every payment, so it is never relayed in production.
  */
 export async function relayPaymentCallback(request: Request, kind: PaymentCallbackKind, provider: string): Promise<NextResponse> {
-  if (process.env.NODE_ENV === "production" && provider.trim().toLowerCase() === "mock") {
+  // Fail closed: the mock gateway is relayed only when NODE_ENV marks a local or test run.
+  const localEnvironment = ["development", "test"].includes(process.env.NODE_ENV ?? "");
+  if (!localEnvironment && provider.trim().toLowerCase() === "mock") {
     return NextResponse.json({ error: { message: "Not found." } }, { status: 404 });
   }
 

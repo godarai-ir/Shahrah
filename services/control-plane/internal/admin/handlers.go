@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
@@ -369,6 +370,8 @@ type Dependencies struct {
 	Onboarding    OnboardingDependencies
 	Observability ObservabilityDependencies
 	Support       SupportDependencies
+	// RateLimits is the shared cache that counts attempts across replicas.
+	RateLimits cache.Cache
 }
 
 type iamState struct {
@@ -454,7 +457,7 @@ func New(deps Dependencies) *Handlers {
 			prompts:             deps.Catalog.Prompts,
 			discovery:           deps.Catalog.Discovery,
 			semanticGuardrails:  deps.Catalog.SemanticGuardrails,
-			semanticTestLimiter: newAuthRateLimiter(),
+			semanticTestLimiter: newAuthRateLimiter(deps.RateLimits),
 		},
 		billingState: billingState{
 			wallets:       deps.Billing.Wallets,

@@ -119,9 +119,9 @@ func (h *Handlers) CreateCreditPackOrder(c *fiber.Ctx) error {
 
 	baseURL := strings.TrimSuffix(resolveExternalBaseURL(c), "/")
 
-	returnURL := strings.TrimSpace(req.ReturnURL)
-	if returnURL == "" {
-		returnURL = baseURL + "/billing/credits"
+	returnURL, err := validatedReturnURL(c, req.ReturnURL, baseURL+"/billing/credits")
+	if err != nil {
+		return err
 	}
 
 	order, err := store.CreateCreditPackOrder(c.Context(), currentTenant.ID, req, baseURL+creditPackCallbackPath+req.Provider, returnURL, billingActorID(c))

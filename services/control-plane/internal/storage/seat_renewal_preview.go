@@ -129,9 +129,10 @@ func renewalPreviewLine(seatType seats.Type, holders []seatHolderRow, periodEnd 
 
 	line.Assigned = len(ranked)
 
-	losing := make([]seatHolderRow, 0)
+	losers := seats.LosingHolders(ranked, stays)
+	losing := make([]seatHolderRow, 0, len(losers))
 
-	for _, loser := range seats.LosingHolders(ranked, stays) {
+	for _, loser := range losers {
 		row := byID[loser.UserID]
 		losing = append(losing, row)
 

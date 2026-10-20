@@ -51,7 +51,7 @@ func (h *Handlers) TestTenantSemanticGuardrail(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	allowed, wait := h.semanticTestLimiter.allow(authRateLimitPolicy{
+	allowed, wait := h.semanticTestLimiter.allow(c.Context(), authRateLimitPolicy{
 		key:    authRateLimitKey("semantic-guardrail-test", currentTenant.ID),
 		limit:  semanticTestRateLimit,
 		window: semanticTestRateLimitWindow,

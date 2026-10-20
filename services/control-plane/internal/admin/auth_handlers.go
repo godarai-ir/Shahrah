@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
@@ -56,10 +56,7 @@ type AuthHandlers struct {
 // AuthHandlersConfig contains immutable authentication transport settings.
 type AuthHandlersConfig struct {
 	ExposeDebugOTP bool
-}
-
-func NewAuthHandlers(store AuthStore, otpNotifier TenantAdminOTPNotifier) *AuthHandlers {
-	return NewAuthHandlersWithConfig(store, otpNotifier, AuthHandlersConfig{})
+	RateLimits     cache.Cache
 }
 
 // NewAuthHandlersWithConfig creates tenant-admin auth handlers with explicit settings.
@@ -70,7 +67,7 @@ func NewAuthHandlersWithConfig(store AuthStore, otpNotifier TenantAdminOTPNotifi
 		store:          store,
 		socialStore:    socialStore,
 		otpNotifier:    otpNotifier,
-		otpLimiter:     newAuthRateLimiter(),
+		otpLimiter:     newAuthRateLimiter(cfg.RateLimits),
 		exposeDebugOTP: cfg.ExposeDebugOTP,
 	}
 }
@@ -80,18 +77,12 @@ const (
 	tenantAdminOTPIdentifierRateLimitWindow = 15 * time.Minute
 	tenantAdminOTPIPRateLimit               = 30
 	tenantAdminOTPIPRateLimitWindow         = time.Minute
-	tenantAdminOTPMaxRateLimitBuckets       = 10000
 )
 
+// authRateLimiter counts attempts in a sliding window kept in the shared cache, so
+// every control-plane replica enforces the same limit.
 type authRateLimiter struct {
-	mu      sync.Mutex
-	buckets map[string]authRateLimitBucket
-	now     func() time.Time
-}
-
-type authRateLimitBucket struct {
-	count   int
-	resetAt time.Time
+	counters cache.Cache
 }
 
 type authRateLimitPolicy struct {
@@ -100,58 +91,18 @@ type authRateLimitPolicy struct {
 	window time.Duration
 }
 
-func newAuthRateLimiter() *authRateLimiter {
-	return &authRateLimiter{
-		buckets: make(map[string]authRateLimitBucket),
-		now:     time.Now,
-	}
+func newAuthRateLimiter(counters cache.Cache) *authRateLimiter {
+	return &authRateLimiter{counters: counters}
 }
 
-func (l *authRateLimiter) allow(policy authRateLimitPolicy) (bool, time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := l.now()
-	l.pruneExpiredLocked(now)
-
-	bucket, exists := l.buckets[policy.key]
-	if !exists || !bucket.resetAt.After(now) {
-		l.buckets[policy.key] = authRateLimitBucket{
-			count:   1,
-			resetAt: now.Add(policy.window),
-		}
-
-		return true, 0
+// allow counts one attempt. If the cache fails, it refuses, so an outage cannot lift the limit.
+func (l *authRateLimiter) allow(ctx context.Context, policy authRateLimitPolicy) (bool, time.Duration) {
+	result, err := l.counters.CheckSlidingWindowRateLimit(ctx, "auth-rate-limit:"+policy.key, int64(policy.limit), policy.window)
+	if err != nil {
+		return false, policy.window
 	}
 
-	if bucket.count >= policy.limit {
-		return false, bucket.resetAt.Sub(now)
-	}
-
-	bucket.count++
-	l.buckets[policy.key] = bucket
-
-	return true, 0
-}
-
-func (l *authRateLimiter) pruneExpiredLocked(now time.Time) {
-	if len(l.buckets) <= tenantAdminOTPMaxRateLimitBuckets {
-		return
-	}
-
-	for key, bucket := range l.buckets {
-		if !bucket.resetAt.After(now) {
-			delete(l.buckets, key)
-		}
-	}
-
-	for key := range l.buckets {
-		if len(l.buckets) <= tenantAdminOTPMaxRateLimitBuckets {
-			break
-		}
-
-		delete(l.buckets, key)
-	}
+	return result.Allowed, time.Until(result.ResetAt)
 }
 
 func (h *AuthHandlers) enforceOTPRequestRateLimit(c *fiber.Ctx, tenantSlug, channel, identifier string) error {
@@ -171,7 +122,7 @@ func (h *AuthHandlers) enforceOTPRequestRateLimit(c *fiber.Ctx, tenantSlug, chan
 	var retryAfter time.Duration
 
 	for _, policy := range policies {
-		ok, wait := h.otpLimiter.allow(policy)
+		ok, wait := h.otpLimiter.allow(c.Context(), policy)
 		if !ok && wait > retryAfter {
 			retryAfter = wait
 		}

@@ -181,21 +181,22 @@ func appendWalletTransactionTx(ctx context.Context, tx pgx.Tx, p walletTransacti
 		walletID string
 		balance  int64
 	)
-	if err := tx.QueryRow(ctx, `
+	// DO NOTHING leaves an existing wallet unlocked, so the row lock below is the
+	// only lock, and it is taken as late as possible.
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
 		VALUES ($1::uuid, 0, 0)
-		ON CONFLICT (tenant_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
-		RETURNING wallet_id::text
-	`, p.TenantID).Scan(&walletID); err != nil {
+		ON CONFLICT (tenant_id) DO NOTHING
+	`, p.TenantID); err != nil {
 		return nil, err
 	}
 
 	if err := tx.QueryRow(ctx, `
-		SELECT ROUND(balance_irr)::bigint
+		SELECT wallet_id::text, ROUND(balance_irr)::bigint
 		FROM wallets
-		WHERE wallet_id::text = $1
+		WHERE tenant_id = $1::uuid
 		FOR UPDATE
-	`, walletID).Scan(&balance); err != nil {
+	`, p.TenantID).Scan(&walletID, &balance); err != nil {
 		return nil, err
 	}
 

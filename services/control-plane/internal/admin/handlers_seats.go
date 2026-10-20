@@ -336,9 +336,9 @@ func (h *Handlers) CreateSeatOrder(c *fiber.Ctx) error {
 
 	baseURL := strings.TrimSuffix(resolveExternalBaseURL(c), "/")
 
-	returnURL := strings.TrimSpace(req.ReturnURL)
-	if returnURL == "" {
-		returnURL = baseURL + "/billing/seats"
+	returnURL, err := validatedReturnURL(c, req.ReturnURL, baseURL+"/billing/seats")
+	if err != nil {
+		return err
 	}
 
 	order, err := store.CreateSeatOrder(c.Context(), currentTenant.ID, req, baseURL+seatCallbackPath+req.Provider, returnURL, billingActorID(c), time.Now())

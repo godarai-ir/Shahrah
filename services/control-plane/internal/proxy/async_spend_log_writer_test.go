@@ -108,7 +108,6 @@ func TestAsyncSpendLogWriterEnqueuesWithoutSynchronousWrite(t *testing.T) {
 		Workers:       1,
 		BatchSize:     10,
 		FlushInterval: time.Hour,
-		DropOnFull:    true,
 	}, zap.NewNop(), metrics)
 
 	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-1"}))
@@ -137,7 +136,6 @@ func TestAsyncSpendLogWriterFlushesByBatchSize(t *testing.T) {
 		Workers:       1,
 		BatchSize:     2,
 		FlushInterval: time.Hour,
-		DropOnFull:    true,
 	}, zap.NewNop(), metrics)
 	defer writer.Stop(context.Background())
 
@@ -163,7 +161,6 @@ func TestAsyncSpendLogWriterFlushesByInterval(t *testing.T) {
 		Workers:       1,
 		BatchSize:     10,
 		FlushInterval: 10 * time.Millisecond,
-		DropOnFull:    true,
 	}, zap.NewNop(), nil)
 	defer writer.Stop(context.Background())
 
@@ -174,63 +171,25 @@ func TestAsyncSpendLogWriterFlushesByInterval(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
-func TestAsyncSpendLogWriterQueueFullBehaviorIsNonBlocking(t *testing.T) {
-	block := make(chan struct{})
-	sink := &spendLogSink{block: block}
+func TestAsyncSpendLogWriterQueueFullWritesDirectly(t *testing.T) {
+	sink := &spendLogSink{}
 	metrics := &spendLogMetricsSink{}
-	writer := NewAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
-		QueueSize:     1,
-		Workers:       1,
-		BatchSize:     1,
-		FlushInterval: time.Hour,
-		DropOnFull:    false,
+
+	// Not started, so nothing drains the queue and the second log overflows it.
+	writer := NewManagedAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
+		QueueSize: 1,
+		Workers:   1,
+		BatchSize: 1,
 	}, zap.NewNop(), metrics)
 
-	defer func() {
-		close(block)
-
-		_ = writer.Stop(context.Background())
-	}()
-
 	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-1"}))
-	require.Eventually(t, func() bool {
-		return len(writer.queue) == 0
-	}, time.Second, 10*time.Millisecond)
 	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-2"}))
 
-	start := time.Now()
-
-	require.ErrorIs(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-3"}), ErrSpendLogQueueFull)
-	require.Less(t, time.Since(start), 100*time.Millisecond)
+	require.Equal(t, 1, sink.count(), "the overflowing log must be written, not dropped")
 
 	queued, dropped, _, _, _ := metrics.snapshot()
-	require.Equal(t, 2, queued)
+	require.Equal(t, 1, queued)
 	require.Equal(t, 1, dropped)
-}
-
-func TestAsyncSpendLogWriterDropOnFullSuppressesQueueFullError(t *testing.T) {
-	block := make(chan struct{})
-	sink := &spendLogSink{block: block}
-	writer := NewAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
-		QueueSize:     1,
-		Workers:       1,
-		BatchSize:     1,
-		FlushInterval: time.Hour,
-		DropOnFull:    true,
-	}, zap.NewNop(), nil)
-
-	defer func() {
-		close(block)
-
-		_ = writer.Stop(context.Background())
-	}()
-
-	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-1"}))
-	require.Eventually(t, func() bool {
-		return len(writer.queue) == 0
-	}, time.Second, 10*time.Millisecond)
-	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-2"}))
-	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-3"}))
 }
 
 func TestAsyncSpendLogWriterRecordsFlushFailures(t *testing.T) {
@@ -243,7 +202,6 @@ func TestAsyncSpendLogWriterRecordsFlushFailures(t *testing.T) {
 		Workers:       1,
 		BatchSize:     1,
 		FlushInterval: time.Hour,
-		DropOnFull:    true,
 	}, zap.NewNop(), metrics)
 	defer writer.Stop(context.Background())
 

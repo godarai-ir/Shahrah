@@ -430,19 +430,29 @@ func (s *WalletPaymentRepository) CompleteWalletTopUpByAuthority(ctx context.Con
 func (s *WalletPaymentRepository) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	rawPayload := marshalJSONBestEffort(raw)
 
+	// A completed top-up is left alone, so a late failure callback cannot change it.
 	res, err := s.pool.Exec(ctx, `
 		UPDATE wallet_topup_intents
-		SET status = CASE WHEN status = 'COMPLETED' THEN status ELSE 'FAILED' END,
+		SET status = 'FAILED',
 			failure_reason = $2,
 			raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $3::jsonb,
 			updated_at = NOW()
-		WHERE authority = $1
+		WHERE authority = $1 AND status <> 'COMPLETED'
 	`, authority, reason, rawPayload)
 	if err != nil {
 		return err
 	}
 
-	if res.RowsAffected() == 0 {
+	if res.RowsAffected() > 0 {
+		return nil
+	}
+
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM wallet_topup_intents WHERE authority = $1)`, authority).Scan(&exists); err != nil {
+		return err
+	}
+
+	if !exists {
 		return billingdomain.ErrTopUpIntentNotFound
 	}
 
