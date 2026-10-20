@@ -110,25 +110,21 @@ func (s *BudgetService) reserveCreditBudget(
 	tenantID := strings.TrimSpace(auth.TenantID)
 	now := time.Now().UTC()
 
-	estimateMC, err := s.creditAmountMC(breakdown)
-	if err != nil {
-		return nil, err
-	}
-
 	reservation := &platform.BudgetReservation{
 		ID: reservationID, TenantID: tenantID, Unit: credits.BillingUnitCredit, BillingMode: billingMode, CreatedAt: now,
 	}
 
-	poolMC := estimateMC
-
 	if billingMode == platform.BillingModeExternalBilled {
-		fee := byokFeePercent(profile)
-		reservation.BYOKFeePercent = fee.String()
-		poolMC = credits.BYOKFeeMC(estimateMC, fee)
+		reservation.BYOKFeePercent = byokFeePercent(profile).String()
 	}
 
-	targets := append([]budgetReservationTarget{s.creditPoolTarget(tenantID, reservationID, poolMC, now)},
-		s.creditPolicyTargets(profile, auth, breakdown, reservationID, estimateMC, now)...)
+	// Admission reserves nothing: a request is admitted while each window still
+	// has headroom, and its actual cost is committed after it is served. A
+	// window can therefore overshoot its limit by in-flight requests, and the
+	// next request is refused once it is exhausted. breakdown only matches
+	// rules here; its estimated cost is not used.
+	targets := append([]budgetReservationTarget{s.creditPoolTarget(tenantID, reservationID, 0, now)},
+		s.creditPolicyTargets(profile, auth, breakdown, reservationID, 0, now)...)
 
 	reserved, err := s.reserveCreditTargets(ctx, targets, reservationID, now)
 	if err != nil {

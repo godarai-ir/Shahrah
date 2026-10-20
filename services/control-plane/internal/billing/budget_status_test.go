@@ -34,9 +34,6 @@ func TestBudgetStatusReportsTheCallersRules(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, h.service.CommitBudget(ctx, served, creditBreakdown(3)))
 
-	_, err = h.service.ReserveBudget(ctx, caller, creditBreakdown(2), "req-2")
-	require.NoError(t, err)
-
 	status, err := h.service.BudgetStatus(ctx, caller, false)
 	require.NoError(t, err)
 	require.Equal(t, "credit", status.Unit)
@@ -49,15 +46,15 @@ func TestBudgetStatusReportsTheCallersRules(t *testing.T) {
 
 	require.Len(t, rules, 2, "another team's rule and the per-model rule are left out")
 	require.Equal(t, platform.BudgetRuleStatus{
-		RuleID: "user-daily", Name: "Daily per user", Scope: "user", Limit: "10.00", Spent: "3.00", Remaining: "5.00",
+		RuleID: "user-daily", Name: "Daily per user", Scope: "user", Limit: "10.00", Spent: "3.00", Remaining: "7.00",
 		WindowEnd: rules["user-daily"].WindowEnd, OnExceed: "block",
-	}, rules["user-daily"], "remaining subtracts the 2 credits still reserved")
+	}, rules["user-daily"])
 	require.Equal(t, "17.00", rules["gpt-only"].Remaining, "request conditions cannot be known, so the rule is reported")
 
 	withBalance, err := h.service.BudgetStatus(ctx, caller, true)
 	require.NoError(t, err)
-	require.Equal(t, "45.00", withBalance.TenantBalance.Remaining)
-	require.Equal(t, "2.00", withBalance.TenantBalance.Reserved)
+	require.Equal(t, "47.00", withBalance.TenantBalance.Remaining)
+	require.Equal(t, "0.00", withBalance.TenantBalance.Reserved, "admission reserves nothing")
 }
 
 func TestBudgetStatusBeforeAnyRequestReadsTheBalance(t *testing.T) {

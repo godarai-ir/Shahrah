@@ -314,7 +314,9 @@ func (m *MemoryCache) ReserveBudget(_ context.Context, req BudgetReservationRequ
 		estimated = 0
 	}
 
-	if window.reservedIRR+window.committedIRR+estimated > window.allowanceIRR {
+	// A window with no headroom left refuses even a zero estimate.
+	headroom := window.allowanceIRR - window.reservedIRR - window.committedIRR
+	if headroom <= 0 || estimated > headroom {
 		return memoryBudgetResult(window, false, "exhausted"), nil
 	}
 

@@ -110,25 +110,50 @@ func TestCreditTenantWithoutCreditPoolsIsRefused(t *testing.T) {
 	require.ErrorIs(t, err, ErrBudgetUnavailable, "a credit tenant is never served unenforced")
 }
 
-func TestCreditTenantReservesMillicreditsFromItsBalance(t *testing.T) {
+func TestCreditTenantAdmitsWhileItsBalanceHasHeadroom(t *testing.T) {
 	h := newCreditTestHarness(t, 10_000)
 	ctx := context.Background()
 
-	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(6), "req-1")
-	require.NoError(t, err)
+	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(60), "req-1")
+	require.NoError(t, err, "admission ignores the estimated cost")
 	require.Equal(t, credits.BillingUnitCredit, reservation.Unit)
-	require.Equal(t, int64(6_000), reservation.Targets[0].EstimatedMC)
+	require.Zero(t, reservation.Targets[0].EstimatedMC, "nothing is reserved up front")
 	require.Equal(t, credits.PoolWindowKey("tenant-1", reservation.WindowID), reservation.WindowKey)
 	require.Equal(t, 1, h.pools.calls, "the pool window is seeded from the credit balance")
 
-	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(5), "req-2")
+	inFlight, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(5), "req-2")
+	require.NoError(t, err, "a request in flight does not hold back the next one")
+
+	require.NoError(t, h.service.CommitBudget(ctx, reservation, creditBreakdown(9)))
+
+	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-3")
+	require.NoError(t, err, "1 credit of headroom is left")
+
+	require.NoError(t, h.service.CommitBudget(ctx, inFlight, creditBreakdown(5)), "the overshoot is committed")
+
+	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-4")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "an exhausted balance refuses the next request")
+	require.Equal(t, BudgetScopeTenantBalance, BudgetErrorScope(err))
+}
+
+func TestCreditTenantWithAnExactlySpentBalanceIsRefused(t *testing.T) {
+	h := newCreditTestHarness(t, 10_000)
+	ctx := context.Background()
+
+	reservation, err := h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-1")
+	require.NoError(t, err)
+	require.NoError(t, h.service.CommitBudget(ctx, reservation, creditBreakdown(10)))
+
+	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-2")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "no headroom is left even though nothing was overspent")
+}
+
+func TestCreditTenantWithAnEmptyBalanceIsRefused(t *testing.T) {
+	h := newCreditTestHarness(t, 0)
+
+	_, err := h.service.ReserveBudget(context.Background(), creditAuth, creditBreakdown(1), "req-1")
 	require.ErrorIs(t, err, ErrBudgetExceeded)
 	require.Equal(t, BudgetScopeTenantBalance, BudgetErrorScope(err))
-
-	require.NoError(t, h.service.CommitBudget(ctx, reservation, creditBreakdown(4)))
-
-	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(5), "req-3")
-	require.NoError(t, err, "a lower actual cost frees the rest of the estimate")
 }
 
 func TestCreditCommitIsForcedForServedUsage(t *testing.T) {
@@ -154,8 +179,9 @@ func TestCreditBlockRuleRefusesWithItsScope(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, reservation.Targets, 2)
 	require.Equal(t, "credit_policy:", reservation.Targets[1].WindowKey[:len("credit_policy:")])
+	require.NoError(t, h.service.CommitBudget(ctx, reservation, creditBreakdown(12)), "the rule may be overshot once")
 
-	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(4), "req-2")
+	_, err = h.service.ReserveBudget(ctx, creditAuth, creditBreakdown(1), "req-2")
 	require.ErrorIs(t, err, ErrBudgetExceeded)
 	require.Equal(t, string(platform.BudgetAppliesPerUser), BudgetErrorScope(err))
 
@@ -187,11 +213,18 @@ func TestCreditExternalBilledReservesOnlyTheFeeFromTheBalance(t *testing.T) {
 	reservation, err := h.service.ReserveExternalBilledBudget(ctx, creditAuth, creditBreakdown(20), "req-1")
 	require.NoError(t, err)
 	require.Equal(t, platform.BillingModeExternalBilled, reservation.BillingMode)
-	require.Equal(t, int64(1_000), reservation.Targets[0].EstimatedMC, "5% of 20 credits is 1 credit against the balance")
-	require.Equal(t, int64(20_000), reservation.Targets[1].EstimatedMC, "the rule counts the full equivalent")
+	require.NoError(t, h.service.CommitBudget(ctx, reservation, creditBreakdown(20)))
 
-	_, err = h.service.ReserveExternalBilledBudget(ctx, creditAuth, creditBreakdown(20), "req-2")
-	require.ErrorIs(t, err, ErrBudgetExceeded)
+	pool, err := h.cache.GetBudgetWindow(ctx, reservation.Targets[0].WindowKey)
+	require.NoError(t, err)
+	require.InDelta(t, 1_000, pool.CommittedIRR, 0.001, "5% of 20 credits is 1 credit against the balance")
+
+	rule, err := h.cache.GetBudgetWindow(ctx, reservation.Targets[1].WindowKey)
+	require.NoError(t, err)
+	require.InDelta(t, 20_000, rule.CommittedIRR, 0.001, "the rule counts the full equivalent")
+
+	_, err = h.service.ReserveExternalBilledBudget(ctx, creditAuth, creditBreakdown(1), "req-2")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "the fee used up the balance")
 }
 
 func TestRecordSideUsageChargesCreditWindowsAfterTheFact(t *testing.T) {
