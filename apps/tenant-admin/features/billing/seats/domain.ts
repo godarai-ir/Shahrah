@@ -76,9 +76,3 @@ export function freeSeatsLeft(summary: Pick<SeatSummary, "free_limit" | "free_us
   if (summary.free_limit === null) return null;
   return Math.max(0, summary.free_limit - summary.free_used);
 }
-
-/** True while seat limits are announced but not enforced yet. */
-export function inGracePeriod(summary: Pick<SeatSummary, "enabled" | "enforced" | "enforced_from">, now = new Date()): boolean {
-  if (!summary.enabled || summary.enforced || !summary.enforced_from) return false;
-  return new Date(summary.enforced_from).getTime() > now.getTime();
-}

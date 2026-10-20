@@ -192,9 +192,9 @@ func (s *SeatRepository) GetSeatProfile(ctx context.Context, tenantID string) (*
 	var proLimit, maxLimit *int64
 
 	err = s.pool.QueryRow(ctx, `
-		SELECT seats_enforced_from, seat_pool_limit_pro_mc, seat_pool_limit_max_mc
+		SELECT seat_pool_limit_pro_mc, seat_pool_limit_max_mc
 		FROM credit_tenant_settings WHERE tenant_id = $1::uuid
-	`, tenantID).Scan(&profile.EnforcedFrom, &proLimit, &maxLimit)
+	`, tenantID).Scan(&proLimit, &maxLimit)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (s *SeatRepository) GetSeatProfile(ctx context.Context, tenantID string) (*
 }
 
 // GetSeatSummary returns the tenant's seat overview.
-func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, enabled bool, now time.Time) (*platform.SeatSummary, error) {
+func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, now time.Time) (*platform.SeatSummary, error) {
 	now = now.UTC()
 
 	sub, err := currentSeatSubscription(ctx, s.pool, tenantID)
@@ -247,7 +247,7 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, en
 		return nil, err
 	}
 
-	summary := &platform.SeatSummary{Enabled: enabled, SubscriptionStatus: sub.Status, PendingInvitations: usage.Pending}
+	summary := &platform.SeatSummary{SubscriptionStatus: sub.Status, PendingInvitations: usage.Pending}
 
 	if sub.Found {
 		summary.BillingInterval = seats.NormalizeInterval(sub.Interval)
@@ -261,7 +261,6 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, en
 
 	if scanErr := s.pool.QueryRow(ctx, `
 		SELECT
-			(SELECT seats_enforced_from FROM credit_tenant_settings WHERE tenant_id = $1::uuid),
 			(SELECT COUNT(1) FROM tenant_seat_assignments a
 			 JOIN users u ON u.user_id = a.user_id AND u.tenant_id = a.tenant_id AND COALESCE(u.active, true)
 			 WHERE a.tenant_id = $1::uuid AND a.seat_type = 'free')::int,
@@ -269,11 +268,11 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, en
 			 WHERE u.tenant_id = $1::uuid AND COALESCE(u.active, true)
 			   AND NOT EXISTS (SELECT 1 FROM tenant_seat_assignments a WHERE a.tenant_id = u.tenant_id AND a.user_id = u.user_id))::int,
 			(SELECT COUNT(1) FROM seat_upgrade_requests WHERE tenant_id = $1::uuid AND status = 'pending')::int
-	`, tenantID).Scan(&summary.EnforcedFrom, &summary.FreeUsed, &summary.Unassigned, &summary.PendingRequests); scanErr != nil {
+	`, tenantID).Scan(&summary.FreeUsed, &summary.Unassigned, &summary.PendingRequests); scanErr != nil {
 		return nil, scanErr
 	}
 
-	summary.Enforced = seats.Enforced(enabled, sub.Status, summary.EnforcedFrom, now)
+	summary.Enforced = seats.Enforced(sub.Status)
 
 	stock, err := loadSeatStock(ctx, s.pool, tenantID, now)
 	if err != nil {

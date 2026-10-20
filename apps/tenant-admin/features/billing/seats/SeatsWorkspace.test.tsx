@@ -29,9 +29,7 @@ vi.mock("@/hooks/use-locale-format", async (importOriginal) => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const summary: SeatSummary = {
-  enabled: true,
-  enforced: false,
-  enforced_from: "2099-01-01T00:00:00Z",
+  enforced: true,
   subscription_status: "active",
   billing_interval: "monthly",
   period_start: "2026-10-01T00:00:00Z",
@@ -105,10 +103,9 @@ function renderWorkspace() {
 describe("SeatsWorkspace", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("shows the grace period and each member's personal credits", () => {
+  it("shows each member's personal credits", () => {
     renderWorkspace();
 
-    expect(screen.getByText(/Seat limits apply from/)).toBeInTheDocument();
     expect(screen.getByText("0 free seats left")).toBeInTheDocument();
     expect(screen.getByText("Sara")).toBeInTheDocument();
     expect(screen.getByText(/125\.00 .* of 500\.00/)).toBeInTheDocument();

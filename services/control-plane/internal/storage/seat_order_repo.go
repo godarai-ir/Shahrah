@@ -278,7 +278,7 @@ func (s *SeatRepository) UpdateSeatRenewal(ctx context.Context, tenantID string,
 		return nil, err
 	}
 
-	return s.GetSeatSummary(ctx, tenantID, true, now)
+	return s.GetSeatSummary(ctx, tenantID, now)
 }
 
 // CreateSeatOrder records a seat purchase or renewal waiting for payment.

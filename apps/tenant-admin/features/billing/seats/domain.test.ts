@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { APIClientError } from "@/lib/http/api-client";
 
 import { parseSeatSummary, purchaseRequiredQuote } from "./api";
-import { freeSeatsLeft, inGracePeriod, personalUsagePercent, previewSeatChange, seatErrorMessage } from "./domain";
+import { freeSeatsLeft, personalUsagePercent, previewSeatChange, seatErrorMessage } from "./domain";
 
 describe("previewSeatChange", () => {
   it.each([
@@ -33,13 +33,6 @@ describe("seat helpers", () => {
     expect(freeSeatsLeft({ free_limit: null, free_used: 5 })).toBeNull();
   });
 
-  it("detects the grace period before enforcement", () => {
-    const now = new Date("2026-10-20T00:00:00Z");
-    expect(inGracePeriod({ enabled: true, enforced: false, enforced_from: "2026-11-01T00:00:00Z" }, now)).toBe(true);
-    expect(inGracePeriod({ enabled: true, enforced: true, enforced_from: "2026-10-01T00:00:00Z" }, now)).toBe(false);
-    expect(inGracePeriod({ enabled: false, enforced: false, enforced_from: "2026-11-01T00:00:00Z" }, now)).toBe(false);
-  });
-
   it("translates known error codes and keeps the server text otherwise", () => {
     const t = (key: string) => `t:${key}`;
     expect(seatErrorMessage(t, new APIClientError("x", { status: 409, code: "free_seat_used", payload: {} }))).toBe("t:errors.free_seat_used");
@@ -61,7 +54,7 @@ describe("seat API contracts", () => {
 
   it("parses a seat summary", () => {
     const summary = parseSeatSummary({
-      enabled: true, enforced: false, enforced_from: "2026-11-01T00:00:00Z", subscription_status: "active",
+      enforced: true, subscription_status: "active",
       billing_interval: "monthly", period_start: "2026-10-01T00:00:00Z", period_end: "2026-11-01T00:00:00Z",
       free_limit: 10, free_used: 4, unassigned: 1, pending_invitations: 0,
       paid: [{ type: "pro", purchased: 2, assigned: 1, available: 1, renewing: 2 }],

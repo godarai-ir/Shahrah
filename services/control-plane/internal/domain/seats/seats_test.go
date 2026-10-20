@@ -108,15 +108,9 @@ func TestDecideChange(t *testing.T) {
 }
 
 func TestEnforcedAndPoolAccess(t *testing.T) {
-	now := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
-	later := now.Add(time.Hour)
-	earlier := now.Add(-time.Hour)
-
-	require.False(t, Enforced(false, "active", nil, now), "flag off")
-	require.False(t, Enforced(true, "trialing", nil, now), "trial keeps the pool")
-	require.False(t, Enforced(true, "active", &later, now), "grace period")
-	require.True(t, Enforced(true, "active", &earlier, now))
-	require.True(t, Enforced(true, "active", nil, now))
+	require.False(t, Enforced("trialing"), "trial keeps the pool")
+	require.False(t, Enforced(""), "no subscription")
+	require.True(t, Enforced("active"))
 
 	require.True(t, PoolAccess(Free, false))
 	require.True(t, PoolAccess(Unassigned, false))

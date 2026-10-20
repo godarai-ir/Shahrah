@@ -65,7 +65,6 @@ type BudgetService struct {
 	creditPools          CreditPoolStore
 	creditRateCards      CreditRateCardProvider
 	seatCredits          SeatCreditStore
-	seatsEnabled         bool
 	logger               *zap.Logger
 	budgetWindowTTLGrace time.Duration
 }
@@ -97,7 +96,7 @@ type Dependencies struct {
 	// CreditPools and CreditRateCards enforce credit tenants in credits.
 	CreditPools     CreditPoolStore
 	CreditRateCards CreditRateCardProvider
-	// SeatCredits enforces member seats on chat usage when SeatsEnabled.
+	// SeatCredits enforces member seats on chat usage.
 	SeatCredits SeatCreditStore
 	Logger      *zap.Logger
 	Config      *ServiceConfig
@@ -109,8 +108,6 @@ type ServiceConfig struct {
 	PricingCache      PricingCacheConfig
 	BudgetWindowGrace time.Duration
 	RateLimitFailOpen bool
-	// SeatsEnabled turns on member seat enforcement (SEATS_ENABLED).
-	SeatsEnabled bool
 }
 
 // NewService creates a billing enforcement service.
@@ -229,7 +226,6 @@ func newService(
 			creditPools:          dependencies.CreditPools,
 			creditRateCards:      dependencies.CreditRateCards,
 			seatCredits:          dependencies.SeatCredits,
-			seatsEnabled:         serviceConfig.SeatsEnabled,
 			logger:               logger,
 			budgetWindowTTLGrace: serviceConfig.BudgetWindowGrace,
 		},

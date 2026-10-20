@@ -49,9 +49,7 @@ export const seatRenewalQuoteSchema = z.object({
 });
 
 export const seatSummarySchema = z.object({
-  enabled: z.boolean(),
   enforced: z.boolean(),
-  enforced_from: z.string().nullish(),
   subscription_status: z.string().optional().default(""),
   billing_interval: z.string().optional(),
   period_start: z.string().nullish(),

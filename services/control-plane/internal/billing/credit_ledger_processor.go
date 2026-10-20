@@ -59,9 +59,7 @@ type CreditLedgerConfig struct {
 	PriceInterval time.Duration
 	// PriceAutoApply approves band proposals without a support-admin decision.
 	PriceAutoApply bool
-	// SeatsEnabled runs the member-seat lifecycle with every grant pass.
-	SeatsEnabled bool
-	Timeout      time.Duration
+	Timeout        time.Duration
 }
 
 // CreditLedgerProcessor settles credit consumption, expires lots, and
@@ -216,7 +214,7 @@ func (p *CreditLedgerProcessor) Grant(ctx context.Context) {
 // removes lapsed paid seats, and grants seat credits.
 func (p *CreditLedgerProcessor) runSeatLifecycle(ctx context.Context) {
 	store, ok := p.store.(seatLifecycleStore)
-	if !p.cfg.SeatsEnabled || !ok {
+	if !ok {
 		return
 	}
 

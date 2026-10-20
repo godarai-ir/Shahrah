@@ -244,7 +244,6 @@ func (b *builder) buildStorage() error {
 				},
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
 				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
-				SeatsEnabled:      b.cfg.Runtime.SeatsEnabled,
 			},
 		},
 		b.cfg.BillingSettings.DefaultUSDtoIRR,

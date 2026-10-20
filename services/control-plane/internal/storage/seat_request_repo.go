@@ -187,7 +187,7 @@ func closeSeatRequestTx(ctx context.Context, tx pgx.Tx, tenantID, requestID, use
 // GetSeatStatus reports a member's own seat for the gateway's /v1/budget/me
 // and GodarChat. The block reason is computed from the ledger, so it can lag
 // in-flight requests by one settlement pass.
-func (s *SeatRepository) GetSeatStatus(ctx context.Context, tenantID, userID string, enabled bool, now time.Time) (*platform.SeatStatus, error) {
+func (s *SeatRepository) GetSeatStatus(ctx context.Context, tenantID, userID string, now time.Time) (*platform.SeatStatus, error) {
 	now = now.UTC()
 	windowID, _ := credits.PoolWindow(now)
 
@@ -202,25 +202,23 @@ func (s *SeatRepository) GetSeatStatus(ctx context.Context, tenantID, userID str
 	}
 
 	var (
-		enforcedFrom    *time.Time
 		requestsEnabled bool
 		pending         string
 	)
 
 	if err := s.pool.QueryRow(ctx, `
-		SELECT (SELECT seats_enforced_from FROM credit_tenant_settings WHERE tenant_id = $1::uuid),
-		       COALESCE((SELECT seat_upgrade_requests_enabled FROM credit_tenant_settings WHERE tenant_id = $1::uuid), true),
+		SELECT COALESCE((SELECT seat_upgrade_requests_enabled FROM credit_tenant_settings WHERE tenant_id = $1::uuid), true),
 		       COALESCE((SELECT requested_seat_type FROM seat_upgrade_requests
 		                 WHERE tenant_id = $1::uuid AND user_id::text = $2 AND status = 'pending' LIMIT 1), '')
-	`, tenantID, strings.TrimSpace(userID)).Scan(&enforcedFrom, &requestsEnabled, &pending); err != nil {
+	`, tenantID, strings.TrimSpace(userID)).Scan(&requestsEnabled, &pending); err != nil {
 		return nil, err
 	}
 
 	seatType := seats.Type(member.Seat)
-	enforced := seats.Enforced(enabled, sub.Status, enforcedFrom, now)
+	enforced := seats.Enforced(sub.Status)
 
 	status := &platform.SeatStatus{
-		Enabled: enabled, Enforced: enforced, Type: member.Seat,
+		Enforced: enforced, Type: member.Seat,
 		MonthlyCredits:     credits.Format(credits.Millicredits(seatType.MonthlyGrantMC())),
 		RemainingCredits:   member.PersonalRemainingCredits,
 		PoolAccess:         seats.PoolAccess(seatType, enforced),

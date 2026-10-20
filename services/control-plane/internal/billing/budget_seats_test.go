@@ -55,7 +55,7 @@ func newSeatHarness(t *testing.T, poolMC int64, seatProfile *platform.SeatProfil
 		RuntimeProfiles: staticRuntimeProfiles{profile: profile},
 		CreditPools:     &staticCreditPools{allowanceMC: poolMC},
 		SeatCredits:     store,
-		Config:          &ServiceConfig{SeatsEnabled: true, BudgetWindowGrace: time.Hour},
+		Config:          &ServiceConfig{BudgetWindowGrace: time.Hour},
 	}, 850000, "test")
 
 	return seatHarness{service: service, cache: mem}
@@ -137,18 +137,10 @@ func TestSeatUnassignedMembersAreRefusedOnlyOnceEnforced(t *testing.T) {
 	require.ErrorIs(t, err, ErrBudgetExceeded)
 	require.Equal(t, string(seats.BlockSeatUnassigned), BudgetErrorCode(err))
 
-	later := time.Now().Add(24 * time.Hour)
-	grace := activeSeats(map[string]string{}, nil)
-	grace.EnforcedFrom = &later
-
-	graceHarness := newSeatHarness(t, 100_000, grace, store)
-	reservation, err := graceHarness.service.ReserveBudget(ctx, chatAuth("new-1"), creditBreakdown(1), "req-1")
-	require.NoError(t, err, "before enforcement a member without a seat shares the pool")
-	require.Empty(t, reservation.SeatUserID)
-
 	trial := newSeatHarness(t, 100_000, &platform.SeatProfile{SubscriptionStatus: "trialing"}, store)
-	_, err = trial.service.ReserveBudget(ctx, chatAuth("new-1"), creditBreakdown(1), "req-1")
+	reservation, err := trial.service.ReserveBudget(ctx, chatAuth("new-1"), creditBreakdown(1), "req-1")
 	require.NoError(t, err, "trialing tenants share their trial pool")
+	require.Empty(t, reservation.SeatUserID)
 }
 
 func TestSeatAPIUsageSpendsOnlyThePool(t *testing.T) {

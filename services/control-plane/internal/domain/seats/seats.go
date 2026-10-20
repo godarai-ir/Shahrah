@@ -248,15 +248,10 @@ func DecideChange(from, to Type, freeSeatUsed bool) (Change, error) {
 	return change, nil
 }
 
-// Enforced reports whether seat limits apply to a tenant at now. They apply
-// to active subscriptions once the tenant's grace period, if any, is over.
-// Trialing tenants keep the shared pool.
-func Enforced(enabled bool, subscriptionStatus string, enforcedFrom *time.Time, now time.Time) bool {
-	if !enabled || strings.TrimSpace(subscriptionStatus) != "active" {
-		return false
-	}
-
-	return enforcedFrom == nil || !now.Before(*enforcedFrom)
+// Enforced reports whether seat limits apply to a tenant: they apply to every
+// active subscription. Trialing tenants keep the shared pool.
+func Enforced(subscriptionStatus string) bool {
+	return strings.TrimSpace(subscriptionStatus) == "active"
 }
 
 // PoolAccess reports whether a member's chat usage may fall through to the

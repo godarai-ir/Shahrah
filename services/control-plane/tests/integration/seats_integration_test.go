@@ -161,7 +161,7 @@ func TestIntegration_SeatsPurchaseAssignsAndGrantsAProSeat(t *testing.T) {
 	require.Equal(t, "pro", member2.Seat)
 	require.Equal(t, int64(2_000_000), personalRemainingMC(t, pool, tenantID, member), "the full monthly quota at once")
 
-	summary, err := store.GetSeatSummary(ctx, tenantID, true, now)
+	summary, err := store.GetSeatSummary(ctx, tenantID, now)
 	require.NoError(t, err)
 
 	for _, paid := range summary.Paid {

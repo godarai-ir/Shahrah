@@ -177,10 +177,6 @@
     "failedDescription": "Nothing was charged, or it will be refunded. Try again."
   },
   "notice": {
-    "disabledTitle": "Seats are not active yet",
-    "disabledDescription": "You can review and prepare seats, but until the feature is turned on every member uses the organization's credits.",
-    "graceTitle": "Seat limits apply from {date}",
-    "graceDescription": "Until then, members on the free seat or without a seat keep using the organization's credits. Upgrade heavy users before that date.",
     "trial": "During the trial every member uses the organization's trial credits. Seats apply once the subscription is active."
   },
   "errors": {

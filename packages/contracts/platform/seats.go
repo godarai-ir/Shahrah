@@ -27,9 +27,8 @@ const (
 // SeatProfile is the seat state compiled into a tenant's runtime profile, so
 // chat admission needs no database read.
 type SeatProfile struct {
-	// SubscriptionStatus and EnforcedFrom decide whether seat limits apply.
-	SubscriptionStatus string     `json:"subscription_status,omitempty"`
-	EnforcedFrom       *time.Time `json:"enforced_from,omitempty"`
+	// SubscriptionStatus decides whether seat limits apply.
+	SubscriptionStatus string `json:"subscription_status,omitempty"`
 	// Members maps a user id to their seat type; absent means no seat.
 	Members map[string]string `json:"members,omitempty"`
 	// PoolLimitMC is the default personal pool limit per seat type, in
@@ -63,9 +62,7 @@ type SeatTypeCount struct {
 
 // SeatSummary is a tenant's seat overview.
 type SeatSummary struct {
-	Enabled            bool            `json:"enabled"`
 	Enforced           bool            `json:"enforced"`
-	EnforcedFrom       *time.Time      `json:"enforced_from,omitempty"`
 	SubscriptionStatus string          `json:"subscription_status,omitempty"`
 	BillingInterval    string          `json:"billing_interval,omitempty"`
 	PeriodStart        *time.Time      `json:"period_start,omitempty"`
@@ -246,7 +243,6 @@ type DecideSeatUpgradeRequest struct {
 
 // SeatStatus is a member's own seat as the gateway reports it.
 type SeatStatus struct {
-	Enabled  bool   `json:"enabled"`
 	Enforced bool   `json:"enforced"`
 	Type     string `json:"type"`
 	// Credits are decimal strings with two places.

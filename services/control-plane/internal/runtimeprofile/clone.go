@@ -76,11 +76,6 @@ func cloneProfile(in *Profile) *Profile {
 			}
 		}
 
-		if in.Seats.EnforcedFrom != nil {
-			enforcedFrom := *in.Seats.EnforcedFrom
-			seats.EnforcedFrom = &enforcedFrom
-		}
-
 		out.Seats = &seats
 	}
 

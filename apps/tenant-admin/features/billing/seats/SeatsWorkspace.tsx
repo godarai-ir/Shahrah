@@ -32,7 +32,7 @@ import {
 } from "./api";
 import { BuySeatsSheet, type BuySeatsTarget } from "./BuySeatsSheet";
 import { ChangeSeatDialog } from "./ChangeSeatDialog";
-import { inGracePeriod, seatErrorMessage } from "./domain";
+import { seatErrorMessage } from "./domain";
 import { SeatMembersTable } from "./SeatMembersTable";
 import { SeatRenewalCard } from "./SeatRenewalCard";
 import { SeatRequestsTable } from "./SeatRequestsTable";
@@ -165,17 +165,7 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         </Alert>
       ) : null}
 
-      {!summary.enabled ? (
-        <Alert>
-          <AlertTitle>{t("notice.disabledTitle")}</AlertTitle>
-          <AlertDescription>{t("notice.disabledDescription")}</AlertDescription>
-        </Alert>
-      ) : inGracePeriod(summary) ? (
-        <Alert>
-          <AlertTitle>{t("notice.graceTitle", { date: format.date(summary.enforced_from) })}</AlertTitle>
-          <AlertDescription>{t("notice.graceDescription")}</AlertDescription>
-        </Alert>
-      ) : summary.subscription_status === "trialing" ? (
+      {summary.subscription_status === "trialing" ? (
         <Alert>
           <AlertDescription>{t("notice.trial")}</AlertDescription>
         </Alert>

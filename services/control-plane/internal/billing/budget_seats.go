@@ -42,9 +42,9 @@ type seatAdmission struct {
 
 // seatAdmissionFor decides whether a request spends seat credits: chat usage
 // of a known member, paid by the platform, in a tenant with seats. A member
-// without a seat in a tenant whose seats are not enforced yet shares the pool.
+// without a seat in a trialing tenant shares the pool.
 func (s *BudgetService) seatAdmissionFor(ctx context.Context, auth *platform.AuthContext, profile *runtimeprofile.Profile, billingMode string, now time.Time) (seatAdmission, error) {
-	if !s.seatsEnabled || s.seatCredits == nil || auth == nil || profile == nil || profile.Seats == nil ||
+	if s.seatCredits == nil || auth == nil || profile == nil || profile.Seats == nil ||
 		auth.CreditProduct != platform.CreditProductLibreChat || strings.TrimSpace(auth.UserID) == "" ||
 		billingMode == platform.BillingModeExternalBilled {
 		return seatAdmission{}, nil
@@ -67,7 +67,7 @@ func (s *BudgetService) seatAdmissionFor(ctx context.Context, auth *platform.Aut
 		seat = seats.Unassigned
 	}
 
-	enforced := seats.Enforced(true, profile.Seats.SubscriptionStatus, profile.Seats.EnforcedFrom, now)
+	enforced := seats.Enforced(profile.Seats.SubscriptionStatus)
 	if seat == seats.Unassigned && !enforced {
 		return seatAdmission{}, nil
 	}

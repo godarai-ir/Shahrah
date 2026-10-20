@@ -67,7 +67,7 @@ func (s *BudgetService) BudgetStatus(ctx context.Context, auth *platform.AuthCon
 	}
 
 	if reader, ok := s.seatCredits.(seatStatusReader); ok && strings.TrimSpace(auth.UserID) != "" && profile.Seats != nil {
-		seat, seatErr := reader.GetSeatStatus(ctx, auth.TenantID, auth.UserID, s.seatsEnabled, now)
+		seat, seatErr := reader.GetSeatStatus(ctx, auth.TenantID, auth.UserID, now)
 		if seatErr == nil {
 			status.Seat = seat
 		}
@@ -78,7 +78,7 @@ func (s *BudgetService) BudgetStatus(ctx context.Context, auth *platform.AuthCon
 
 // seatStatusReader reports a member's own seat.
 type seatStatusReader interface {
-	GetSeatStatus(ctx context.Context, tenantID, userID string, enabled bool, now time.Time) (*platform.SeatStatus, error)
+	GetSeatStatus(ctx context.Context, tenantID, userID string, now time.Time) (*platform.SeatStatus, error)
 }
 
 func (s *BudgetService) ruleStatus(ctx context.Context, inspector cache.BudgetWindowInspector, rule platform.BudgetLimitRule, auth *platform.AuthContext, now time.Time) (platform.BudgetRuleStatus, bool, error) {

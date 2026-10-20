@@ -15,7 +15,7 @@ import (
 
 // seatStore manages member seats, seat orders, and upgrade requests.
 type seatStore interface {
-	GetSeatSummary(ctx context.Context, tenantID string, enabled bool, now time.Time) (*platform.SeatSummary, error)
+	GetSeatSummary(ctx context.Context, tenantID string, now time.Time) (*platform.SeatSummary, error)
 	ListSeatMembers(ctx context.Context, tenantID, query, seatFilter string, limit, offset int, now time.Time) (*platform.SeatMemberList, error)
 	SetMemberSeat(ctx context.Context, tenantID, userID string, target seats.Type, actor, requestID string, now time.Time) (*platform.SetMemberSeatResult, error)
 	CancelPendingSeatChange(ctx context.Context, tenantID, userID string, now time.Time) (*platform.SeatMember, error)
@@ -76,7 +76,7 @@ func (h *Handlers) GetSeatSummary(c *fiber.Ctx) error {
 		return err
 	}
 
-	summary, err := store.GetSeatSummary(c.Context(), currentTenant.ID, h.seatsEnabled, time.Now())
+	summary, err := store.GetSeatSummary(c.Context(), currentTenant.ID, time.Now())
 	if err != nil {
 		return seatError(c, err)
 	}
@@ -237,8 +237,6 @@ func (h *Handlers) UpdateSeatRenewal(c *fiber.Ctx) error {
 	if err != nil {
 		return seatError(c, err)
 	}
-
-	summary.Enabled = h.seatsEnabled
 
 	return c.JSON(summary)
 }
@@ -468,7 +466,7 @@ func (h *Handlers) ListPlatformSeatTypes(c *fiber.Ctx) error {
 		return seatError(c, err)
 	}
 
-	return c.JSON(fiber.Map{"data": types, "enabled": h.seatsEnabled})
+	return c.JSON(fiber.Map{"data": types})
 }
 
 // UpdatePlatformSeatType changes a seat type's quota, discount, or availability.
@@ -488,7 +486,7 @@ func (h *Handlers) UpdatePlatformSeatType(c *fiber.Ctx) error {
 		return seatError(c, err)
 	}
 
-	return c.JSON(fiber.Map{"data": types, "enabled": h.seatsEnabled})
+	return c.JSON(fiber.Map{"data": types})
 }
 
 // GetPlatformTenantSeats returns one tenant's seat overview and members.
@@ -505,7 +503,7 @@ func (h *Handlers) GetPlatformTenantSeats(c *fiber.Ctx) error {
 
 	now := time.Now()
 
-	summary, err := store.GetSeatSummary(c.Context(), tenantID, h.seatsEnabled, now)
+	summary, err := store.GetSeatSummary(c.Context(), tenantID, now)
 	if err != nil {
 		return seatError(c, err)
 	}

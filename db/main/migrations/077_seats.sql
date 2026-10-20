@@ -200,8 +200,7 @@ CREATE TABLE public.credit_user_window_settlements (
 ALTER TABLE public.credit_tenant_settings
     ADD COLUMN IF NOT EXISTS seat_upgrade_requests_enabled boolean NOT NULL DEFAULT true,
     ADD COLUMN IF NOT EXISTS seat_pool_limit_pro_mc bigint,
-    ADD COLUMN IF NOT EXISTS seat_pool_limit_max_mc bigint,
-    ADD COLUMN IF NOT EXISTS seats_enforced_from timestamp with time zone;
+    ADD COLUMN IF NOT EXISTS seat_pool_limit_max_mc bigint;
 
 ALTER TABLE public.credit_tenant_settings
     ADD CONSTRAINT chk_credit_tenant_settings_seat_limits CHECK (
@@ -210,7 +209,7 @@ ALTER TABLE public.credit_tenant_settings
     );
 
 -- Existing members of credit tenants get their free seat now. Seat limits
--- apply at once (seats_enforced_from stays NULL); there is no grace period.
+-- apply at once to every active subscription; there is no grace period.
 INSERT INTO public.tenant_seat_assignments (tenant_id, user_id, seat_type, assigned_by, assigned_at)
 SELECT u.tenant_id, u.user_id, 'free', 'migration', now()
 FROM public.users u
@@ -228,7 +227,6 @@ ON CONFLICT DO NOTHING;
 -- +goose StatementBegin
 ALTER TABLE public.credit_tenant_settings
     DROP CONSTRAINT IF EXISTS chk_credit_tenant_settings_seat_limits,
-    DROP COLUMN IF EXISTS seats_enforced_from,
     DROP COLUMN IF EXISTS seat_pool_limit_max_mc,
     DROP COLUMN IF EXISTS seat_pool_limit_pro_mc,
     DROP COLUMN IF EXISTS seat_upgrade_requests_enabled;

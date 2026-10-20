@@ -7,9 +7,7 @@ import { controlPlaneRequest, formatDate } from '@/lib/support-tenants';
 type SeatTypeCount = { type: string; purchased: number; assigned: number; available: number; renewing: number };
 
 type SeatSummary = {
-  enabled: boolean;
   enforced: boolean;
-  enforced_from?: string | null;
   subscription_status?: string;
   period_end?: string | null;
   free_limit: number | null;
@@ -46,11 +44,9 @@ export function TenantSeatsPanel({ tenantId }: { tenantId: string }) {
   if (error) return <p role="alert" className="text-sm text-red-300">{error}</p>;
   if (!summary) return <p className="text-sm text-zinc-400">Loading seats…</p>;
 
-  const enforcement = !summary.enabled
-    ? 'Seats are off (SEATS_ENABLED)'
-    : summary.enforced
-      ? 'Enforced'
-      : summary.enforced_from ? `Enforced from ${formatDate(summary.enforced_from ?? undefined)}` : `Not enforced (${summary.subscription_status || 'no subscription'})`;
+  const enforcement = summary.enforced
+    ? 'Enforced'
+    : `Not enforced (${summary.subscription_status || 'no subscription'})`;
 
   return (
     <div className="flex flex-col gap-4">

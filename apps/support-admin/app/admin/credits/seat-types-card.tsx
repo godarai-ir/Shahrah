@@ -26,14 +26,12 @@ type Draft = { credits: string; discount: string; yearly: string; active: boolea
  */
 export function SeatTypesCard() {
   const [types, setTypes] = useState<SeatTypeOffer[]>([]);
-  const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  function apply(payload: { data: SeatTypeOffer[]; enabled: boolean }) {
+  function apply(payload: { data: SeatTypeOffer[] }) {
     setTypes(payload.data ?? []);
-    setEnabled(payload.enabled);
     setDrafts(Object.fromEntries((payload.data ?? []).map((item) => [item.type, {
       credits: String(item.monthly_credits), discount: String(Number(item.discount_percent)),
       yearly: String(Number(item.yearly_discount_percent)), active: item.active,
@@ -41,7 +39,7 @@ export function SeatTypesCard() {
   }
 
   useEffect(() => {
-    controlPlaneRequest<{ data: SeatTypeOffer[]; enabled: boolean }>('seat-types')
+    controlPlaneRequest<{ data: SeatTypeOffer[] }>('seat-types')
       .then(apply)
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Failed to load seat types'));
   }, []);
@@ -58,7 +56,7 @@ export function SeatTypesCard() {
     if (!window.confirm(`Change the ${type} seat to ${credits.toLocaleString()} credits at ${discount}% off (${yearly}% more yearly)? New orders and grants use it at once.`)) return;
     setError(''); setMessage('');
     try {
-      apply(await controlPlaneRequest<{ data: SeatTypeOffer[]; enabled: boolean }>(`seat-types/${type}`, {
+      apply(await controlPlaneRequest<{ data: SeatTypeOffer[] }>(`seat-types/${type}`, {
         method: 'PUT', body: JSON.stringify({ monthly_credits: credits, discount_percent: String(discount), yearly_discount_percent: String(yearly), active: draft.active }),
       }));
       setMessage(`The ${type} seat was updated.`);
@@ -67,12 +65,7 @@ export function SeatTypesCard() {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Member seats</h2>
-        <span className={`rounded-full border px-3 py-1 text-xs ${enabled ? 'border-emerald-800 text-emerald-300' : 'border-zinc-700 text-zinc-400'}`}>
-          {enabled ? 'SEATS_ENABLED on' : 'SEATS_ENABLED off'}
-        </span>
-      </div>
+      <h2 className="text-lg font-semibold">Member seats</h2>
       <p className="mt-1 text-sm text-zinc-400">Personal GodarChat credits per member. The free seat is granted once per member; Pro and Max renew monthly.</p>
       {error ? <p role="alert" className="mt-3 text-sm text-red-300">{error}</p> : null}
       {message ? <p role="status" className="mt-3 text-sm text-emerald-300">{message}</p> : null}

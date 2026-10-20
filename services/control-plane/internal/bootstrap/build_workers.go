@@ -133,7 +133,6 @@ func (b *builder) buildCreditLedgerWorker() error {
 		ReconcileInterval:  settings.ReconcileInterval,
 		PriceInterval:      settings.PriceInterval,
 		PriceAutoApply:     settings.PriceAutoApply,
-		SeatsEnabled:       b.cfg.Runtime.SeatsEnabled,
 		Timeout:            settings.Timeout,
 	}, creditLedgerWorkerStore{
 		CreditLedgerRepository:   b.store.CreditLedgerRepository,
