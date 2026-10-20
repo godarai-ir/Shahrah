@@ -53,7 +53,8 @@ export function listUserRoles() {
   return requestParsedJSON(roleListSchema, "/api/roles?limit=200&offset=0");
 }
 
-export function inviteUser(body: { email: string; role: string; first_name?: string; last_name?: string }) {
+/** seat_type is the seat the member gets on acceptance; omit it for the free seat while one is left. */
+export function inviteUser(body: { email: string; role: string; first_name?: string; last_name?: string; seat_type?: string }) {
   return requestParsedJSON(inviteResponseSchema, "/api/users/invite", {
     method: "POST",
     body: JSON.stringify(body),

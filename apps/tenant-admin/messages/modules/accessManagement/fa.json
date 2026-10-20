@@ -37,7 +37,16 @@
     "emailPlaceholder": "user@company.com",
     "role": "نقش",
     "firstName": "نام",
-    "lastName": "نام خانوادگی"
+    "lastName": "نام خانوادگی",
+    "seat": "صندلی",
+    "seatHint": "پیش‌فرض: صندلی رایگان اگر جایگاه خالی باشد. صندلی پولی از انبار سازمان برداشته می‌شود.",
+    "seatOptions": {
+      "auto": "خودکار (رایگان در صورت وجود)",
+      "free": "رایگان",
+      "pro": "Pro",
+      "max": "Max",
+      "unassigned": "بدون صندلی"
+    }
   },
   "roles": {
     "billingManager": "مدیر مالی",

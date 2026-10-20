@@ -15,14 +15,14 @@ function buildPath(parts: string[] | undefined, request: NextRequest) {
   return `/api/v1/billing/${suffix}${query ? `?${query}` : ""}`;
 }
 
-async function proxyBilling(request: NextRequest, method: "GET" | "POST" | "PUT", context: RouteContext) {
+async function proxyBilling(request: NextRequest, method: "GET" | "POST" | "PUT" | "DELETE", context: RouteContext) {
   const auth = await readAuthFromRequest(request);
   if (!auth.ok) {
     return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
   }
 
   const { path } = await context.params;
-  const body = method === "GET" ? undefined : await request.json().catch(() => undefined);
+  const body = method === "GET" || method === "DELETE" ? undefined : await request.json().catch(() => undefined);
   return proxyToControlPlane({
     request,
     method,
@@ -41,4 +41,8 @@ export function POST(request: NextRequest, context: RouteContext) {
 
 export function PUT(request: NextRequest, context: RouteContext) {
   return proxyBilling(request, "PUT", context);
+}
+
+export function DELETE(request: NextRequest, context: RouteContext) {
+  return proxyBilling(request, "DELETE", context);
 }

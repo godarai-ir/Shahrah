@@ -11,6 +11,10 @@ export const creditSettingsSchema = z.object({
   overage_allowed: z.boolean(),
   overage_enabled: z.boolean(),
   overage_cap_credits: creditAmount.nullable(),
+  /** Seat settings; absent on control planes without member seats. */
+  seat_upgrade_requests_enabled: z.boolean().optional(),
+  seat_pool_limit_pro_credits: creditAmount.nullish(),
+  seat_pool_limit_max_credits: creditAmount.nullish(),
 });
 
 const creditLotSchema = z.object({
@@ -98,8 +102,14 @@ export function createCreditPackOrder(input: { pack_slug: string; provider: stri
   });
 }
 
-/** An empty cap string removes the cap. */
-export function updateCreditSettings(input: { overage_enabled?: boolean; overage_cap_credits?: string }) {
+/** An empty cap or limit string removes it. */
+export function updateCreditSettings(input: {
+  overage_enabled?: boolean;
+  overage_cap_credits?: string;
+  seat_upgrade_requests_enabled?: boolean;
+  seat_pool_limit_pro_credits?: string;
+  seat_pool_limit_max_credits?: string;
+}) {
   return requestParsedJSON(creditSettingsSchema, "/api/billing/credits/settings", {
     method: "PUT",
     body: JSON.stringify(input),
