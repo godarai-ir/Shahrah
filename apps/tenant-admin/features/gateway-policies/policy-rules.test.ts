@@ -168,11 +168,11 @@ describe("ruleSentence", () => {
   });
 
   it("names every target and the window size when there are several", () => {
-    const item = rate("r", { limit: { dimension: "tokens", max: 1000, window: { value: 5, unit: "hour" } } }, [
+    const item = rate("r", { limit: { dimension: "requests", max: 1000, window: { value: 5, unit: "hour" } } }, [
       user("u1", "u2"),
       { field: "metadata", operator: "exists", metadataKey: "project" },
     ]);
-    expect(ruleSentence(item, format)).toBe("برای هر یک از کاربران «u1»، «u2» روی همه مدل‌ها حداکثر ۱٬۰۰۰ توکن در هر ۵ ساعت، به شرط ۱ شرط متادیتا");
+    expect(ruleSentence(item, format)).toBe("برای هر یک از کاربران «u1»، «u2» روی همه مدل‌ها حداکثر ۱٬۰۰۰ درخواست در هر ۵ ساعت، به شرط ۱ شرط متادیتا");
   });
 
   it("reads a budget rule with its applies-per scope", () => {

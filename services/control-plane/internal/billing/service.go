@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	// ErrRateLimitExceeded is returned when per-key RPM/TPM is exhausted.
+	// ErrRateLimitExceeded is returned when per-key RPM is exhausted.
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 	// ErrBudgetExceeded is returned when max budget or wallet checks fail.
 	ErrBudgetExceeded = errors.New("budget exceeded")

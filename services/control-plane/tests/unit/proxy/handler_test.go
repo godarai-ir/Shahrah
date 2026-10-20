@@ -216,7 +216,7 @@ func (m *mockBilling) EstimateEmbeddingCost(ctx context.Context, req contractsop
 	return m.cost, m.estimateErr
 }
 
-func (m *mockBilling) CheckRateLimit(ctx context.Context, authCtx *platform.AuthContext, model string, estimatedTokens int) (*mcache.RateLimitResult, error) {
+func (m *mockBilling) CheckRateLimit(ctx context.Context, authCtx *platform.AuthContext, model string) (*mcache.RateLimitResult, error) {
 	return m.rateLimitRes, m.rateLimitErr
 }
 

@@ -128,8 +128,7 @@
       "month": "ماه"
     },
     "dimensions": {
-      "requests": "درخواست",
-      "tokens": "توکن"
+      "requests": "درخواست"
     },
     "budgetLimit": "حداکثر {amount} اعتبار در هر {period}",
     "periods": {

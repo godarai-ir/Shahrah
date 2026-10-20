@@ -64,3 +64,32 @@ configMapGenerator:
       - migrations/045_drop_legacy_projects.sql
       - migrations/046_drop_legacy_tags.sql
       - migrations/047_drop_legacy_end_users.sql
+      - migrations/048_drop_legacy_budgets.sql
+      - migrations/049_drop_unused_legacy_tables.sql
+      - migrations/050_support_ticketing.sql
+      - migrations/051_tenant_provider_credential_encryption.sql
+      - migrations/052_spend_log_pricing_audit.sql
+      - migrations/053_anthropic_native_resource_mappings.sql
+      - migrations/054_drop_plaintext_tenant_provider_credentials.sql
+      - migrations/055_provider_native_resource_mappings.sql
+      - migrations/056_social_auth.sql
+      - migrations/057_semantic_policy_guardrail_type.sql
+      - migrations/058_gemini_model_types_official_endpoints.sql
+      - migrations/059_document_confidentiality_guardrail_type.sql
+      - migrations/060_oidc_provider.sql
+      - migrations/061_credit_rate_card_shadow.sql
+      - migrations/062_oidc_client_credit_product.sql
+      - migrations/063_drop_gateway_monthly_request_quota.sql
+      - migrations/064_tenant_chat_provisioning.sql
+      - migrations/065_user_first_last_name.sql
+      - migrations/066_credit_ledger.sql
+      - migrations/067_credit_plans.sql
+      - migrations/068_credit_packs_overage.sql
+      - migrations/069_credit_price_policy.sql
+      - migrations/070_credit_budget_enforcement.sql
+      - migrations/071_credit_conversion.sql
+      - migrations/072_credit_fleet_cutover.sql
+      - migrations/073_clickhouse_spend_purge.sql
+      - migrations/074_remove_organizational_units.sql
+      - migrations/075_remove_org_admin_role.sql
+      - migrations/076_remove_token_rate_limit_rules.sql

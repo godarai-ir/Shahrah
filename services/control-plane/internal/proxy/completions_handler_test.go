@@ -37,7 +37,7 @@ func (b *testBudgeter) EstimateCost(_ context.Context, req contractsopenai.ChatC
 func (b *testBudgeter) EstimateEmbeddingCost(_ context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
 	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 16, InputTokens: 16, OutputTokens: 0, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
 }
-func (b *testBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
+func (b *testBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string) (*cache.RateLimitResult, error) {
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
 func (b *testBudgeter) CheckBudget(_ context.Context, _ *platform.AuthContext, _ platform.UsageCostBreakdown) error {

@@ -14,11 +14,9 @@ func (s *RateLimiter) CheckRateLimit(
 	ctx context.Context,
 	auth *platform.AuthContext,
 	model string,
-	estimatedTokens int,
 ) (*cache.RateLimitResult, error) {
 	policyResult, err := s.checkRateLimitPolicies(ctx, auth, platform.UsageCostBreakdown{
-		Model:       model,
-		TotalTokens: estimatedTokens,
+		Model: model,
 	})
 	if err != nil {
 		return policyResult, err

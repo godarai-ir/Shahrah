@@ -159,7 +159,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	quotaStart := time.Now()
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
