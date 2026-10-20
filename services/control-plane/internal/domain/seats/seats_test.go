@@ -108,7 +108,7 @@ func TestDecideChange(t *testing.T) {
 }
 
 func TestEnforcedAndPoolAccess(t *testing.T) {
-	require.False(t, Enforced("trialing"), "trial keeps the pool")
+	require.True(t, Enforced("trialing"), "trials use seats too")
 	require.False(t, Enforced(""), "no subscription")
 	require.True(t, Enforced("active"))
 

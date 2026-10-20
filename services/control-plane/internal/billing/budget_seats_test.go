@@ -138,9 +138,8 @@ func TestSeatUnassignedMembersAreRefusedOnlyOnceEnforced(t *testing.T) {
 	require.Equal(t, string(seats.BlockSeatUnassigned), BudgetErrorCode(err))
 
 	trial := newSeatHarness(t, 100_000, &platform.SeatProfile{SubscriptionStatus: "trialing"}, store)
-	reservation, err := trial.service.ReserveBudget(ctx, chatAuth("new-1"), creditBreakdown(1), "req-1")
-	require.NoError(t, err, "trialing tenants share their trial pool")
-	require.Empty(t, reservation.SeatUserID)
+	_, err = trial.service.ReserveBudget(ctx, chatAuth("new-1"), creditBreakdown(1), "req-1")
+	require.Equal(t, string(seats.BlockSeatUnassigned), BudgetErrorCode(err), "trialing tenants use seats too")
 }
 
 func TestSeatAPIUsageSpendsOnlyThePool(t *testing.T) {

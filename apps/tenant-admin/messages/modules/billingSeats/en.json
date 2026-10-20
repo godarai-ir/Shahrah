@@ -176,9 +176,6 @@
     "failedTitle": "Payment failed",
     "failedDescription": "Nothing was charged, or it will be refunded. Try again."
   },
-  "notice": {
-    "trial": "During the trial every member uses the organization's trial credits. Seats apply once the subscription is active."
-  },
   "errors": {
     "title": "Error",
     "unknown": "Something went wrong.",

@@ -42,7 +42,7 @@ type seatAdmission struct {
 
 // seatAdmissionFor decides whether a request spends seat credits: chat usage
 // of a known member, paid by the platform, in a tenant with seats. A member
-// without a seat in a trialing tenant shares the pool.
+// without a seat in a tenant without a subscription shares the pool.
 func (s *BudgetService) seatAdmissionFor(ctx context.Context, auth *platform.AuthContext, profile *runtimeprofile.Profile, billingMode string, now time.Time) (seatAdmission, error) {
 	if s.seatCredits == nil || auth == nil || profile == nil || profile.Seats == nil ||
 		auth.CreditProduct != platform.CreditProductLibreChat || strings.TrimSpace(auth.UserID) == "" ||

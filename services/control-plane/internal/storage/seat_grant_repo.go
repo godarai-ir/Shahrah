@@ -209,7 +209,7 @@ func (s *SeatRepository) listSeatGrantCandidates(ctx context.Context, tenantID, 
 }
 
 // listSeatGrantCandidatesQ lists active members holding a seat in credit
-// tenants with an active subscription; trialing tenants share their trial pool.
+// tenants with an active or trialing subscription.
 func listSeatGrantCandidatesQ(ctx context.Context, q rowsQuerier, tenantID, userID string) ([]seatGrantCandidate, error) {
 	rows, err := q.Query(ctx, `
 		SELECT a.tenant_id::text, a.user_id::text, a.seat_type, ts.current_period_start, ts.current_period_end
@@ -220,7 +220,7 @@ func listSeatGrantCandidatesQ(ctx context.Context, q rowsQuerier, tenantID, user
 			SELECT status, current_period_start, current_period_end FROM tenant_subscriptions
 			WHERE tenant_id = a.tenant_id AND status IN ('trialing', 'active', 'past_due')
 			ORDER BY updated_at DESC LIMIT 1
-		) ts ON ts.status = 'active'
+		) ts ON ts.status IN ('trialing', 'active')
 		WHERE ($1 = '' OR a.tenant_id::text = $1) AND ($2 = '' OR a.user_id::text = $2)
 		ORDER BY a.tenant_id, a.user_id
 	`, strings.TrimSpace(tenantID), strings.TrimSpace(userID), credits.BillingUnitCredit)

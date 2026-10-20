@@ -165,11 +165,6 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         </Alert>
       ) : null}
 
-      {summary.subscription_status === "trialing" ? (
-        <Alert>
-          <AlertDescription>{t("notice.trial")}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {error ? (
         <Alert variant="destructive">
