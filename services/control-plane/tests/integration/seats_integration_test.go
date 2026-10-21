@@ -239,3 +239,26 @@ func TestIntegration_SeatsUpgradeRequests(t *testing.T) {
 	_, err = store.CreateSeatUpgradeRequest(ctx, tenantID, member, platform.CreateSeatUpgradeRequest{Seat: "free"})
 	require.ErrorIs(t, err, seats.ErrInvalidSeatType)
 }
+
+func TestIntegration_SeatsListMembersCountsAndFilters(t *testing.T) {
+	store, pool := newCreditIntegrationStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	tenantID := seatTenant(t, pool, now.AddDate(0, 0, -1))
+	member := addTenantUser(t, pool, tenantID, true)
+	addTenantUser(t, pool, tenantID, true)
+
+	_, err := store.SetMemberSeat(ctx, tenantID, member, seats.Free, "test", "", now)
+	require.NoError(t, err)
+
+	all, err := store.ListSeatMembers(ctx, tenantID, "", "", 100, 0, now)
+	require.NoError(t, err)
+	require.Equal(t, 2, all.Total)
+	require.Len(t, all.Items, 2)
+
+	free, err := store.ListSeatMembers(ctx, tenantID, "", "free", 100, 0, now)
+	require.NoError(t, err)
+	require.Equal(t, 1, free.Total)
+	require.Equal(t, member, free.Items[0].UserID)
+}

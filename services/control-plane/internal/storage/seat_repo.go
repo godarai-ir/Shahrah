@@ -525,7 +525,8 @@ func (s *SeatRepository) ListSeatMembers(ctx context.Context, tenantID, query, s
 
 	list := &platform.SeatMemberList{Items: []platform.SeatMember{}}
 
-	if countErr := s.pool.QueryRow(ctx, `SELECT COUNT(1) `+seatMemberJoins+filter,
+	// $2 (now) only appears in the select columns, so the count query pins its type.
+	if countErr := s.pool.QueryRow(ctx, `SELECT COUNT(1) `+seatMemberJoins+filter+` AND $2::timestamptz IS NOT NULL`,
 		tenantID, now, windowID, query, like, strings.TrimSpace(seatFilter)).Scan(&list.Total); countErr != nil {
 		return nil, countErr
 	}
