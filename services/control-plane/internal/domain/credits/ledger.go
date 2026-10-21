@@ -243,11 +243,6 @@ func PlanGrantKey(subscriptionID string, sliceStart time.Time) string {
 	return fmt.Sprintf("plan_grant:%s:%s", subscriptionID, sliceStart.UTC().Format(time.RFC3339))
 }
 
-// TrialGrantKey is the idempotency key of a subscription's trial grant.
-func TrialGrantKey(subscriptionID string) string {
-	return "trial_grant:" + subscriptionID
-}
-
 // PurchaseKey is the idempotency key of a paid add-on order.
 func PurchaseKey(orderID string) string {
 	return "purchase:" + orderID

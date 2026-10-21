@@ -107,7 +107,6 @@ func TestIdempotencyKeysAreDeterministic(t *testing.T) {
 	require.Equal(t, "consume:t1:log:9:gateway", ConsumeKey("t1", "", "gateway", 9))
 	require.Equal(t, "expire:lot-1", ExpireKey("lot-1"))
 	require.Equal(t, "plan_grant:sub-1:2026-10-01T00:00:00Z", PlanGrantKey("sub-1", time.Date(2026, 10, 1, 3, 30, 0, 0, time.FixedZone("IRST", 3*3600+1800))))
-	require.Equal(t, "trial_grant:sub-1", TrialGrantKey("sub-1"))
 	require.Equal(t, "purchase:order-1", PurchaseKey("order-1"))
 }
 

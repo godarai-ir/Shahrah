@@ -113,21 +113,6 @@ func CurrentPlanSlice(periodStart, periodEnd, now time.Time) (PlanSlice, bool) {
 	}
 }
 
-// TrialExpiry is when trial credits expire: the trial's end, capped at `days`
-// after it started.
-func TrialExpiry(trialStart time.Time, trialEnd *time.Time, days int) time.Time {
-	if days <= 0 {
-		days = TrialDays
-	}
-
-	limit := trialStart.AddDate(0, 0, days)
-	if trialEnd != nil && trialEnd.Before(limit) {
-		return *trialEnd
-	}
-
-	return limit
-}
-
 // UserLimit resolves the active-user cap from the users.max entitlement JSON.
 // A missing, null, or negative value means unlimited. A trialing credit tenant
 // is further capped at trialMaxUsers.

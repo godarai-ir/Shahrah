@@ -92,19 +92,6 @@ func TestCurrentPlanSliceIgnoresTheLocalTimeZone(t *testing.T) {
 	require.Equal(t, PlanGrantKey("sub", utcSlice.Start), PlanGrantKey("sub", localSlice.Start))
 }
 
-func TestTrialExpiryIsCappedAtTrialDays(t *testing.T) {
-	t.Parallel()
-
-	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	longTrial := start.AddDate(0, 0, 15)
-	shortTrial := start.AddDate(0, 0, 7)
-
-	require.Equal(t, start.AddDate(0, 0, TrialDays), TrialExpiry(start, &longTrial, TrialDays))
-	require.Equal(t, shortTrial, TrialExpiry(start, &shortTrial, TrialDays))
-	require.Equal(t, start.AddDate(0, 0, TrialDays), TrialExpiry(start, nil, 0), "zero days falls back to the PRD default")
-	require.Equal(t, start.AddDate(0, 0, 3), TrialExpiry(start, nil, 3))
-}
-
 func TestUserCapAllows(t *testing.T) {
 	t.Parallel()
 

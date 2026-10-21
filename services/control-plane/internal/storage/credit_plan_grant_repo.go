@@ -17,17 +17,13 @@ type creditSubscription struct {
 	Status         string
 	PeriodStart    time.Time
 	PeriodEnd      time.Time
-	TrialStart     time.Time
-	TrialEnd       *time.Time
 	MonthlyCredits string
-	TrialCreditMC  int64
-	TrialDays      int
 }
 
-// GrantDuePlanCredits grants, for every current subscription of a credit
-// tenant, the trial credits (once per trial) or the monthly slice of plan
-// credits that contains now. Keys make each grant happen at most once, so the
-// pass is safe to repeat.
+// GrantDuePlanCredits grants, for every active subscription of a credit
+// tenant, the monthly slice of plan credits that contains now. Trialing
+// tenants get no plan grant: their free seat grants are the trial credits.
+// Keys make each grant happen at most once, so the pass is safe to repeat.
 func (s *CreditLedgerRepository) GrantDuePlanCredits(ctx context.Context, now time.Time) (credits.GrantResult, error) {
 	now = now.UTC()
 
@@ -121,19 +117,6 @@ func (s *CreditLedgerRepository) grantDue(ctx context.Context, sub creditSubscri
 func planGrantFor(sub creditSubscription, now time.Time) (CreditGrant, bool) {
 	ref := map[string]interface{}{"subscription_id": sub.SubscriptionID}
 
-	if sub.Status == "trialing" {
-		expiresAt := credits.TrialExpiry(sub.TrialStart, sub.TrialEnd, sub.TrialDays)
-		if sub.TrialCreditMC <= 0 || !expiresAt.After(now) {
-			return CreditGrant{}, false
-		}
-
-		return CreditGrant{
-			TenantID: sub.TenantID, Kind: credits.EntryPromoGrant, Source: credits.LotSourceTrial,
-			AmountMC: sub.TrialCreditMC, ExpiresAt: &expiresAt, OccurredAt: now,
-			IdempotencyKey: credits.TrialGrantKey(sub.SubscriptionID), SourceRef: ref,
-		}, true
-	}
-
 	monthly, err := strconv.ParseInt(strings.TrimSpace(sub.MonthlyCredits), 10, 64)
 	if err != nil || monthly <= 0 {
 		return CreditGrant{}, false
@@ -159,7 +142,6 @@ func (s *CreditLedgerRepository) listCreditSubscriptions(ctx context.Context, no
 	rows, err := s.pool.Query(ctx, `
 		SELECT ts.subscription_id::text, ts.tenant_id::text, ts.status,
 		       ts.current_period_start, ts.current_period_end,
-		       COALESCE(ts.trial_started_at, ts.current_period_start), ts.trial_ends_at,
 		       COALESCE(
 		           (SELECT o.value_json::text FROM tenant_entitlement_overrides o
 		            WHERE o.tenant_id = ts.tenant_id AND o.feature_key = $2 AND o.active
@@ -167,15 +149,13 @@ func (s *CreditLedgerRepository) listCreditSubscriptions(ctx context.Context, no
 		            LIMIT 1),
 		           (SELECT pe.value_json::text FROM plan_entitlements pe
 		            WHERE pe.version_id = ts.version_id AND pe.feature_key = $2),
-		           'null'),
-		       COALESCE(settings.trial_credit_mc, $3), COALESCE(settings.trial_credit_days, $4)
+		           'null')
 		FROM tenant_subscriptions ts
-		JOIN tenants t ON t.tenant_id = ts.tenant_id AND t.billing_unit = $5
-		LEFT JOIN commercial_signup_settings settings ON settings.settings_id = true
-		WHERE ts.status IN ('trialing', 'active')
+		JOIN tenants t ON t.tenant_id = ts.tenant_id AND t.billing_unit = $3
+		WHERE ts.status = 'active'
 		  AND ts.current_period_start <= $1 AND ts.current_period_end > $1
 		ORDER BY ts.subscription_id
-	`, now, credits.FeatureMonthlyGrant, int64(credits.TrialCredits*credits.MillicreditsPerCredit), credits.TrialDays, credits.BillingUnitCredit)
+	`, now, credits.FeatureMonthlyGrant, credits.BillingUnitCredit)
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +163,7 @@ func (s *CreditLedgerRepository) listCreditSubscriptions(ctx context.Context, no
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (creditSubscription, error) {
 		var sub creditSubscription
 
-		scanErr := row.Scan(&sub.SubscriptionID, &sub.TenantID, &sub.Status, &sub.PeriodStart, &sub.PeriodEnd,
-			&sub.TrialStart, &sub.TrialEnd, &sub.MonthlyCredits, &sub.TrialCreditMC, &sub.TrialDays)
+		scanErr := row.Scan(&sub.SubscriptionID, &sub.TenantID, &sub.Status, &sub.PeriodStart, &sub.PeriodEnd, &sub.MonthlyCredits)
 
 		return sub, scanErr
 	})
