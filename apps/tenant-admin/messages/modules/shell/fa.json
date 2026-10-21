@@ -15,18 +15,6 @@
     "title": "ناوبری پنل",
     "description": "مسیریابی و دسترسی سریع به ابزارهای پنل"
   },
-  "wallet": {
-    "open": "مشاهده کیف پول",
-    "balance": "{amount} ریال",
-    "available": "اعتبار: {amount} ریال",
-    "pending": "در انتظار تسویه: {amount} ریال",
-    "ledger": "مانده دفتری: {amount} ریال",
-    "status": {
-      "synchronized": "همگام",
-      "ledger_only": "نمای دفتری"
-    },
-    "unknown": "کیف پول"
-  },
   "docs": {
     "open": "مشاهده مستندات"
   },
@@ -70,7 +58,7 @@
     "oidcClients": "برنامه‌های متصل",
     "users": "اعضا",
     "logs": "لاگ درخواست‌ها",
-    "teams": "تیم‌ها",
+    "teams": "تیم‌ها",
     "traces": "ردیابی درخواست‌ها",
     "metrics": "سنجه‌های عملکرد",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
