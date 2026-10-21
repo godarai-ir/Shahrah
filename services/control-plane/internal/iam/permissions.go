@@ -43,9 +43,6 @@ var permissionCatalog = map[string]permissionMeta{
 	"billing:codes_redeem":    {Group: "billing", Description: "Allows redeeming gift and discount codes"},
 	"logs:read_metadata":      {Group: "logs", Description: "Allows listing request logs metadata and summary fields"},
 	"logs:read_content":       {Group: "logs", Description: "Allows viewing stored request and response payload content"},
-	"logs:export":             {Group: "logs", Description: "Allows exporting request logs"},
-	"logs:manage_views":       {Group: "logs", Description: "Allows creating and managing saved log views"},
-	"logs:replay":             {Group: "logs", Description: "Allows creating safe replay drafts from request logs"},
 }
 
 // IsValidPermission reports whether a permission is present and documented.
