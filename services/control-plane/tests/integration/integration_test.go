@@ -1473,6 +1473,10 @@ func (s *integrationWalletStore) BankTransferReceiptExists(ctx context.Context, 
 	return false, nil
 }
 
+func (s *integrationWalletStore) ListPlatformBankTransferRequests(ctx context.Context, status, query string, limit, offset int) (*platform.PlatformBankTransferListResponse, error) {
+	return &platform.PlatformBankTransferListResponse{Data: []platform.PlatformBankTransferItem{}}, nil
+}
+
 func (s *integrationWalletStore) ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error) {
 	return []platform.BankTransferRequest{}, nil
 }

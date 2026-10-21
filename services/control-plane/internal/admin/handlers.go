@@ -75,6 +75,7 @@ type walletStore interface {
 	CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error)
 	ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error)
 	BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error)
+	ListPlatformBankTransferRequests(ctx context.Context, status, query string, limit, offset int) (*platform.PlatformBankTransferListResponse, error)
 	ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error)
