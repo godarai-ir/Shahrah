@@ -3,7 +3,8 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CalendarRange, CreditCard, Crown, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CalendarDays, CalendarRange, CreditCard, Crown, Landmark, Sparkles } from "lucide-react";
 
 import { AppCard } from "@/components/app-ui/AppCard";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
@@ -14,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 import { useBillingFormat } from "../use-billing-format";
-import { createSeatOrder, quoteSeats, type PaidSeatType, type SeatInterval, type SeatOffer, type SeatQuote } from "./api";
+import { BANK_TRANSFER_PROVIDER, createSeatOrder, quoteSeats, type PaidSeatType, type SeatInterval, type SeatOffer, type SeatOrder, type SeatQuote } from "./api";
+import { SeatTransferSheet } from "./SeatTransferSheet";
 import { seatErrorMessage } from "@/lib/seats";
 
 const PAID_SEATS = [
@@ -37,8 +39,10 @@ type BuySeatsFormProps = {
   offers: SeatOffer[];
 };
 
+type PaymentMethod = "online" | typeof BANK_TRANSFER_PROVIDER;
+
 /**
- * Buys paid seats through the payment gateway. With a running seat subscription
+ * Buys paid seats through the payment gateway or by bank transfer. With a running seat subscription
  * the seats are priced pro rata to its period end; otherwise the purchase starts
  * the subscription, and the admin picks its billing interval here.
  */
@@ -47,6 +51,8 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
   const format = useBillingFormat();
   const seatLabelID = useId();
   const intervalLabelID = useId();
+  const methodLabelID = useId();
+  const router = useRouter();
   const [seat, setSeat] = useState<PaidSeatType>(target.seat);
   const [quantity, setQuantity] = useState("1");
   const [billingInterval, setBillingInterval] = useState<SeatInterval>("monthly");
@@ -56,6 +62,8 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
   const [quote, setQuote] = useState<SeatQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod>("online");
+  const [transferOrder, setTransferOrder] = useState<SeatOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const forMember = Boolean(target.assignUserID);
   const count = Number.parseInt(quantity, 10);
@@ -99,6 +107,7 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
     try {
       const order = await createSeatOrder({
         kind: "purchase",
+        provider: method === BANK_TRANSFER_PROVIDER ? BANK_TRANSFER_PROVIDER : undefined,
         seat,
         quantity: count,
         billing_interval: startsSubscription ? billingInterval : undefined,
@@ -106,6 +115,11 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
         request_id: target.requestID,
         return_url: `${window.location.origin}/billing/seats`,
       });
+      if (order.status === "AWAITING_TRANSFER") {
+        setTransferOrder(order);
+        setPaying(false);
+        return;
+      }
       if (order.payment_url) {
         window.location.assign(order.payment_url);
         return;
@@ -201,6 +215,20 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
               </Alert>
             ) : null}
 
+            <div className="flex flex-col gap-2">
+              <span id={methodLabelID} className="text-sm font-medium">{t("buy.method")}</span>
+              <OptionCardGroup
+                aria-labelledby={methodLabelID}
+                density="compact"
+                value={method}
+                onValueChange={setMethod}
+                options={[
+                  { value: "online", icon: CreditCard, title: t("buy.methods.online"), description: t("buy.methods.onlineHint") },
+                  { value: BANK_TRANSFER_PROVIDER, icon: Landmark, title: t("buy.methods.transfer"), description: t("buy.methods.transferHint") },
+                ]}
+              />
+            </div>
+
             <p className="text-sm leading-6 text-muted-foreground">{t("buy.rules")}</p>
           </div>
         </AppCard>
@@ -244,12 +272,15 @@ export function BuySeatsForm({ target, offers }: BuySeatsFormProps) {
             ) : null}
 
             <Button type="button" className="w-full" disabled={!shownQuote || quoting || paying || !validCount} aria-busy={paying || undefined} onClick={pay}>
-              {paying ? <Spinner data-icon="inline-start" /> : <CreditCard data-icon="inline-start" />}
-              {shownQuote ? t("buy.pay", { amount: format.toman(shownQuote.payable_irr) }) : t("buy.payPending")}
+              {paying ? <Spinner data-icon="inline-start" /> : method === BANK_TRANSFER_PROVIDER ? <Landmark data-icon="inline-start" /> : <CreditCard data-icon="inline-start" />}
+              {!shownQuote ? t("buy.payPending") : t(method === BANK_TRANSFER_PROVIDER ? "buy.payByTransfer" : "buy.pay", { amount: format.toman(shownQuote.payable_irr) })}
             </Button>
           </div>
         </AppCard>
       </div>
+
+      {/* The order is already saved; leaving the drawer unfinished sends the admin to the orders list to submit the receipt later. */}
+      <SeatTransferSheet order={transferOrder} onClose={() => router.push("/billing/seats")} onSubmitted={() => router.push("/billing/seats")} />
     </div>
   );
 }

@@ -19,6 +19,7 @@ var (
 	ErrCreditPackOrderNotFound           = errors.New("credit pack order not found")
 	ErrCreditPackOrderNotPayable         = errors.New("credit pack order cannot be paid in its current state")
 	ErrCreditPackTransferMismatch        = errors.New("bank transfer amount does not match the credit pack order")
+	ErrBankTransferAlreadyPending        = errors.New("a bank transfer for this order is already waiting for review")
 	ErrCreditPaymentProviderUnavailable  = errors.New("payment provider is not available for credit packs")
 	ErrOverageNotAllowed                 = errors.New("overage is not allowed on this plan")
 	ErrOverageManagedBySupport           = errors.New("overage settings can only be changed by support")

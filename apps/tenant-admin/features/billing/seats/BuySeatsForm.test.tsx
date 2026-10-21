@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SeatOffer } from "./api";
@@ -20,6 +20,8 @@ vi.mock("next-intl", async (importOriginal) => {
     },
   };
 });
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
 vi.mock("@/hooks/use-locale-format", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/use-locale-format")>()),
@@ -94,6 +96,22 @@ describe("BuySeatsForm", () => {
         "/api/billing/seats/quote",
         expect.objectContaining({ body: expect.stringContaining('"billing_interval":"monthly"') }),
       ),
+    );
+  });
+
+  it("opens the bank transfer drawer for an order that waits for a transfer", async () => {
+    const order = { id: "order-1", kind: "purchase", seat: "pro", quantity: 1, remaining_days: 12, period_days: 31, payable_irr: quote.payable_irr, status: "AWAITING_TRANSFER", created_at: "2026-10-20T00:00:00Z" };
+    const fetchMock = vi.fn(async (url: string) => jsonResponse(url.endsWith("/orders") ? 201 : 200, url.endsWith("/orders") ? order : quote));
+    vi.stubGlobal("fetch", fetchMock);
+    renderForm();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Bank transfer/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Submit transfer for/ }));
+
+    expect(await screen.findByRole("dialog", { name: "Bank transfer for 1 × Pro" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/billing/seats/orders",
+      expect.objectContaining({ body: expect.stringContaining('"provider":"bank_transfer"') }),
     );
   });
 });

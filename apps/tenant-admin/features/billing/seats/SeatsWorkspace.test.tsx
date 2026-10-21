@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { SeatSummary } from "./api";
@@ -69,6 +69,16 @@ describe("SeatsWorkspace", () => {
 
     expect(screen.getByText("0 free seats left")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Members" })).not.toBeInTheDocument();
+  });
+
+  it("lets an order that waits for a transfer submit its receipt", () => {
+    const order = { id: "order-1", kind: "purchase", seat: "pro", quantity: 2, remaining_days: 12, period_days: 31, payable_irr: 7_664_516, status: "AWAITING_TRANSFER", created_at: "2026-10-20T00:00:00Z" } as const;
+    render(<SeatsWorkspace summary={summary} requests={[]} orders={[order]} settings={null} canManageMembers canManageBilling paymentResult={null} />);
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Orders" }), { button: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "Submit receipt" }));
+
+    expect(screen.getByRole("dialog", { name: "Bank transfer for 2 × Pro" })).toBeInTheDocument();
   });
 
   it("sends the buy action to the checkout page", () => {

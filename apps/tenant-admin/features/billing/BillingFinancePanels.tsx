@@ -46,8 +46,8 @@ import { useBillingFormat } from "@/features/billing/use-billing-format";
 type BankTransferPanelProps = {
   initialItems: BankTransferRequest[];
   initialError: string | null;
-  /** A credit pack order to pay: the amount is fixed to its payable total and the history is hidden. */
-  packOrder?: { id: string; payableIRR: number };
+  /** A credit pack or seat order to pay: the amount is fixed to its payable total and the history is hidden. */
+  packOrder?: { id: string; payableIRR: number; seat?: boolean };
   onSubmitted?: () => void;
 };
 
@@ -113,7 +113,7 @@ export function BankTransferPanel({ initialItems, initialError, packOrder, onSub
     try {
       const formData = new FormData();
       formData.set("amount_irr", String(packOrder ? packOrder.payableIRR : Math.round(toman * 10)));
-      if (packOrder) formData.set("credit_pack_order_id", packOrder.id);
+      if (packOrder) formData.set(packOrder.seat ? "seat_order_id" : "credit_pack_order_id", packOrder.id);
       formData.set("tracking_number", trackingNumber.trim());
       formData.set("bank_transaction_date_jalali", normalizedDate);
       formData.set("receipt_image", receiptImage);

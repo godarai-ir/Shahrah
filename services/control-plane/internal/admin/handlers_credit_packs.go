@@ -7,6 +7,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -308,6 +309,12 @@ func creditPackErrorStatus(err error) (int, string) {
 		return fiber.StatusConflict, "credit_pack_order_not_payable"
 	case errors.Is(err, billingdomain.ErrCreditPackTransferMismatch):
 		return fiber.StatusUnprocessableEntity, "credit_pack_transfer_amount_mismatch"
+	case errors.Is(err, billingdomain.ErrBankTransferAlreadyPending):
+		return fiber.StatusConflict, "bank_transfer_already_pending"
+	case errors.Is(err, seats.ErrOrderNotFound):
+		return fiber.StatusNotFound, "seat_order_not_found"
+	case errors.Is(err, seats.ErrOrderNotPayable):
+		return fiber.StatusConflict, "seat_order_not_payable"
 	case errors.Is(err, billingdomain.ErrCreditPaymentProviderUnavailable):
 		return fiber.StatusUnprocessableEntity, "payment_provider_unavailable"
 	case errors.Is(err, billingdomain.ErrOverageNotAllowed):
