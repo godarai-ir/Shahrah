@@ -120,27 +120,11 @@ func (s *TenantAdminRepository) ProvisionSocialTenant(ctx context.Context, p Pro
 		return nil, err
 	}
 
-	var walletID string
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-		SELECT $1::uuid, signup_credit_irr::double precision, 0
-		FROM commercial_signup_settings WHERE settings_id = true
-		RETURNING wallet_id::text
-	`, created.ID).Scan(&walletID); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO wallets (tenant_id, balance_irr, pending_irr) VALUES ($1::uuid, 0, 0)`, created.ID); err != nil {
 		return nil, err
 	}
 
 	if err := startFreeSubscriptionTx(ctx, tx, created.ID, created.CreatedAt, "social_onboarding", "social_onboarding"); err != nil {
-		return nil, err
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO wallet_transactions (wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata)
-		SELECT $1::uuid, $2::uuid, 'SIGNUP_CREDIT', signup_credit_irr::double precision,
-		       'COMPLETED', 'Promotional signup credit',
-		       jsonb_build_object('source', 'social_onboarding', 'plan_slug', $3::text)
-		FROM commercial_signup_settings WHERE settings_id = true AND signup_credit_irr > 0
-	`, walletID, created.ID, p.PlanSlug); err != nil {
 		return nil, err
 	}
 

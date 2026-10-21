@@ -178,7 +178,6 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"subscription_id", "tenant_id", "plan_id", "version_id", "status", "billing_interval",
 			"current_period_start", "current_period_end", "trial_started_at", "trial_ends_at", "converted_at", "pending_version_id", "price_snapshot_json",
 		},
-		"commercial_signup_settings":   {"settings_id", "trial_days", "signup_credit_irr", "updated_by", "updated_at"},
 		"tenant_entitlement_overrides": {"override_id", "tenant_id", "feature_key", "value_json", "reason", "expires_at", "created_by"},
 		"subscription_events":          {"event_id", "tenant_id", "subscription_id", "event_type", "actor", "payload"},
 		"subscription_payment_intents": {
@@ -366,9 +365,6 @@ func TestIntegration_OnboardingVerifyProvisionsTheFreePlanAndCredit(t *testing.T
 
 	resetPersistentState(t, pool)
 
-	_, err = store.UpdateCommercialSignupSettings(ctx, 2000000, "integration-test")
-	require.NoError(t, err)
-
 	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
 		TenantSlug: "verified-otp",
 		PlanSlug:   "team",
@@ -403,14 +399,9 @@ func TestIntegration_OnboardingVerifyProvisionsTheFreePlanAndCredit(t *testing.T
 	assert.Equal(t, "free", planSlug)
 	assert.Nil(t, trialEnds)
 
-	var balance, credit float64
+	var balance float64
 	require.NoError(t, pool.QueryRow(ctx, `SELECT balance_irr FROM wallets WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&balance))
-	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT amount_irr FROM wallet_transactions
-		WHERE tenant_id = $1::uuid AND tx_type = 'SIGNUP_CREDIT'
-	`, provisioned.Tenant.ID).Scan(&credit))
-	assert.Equal(t, float64(2000000), balance)
-	assert.Equal(t, float64(2000000), credit)
+	assert.Equal(t, float64(0), balance)
 }
 
 func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
