@@ -224,7 +224,7 @@ func (s *CreditLedgerRepository) addPendingPaymentWarnings(ctx context.Context, 
 	if err := s.pool.QueryRow(ctx, `
 		SELECT
 			(SELECT COUNT(1) FROM wallet_topup_intents WHERE tenant_id = $1::uuid AND UPPER(status) = 'PENDING'),
-			(SELECT COUNT(1) FROM bank_transfer_requests WHERE tenant_id = $1::uuid AND status = 'pending_review' AND credit_pack_order_id IS NULL)
+			(SELECT COUNT(1) FROM bank_transfer_requests WHERE tenant_id = $1::uuid AND status = 'pending_review' AND credit_pack_order_id IS NULL AND seat_order_id IS NULL)
 	`, preview.TenantID).Scan(&pendingTopUps, &pendingTransfers); err != nil {
 		return err
 	}

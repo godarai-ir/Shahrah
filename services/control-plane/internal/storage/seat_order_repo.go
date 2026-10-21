@@ -331,6 +331,16 @@ func (s *SeatRepository) CreateSeatOrder(ctx context.Context, tenantID string, r
 		return nil, billingdomain.ErrCreditBillingNotEnabled
 	}
 
+	// Orders that waited too long for a receipt are canceled so they cannot pile up.
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE seat_orders o
+		SET status = 'CANCELED', failure_reason = 'transfer_expired', updated_at = NOW()
+		WHERE o.tenant_id = $1::uuid AND o.status = 'AWAITING_TRANSFER' AND o.created_at < $2
+		  AND NOT EXISTS (SELECT 1 FROM bank_transfer_requests b WHERE b.seat_order_id = o.order_id AND b.status = 'pending_review')
+	`, tenantID, now.Add(-seatTransferHold)); err != nil {
+		return nil, err
+	}
+
 	order := orderDraft{provider: req.Provider, callbackURL: callbackURL, returnURL: returnURL, actor: actor}
 
 	switch strings.TrimSpace(req.Kind) {
@@ -446,6 +456,9 @@ type orderDraft struct {
 
 func (d orderDraft) insert(ctx context.Context, s *SeatRepository, tenantID string) (*platform.SeatOrder, error) {
 	status := platform.CreditPackOrderPending
+	if d.provider == platform.CreditPackProviderBankTransfer {
+		status = platform.CreditPackOrderAwaitingTransfer
+	}
 
 	if d.renewBlockIDs == nil {
 		d.renewBlockIDs = []string{}

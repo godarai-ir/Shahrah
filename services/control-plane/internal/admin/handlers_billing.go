@@ -49,6 +49,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 		req.TrackingNumber = strings.TrimSpace(firstFormValue(form.Value, "tracking_number"))
 		req.BankTransactionDateJalali = strings.TrimSpace(firstFormValue(form.Value, "bank_transaction_date_jalali"))
 		req.CreditPackOrderID = strings.TrimSpace(firstFormValue(form.Value, "credit_pack_order_id"))
+		req.SeatOrderID = strings.TrimSpace(firstFormValue(form.Value, "seat_order_id"))
 
 		receipts := form.File["receipt_image"]
 		if len(receipts) > 1 {

@@ -40,8 +40,6 @@ type Handler interface {
 	ListBillingDiscounts(*fiber.Ctx) error
 	ListPlatformFeatureCatalog(*fiber.Ctx) error
 	ListPlatformCommercialPlans(*fiber.Ctx) error
-	GetPlatformCommercialSignupSettings(*fiber.Ctx) error
-	UpdatePlatformCommercialSignupSettings(*fiber.Ctx) error
 	CreatePlatformCommercialPlan(*fiber.Ctx) error
 	UpdatePlatformCommercialPlan(*fiber.Ctx) error
 	DeactivatePlatformCommercialPlan(*fiber.Ctx) error
@@ -183,8 +181,6 @@ func (r *Routes) registerTenantSeats(router fiber.Router) {
 func (r *Routes) RegisterPlatform(router fiber.Router) {
 	router.Get("/features", r.handler.ListPlatformFeatureCatalog)
 	router.Get("/commercial-plans", r.handler.ListPlatformCommercialPlans)
-	router.Get("/commercial-signup-settings", r.handler.GetPlatformCommercialSignupSettings)
-	router.Put("/commercial-signup-settings", r.handler.UpdatePlatformCommercialSignupSettings)
 	router.Post("/commercial-plans", r.handler.CreatePlatformCommercialPlan)
 	router.Patch("/commercial-plans/:slug", r.handler.UpdatePlatformCommercialPlan)
 	router.Delete("/commercial-plans/:slug", r.handler.DeactivatePlatformCommercialPlan)

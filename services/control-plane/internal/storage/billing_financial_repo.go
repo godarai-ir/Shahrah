@@ -27,6 +27,10 @@ func (s *FinancialRepository) CreateBankTransferRequest(ctx context.Context, ten
 		return s.createCreditPackBankTransfer(ctx, tenantID, req, actor)
 	}
 
+	if strings.TrimSpace(req.SeatOrderID) != "" {
+		return s.createSeatBankTransfer(ctx, tenantID, req, actor)
+	}
+
 	if err := refuseCreditTenantWalletTopUp(ctx, s.pool, tenantID); err != nil {
 		return nil, err
 	}
@@ -135,15 +139,20 @@ func (s *FinancialRepository) ApproveBankTransferRequest(ctx context.Context, te
 		idempotency = "bank_transfer:" + item.ID
 	}
 
-	var creditPackOrderID string
+	var creditPackOrderID, seatOrderID string
 	if orderErr := tx.QueryRow(ctx, `
-		SELECT COALESCE(credit_pack_order_id::text, '') FROM bank_transfer_requests WHERE bank_transfer_request_id::text = $1
-	`, item.ID).Scan(&creditPackOrderID); orderErr != nil {
+		SELECT COALESCE(credit_pack_order_id::text, ''), COALESCE(seat_order_id::text, '')
+		FROM bank_transfer_requests WHERE bank_transfer_request_id::text = $1
+	`, item.ID).Scan(&creditPackOrderID, &seatOrderID); orderErr != nil {
 		return nil, orderErr
 	}
 
 	if creditPackOrderID != "" {
 		return s.approveCreditPackBankTransferTx(ctx, tx, item, creditPackOrderID, idempotency, actor)
+	}
+
+	if seatOrderID != "" {
+		return s.approveSeatBankTransferTx(ctx, tx, item, seatOrderID, idempotency, actor)
 	}
 
 	walletTxn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{

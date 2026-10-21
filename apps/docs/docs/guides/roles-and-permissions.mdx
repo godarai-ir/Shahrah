@@ -61,7 +61,7 @@ description: نقش‌های سیستمی و سفارشی گدارAI را بشن
 | حساب‌های ارائه‌دهنده | `provider_account:create`، `provider_account:read`، `provider_account:manage`، `provider_account:delete` | مدیریت اتصال‌های مدل |
 | تنظیمات | `settings:list`، `settings:manage` | مشاهده یا تغییر تنظیمات فضای کاری |
 | مالی | `billing:read`، `billing:manage`، `billing:profile_manage`، `billing:documents_read`، `billing:codes_redeem` | کیف پول، گزارش مالی، هویت مالی، اسناد و کدها |
-| لاگ درخواست‌ها | `logs:read_metadata`، `logs:read_content`، `logs:export`، `logs:manage_views`، `logs:replay` | مشاهده، خروجی و بازپخش امن لاگ‌ها |
+| لاگ درخواست‌ها | `logs:read_metadata`، `logs:read_content` | مشاهده لاگ‌ها، خروجی گرفتن و نماهای ذخیره‌شده |
 
 در نام فنی مجوزهای کاربر مجازی، عبارت `virtual_account` باقی مانده است. در متن آموزشی، آن را به «کاربر مجازی و VAT» توضیح دهید.
 
@@ -135,6 +135,7 @@ description: نقش‌های سیستمی و سفارشی گدارAI را بشن
 
 چون هر مجوز اضافه سطح ریسک را بالا می‌برد. نقش خوب فقط همان کارهایی را مجاز می‌کند که برای وظیفه لازم است.
 
-### آیا `logs:export` همان `logs:read_content` است؟
+### آیا خروجی گرفتن از لاگ‌ها مجوز جدا دارد؟
 
-خیر. خروجی گرفتن و دیدن محتوای ذخیره‌شده دو اختیار جدا هستند. اگر خروجی شامل payload باشد، باید هم سیاست ثبت داده و هم مجوزهای مرتبط را جدی بررسی کنید.
+خیر. خروجی گرفتن و نماهای ذخیره‌شده با `logs:read_metadata` در دسترس هستند. اگر خروجی شامل payload باشد، `logs:read_content` هم لازم است؛ پس سیاست ثبت داده و این مجوز را جدی بررسی کنید.
+

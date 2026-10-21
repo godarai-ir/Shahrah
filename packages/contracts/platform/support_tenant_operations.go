@@ -14,6 +14,13 @@ type SupportTenantSummary struct {
 	PeriodEnd          *time.Time `json:"period_end,omitempty"`
 	WalletBalanceMinor int64      `json:"wallet_balance_minor"`
 	WalletPendingMinor int64      `json:"wallet_pending_minor"`
+	// Seats are the members holding each seat type; the purchased counts are the paid seats still in force.
+	SeatsFree         int    `json:"seats_free"`
+	SeatsPro          int    `json:"seats_pro"`
+	SeatsProPurchased int    `json:"seats_pro_purchased"`
+	SeatsMax          int    `json:"seats_max"`
+	SeatsMaxPurchased int    `json:"seats_max_purchased"`
+	PoolCredits       string `json:"pool_credits"`
 }
 
 type SupportTenantListResponse struct {

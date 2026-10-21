@@ -63,7 +63,15 @@
     "monthlyPrice": "{price} per seat a month",
     "yearlyPrice": "{price} per seat a year",
     "creditsTotal": "Personal credits in this purchase",
-    "creditsTotalValue": "{credits} credits a month"
+    "creditsTotalValue": "{credits} credits a month",
+    "method": "Payment method",
+    "methods": {
+      "online": "Pay online",
+      "onlineHint": "Instant payment through the gateway. Seats activate right away.",
+      "transfer": "Bank transfer",
+      "transferHint": "Transfer the amount and submit the receipt. Seats activate after finance review."
+    },
+    "payByTransfer": "Submit transfer for {amount}"
   },
   "requests": {
     "columns": {
@@ -102,7 +110,8 @@
       "seats": "Seats",
       "payable": "Amount",
       "status": "Status",
-      "createdAt": "Created"
+      "createdAt": "Created",
+      "actions": "Actions"
     },
     "kinds": {
       "purchase": "Purchase",
@@ -114,9 +123,11 @@
       "PENDING": "Awaiting payment",
       "FAILED": "Failed",
       "CANCELED": "Canceled",
-      "other": "Unknown"
+      "other": "Unknown",
+      "AWAITING_TRANSFER": "Awaiting transfer"
     },
-    "empty": "No orders yet. Seat purchases and renewals are recorded here."
+    "empty": "No orders yet. Seat purchases and renewals are recorded here.",
+    "submitReceipt": "Submit receipt"
   },
   "renewal": {
     "title": "Renew seats",
@@ -264,5 +275,10 @@
         "chooseYourself": "Before the period ends, you can choose yourself who keeps a seat on the members page."
       }
     }
+  },
+  "transfer": {
+    "title": "Bank transfer for {count, number} × {seat}",
+    "description": "Transfer exactly {amount} and submit the receipt. Seats activate after finance approves it.",
+    "close": "Close"
   }
 }

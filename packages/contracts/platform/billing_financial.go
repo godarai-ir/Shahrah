@@ -31,6 +31,9 @@ type CreateBankTransferRequest struct {
 	// CreditPackOrderID pays a credit pack order awaiting transfer; AmountIRR must
 	// equal the order's payable amount.
 	CreditPackOrderID string `json:"credit_pack_order_id,omitempty"`
+	// SeatOrderID pays a seat order awaiting transfer; AmountIRR must equal the
+	// order's payable amount.
+	SeatOrderID string `json:"seat_order_id,omitempty"`
 }
 
 type ReviewBankTransferRequest struct {
