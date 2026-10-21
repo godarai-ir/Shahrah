@@ -262,3 +262,36 @@ func TestIntegration_SeatsListMembersCountsAndFilters(t *testing.T) {
 	require.Equal(t, 1, free.Total)
 	require.Equal(t, member, free.Items[0].UserID)
 }
+
+func TestIntegration_SupportTenantListShowsSeatsAndPool(t *testing.T) {
+	store, pool := newCreditIntegrationStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	tenantID := seatTenant(t, pool, now.AddDate(0, 0, -3))
+	member := addTenantUser(t, pool, tenantID, true)
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO tenant_seat_blocks (tenant_id, seat_type, quantity, paid_through) VALUES ($1::uuid, 'pro', 2, $2)
+	`, tenantID, now.AddDate(0, 1, 0))
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO tenant_seat_assignments (tenant_id, user_id, seat_type) VALUES ($1::uuid, $2::uuid, 'pro')
+	`, tenantID, member)
+	require.NoError(t, err)
+
+	grantPoolCredits(t, store, tenantID, 3*credits.MillicreditsPerCredit)
+
+	items, err := store.ListSupportTenants(ctx, tenantID, "", "", 10, 0)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, 1, items[0].SeatsPro)
+	require.Equal(t, 2, items[0].SeatsProPurchased)
+	require.Zero(t, items[0].SeatsFree+items[0].SeatsMax+items[0].SeatsMaxPurchased)
+	require.Equal(t, credits.Format(credits.Millicredits(3*credits.MillicreditsPerCredit)), items[0].PoolCredits)
+
+	detail, err := store.GetSupportTenantSummary(ctx, tenantID)
+	require.NoError(t, err)
+	require.Equal(t, items[0].PoolCredits, detail.PoolCredits)
+}
