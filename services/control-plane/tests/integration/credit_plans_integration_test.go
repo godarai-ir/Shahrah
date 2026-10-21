@@ -161,11 +161,8 @@ func TestIntegration_CreditPlanGrantsMonthlySlicesAndTrials(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT COUNT(1) FROM credit_lots WHERE tenant_id = $1::uuid`, annual).Scan(&lots))
 	require.Equal(t, 1, lots, "only the current slice is granted")
 
-	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT amount_mc, expires_at FROM credit_lots WHERE tenant_id = $1::uuid AND source = 'trial'
-	`, trial).Scan(&amountMC, &expiresAt))
-	require.Equal(t, int64(500_000), amountMC)
-	require.WithinDuration(t, trialStart.AddDate(0, 0, credits.TrialDays), expiresAt, time.Second, "trial credits last 14 days")
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COUNT(1) FROM credit_lots WHERE tenant_id = $1::uuid`, trial).Scan(&lots))
+	require.Zero(t, lots, "trialing tenants get no plan or trial grant; free seats are their trial credits")
 
 	require.NoError(t, pool.QueryRow(ctx, `SELECT COUNT(1) FROM credit_lots WHERE tenant_id = $1::uuid`, irr).Scan(&lots))
 	require.Zero(t, lots, "IRR tenants get no credit grants")
