@@ -26,7 +26,7 @@ const comparisons = [
 const primaryLinks = [
   { label: 'مستندات', href: '/docs' },
   { label: 'کاتالوگ مدل‌ها', href: '/catalog' },
-  { label: 'پلن‌های اشتراک', href: '/pricing' },
+  { label: 'قیمت‌گذاری', href: '/pricing' },
 ];
 
 const actionLinks = [
@@ -239,7 +239,7 @@ export function Navbar() {
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-3">
               {[
                 { label: 'کاتالوگ مدل‌ها', href: '/catalog' },
-                { label: 'پلن‌های اشتراک', href: '/pricing' },
+                { label: 'قیمت‌گذاری', href: '/pricing' },
               ].map((item) => (
                 <Link
                   key={item.href}

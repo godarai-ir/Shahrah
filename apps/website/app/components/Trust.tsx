@@ -91,7 +91,7 @@ export function Footer() {
               <li><Link href="/features/guardrails" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">گاردریل‌ها</Link></li>
               <li><Link href="/features/prompt-engineering" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">رجیستری پرامپت</Link></li>
               <li><Link href="/features/security" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">امنیت و تطابق</Link></li>
-              <li><Link href="/pricing" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">پلن‌های اشتراک</Link></li>
+              <li><Link href="/pricing" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">قیمت‌گذاری</Link></li>
             </ul>
           </div>
 
