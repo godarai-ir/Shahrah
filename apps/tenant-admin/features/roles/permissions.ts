@@ -14,7 +14,6 @@ const PERMISSION_RESOURCES = new Set([
   "settings",
   "logs",
   "billing",
-  "support_ticket",
 ]);
 
 const PERMISSION_ACTIONS = new Set([

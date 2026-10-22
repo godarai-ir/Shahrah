@@ -37,7 +37,6 @@ var systemRolePermissions = map[string][]string{
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -49,7 +48,6 @@ var systemRolePermissions = map[string][]string{
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
 	},
 	"billing_manager": {
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
@@ -64,18 +62,15 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:read",
 		"settings:list",
 		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 	"member": {
 		"user:list",
 		"settings:list",
 		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 	"readonly_member": {
 		"settings:list",
 		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 }
 

@@ -50,7 +50,7 @@
   },
   "roles": {
     "billingManager": "مدیر مالی",
-    "member": "عضو",
+    "member": "عضو",
     "readOnlyMember": "عضو فقط‌خواندنی",
     "teamAdmin": "مدیر تیم",
     "tenantAdmin": "مدیر فضای کاری"
@@ -226,8 +226,7 @@
     "provider_account": "حساب ارائه‌دهنده",
     "settings": "تنظیمات",
     "logs": "گزارش درخواست",
-    "billing": "صورتحساب",
-    "support_ticket": "تیکت پشتیبانی"
+    "billing": "صورتحساب"
   },
   "permissionActions": {
     "list": "مشاهده فهرست",

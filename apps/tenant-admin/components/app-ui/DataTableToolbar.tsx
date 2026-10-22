@@ -39,8 +39,10 @@ export function DataTableToolbar({ search, filters, columns = true, density = tr
       data-slot="data-table-toolbar"
       className={cn("flex min-h-12 flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-2 py-1.5", className)}
     >
-      {search ? <div className="min-w-48 flex-1 sm:max-w-md">{search}</div> : null}
-      {filters ? <div className="flex flex-wrap items-center gap-2">{filters}</div> : null}
+      {search ? <div className="min-w-48 flex-1 sm:max-w-xs">{search}</div> : null}
+      {filters ? (
+        <div className="flex flex-wrap items-center gap-2 [&_[data-slot=field]]:w-auto">{filters}</div>
+      ) : null}
       <div className="ms-auto flex items-center gap-1">
         {table && columns && optionalColumns.length > 0 ? (
           <DropdownMenu>

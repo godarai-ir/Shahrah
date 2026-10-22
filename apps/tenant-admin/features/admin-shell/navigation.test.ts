@@ -39,11 +39,11 @@ describe("admin access navigation items", () => {
   it("orders access items by common administrative workflow", () => {
     expect(ACCESS_NAV_ITEM_KEYS).toEqual([
       "users",
-      "personalAccessTokens",
-      "oidcClients",
-      "accessManagement",
       "teams",
+      "personalAccessTokens",
       "virtualUsers",
+      "accessManagement",
+      "oidcClients",
     ]);
   });
 
@@ -74,10 +74,8 @@ describe("admin access navigation items", () => {
     expect(getVisibleTitles(["team:read"])).not.toContain("نقش‌ها");
   });
 
-  it("shows support only for users who can read tickets", () => {
-    expect(getVisibleTitles(["support_ticket:read_own"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:read_all"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:create"])).not.toContain("پشتیبانی");
+  it("keeps support visible without permissions", () => {
+    expect(getVisibleTitles([])).toContain("پشتیبانی");
   });
 });
 
@@ -172,8 +170,9 @@ describe("admin sidebar sections", () => {
     const all = buildAdminNavItems("/", t);
     const visible = filterVisibleNavItems(all, ["team:read"]);
     const entry = all.find((item) => item.key === "accessAndUsers")!;
-    // The keys tab needs no permission, so it is the first fallback for anyone.
-    expect(resolveSectionEntryHref(entry, all, visible)).toBe("/personal-access-tokens");
+    expect(resolveSectionEntryHref(entry, all, visible)).toBe("/teams");
+    // The keys tab needs no permission, so it is the first fallback for anyone without team access.
+    expect(resolveSectionEntryHref(entry, all, filterVisibleNavItems(all, []))).toBe("/personal-access-tokens");
     expect(resolveSectionEntryHref(entry, all, filterVisibleNavItems(all, ["user:list"]))).toBe("/users");
   });
 });

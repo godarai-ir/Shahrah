@@ -2,14 +2,12 @@ import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/features/admin-shell/AdminShell";
 import { NewTicketPage } from "@/features/support-tickets/NewTicketPage";
-import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSupportTicketPage() {
   const auth = await requireAuth("/login?next=/support/tickets/new");
-  await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["support_ticket:create"]);
   const t = await getTranslations("support");
 
   return (

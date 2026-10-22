@@ -60,7 +60,7 @@ export function collectEffectivePermissions(
   return { groups, total: grants.size };
 }
 
-/** "support_ticket:read_own" -> "support_ticket"; used only when the catalog omits the key. */
+/** "team:read" -> "team"; used only when the catalog omits the key. */
 function deriveGroupFromKey(permissionKey: string): string {
   const [resource] = permissionKey.split(":");
   return resource?.trim() || "other";

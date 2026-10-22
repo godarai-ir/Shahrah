@@ -46,11 +46,11 @@ describe("collectEffectivePermissions", () => {
   it("still shows a permission the catalog does not describe, grouped by its key", () => {
     const result = collectEffectivePermissions(
       ["agent"],
-      [{ name: "agent", permissions: ["support_ticket:reply"] }],
+      [{ name: "agent", permissions: ["export_job:run"] }],
       catalog,
     );
     expect(result.groups).toEqual([
-      { group: "support_ticket", grants: [{ key: "support_ticket:reply", grantedBy: ["agent"] }] },
+      { group: "export_job", grants: [{ key: "export_job:run", grantedBy: ["agent"] }] },
     ]);
   });
 
