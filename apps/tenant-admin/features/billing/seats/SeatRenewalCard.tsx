@@ -67,7 +67,7 @@ export function SeatRenewalCard({ summary, canManage, onSummaryChange }: SeatRen
   if (held.length === 0 && !renewal) return null;
 
   return (
-    <SettingsCard title={t("renewal.title")} description={t("renewal.description")}>
+    <SettingsCard className="max-w-none" title={t("renewal.title")} description={t("renewal.description")}>
       <div className="flex flex-col gap-4">
         {renewal ? (
           <Alert>

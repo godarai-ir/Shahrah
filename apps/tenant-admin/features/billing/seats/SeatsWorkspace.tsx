@@ -139,7 +139,6 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         </Alert>
       ) : null}
 
-
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>{t("errors.title")}</AlertTitle>
@@ -147,10 +146,9 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         </Alert>
       ) : null}
 
-      <SeatSummaryCards summary={summary} />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-3xl text-sm text-muted-foreground">{t("intro")}</p>
+      {/* The primary action leads the page; the stock it changes follows. */}
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{t("intro")}</p>
         {canManageBilling ? (
           <Button type="button" onClick={() => setBuyTarget({ seat: "pro" })}>
             <ShoppingCart data-icon="inline-start" />
@@ -158,6 +156,9 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
           </Button>
         ) : null}
       </div>
+
+      <SeatSummaryCards summary={summary} />
+
 
       <Tabs defaultValue="requests">
         <TabsList>

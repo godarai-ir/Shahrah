@@ -61,7 +61,7 @@ export function SeatSettingsCard({ initialSettings, canManage }: { initialSettin
   }
 
   return (
-    <SettingsCard title={t("settings.title")} description={t("settings.description")}>
+    <SettingsCard className="max-w-none" title={t("settings.title")} description={t("settings.description")}>
       <form className="flex flex-col gap-4" onSubmit={save}>
         <OperationNotice notice={notice} labels={{ success: t("settings.saved"), error: t("errors.title"), warning: t("errors.title"), info: t("settings.saved") }} />
         <AppSwitchField

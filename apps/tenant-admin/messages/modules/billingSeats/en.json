@@ -1,7 +1,7 @@
 {
   "title": "Seats",
   "description": "Give each member a seat so their personal GodarChat credit quota is clear.",
-  "intro": "The free seat gives 500 credits once. Pro and Max seats give personal credits every month and, once those are used, draw on the organization's credits up to the limit you set. API and key usage always comes from the organization's credits.",
+  "intro": "The free seat gives 500 credits once. Pro and Max give personal credits every month and, once those run out, use workspace credits up to the limit you set. API and key usage always comes from workspace credits.",
   "seats": {
     "free": "Free",
     "pro": "Pro",
@@ -13,7 +13,7 @@
     "yearly": "Yearly"
   },
   "tabs": {
-    "requests": "Requests",
+    "requests": "Upgrade requests",
     "orders": "Orders"
   },
   "summary": {
@@ -22,12 +22,13 @@
     "freeLeft": "{count, number} free seats left",
     "pro": "Pro seats",
     "max": "Max seats",
-    "available": "{count, number} available",
+    "available": "{count, number} available to assign",
     "unassigned": "Members without a seat",
     "unassignedHint": "They cannot send messages in GodarChat",
     "periodEnd": "Period ends",
     "noSubscription": "No seat subscription yet",
-    "noSubscriptionHint": "The first paid seat starts it"
+    "notBought": "None bought yet",
+    "allAssigned": "Every member has a seat"
   },
   "buy": {
     "open": "Buy seats",
@@ -76,7 +77,8 @@
     "approved": "Request approved; the member has the seat.",
     "denyTitle": "Deny the request from {member}",
     "denyNote": "Note for the member (optional)",
-    "empty": "No requests yet."
+    "empty": "No upgrade requests yet. When a member runs out of credits, they can ask for a better seat in GodarChat, and the request shows up here.",
+    "denyConfirm": "Deny request"
   },
   "blockReasons": {
     "seat_unassigned": "No seat",
@@ -105,16 +107,16 @@
       "CANCELED": "Canceled",
       "other": "Unknown"
     },
-    "empty": "No seats bought yet."
+    "empty": "No orders yet. Seat purchases and renewals are recorded here."
   },
   "renewal": {
     "title": "Seat renewal",
-    "description": "Paid seats renew together for the next period of your seat subscription. Nothing renews automatically: pay the renewal during the 7 days before the period ends, or paid seats are taken back and members are left without a seat.",
+    "description": "Paid seats don't renew on their own. Pay for the renewal during the last 7 days of the period; otherwise paid seats are taken back from members.",
     "dueTitle": "Renew seats through {date}",
     "dueDescription": "{seats, number} seats need payment for the next period ({amount}). Seats not renewed are taken from members when the current period ends.",
     "keep": "{seat} seats to renew",
-    "keepHint": "You hold {held, number}; {assigned, number} are assigned.",
-    "saveKeep": "Save",
+    "keepHint": "You hold {held, number} seats; {assigned, number} are assigned to members.",
+    "saveKeep": "Save count",
     "pay": "Pay renewal {amount}"
   },
   "settings": {
@@ -127,7 +129,7 @@
     "limitDescription": "After their personal credits run out. Empty means no limit.",
     "noLimit": "No limit",
     "limitInvalid": "Enter a positive number with at most two decimals.",
-    "save": "Save",
+    "save": "Save settings",
     "saving": "Saving",
     "saved": "Seat settings saved."
   },

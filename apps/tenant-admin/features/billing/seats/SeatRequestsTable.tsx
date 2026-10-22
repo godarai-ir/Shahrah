@@ -116,7 +116,7 @@ export function SeatRequestsTable({ requests, canManage, pendingID, onApprove, o
         footer={
           <Button type="button" variant="destructive" disabled={submitting} aria-busy={submitting || undefined} onClick={submitDeny}>
             {submitting ? <Spinner data-icon="inline-start" /> : null}
-            {t("requests.deny")}
+            {t("requests.denyConfirm")}
           </Button>
         }
       >

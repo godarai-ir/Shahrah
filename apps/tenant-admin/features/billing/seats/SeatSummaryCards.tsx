@@ -6,16 +6,30 @@ import { CalendarClock, Crown, Sparkles, UserRound, UserX } from "lucide-react";
 import { MetricCard } from "@/components/app-ui/MetricCard";
 
 import { useBillingFormat } from "../use-billing-format";
-import type { SeatSummary } from "./api";
+import type { PaidSeatType, SeatSummary } from "./api";
 import { freeSeatsLeft } from "./domain";
 
 /** The seat overview: free seats left, paid seats in use, and the renewal date. */
 export function SeatSummaryCards({ summary }: { summary: SeatSummary }) {
   const t = useTranslations("billingSeats");
   const format = useBillingFormat();
-  const pro = summary.paid.find((item) => item.type === "pro");
-  const max = summary.paid.find((item) => item.type === "max");
   const freeLeft = freeSeatsLeft(summary);
+  const seatsRunning = summary.subscription_kind === "seats";
+
+  // A paid type nobody bought says so instead of "0 of 0 · 0 available".
+  const paidCard = (type: PaidSeatType) => {
+    const item = summary.paid.find((paid) => paid.type === type);
+    const purchased = item?.purchased ?? 0;
+
+    return purchased === 0
+      ? { value: format.count(0), description: t("summary.notBought") }
+      : {
+          value: t("summary.ofTotal", { used: format.count(item?.assigned ?? 0), total: format.count(purchased) }),
+          description: t("summary.available", { count: item?.available ?? 0 }),
+        };
+  };
+  const pro = paidCard("pro");
+  const max = paidCard("max");
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -28,40 +42,26 @@ export function SeatSummaryCards({ summary }: { summary: SeatSummary }) {
             ? format.count(summary.free_used)
             : t("summary.ofTotal", { used: format.count(summary.free_used), total: format.count(summary.free_limit) })
         }
-        description={t("summary.freeLeft", { count: freeLeft ?? 0 })}
+        description={freeLeft === null ? undefined : t("summary.freeLeft", { count: freeLeft })}
         tone={freeLeft === 0 ? "warning" : "default"}
       />
-      <MetricCard
-        density="compact"
-        icon={Sparkles}
-        label={t("summary.pro")}
-        value={t("summary.ofTotal", { used: format.count(pro?.assigned ?? 0), total: format.count(pro?.purchased ?? 0) })}
-        description={t("summary.available", { count: pro?.available ?? 0 })}
-      />
-      <MetricCard
-        density="compact"
-        icon={Crown}
-        label={t("summary.max")}
-        value={t("summary.ofTotal", { used: format.count(max?.assigned ?? 0), total: format.count(max?.purchased ?? 0) })}
-        description={t("summary.available", { count: max?.available ?? 0 })}
-      />
+      <MetricCard density="compact" icon={Sparkles} label={t("summary.pro")} value={pro.value} description={pro.description} />
+      <MetricCard density="compact" icon={Crown} label={t("summary.max")} value={max.value} description={max.description} />
       <MetricCard
         density="compact"
         icon={UserX}
         label={t("summary.unassigned")}
         value={format.count(summary.unassigned)}
-        description={t("summary.unassignedHint")}
+        description={summary.unassigned > 0 ? t("summary.unassignedHint") : t("summary.allAssigned")}
         tone={summary.unassigned > 0 && summary.enforced ? "warning" : "muted"}
       />
       <MetricCard
         density="compact"
         icon={CalendarClock}
         label={t("summary.periodEnd")}
-        value={summary.subscription_kind === "seats" && summary.period_end ? format.date(summary.period_end) : t("summary.noSubscription")}
+        value={seatsRunning && summary.period_end ? format.date(summary.period_end) : "—"}
         description={
-          summary.subscription_kind === "seats"
-            ? t(`intervals.${summary.billing_interval === "yearly" ? "yearly" : "monthly"}`)
-            : t("summary.noSubscriptionHint")
+          seatsRunning ? t(`intervals.${summary.billing_interval === "yearly" ? "yearly" : "monthly"}`) : t("summary.noSubscription")
         }
         tone="muted"
       />
