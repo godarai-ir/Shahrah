@@ -90,7 +90,7 @@ func (m *traceStoreMock) GetTraceFacetsV2(ctx context.Context, params platform.L
 func setupTraceTestApp(h *Handlers) *fiber.App {
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{Role: "team_admin"})
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{Role: "tenant_admin"})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
 
 		return c.Next()

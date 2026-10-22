@@ -49,10 +49,7 @@
     }
   },
   "roles": {
-    "billingManager": "مدیر مالی",
     "member": "عضو",
-    "readOnlyMember": "عضو فقط‌خواندنی",
-    "teamAdmin": "مدیر تیم",
     "tenantAdmin": "مدیر فضای کاری"
   },
   "button": {

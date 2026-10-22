@@ -51,7 +51,7 @@ func newRerankTestApp(t *testing.T, modelName string, provider string, deploymen
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				modelName: {"rerank"},

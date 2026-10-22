@@ -47,15 +47,6 @@ func requireBillingCodesRedeem(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "billing code redemption permission required", []string{"billing:codes_redeem", "billing:manage", "settings:manage"})
 }
 
-func requireTeamAdminOrHigher(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return fiber.NewError(fiber.StatusForbidden, "team admin privileges required")
-}
-
 func delegatedUserID(c *fiber.Ctx) string {
 	return apiheaders.GetUserID(c)
 }
@@ -80,7 +71,7 @@ func requireTeamCreate(c *fiber.Ctx) error {
 
 func requireTeamManage(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -150,7 +141,7 @@ func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions 
 
 func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 

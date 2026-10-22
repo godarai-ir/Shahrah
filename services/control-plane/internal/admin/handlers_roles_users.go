@@ -250,10 +250,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 				"team:create", "team:read", "team:manage", "team:delete",
 				"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage", "billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem"),
-			"billing_manager": {"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem", "settings:list"},
-			"team_admin":      {"policy:list", "role:list", "user:list", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:read", "settings:list"},
-			"member":          {"user:list", "settings:list"},
-			"readonly_member": {"settings:list"},
+			"member": {"user:list", "settings:list"},
 		}
 		permissions = append(permissions, fallbackPerms[role]...)
 	}

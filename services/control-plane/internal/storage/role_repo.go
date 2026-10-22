@@ -49,26 +49,8 @@ var systemRolePermissions = map[string][]string{
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 	},
-	"billing_manager": {
-		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"settings:list",
-	},
-	"team_admin": {
-		"policy:list",
-		"role:list",
-		"user:list",
-		"team:read", "team:manage",
-		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-		"provider_account:read",
-		"settings:list",
-		"logs:read_metadata",
-	},
 	"member": {
 		"user:list",
-		"settings:list",
-		"logs:read_metadata",
-	},
-	"readonly_member": {
 		"settings:list",
 		"logs:read_metadata",
 	},
@@ -787,11 +769,9 @@ func derivePrimaryRole(roles []string) string {
 	}
 
 	priority := map[string]int{
-		"proxy_admin":     100,
-		"tenant_admin":    90,
-		"team_admin":      70,
-		"member":          60,
-		"readonly_member": 50,
+		"proxy_admin":  100,
+		"tenant_admin": 90,
+		"member":       60,
 	}
 	best := roles[0]
 	bestRank := -1

@@ -13,7 +13,7 @@ import (
 )
 
 func (h *Handlers) ListRequestTraces(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func (h *Handlers) GetRequestTrace(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	return handleTraceByID(c, requireTeamAdminOrHigher, h.traces.GetRequestTrace, func(item *platform.RequestTrace) interface{} {
+	return handleTraceByID(c, requireTenantAdminOrHigher, h.traces.GetRequestTrace, func(item *platform.RequestTrace) interface{} {
 		return item
 	})
 }
@@ -166,7 +166,7 @@ func (h *Handlers) ListRequestTraceSpans(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	return handleTraceCollection(c, requireTeamAdminOrHigher, h.traces.ListTraceSpans, func(items []platform.TraceSpan) interface{} {
+	return handleTraceCollection(c, requireTenantAdminOrHigher, h.traces.ListTraceSpans, func(items []platform.TraceSpan) interface{} {
 		return platform.TraceSpansResponse{Data: items}
 	})
 }

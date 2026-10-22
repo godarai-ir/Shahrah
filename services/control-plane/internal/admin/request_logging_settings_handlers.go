@@ -14,7 +14,7 @@ type updateRequestLoggingSettingsRequest struct {
 }
 
 func (h *Handlers) GetTenantRequestLoggingSettings(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -43,7 +43,7 @@ func (h *Handlers) GetTenantRequestLoggingSettings(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateTenantRequestLoggingSettings(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 

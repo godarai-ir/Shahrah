@@ -297,7 +297,7 @@ func newResponsesTestAppWithCache(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -384,7 +384,7 @@ func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testL
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -467,7 +467,7 @@ func newRuntimeProfileVirtualResponsesTestApp(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -514,7 +514,7 @@ func newDirectDeepSeekResponsesTestApp(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -1538,7 +1538,7 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -1748,7 +1748,7 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 			KeyID:     "key_1",
 			KeyAlias:  "test-key",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{

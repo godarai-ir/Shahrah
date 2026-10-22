@@ -42,7 +42,7 @@ func TestXAIDeferredCompletionLifecycleIsOwnedAndExactlyOnce(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{TenantID: "tenant_a", KeyID: "key_1", TokenHash: "hash_1", Role: "team_admin"})
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{TenantID: "tenant_a", KeyID: "key_1", TokenHash: "hash_1", Role: "member"})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
 
 		return c.Next()

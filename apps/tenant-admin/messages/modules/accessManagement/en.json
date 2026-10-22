@@ -49,10 +49,7 @@
     }
   },
   "roles": {
-    "billingManager": "Billing Manager",
     "member": "Member",
-    "readOnlyMember": "Read-only member",
-    "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
   },
   "button": {

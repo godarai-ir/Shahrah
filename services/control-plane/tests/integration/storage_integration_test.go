@@ -630,7 +630,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 
 	assignResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", fmt.Sprintf(`{
 		"email":"%s",
-		"roles":["billing_auditor","team_admin"],
+		"roles":["billing_auditor","member"],
 		"resourceType":"team"
 	}`, userEmail))
 	assert.Equal(t, http.StatusOK, assignResp.StatusCode)
@@ -638,7 +638,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	var assignOut platform.UpdateUserRolesResponse
 	decodeJSONBody(t, assignResp, &assignOut)
 	assert.Equal(t, userEmail, assignOut.Email)
-	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, assignOut.Roles)
+	assert.ElementsMatch(t, []string{"billing_auditor", "member"}, assignOut.Roles)
 	assert.Equal(t, "team", assignOut.ResourceType)
 
 	usersResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/users?query=roles-user@tenant.test", "Bearer sk-master", "")
@@ -647,8 +647,8 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	var users platform.TenantAdminUserListResponse
 	decodeJSONBody(t, usersResp, &users)
 	require.Len(t, users.Data, 1)
-	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, users.Data[0].Roles)
-	assert.Equal(t, "team_admin", users.Data[0].Role)
+	assert.ElementsMatch(t, []string{"billing_auditor", "member"}, users.Data[0].Roles)
+	assert.Equal(t, "member", users.Data[0].Role)
 
 	// Protected system role must not be mutable.
 	var tenantAdminRoleID string

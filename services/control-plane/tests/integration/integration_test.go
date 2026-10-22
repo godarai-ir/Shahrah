@@ -831,7 +831,7 @@ func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
-func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
+func TestIntegration_RBACAllowsTeamManagerOnTeamMembers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
 
@@ -841,11 +841,12 @@ func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
 	app, keyStore, _, _ := newIntegrationApp(t, logger, memCache, provider.URL)
 	teamAdminHash := hashToken("sk-team-admin")
 	keyStore.byHash[teamAdminHash] = &platform.AuthContext{
-		TenantID:  "tenant-1",
-		KeyID:     "ta-1",
-		KeyAlias:  "team-admin",
-		Role:      "team_admin",
-		TokenHash: teamAdminHash,
+		TenantID:    "tenant-1",
+		KeyID:       "ta-1",
+		KeyAlias:    "team-admin",
+		Role:        "member",
+		Permissions: []string{"team:manage"},
+		TokenHash:   teamAdminHash,
 	}
 
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/teams/team-ops/members", "Bearer sk-team-admin", `{"user_id":"user-2","role":"team_member"}`)

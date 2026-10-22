@@ -6,10 +6,7 @@ export const protectedSystemRoles = new Set(["proxy_admin", "tenant_admin"]);
 
 /** Built-in roles that carry a translated name rather than the control plane's own. */
 const LOCALIZED_ROLE_KEYS: Record<string, string> = {
-  billing_manager: "billingManager",
   member: "member",
-  readonly_member: "readOnlyMember",
-  team_admin: "teamAdmin",
   tenant_admin: "tenantAdmin",
 };
 

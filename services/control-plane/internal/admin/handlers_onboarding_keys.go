@@ -96,7 +96,7 @@ func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -325,7 +325,7 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListVirtualUserTokens(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -366,7 +366,7 @@ func (h *Handlers) ListVirtualUserTokens(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -438,7 +438,7 @@ func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -478,7 +478,7 @@ func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -519,7 +519,7 @@ func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
 
 // ListKeys returns all tenant keys without exposing raw key material.
 func (h *Handlers) ListKeys(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 

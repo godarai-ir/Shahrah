@@ -8,11 +8,9 @@ import (
 )
 
 const (
-	roleProxyAdmin     = "proxy_admin"
-	roleTenantAdmin    = "tenant_admin"
-	roleTeamAdmin      = "team_admin"
-	roleMember         = "member"
-	roleReadOnlyMember = "readonly_member"
+	roleProxyAdmin  = "proxy_admin"
+	roleTenantAdmin = "tenant_admin"
+	roleMember      = "member"
 )
 
 var defaultTeamMemberPermissions = map[string]struct{}{
@@ -33,20 +31,6 @@ func IsTenantAdminOrHigher(authInfo *platform.AuthContext) bool {
 
 	switch normalizeRole(authInfo.Role) {
 	case roleProxyAdmin, roleTenantAdmin:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsTeamAdminOrHigher returns true for proxy admin, tenant admin, and team admin.
-func IsTeamAdminOrHigher(authInfo *platform.AuthContext) bool {
-	if authInfo == nil {
-		return false
-	}
-
-	switch normalizeRole(authInfo.Role) {
-	case roleProxyAdmin, roleTenantAdmin, roleTeamAdmin:
 		return true
 	default:
 		return false
@@ -134,9 +118,9 @@ func checkAPIV1PolicyRouteAuthorization(method, route string, authInfo *platform
 func checkAPIV1OrganizationRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
 	switch {
 	case strings.HasPrefix(route, "/api/v1/teams/") && strings.Contains(route, "/members"):
-		return true, requireTeamAdmin(authInfo)
+		return true, requireTeamManage(authInfo)
 	case strings.HasPrefix(route, "/api/v1/virtual-users"):
-		return true, requireTeamAdmin(authInfo)
+		return true, requireTenantAdmin(authInfo)
 	default:
 		return false, nil
 	}
@@ -197,7 +181,7 @@ func checkPATRouteAuthorization(authInfo *platform.AuthContext) error {
 
 	role := normalizeRole(authInfo.Role)
 	switch role {
-	case roleProxyAdmin, roleTenantAdmin, roleTeamAdmin, roleMember, roleReadOnlyMember:
+	case roleProxyAdmin, roleTenantAdmin, roleMember:
 		return nil
 	default:
 		return fmt.Errorf("insufficient permissions for personal access token route")
@@ -299,7 +283,7 @@ func checkPolicyRouteAuthorization(method string, authInfo *platform.AuthContext
 }
 
 func checkAccessPrincipalRouteAuthorization(route string, authInfo *platform.AuthContext) error {
-	if IsTeamAdminOrHigher(authInfo) {
+	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -482,7 +466,7 @@ func checkProviderAccountRouteAuthorization(method, route string, authInfo *plat
 }
 
 func checkKeyRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
-	if IsTeamAdminOrHigher(authInfo) {
+	if IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -519,12 +503,12 @@ func requireTenantAdmin(authInfo *platform.AuthContext) error {
 	return fmt.Errorf("tenant admin privileges required")
 }
 
-func requireTeamAdmin(authInfo *platform.AuthContext) error {
-	if IsTeamAdminOrHigher(authInfo) {
+func requireTeamManage(authInfo *platform.AuthContext) error {
+	if IsTenantAdminOrHigher(authInfo) || hasPermission(authInfo, "team:manage") {
 		return nil
 	}
 
-	return fmt.Errorf("team admin privileges required")
+	return fmt.Errorf("team manage permission required")
 }
 
 func hasTeamMemberPermission(authInfo *platform.AuthContext, permission string) bool {
@@ -532,7 +516,7 @@ func hasTeamMemberPermission(authInfo *platform.AuthContext, permission string) 
 		return false
 	}
 
-	if IsTeamAdminOrHigher(authInfo) {
+	if IsTenantAdminOrHigher(authInfo) {
 		return true
 	}
 

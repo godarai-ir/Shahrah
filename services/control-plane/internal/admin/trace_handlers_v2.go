@@ -13,7 +13,7 @@ import (
 
 func (h *Handlers) ListRequestTracesV2(c *fiber.Ctx) error {
 	return listObservabilityItems(
-		c, requireTeamAdminOrHigher, h.traces != nil, "trace store not configured",
+		c, requireTenantAdminOrHigher, h.traces != nil, "trace store not configured",
 		func(tenantID string) (platform.ListRequestTracesV2Params, error) {
 			return parseTraceListV2Params(c, tenantID)
 		},
@@ -31,7 +31,7 @@ func (h *Handlers) ListRequestTracesV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetTraceFacetsV2(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (h *Handlers) GetRequestTraceV2(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	return handleTraceByID(c, requireTeamAdminOrHigher, h.traces.GetRequestTraceV2, func(item *platform.RequestTraceDetailV2) interface{} {
+	return handleTraceByID(c, requireTenantAdminOrHigher, h.traces.GetRequestTraceV2, func(item *platform.RequestTraceDetailV2) interface{} {
 		return item
 	})
 }
@@ -79,7 +79,7 @@ func (h *Handlers) ListRequestTraceTimelineV2(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	return handleTraceCollection(c, requireTeamAdminOrHigher, h.traces.ListTraceTimelineV2, func(items []platform.TraceSpan) interface{} {
+	return handleTraceCollection(c, requireTenantAdminOrHigher, h.traces.ListTraceTimelineV2, func(items []platform.TraceSpan) interface{} {
 		return platform.TraceTimelineV2Response{Data: items}
 	})
 }
@@ -89,7 +89,7 @@ func (h *Handlers) ListRequestTraceAttemptsV2(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	return handleTraceCollection(c, requireTeamAdminOrHigher, h.traces.ListTraceAttemptsV2, func(items []platform.TraceAttemptV2) interface{} {
+	return handleTraceCollection(c, requireTenantAdminOrHigher, h.traces.ListTraceAttemptsV2, func(items []platform.TraceAttemptV2) interface{} {
 		return platform.TraceAttemptsV2Response{Data: items}
 	})
 }

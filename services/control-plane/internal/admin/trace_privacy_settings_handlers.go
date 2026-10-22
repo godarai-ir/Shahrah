@@ -14,7 +14,7 @@ type updateTracePrivacySettingsRequest struct {
 }
 
 func (h *Handlers) GetTenantTracePrivacySettings(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -43,7 +43,7 @@ func (h *Handlers) GetTenantTracePrivacySettings(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateTenantTracePrivacySettings(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 

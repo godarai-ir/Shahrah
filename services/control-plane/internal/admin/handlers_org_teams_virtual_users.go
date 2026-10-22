@@ -334,7 +334,7 @@ func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "virtual user store not configured")
 	}
 
-	return handleTenantListResponse(c, requireTeamAdminOrHigher, 200, func(currentTenant *platform.Tenant) string {
+	return handleTenantListResponse(c, requireTenantAdminOrHigher, 200, func(currentTenant *platform.Tenant) string {
 		return currentTenant.ID
 	}, h.virtualUsers.ListVirtualUsers, func(items []platform.VirtualUser, total, limit, offset int) platform.VirtualUserListResponse {
 		return platform.VirtualUserListResponse{
@@ -348,7 +348,7 @@ func (h *Handlers) ListVirtualUsers(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateVirtualUser(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -387,7 +387,7 @@ func (h *Handlers) CreateVirtualUser(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetVirtualUser(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -418,7 +418,7 @@ func (h *Handlers) GetVirtualUser(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateVirtualUser(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -432,7 +432,7 @@ func (h *Handlers) UpdateVirtualUser(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteVirtualUser(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 

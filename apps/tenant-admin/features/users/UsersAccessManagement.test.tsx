@@ -111,7 +111,7 @@ describe("UsersAccessManagement", () => {
 
     fireEvent.click(screen.getByRole("combobox", { name: "form.role" }));
     expect(await screen.findByRole("option", { name: "Support Agent" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "roles.billingManager" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Billing Manager" })).toBeInTheDocument();
   });
 
   it("shows every role on a member, not just the first", async () => {
@@ -127,7 +127,7 @@ describe("UsersAccessManagement", () => {
 
     await waitFor(() => expect(screen.getByRole("combobox", { name: "filters.role" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("combobox", { name: "filters.role" }));
-    fireEvent.click(await screen.findByRole("option", { name: "roles.billingManager" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Billing Manager" }));
 
     expect(replaceMock).toHaveBeenCalledWith("/users?role=billing_manager", { scroll: false });
   });

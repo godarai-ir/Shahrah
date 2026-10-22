@@ -220,7 +220,7 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, lo
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -266,7 +266,7 @@ func newChatCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				"gpt-4": {"chat"},
@@ -435,7 +435,7 @@ func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, l
 			KeyID:     "key_1",
 			KeyAlias:  "test-key",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			UserID:    "user_1",
 			TeamID:    "team_1",
@@ -636,7 +636,7 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -698,7 +698,7 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
