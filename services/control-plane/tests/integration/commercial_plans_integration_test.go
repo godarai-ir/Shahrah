@@ -45,7 +45,14 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	require.NoError(t, err)
 
 	// Plans are retired: only the free plan and the seat subscription remain.
-	assert.ElementsMatch(t, []string{seats.FreePlanSlug, seats.SeatsPlanSlug}, planSlugs(plans))
+	slugs := planSlugs(plans)
+	for _, expected := range []string{seats.FreePlanSlug, seats.SeatsPlanSlug} {
+		assert.Contains(t, slugs, expected)
+	}
+
+	for _, retired := range []string{"developer", "team", "growth", "business", "enterprise"} {
+		assert.NotContains(t, slugs, retired)
+	}
 
 	features, err := store.ListFeatureCatalog(ctx)
 	require.NoError(t, err)

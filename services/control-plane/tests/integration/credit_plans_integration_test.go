@@ -102,8 +102,9 @@ func TestIntegration_CreditPlanDraftsMatchThePRDInIRR(t *testing.T) {
 			FROM plan_versions pv WHERE pv.version_id = $1::uuid
 		`, versionID).Scan(&status, &monthlyIRR, &yearlyIRR, &monthlyGrant, &usersMax, &copiedEntitlementsCount))
 
-		// 067 seeds drafts; the fleet cutover (072) publishes them.
-		require.Contains(t, []string{"draft", "published"}, status, offer.Slug)
+		// 067 seeds drafts, the fleet cutover (072) publishes them, and the
+		// seat subscription cutover (082) archives them with every plan.
+		require.Contains(t, []string{"draft", "published", "archived"}, status, offer.Slug)
 		require.Equal(t, offer.MonthlyPriceIRR(), monthlyIRR, "%s monthly IRR", offer.Slug)
 		require.Equal(t, offer.YearlyPriceIRR(), yearlyIRR, "%s yearly IRR", offer.Slug)
 		require.Equal(t, offer.MonthlyCredits, monthlyGrant, offer.Slug)
