@@ -81,10 +81,6 @@ func (h *Handlers) ListTenantSupportTickets(c *fiber.Ctx) error {
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
-	if !tenantTicketHasPermission(c, "support_ticket:create") {
-		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket create permission required")
-	}
-
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
@@ -217,10 +213,6 @@ func (h *Handlers) ListTenantSupportTicketMessages(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
-	if !tenantTicketHasPermission(c, "support_ticket:reply") {
-		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket reply permission required")
-	}
-
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
@@ -296,10 +288,6 @@ func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *Handlers) RateTenantSupportTicket(c *fiber.Ctx) error {
-	if !tenantTicketHasPermission(c, "support_ticket:rate") {
-		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket rating permission required")
-	}
-
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
@@ -993,38 +981,11 @@ func requestID(c *fiber.Ctx) string {
 
 func tenantTicketReadAccess(c *fiber.Ctx) (readAll bool, allowed bool) {
 	info := auth.GetAuthInfo(c)
-	if auth.IsTenantAdminOrHigher(info) {
-		return true, true
-	}
-
-	if hasPermissionValue(info, "support_ticket:read_all") {
-		return true, true
-	}
-
-	if hasPermissionValue(info, "support_ticket:read_own") {
-		return false, true
-	}
-
-	return false, false
-}
-
-func tenantTicketHasPermission(c *fiber.Ctx, permission string) bool {
-	info := auth.GetAuthInfo(c)
-	return auth.IsTenantAdminOrHigher(info) || hasPermissionValue(info, permission)
-}
-
-func hasPermissionValue(info *platform.AuthContext, permission string) bool {
 	if info == nil {
-		return false
+		return false, false
 	}
 
-	for _, value := range info.Permissions {
-		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(permission)) {
-			return true
-		}
-	}
-
-	return false
+	return auth.IsTenantAdminOrHigher(info), true
 }
 
 func validTicketStatus(value string) bool {

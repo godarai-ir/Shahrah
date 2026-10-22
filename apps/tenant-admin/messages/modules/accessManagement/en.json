@@ -50,7 +50,7 @@
   },
   "roles": {
     "billingManager": "Billing Manager",
-    "member": "Member",
+    "member": "Member",
     "readOnlyMember": "Read-only member",
     "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
@@ -226,8 +226,7 @@
     "provider_account": "provider accounts",
     "settings": "settings",
     "logs": "request logs",
-    "billing": "billing",
-    "support_ticket": "Support ticket"
+    "billing": "billing"
   },
   "permissionActions": {
     "list": "List",

@@ -184,7 +184,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.supportTickets"),
       icon: LifeBuoy,
       isActive: pathname.startsWith("/support/tickets"),
-      requiredPermissions: ["support_ticket:read_own", "support_ticket:read_all"],
+      requiredPermissions: [],
     },
     {
       key: "quickStart",

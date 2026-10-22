@@ -46,11 +46,6 @@ var permissionCatalog = map[string]permissionMeta{
 	"logs:export":             {Group: "logs", Description: "Allows exporting request logs"},
 	"logs:manage_views":       {Group: "logs", Description: "Allows creating and managing saved log views"},
 	"logs:replay":             {Group: "logs", Description: "Allows creating safe replay drafts from request logs"},
-	"support_ticket:create":   {Group: "support", Description: "Allows creating support tickets"},
-	"support_ticket:read_own": {Group: "support", Description: "Allows viewing support tickets created by the current user"},
-	"support_ticket:read_all": {Group: "support", Description: "Allows viewing all support tickets in the tenant"},
-	"support_ticket:reply":    {Group: "support", Description: "Allows replying to visible support tickets"},
-	"support_ticket:rate":     {Group: "support", Description: "Allows rating resolved support tickets created by the current user"},
 }
 
 // IsValidPermission reports whether a permission is present and documented.

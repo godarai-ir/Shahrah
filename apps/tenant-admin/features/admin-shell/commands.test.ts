@@ -9,14 +9,14 @@ const ALL_PERMISSIONS = Object.values(PERMISSIONS);
 const t = (key: string) => key;
 
 describe("buildPaletteCommands", () => {
-  it("returns only permission-free destinations when the user has no permissions", () => {
+  it("returns only permission-free destinations and actions when the user has no permissions", () => {
     const { navigate, action } = buildPaletteCommands("/", t, []);
     const openKeys = buildAdminNavItems("/", t)
       .filter((item) => item.requiredPermissions.length === 0)
       .map((item) => `nav:${item.key}`);
 
     expect(navigate.map((command) => command.id)).toEqual(openKeys);
-    expect(action).toEqual([]);
+    expect(action.map((command) => command.id)).toEqual(["action:createSupportTicket"]);
   });
 
   it("gives every command a unique id", () => {
@@ -38,7 +38,11 @@ describe("buildPaletteCommands", () => {
   });
 
   it("only includes actions the user is permitted to run", () => {
-    const { action } = buildPaletteCommands("/", t, ["support_ticket:create"]);
-    expect(action.map((command) => command.id)).toEqual(["action:createSupportTicket"]);
+    const { action } = buildPaletteCommands("/", t, ["policy:manage"]);
+    expect(action.map((command) => command.id)).toEqual([
+      "action:createRateLimitRule",
+      "action:createBudgetLimitRule",
+      "action:createSupportTicket",
+    ]);
   });
 });

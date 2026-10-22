@@ -62,7 +62,7 @@ const ACTION_DEFINITIONS: ActionDefinition[] = [
     titleKey: "palette.actions.createSupportTicket",
     icon: LifeBuoy,
     href: "/support/tickets/new",
-    requiredPermissions: ["support_ticket:create"],
+    requiredPermissions: [],
   },
   {
     id: "action:topup",

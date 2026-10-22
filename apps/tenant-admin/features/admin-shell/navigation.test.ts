@@ -74,10 +74,8 @@ describe("admin access navigation items", () => {
     expect(getVisibleTitles(["team:read"])).not.toContain("نقش‌ها");
   });
 
-  it("shows support only for users who can read tickets", () => {
-    expect(getVisibleTitles(["support_ticket:read_own"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:read_all"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:create"])).not.toContain("پشتیبانی");
+  it("keeps support visible without permissions", () => {
+    expect(getVisibleTitles([])).toContain("پشتیبانی");
   });
 });
 

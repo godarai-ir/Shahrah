@@ -105,41 +105,19 @@ func checkAPIV1PublicRouteAuthorization(method, route string, authInfo *platform
 		return true, checkSubscriptionRouteAuthorization(method, authInfo)
 	default:
 		if strings.HasPrefix(route, "/api/v1/support/") {
-			return true, checkSupportTicketRouteAuthorization(method, route, authInfo)
+			return true, checkSupportTicketRouteAuthorization(authInfo)
 		}
 
 		return false, nil
 	}
 }
 
-func checkSupportTicketRouteAuthorization(method, route string, authInfo *platform.AuthContext) error {
-	if IsTenantAdminOrHigher(authInfo) {
-		return nil
+func checkSupportTicketRouteAuthorization(authInfo *platform.AuthContext) error {
+	if authInfo == nil {
+		return fmt.Errorf("support ticket access requires authentication")
 	}
 
-	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
-	normalizedRoute := strings.TrimSpace(route)
-
-	switch normalizedMethod {
-	case "GET", "HEAD", "OPTIONS":
-		if hasAnyPermission(authInfo, "support_ticket:read_own", "support_ticket:read_all") {
-			return nil
-		}
-	case "POST":
-		if normalizedRoute == "/api/v1/support/tickets" && hasPermission(authInfo, "support_ticket:create") {
-			return nil
-		}
-
-		if strings.HasSuffix(normalizedRoute, "/messages") && hasPermission(authInfo, "support_ticket:reply") {
-			return nil
-		}
-	case "PUT":
-		if strings.HasSuffix(normalizedRoute, "/rating") && hasPermission(authInfo, "support_ticket:rate") {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("support ticket permission required")
+	return nil
 }
 
 func checkAPIV1PolicyRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
