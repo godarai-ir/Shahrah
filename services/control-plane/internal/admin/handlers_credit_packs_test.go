@@ -26,6 +26,8 @@ type creditPackStoreFake struct {
 	completed   int
 	failed      string
 	gotProvider string
+	settingsReq *platform.UpdateCreditSettingsRequest
+	settingsBy  platform.SupportActor
 }
 
 func (f *creditPackStoreFake) ListCreditPacks(context.Context) ([]platform.CreditPack, error) {
@@ -92,8 +94,11 @@ func (f *creditPackStoreFake) GetCreditSettings(context.Context, string) (*platf
 	return &platform.CreditSettings{BillingUnit: "credit"}, nil
 }
 
-func (f *creditPackStoreFake) UpdateCreditSettings(context.Context, string, platform.UpdateCreditSettingsRequest, platform.SupportActor) (*platform.CreditSettings, error) {
-	return nil, billingdomain.ErrOverageNotAllowed
+func (f *creditPackStoreFake) UpdateCreditSettings(_ context.Context, _ string, req platform.UpdateCreditSettingsRequest, actor platform.SupportActor) (*platform.CreditSettings, error) {
+	f.settingsReq = &req
+	f.settingsBy = actor
+
+	return &platform.CreditSettings{BillingUnit: "credit"}, nil
 }
 
 func creditPackApp(store *creditPackStoreFake, defaultProvider string) *fiber.App {
@@ -198,6 +203,38 @@ func TestCreditPackErrorsAreCoded(t *testing.T) {
 
 	settingsResp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
 	require.NoError(t, err)
+
+	var settingsPayload map[string]interface{}
+	require.NoError(t, json.NewDecoder(settingsResp.Body).Decode(&settingsPayload))
 	require.NoError(t, settingsResp.Body.Close())
 	require.Equal(t, fiber.StatusForbidden, settingsResp.StatusCode)
+	require.Equal(t, "overage_managed_by_support", settingsPayload["error"].(map[string]interface{})["code"])
+}
+
+func TestTenantCreditSettingsRejectOverageButKeepSeatSettings(t *testing.T) {
+	for _, body := range []string{`{"overage_enabled":true}`, `{"overage_enabled":false}`, `{"overage_cap_credits":"100"}`, `{"overage_cap_credits":""}`} {
+		store := &creditPackStoreFake{}
+		require.Equal(t, fiber.StatusForbidden, putTenantCreditSettings(t, creditPackApp(store, "mock"), body), body)
+		require.Nil(t, store.settingsReq, body)
+	}
+
+	store := &creditPackStoreFake{}
+	require.Equal(t, fiber.StatusOK, putTenantCreditSettings(t, creditPackApp(store, "mock"), `{"seat_upgrade_requests_enabled":false}`))
+	require.NotNil(t, store.settingsReq)
+	require.NotNil(t, store.settingsReq.SeatUpgradeRequestsEnabled)
+	require.False(t, *store.settingsReq.SeatUpgradeRequestsEnabled)
+	require.Equal(t, "tenant", store.settingsBy.Role)
+}
+
+func putTenantCreditSettings(t *testing.T, app *fiber.App, body string) int {
+	t.Helper()
+
+	req := httptest.NewRequest(fiber.MethodPut, "/api/v1/billing/credits/settings", bytes.NewBufferString(body))
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	return resp.StatusCode
 }

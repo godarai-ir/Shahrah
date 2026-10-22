@@ -9,6 +9,7 @@ import {
 } from '@/lib/support-credits';
 import { controlPlaneRequest, formatDate, formatIRR } from '@/lib/support-tenants';
 import { TenantConversionCard } from './tenant-conversion-card';
+import { TenantOverageCard } from './tenant-overage-card';
 
 const LEDGER_PAGE = 50;
 
@@ -93,6 +94,8 @@ export function TenantCreditsPanel({ tenantId, tenantSlug }: { tenantId: string;
       </div>
 
       <TenantConversionCard tenantId={tenantId} tenantSlug={tenantSlug} onChanged={() => void load()} />
+
+      <TenantOverageCard tenantId={tenantId} tenantSlug={tenantSlug} settings={overview.settings} onSaved={(next) => { setOverview(next); setMessage('Overage settings saved and audited.'); }} />
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card><h2 className="text-lg font-semibold">Manual credit adjustment</h2><p className="mt-1 text-sm text-zinc-400">Positive amounts create a lot; negative amounts are spent from lots in consumption order.</p><form className="mt-4 flex flex-col gap-3" onSubmit={submitAdjustment}><Input inputMode="decimal" placeholder="Credits, e.g. 100 or -12.50" value={adjustment.amount} onChange={(e) => setAdjustment({ ...adjustment, amount: e.target.value })} /><Input placeholder="Required reason" value={adjustment.reason} onChange={(e) => setAdjustment({ ...adjustment, reason: e.target.value })} /><label className="text-xs text-zinc-400">Expiry for granted credits (optional)<Input type="date" value={adjustment.expiresAt} onChange={(e) => setAdjustment({ ...adjustment, expiresAt: e.target.value })} /></label><Button type="submit">Review adjustment</Button></form></Card>

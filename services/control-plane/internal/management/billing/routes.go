@@ -75,6 +75,7 @@ type Handler interface {
 	ListPlatformTenantCreditLots(*fiber.Ctx) error
 	ListPlatformTenantCreditLotAllocations(*fiber.Ctx) error
 	AdjustPlatformTenantCredits(*fiber.Ctx) error
+	UpdatePlatformTenantCreditOverage(*fiber.Ctx) error
 	GetPlatformTenantCreditConversion(*fiber.Ctx) error
 	ConvertPlatformTenantToCredits(*fiber.Ctx) error
 	RollbackPlatformTenantCredits(*fiber.Ctx) error
@@ -222,6 +223,7 @@ func (r *Routes) registerPlatformCredits(router fiber.Router) {
 	router.Get("/tenants/:tenantID/credits/lots", r.handler.ListPlatformTenantCreditLots)
 	router.Get("/tenants/:tenantID/credits/lots/:lotID/allocations", r.handler.ListPlatformTenantCreditLotAllocations)
 	router.Post("/tenants/:tenantID/credits/adjustments", r.handler.AdjustPlatformTenantCredits)
+	router.Put("/tenants/:tenantID/credits/overage", r.handler.UpdatePlatformTenantCreditOverage)
 	router.Get("/credits/conversions/preview", r.handler.ListPlatformCreditConversionPreviews)
 	router.Post("/credits/conversions/fleet", r.handler.ConvertPlatformCreditFleet)
 	router.Get("/tenants/:tenantID/credits/conversion", r.handler.GetPlatformTenantCreditConversion)

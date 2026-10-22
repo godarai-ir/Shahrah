@@ -21,6 +21,7 @@ var (
 	ErrCreditPackTransferMismatch        = errors.New("bank transfer amount does not match the credit pack order")
 	ErrCreditPaymentProviderUnavailable  = errors.New("payment provider is not available for credit packs")
 	ErrOverageNotAllowed                 = errors.New("overage is not allowed on this plan")
+	ErrOverageManagedBySupport           = errors.New("overage settings can only be changed by support")
 	ErrCreditPriceRevisionNotFound       = errors.New("credit price revision not found")
 	ErrDecisionReasonRequired            = errors.New("a reason is required")
 	ErrCreditRateCardNotDraft            = errors.New("credit rate card version is not a draft")

@@ -242,7 +242,8 @@ func (h *Handlers) GetCreditSettings(c *fiber.Ctx) error {
 	return c.JSON(settings)
 }
 
-// UpdateCreditSettings changes the tenant's overage preferences.
+// UpdateCreditSettings changes the tenant's seat preferences. Overage lets a
+// tenant run into debt, so only support may change it.
 func (h *Handlers) UpdateCreditSettings(c *fiber.Ctx) error {
 	if err := requireBillingManage(c); err != nil {
 		return err
@@ -256,6 +257,10 @@ func (h *Handlers) UpdateCreditSettings(c *fiber.Ctx) error {
 	var req platform.UpdateCreditSettingsRequest
 	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.OverageEnabled != nil || req.OverageCapCredits != nil {
+		return creditPackError(c, billingdomain.ErrOverageManagedBySupport)
 	}
 
 	settings, err := store.UpdateCreditSettings(c.Context(), currentTenant.ID, req, platform.SupportActor{ID: billingActorID(c), Role: "tenant"})
@@ -307,6 +312,8 @@ func creditPackErrorStatus(err error) (int, string) {
 		return fiber.StatusUnprocessableEntity, "payment_provider_unavailable"
 	case errors.Is(err, billingdomain.ErrOverageNotAllowed):
 		return fiber.StatusForbidden, "overage_not_allowed"
+	case errors.Is(err, billingdomain.ErrOverageManagedBySupport):
+		return fiber.StatusForbidden, "overage_managed_by_support"
 	case errors.Is(err, billingdomain.ErrInvalidOverageCap):
 		return fiber.StatusBadRequest, "invalid_overage_cap"
 	case errors.Is(err, billingdomain.ErrInvalidSeatPoolLimit):

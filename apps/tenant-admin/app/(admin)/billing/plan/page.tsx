@@ -3,8 +3,6 @@ import { SubscriptionOverview } from "@/features/billing/SubscriptionOverview";
 import { parseSeatSummary, type SeatSummary } from "@/features/billing/seats/api";
 import { parseCreditSettings, type CreditSettings } from "@/features/billing/credits/api";
 import { CreditSettingsCard } from "@/features/billing/credits/CreditSettingsCard";
-import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
-import { canAnyPermission } from "@/lib/authz";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -51,9 +49,6 @@ export default async function BillingPlanPage() {
     initialError = error instanceof Error ? error.message : t("errors.loadPage");
   }
 
-  const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id).catch(() => ({ permissions: [] as string[] }));
-  const permissions = (permissionsPayload.permissions ?? []).map((item) => item.trim().toLowerCase());
-
   const currentUser = {
     id: auth.user.id,
     email: auth.user.email,
@@ -66,7 +61,7 @@ export default async function BillingPlanPage() {
       <SubscriptionOverview summary={seatSummary} initialError={initialError} />
       {creditSettings ? (
         <div className="mt-6">
-          <CreditSettingsCard initialSettings={creditSettings} canManage={canAnyPermission(permissions, ["billing:manage"])} />
+          <CreditSettingsCard settings={creditSettings} />
         </div>
       ) : null}
     </AdminShell>

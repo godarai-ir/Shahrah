@@ -335,6 +335,37 @@ func (h *Handlers) AdjustPlatformTenantCredits(c *fiber.Ctx) error {
 	return c.JSON(overview)
 }
 
+// UpdatePlatformTenantCreditOverage turns a tenant's overage on or off and sets
+// its cap. Only support may do this; tenants cannot change it themselves.
+func (h *Handlers) UpdatePlatformTenantCreditOverage(c *fiber.Ctx) error {
+	adminStore, tenantID, err := h.creditAdminTenant(c)
+	if err != nil {
+		return err
+	}
+
+	settingsStore, err := h.requireCreditPackStore()
+	if err != nil {
+		return err
+	}
+
+	var req platform.UpdateCreditSettingsRequest
+	if parseErr := c.BodyParser(&req); parseErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	overageOnly := platform.UpdateCreditSettingsRequest{OverageEnabled: req.OverageEnabled, OverageCapCredits: req.OverageCapCredits}
+	if _, updateErr := settingsStore.UpdateCreditSettings(c.Context(), tenantID, overageOnly, supportActor(c)); updateErr != nil {
+		return creditPackError(c, updateErr)
+	}
+
+	overview, err := adminStore.GetTenantCreditOverview(c.Context(), tenantID)
+	if err != nil {
+		return creditPackError(c, err)
+	}
+
+	return c.JSON(overview)
+}
+
 // GetPlatformTenantCreditConversion returns a tenant's conversion dry run and
 // its conversion history.
 func (h *Handlers) GetPlatformTenantCreditConversion(c *fiber.Ctx) error {

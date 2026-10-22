@@ -1,7 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { updateCreditSettings } from "./api";
 import { CreditSettingsCard } from "./CreditSettingsCard";
 
 vi.mock("next-intl", async (importOriginal) => {
@@ -18,45 +17,26 @@ vi.mock("next-intl", async (importOriginal) => {
   };
 });
 
-vi.mock("@/components/app-ui/feedback-toast", () => ({ showFeedbackToast: vi.fn() }));
-
-vi.mock("./api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./api")>()),
-  updateCreditSettings: vi.fn(),
-}));
-
 const settings = { billing_unit: "credit", overage_allowed: true, overage_enabled: false, overage_cap_credits: null };
 
 describe("CreditSettingsCard", () => {
-  beforeEach(() => {
-    vi.mocked(updateCreditSettings).mockReset();
-    vi.mocked(updateCreditSettings).mockImplementation(async (input = {}) => ({
-      billing_unit: "credit",
-      overage_allowed: true,
-      overage_enabled: input.overage_enabled ?? false,
-      overage_cap_credits: input.overage_cap_credits || null,
-    }));
+  it("shows overage as read-only and points to support", () => {
+    render(<CreditSettingsCard settings={settings} />);
+    expect(screen.getByText("Off")).toBeInTheDocument();
+    expect(screen.getByText(/Only GodarAI support can turn overage on/)).toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("enables overage with a cap", async () => {
-    render(<CreditSettingsCard initialSettings={settings} canManage />);
-    fireEvent.click(screen.getByRole("switch", { name: "Allow overage" }));
-    fireEvent.change(screen.getByLabelText("Overage cap (credits)"), { target: { value: "250.5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => expect(updateCreditSettings).toHaveBeenCalledWith({ overage_enabled: true, overage_cap_credits: "250.5" }));
+  it("shows the cap when support enabled overage", () => {
+    render(<CreditSettingsCard settings={{ ...settings, overage_enabled: true, overage_cap_credits: "250.50" }} />);
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByText("Overage cap")).toBeInTheDocument();
+    expect(screen.queryByText("No cap")).not.toBeInTheDocument();
   });
 
-  it("rejects a cap with more than two decimals", () => {
-    render(<CreditSettingsCard initialSettings={{ ...settings, overage_enabled: true }} canManage />);
-    fireEvent.change(screen.getByLabelText("Overage cap (credits)"), { target: { value: "1.234" } });
-    expect(screen.getByText("Enter a positive number with at most two decimals.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  });
-
-  it("locks the switch when the plan does not allow overage", () => {
-    render(<CreditSettingsCard initialSettings={{ ...settings, overage_allowed: false }} canManage />);
-    expect(screen.getByRole("switch", { name: "Allow overage" })).toBeDisabled();
-    expect(screen.getByText("Your current plan does not support overage.")).toBeInTheDocument();
+  it("says when there is no cap", () => {
+    render(<CreditSettingsCard settings={{ ...settings, overage_enabled: true }} />);
+    expect(screen.getByText("No cap")).toBeInTheDocument();
   });
 });

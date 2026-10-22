@@ -262,16 +262,14 @@
       "title": "Overage",
       "description": "When plan and pack credits run out, refuse requests or keep serving them as debt up to a cap.",
       "buyPacks": "Buy credit packs",
-      "overage": "Allow overage",
-      "overageDescription": "The debt is repaid from your next credits, from the plan or a pack.",
-      "overageNotAllowed": "Your current plan does not support overage.",
-      "cap": "Overage cap (credits)",
-      "capDescription": "Leave empty for the system default. Up to two decimals.",
-      "capPlaceholder": "For example 500",
-      "capInvalid": "Enter a positive number with at most two decimals.",
-      "save": "Save",
-      "saving": "Saving…",
-      "saved": "Overage settings saved."
+      "overage": "Overage",
+      "overageDescription": "After the plan and pack credits run out, requests keep running as debt up to the cap. The debt is repaid from your next credits.",
+      "cap": "Overage cap",
+      "enabled": "Enabled",
+      "disabled": "Off",
+      "disabledDescription": "After the plan and pack credits run out, requests are rejected until you buy a pack or the plan renews.",
+      "noCap": "No cap",
+      "managedBySupport": "Only GodarAI support can turn overage on or change its cap. Contact support to request it."
     }
   },
   "overview": {

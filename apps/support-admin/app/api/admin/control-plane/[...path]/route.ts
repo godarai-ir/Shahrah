@@ -157,6 +157,8 @@ function creditPermission(joined: string, method: string): AdminPermission | und
   if (joined.startsWith('tenants/') && joined.includes('/credits')) {
     if (method === 'GET') return 'wallet:read';
     if (joined.endsWith('/credits/adjustments')) return 'wallet:adjust';
+    // Overage lets a tenant run into debt, so it is granted like credit itself.
+    if (joined.endsWith('/credits/overage')) return 'wallet:adjust';
     return 'platform:admin';
   }
   // Seat types set what members get and pay, like the pack catalog.

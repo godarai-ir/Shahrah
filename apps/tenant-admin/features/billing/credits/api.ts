@@ -102,10 +102,8 @@ export function createCreditPackOrder(input: { pack_slug: string; provider: stri
   });
 }
 
-/** An empty cap or limit string removes it. */
+/** An empty limit string removes it. Overage is changed only by support. */
 export function updateCreditSettings(input: {
-  overage_enabled?: boolean;
-  overage_cap_credits?: string;
   seat_upgrade_requests_enabled?: boolean;
   seat_pool_limit_pro_credits?: string;
   seat_pool_limit_max_credits?: string;
