@@ -1,6 +1,7 @@
-import { FAQAccordion } from './ui/FAQAccordion';
+import { FAQ } from './patterns';
+import type { FAQItem } from './patterns';
 
-const items = [
+const items: FAQItem[] = [
   {
     question: 'اگر ابزار ما در فهرست اتصال‌ها نبود چه؟',
     answer:
@@ -28,14 +29,5 @@ const items = [
 ];
 
 export function HomeFAQ() {
-  return (
-    <section id="faq" className="py-14 lg:py-24">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <h2 className="mb-10 text-3xl font-bold leading-tight text-slate-950 dark:text-white sm:mb-14 sm:text-4xl lg:text-5xl">
-          چیزهایی که معمولاً می‌پرسند
-        </h2>
-        <FAQAccordion items={items} />
-      </div>
-    </section>
-  );
+  return <FAQ title="چیزهایی که معمولاً می‌پرسند" items={items} />;
 }

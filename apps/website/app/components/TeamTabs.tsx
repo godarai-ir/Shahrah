@@ -1,10 +1,11 @@
 'use client';
 
 import { useId, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Check } from 'lucide-react';
-import { Eyebrow, sectionHeading } from './Eyebrow';
+import { Section } from './patterns';
+import { sectionHeading } from './sectionType';
 import { MediaSlot } from './MediaSlot';
-import { Reveal } from './Reveal';
 import type { HomeMediaId } from '@/app/lib/home-media';
 
 type Task = { title: string; text: string };
@@ -84,86 +85,106 @@ export function TeamTabs() {
   const [activeId, setActiveId] = useState(teams[0].id);
   const active = teams.find((team) => team.id === activeId) ?? teams[0];
 
+  // Automatic activation; in RTL the left arrow moves forward in reading order.
+  const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = teams.findIndex((team) => team.id === activeId);
+    const steps: Record<string, number> = { ArrowLeft: 1, ArrowRight: -1 };
+    let next: number | null = null;
+
+    if (event.key in steps) {
+      next = (index + steps[event.key] + teams.length) % teams.length;
+    } else if (event.key === 'Home') {
+      next = 0;
+    } else if (event.key === 'End') {
+      next = teams.length - 1;
+    }
+
+    if (next === null) {
+      return;
+    }
+
+    event.preventDefault();
+    setActiveId(teams[next].id);
+    document.getElementById(`${baseId}-tab-${teams[next].id}`)?.focus();
+  };
+
   return (
-    <section id="teams" className="w-full bg-white py-14 dark:bg-slate-950 lg:py-24">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-6">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <Reveal>
-            <Eyebrow>کار هر تیم</Eyebrow>
-          </Reveal>
-          <Reveal>
-            <h2 className={`max-w-3xl ${sectionHeading}`}>هر تیم، یک دستیار</h2>
-          </Reveal>
-          <Reveal>
-            <p className="m-0 max-w-xl text-base leading-8 text-slate-600 dark:text-gray-400">
-              چند کاری که معمولاً اول به دستیار سپرده می‌شود.
-            </p>
-          </Reveal>
+    <Section id="teams" layout="flex flex-col gap-12">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div>
+          <h2 className={`max-w-3xl ${sectionHeading}`}>هر تیم، یک دستیار</h2>
         </div>
-
-        <Reveal>
-          <div
-            role="tablist"
-            aria-label="تیم‌ها"
-            className="relative flex w-full overflow-x-auto overflow-y-hidden border-b border-gray-200 dark:border-gray-800"
-          >
-            {teams.map((team) => {
-              const selected = team.id === activeId;
-
-              return (
-                <button
-                  key={team.id}
-                  type="button"
-                  role="tab"
-                  id={`${baseId}-tab-${team.id}`}
-                  aria-selected={selected}
-                  aria-controls={`${baseId}-panel`}
-                  onClick={() => setActiveId(team.id)}
-                  className={`-mb-px flex-1 whitespace-nowrap border-b-2 px-5 py-5 text-base transition-colors duration-200 md:text-lg ${
-                    selected
-                      ? 'border-slate-950 font-semibold text-slate-950 dark:border-white dark:text-white'
-                      : 'border-transparent font-medium text-slate-500 hover:text-slate-950 dark:text-gray-400 dark:hover:text-white'
-                  }`}
-                >
-                  {team.label}
-                </button>
-              );
-            })}
-          </div>
-        </Reveal>
-
-        <div
-          role="tabpanel"
-          id={`${baseId}-panel`}
-          aria-labelledby={`${baseId}-tab-${active.id}`}
-          className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16"
-        >
-          <div className="relative">
-            <MediaSlot key={active.media} id={active.media} className="rounded-2xl lg:aspect-auto lg:h-full lg:min-h-96" />
-          </div>
-          <div className="flex flex-col gap-10 lg:gap-12 lg:py-4">
-            <h3 className="m-0 whitespace-pre-line text-3xl font-semibold leading-tight text-slate-950 dark:text-white md:text-4xl lg:text-5xl">
-              {`تیم ${active.label}\nبا دستیار گدارAI`}
-            </h3>
-            <ul className="m-0 flex list-none flex-col p-0">
-              {active.tasks.map((task, index) => (
-                <li
-                  key={task.title}
-                  className={`flex items-start gap-5 py-5 ${index === 0 ? '' : 'border-t border-gray-200 dark:border-gray-800'}`}
-                >
-                  <span className="flex h-7 items-center pt-px">
-                    <Check className="h-5 w-5 text-blue-500" />
-                  </span>
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-base font-semibold text-slate-950 dark:text-white">{task.title}</span>
-                    <span className="text-sm leading-7 text-slate-600 dark:text-gray-400">{task.text}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div>
+          <p className="m-0 max-w-xl text-lg leading-9 text-site-ink-soft">
+            چند کاری که معمولاً اول به دستیار سپرده می‌شود.
+          </p>
         </div>
       </div>
-    </section>
+
+      <div>
+        <div
+          role="tablist"
+          aria-label="تیم‌ها"
+          onKeyDown={moveFocus}
+          className="relative flex w-full overflow-x-auto overflow-y-hidden border-b border-site-line"
+        >
+          {teams.map((team) => {
+            const selected = team.id === activeId;
+
+            return (
+              <button
+                key={team.id}
+                type="button"
+                role="tab"
+                id={`${baseId}-tab-${team.id}`}
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                aria-controls={`${baseId}-panel`}
+                onClick={() => setActiveId(team.id)}
+                className={`-mb-px flex-1 whitespace-nowrap border-b-2 px-5 py-5 text-base transition-colors duration-500 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-site-accent md:text-lg ${
+                  selected
+                    ? 'border-site-ink font-semibold text-site-ink'
+                    : 'border-transparent font-medium text-site-ink-soft hover:text-site-ink'
+                }`}
+              >
+                {team.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div
+        role="tabpanel"
+        id={`${baseId}-panel`}
+        aria-labelledby={`${baseId}-tab-${active.id}`}
+        className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16"
+      >
+        <div className="relative">
+          <MediaSlot key={active.media} id={active.media} className="rounded-2xl lg:aspect-auto lg:h-full lg:min-h-96" />
+        </div>
+        <div className="flex flex-col gap-10 lg:gap-12 lg:py-4">
+          <h3 className="m-0 whitespace-pre-line text-3xl font-semibold leading-snug text-site-ink md:text-4xl lg:text-5xl">
+            {`تیم ${active.label}\nبا دستیار گدارAI`}
+          </h3>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {active.tasks.map((task, index) => (
+              <li
+                key={task.title}
+                className={`flex items-start gap-5 py-5 ${index === 0 ? '' : 'border-t border-site-line'}`}
+              >
+                <span className="flex h-7 items-center pt-px">
+                  <Check className="size-5 text-site-accent" />
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-base font-semibold text-site-ink">{task.title}</span>
+                  <span className="text-sm leading-7 text-site-ink-soft">{task.text}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </Section>
   );
 }

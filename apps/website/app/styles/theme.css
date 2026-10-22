@@ -201,3 +201,169 @@
     line-height: 1.5;
   }
 }
+
+/* The Lit Workshop: cool daylight neutrals, one steady blue accent, and one pastel tone per differentiator. */
+:root {
+  --site-ground: oklch(0.985 0.005 220);
+  --site-panel: oklch(0.962 0.013 220);
+  --site-panel-deep: oklch(0.93 0.025 222);
+  --site-line: oklch(0.9 0.015 225);
+  --site-ink: oklch(0.21 0.025 245);
+  --site-ink-soft: oklch(0.46 0.025 240);
+  --site-accent: oklch(0.5 0.1 232);
+  --site-accent-hover: oklch(0.43 0.09 235);
+  --site-on-accent: oklch(0.99 0 0);
+  --site-night: oklch(0.2 0.03 245);
+  --site-night-ink: oklch(0.96 0.01 220);
+  --site-night-soft: oklch(0.78 0.02 225);
+  --site-night-strong: oklch(0.995 0 0);
+  --site-shadow-tint: oklch(0.21 0.025 245 / 0.1);
+  --site-shadow-card: rgba(0, 0, 0, 0.1);
+
+  /* Matched lightness: the four tones differ by hue only, so none outshouts another. */
+  --tone-guard: oklch(0.955 0.03 160);
+  --tone-govern: oklch(0.955 0.025 295);
+  --tone-observe: oklch(0.955 0.03 230);
+  --tone-cost: oklch(0.96 0.035 80);
+}
+
+.dark {
+  --site-ground: oklch(0.17 0.02 245);
+  --site-panel: oklch(0.215 0.025 240);
+  --site-panel-deep: oklch(0.26 0.03 238);
+  --site-line: oklch(0.32 0.03 240);
+  --site-ink: oklch(0.95 0.01 220);
+  --site-ink-soft: oklch(0.75 0.02 225);
+  --site-accent: oklch(0.74 0.09 215);
+  --site-accent-hover: oklch(0.8 0.09 215);
+  --site-on-accent: oklch(0.2 0.03 245);
+  --site-shadow-tint: oklch(0.95 0.01 220 / 0.1);
+  --site-shadow-card: rgba(0, 0, 0, 0.5);
+
+  --tone-guard: oklch(0.26 0.03 160);
+  --tone-govern: oklch(0.26 0.03 295);
+  --tone-observe: oklch(0.26 0.03 230);
+  --tone-cost: oklch(0.27 0.03 80);
+}
+
+@theme inline {
+  --color-tone-guard: var(--tone-guard);
+  --color-tone-govern: var(--tone-govern);
+  --color-tone-observe: var(--tone-observe);
+  --color-tone-cost: var(--tone-cost);
+  --shadow-window: 0 20px 25px -5px var(--site-shadow-tint), 0 8px 10px -6px var(--site-shadow-tint);
+  --shadow-card: 0 10px 40px -10px var(--site-shadow-card);
+  --shadow-hairline: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --color-site-ground: var(--site-ground);
+  --color-site-panel: var(--site-panel);
+  --color-site-panel-deep: var(--site-panel-deep);
+  --color-site-line: var(--site-line);
+  --color-site-ink: var(--site-ink);
+  --color-site-ink-soft: var(--site-ink-soft);
+  --color-site-accent: var(--site-accent);
+  --color-site-accent-hover: var(--site-accent-hover);
+  --color-site-on-accent: var(--site-on-accent);
+  --color-site-night: var(--site-night);
+  --color-site-night-ink: var(--site-night-ink);
+  --color-site-night-soft: var(--site-night-soft);
+  --color-site-night-strong: var(--site-night-strong);
+}
+
+/* Retired water motif, still drawn on the home page until its redesign (prompt 02) removes it. */
+@keyframes water-ripple {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  15% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0.16;
+    transform: scale(1);
+  }
+}
+
+@keyframes step-pending-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes step-complete-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.water-ripple {
+  animation: water-ripple 5.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.step-pending {
+  animation: step-pending-out 0.2s linear 2.6s both;
+}
+
+.step-complete {
+  animation: step-complete-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 2.6s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .water-ripple {
+    animation: none;
+    opacity: 0.16;
+  }
+
+  .step-pending {
+    animation: none;
+    opacity: 0;
+  }
+
+  .step-complete {
+    animation: none;
+  }
+}
+
+/* /workplace: one saturated blue field on warm paper. Colour owns whole regions. */
+:root {
+  --wp-ground: oklch(0.972 0.01 85);
+  --wp-ink: oklch(0.22 0.04 255);
+  --wp-field: oklch(0.5 0.17 258);
+  --wp-field-hover: oklch(0.44 0.16 258);
+  --wp-field-deep: oklch(0.32 0.11 260);
+  --wp-field-mid: oklch(0.7 0.12 250);
+  --wp-field-soft: oklch(0.9 0.05 250);
+  --wp-field-wash: oklch(0.945 0.03 250);
+  --wp-on-field: oklch(0.985 0.005 250);
+  --wp-on-deep: oklch(0.985 0.005 250);
+}
+
+.dark {
+  --wp-ground: oklch(0.17 0.025 258);
+  --wp-ink: oklch(0.96 0.01 250);
+  --wp-field: oklch(0.66 0.15 255);
+  --wp-field-hover: oklch(0.72 0.14 255);
+  --wp-field-deep: oklch(0.28 0.09 258);
+  --wp-field-mid: oklch(0.42 0.12 256);
+  --wp-field-soft: oklch(0.3 0.06 256);
+  --wp-field-wash: oklch(0.23 0.04 257);
+  --wp-on-field: oklch(0.16 0.03 258);
+}
+
+@theme inline {
+  --color-wp-ground: var(--wp-ground);
+  --color-wp-ink: var(--wp-ink);
+  --color-wp-field: var(--wp-field);
+  --color-wp-field-hover: var(--wp-field-hover);
+  --color-wp-field-deep: var(--wp-field-deep);
+  --color-wp-field-mid: var(--wp-field-mid);
+  --color-wp-field-soft: var(--wp-field-soft);
+  --color-wp-field-wash: var(--wp-field-wash);
+  --color-wp-on-field: var(--wp-on-field);
+  --color-wp-on-deep: var(--wp-on-deep);
+}

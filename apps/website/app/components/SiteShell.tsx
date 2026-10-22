@@ -9,9 +9,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider defaultTheme="system" storageKey="shahrah-theme">
       <div
-        className="min-h-screen bg-white dark:bg-[#0B0F19] text-slate-900 dark:text-white transition-colors duration-300 font-sans antialiased selection:bg-indigo-500/30"
+        className="min-h-screen bg-site-ground text-site-ink transition-colors duration-300 font-sans antialiased selection:bg-site-panel-deep"
         dir="rtl"
-        style={{ fontFamily: "'Vazirmatn', sans-serif" }}
       >
         <Navbar />
         {children}

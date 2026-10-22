@@ -166,7 +166,8 @@ export const homeMedia = {
     alt: 'صفحه‌ی کنترل مصرف و گزارش رخدادها',
   },
   valModels: {
-    kind: 'image',
+    kind: 'gif',
+    src: '/home/val-models.gif',
     aspect: 'fill',
     title: 'انتخاب مدل',
     spec: 'تصویر یا گیف: فهرست مدل‌ها و جابه‌جایی بین آن‌ها',

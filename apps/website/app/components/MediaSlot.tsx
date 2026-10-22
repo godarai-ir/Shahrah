@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { homeMedia } from '@/app/lib/home-media';
+import { cn } from '@/app/lib/utils';
 import type { HomeMediaId, MediaAspect, MediaKind } from '@/app/lib/home-media';
 
 const aspectClass: Record<MediaAspect, string> = {
@@ -45,7 +46,7 @@ export function MediaSlot({ id, className = '', priority = false, fallback }: Me
     src?: string;
     poster?: string;
   } = homeMedia[id];
-  const frame = `relative w-full overflow-hidden rounded-2xl ${aspectClass[media.aspect]} ${className}`;
+  const frame = cn('relative w-full overflow-hidden rounded-2xl', aspectClass[media.aspect], className);
 
   if (media.src && media.kind === 'video') {
     return (
@@ -89,17 +90,17 @@ export function MediaSlot({ id, className = '', priority = false, fallback }: Me
 
   return (
     <div
-      className={`${frame} flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-300 bg-white/70 p-4 text-center dark:border-slate-700 dark:bg-slate-900/50`}
+      className={cn(frame, 'flex flex-col items-center justify-center gap-3 border-2 border-dashed border-site-line bg-site-panel p-4 text-center')}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-        <Icon className="h-5 w-5" />
+      <span className="flex size-12 items-center justify-center rounded-full bg-site-panel-deep text-site-ink-soft">
+        <Icon className="size-5" />
       </span>
       <div className="min-w-0 max-w-md">
-        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-gray-200">
+        <p className="mb-1 text-sm font-semibold text-site-ink">
           جای {kindLabel[media.kind]}: {media.title}
         </p>
         {media.aspect === 'strip' ? null : (
-          <p className="text-xs leading-6 text-slate-500 dark:text-gray-400">{media.spec}</p>
+          <p className="text-xs leading-6 text-site-ink-soft">{media.spec}</p>
         )}
       </div>
     </div>
