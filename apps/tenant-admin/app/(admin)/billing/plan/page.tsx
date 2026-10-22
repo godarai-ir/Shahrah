@@ -58,12 +58,10 @@ export default async function BillingPlanPage() {
 
   return (
     <AdminShell messageNamespaces={["billingPlan", "billing", "billingSeats"]} tenantSlug={tenantSlug} currentUser={currentUser} pageHeader={{ title: t("title"), description: t("subtitle") }}>
-      <SubscriptionOverview summary={seatSummary} initialError={initialError} />
-      {creditSettings ? (
-        <div className="mt-6">
-          <CreditSettingsCard settings={creditSettings} />
-        </div>
-      ) : null}
+      <div className="flex flex-col gap-6">
+        <SubscriptionOverview summary={seatSummary} initialError={initialError} />
+        {creditSettings ? <CreditSettingsCard settings={creditSettings} /> : null}
+      </div>
     </AdminShell>
   );
 }

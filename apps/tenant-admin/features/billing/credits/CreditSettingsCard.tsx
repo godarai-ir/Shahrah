@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { LifeBuoy, Package } from "lucide-react";
 import Link from "next/link";
 
+import { AppCard } from "@/components/app-ui/AppCard";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
-import { SettingsCard } from "@/components/app-ui/SettingsCard";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Button } from "@/components/ui/button";
 
@@ -22,39 +23,48 @@ type CreditSettingsCardProps = {
 export function CreditSettingsCard({ settings }: CreditSettingsCardProps) {
   const t = useTranslations("billing");
   const format = useBillingFormat();
+  const enabled = settings.overage_enabled;
 
   return (
-    <SettingsCard
-      title={t("credits.settings.title")}
-      description={t("credits.settings.description")}
+    <AppCard
+      title={
+        <span className="flex flex-wrap items-center gap-2">
+          {t("credits.settings.title")}
+          <StatusBadge status={enabled ? "active" : "inactive"}>
+            {enabled ? t("credits.settings.enabled") : t("credits.settings.disabled")}
+          </StatusBadge>
+        </span>
+      }
+      description={enabled ? t("credits.settings.overageDescription") : t("credits.settings.disabledDescription")}
       actions={
-        <Button asChild variant="outline" size="sm">
-          <Link href="/billing/credits">{t("credits.settings.buyPacks")}</Link>
+        <Button asChild variant="outline">
+          <Link href="/billing/credits">
+            <Package data-icon="inline-start" />
+            {t("credits.settings.buyPacks")}
+          </Link>
         </Button>
       }
     >
       <div className="flex flex-col gap-4">
-        <DefinitionList columns={2}>
-          <DefinitionListItem
-            label={t("credits.settings.overage")}
-            value={
-              <StatusBadge status={settings.overage_enabled ? "active" : "inactive"}>
-                {settings.overage_enabled ? t("credits.settings.enabled") : t("credits.settings.disabled")}
-              </StatusBadge>
-            }
-          />
-          {settings.overage_enabled ? (
+        {enabled ? (
+          <DefinitionList columns={4}>
             <DefinitionListItem
+              surface
               label={t("credits.settings.cap")}
               value={settings.overage_cap_credits ? format.credits(settings.overage_cap_credits) : t("credits.settings.noCap")}
             />
-          ) : null}
-        </DefinitionList>
-        <p className="text-sm text-muted-foreground">
-          {settings.overage_enabled ? t("credits.settings.overageDescription") : t("credits.settings.disabledDescription")}
-        </p>
-        <p className="text-sm text-muted-foreground">{t("credits.settings.managedBySupport")}</p>
+          </DefinitionList>
+        ) : null}
+        <div className="flex flex-col items-start gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-6 text-muted-foreground">{t("credits.settings.managedBySupport")}</p>
+          <Button asChild variant="ghost" size="sm" className="shrink-0">
+            <Link href="/support/tickets/new">
+              <LifeBuoy data-icon="inline-start" />
+              {t("credits.settings.contactSupport")}
+            </Link>
+          </Button>
+        </div>
       </div>
-    </SettingsCard>
+    </AppCard>
   );
 }

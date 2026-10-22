@@ -26,6 +26,8 @@ describe("CreditSettingsCard", () => {
     expect(screen.getByText(/Only GodarAI support can turn overage on/)).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute("href", "/support/tickets/new");
+    expect(screen.queryByText("Overage cap")).not.toBeInTheDocument();
   });
 
   it("shows the cap when support enabled overage", () => {

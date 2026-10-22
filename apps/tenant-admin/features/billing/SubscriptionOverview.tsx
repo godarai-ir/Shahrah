@@ -36,40 +36,48 @@ export function SubscriptionOverview({ summary, initialError }: SubscriptionOver
 
   const seatsRunning = summary.subscription_kind === "seats";
   const purchased = (type: "pro" | "max") => summary.paid.find((item) => item.type === type)?.purchased ?? 0;
+  const hasDetails = seatsRunning || summary.free_limit !== null;
 
+  // The free plan's next step is buying a first paid seat, so its action is the
+  // primary one; a running subscription only needs a way to the seats page.
   return (
     <AppCard
-      title={t("title")}
-      description={t("description")}
+      title={seatsRunning ? t("seats") : t("free")}
+      description={seatsRunning ? t("seatsDescription") : t("freeDescription")}
       actions={
-        <Button asChild variant="outline">
+        <Button asChild variant={seatsRunning ? "outline" : "default"}>
           <Link href="/billing/seats">
             <Armchair data-icon="inline-start" />
-            {t("manageSeats")}
+            {seatsRunning ? t("manageSeats") : t("buySeats")}
           </Link>
         </Button>
       }
     >
       <div className="flex flex-col gap-4">
-        <DefinitionList columns={2}>
-          <DefinitionListItem label={t("kind")} value={seatsRunning ? t("seats") : t("free")} />
-          {summary.free_limit !== null ? (
-            <DefinitionListItem
-              label={t("freeSeats")}
-              value={<span className="tabular-nums">{t("freeSeatsValue", { used: summary.free_used, total: summary.free_limit })}</span>}
-            />
-          ) : null}
-          {seatsRunning ? (
-            <>
-              <DefinitionListItem label={t("interval")} value={tIntervals(summary.billing_interval === "yearly" ? "yearly" : "monthly")} />
-              <DefinitionListItem label={t("periodEnd")} value={summary.period_end ? format.date(summary.period_end) : "—"} />
+        {hasDetails ? (
+          <DefinitionList columns={4}>
+            {seatsRunning ? (
               <DefinitionListItem
+                surface
                 label={t("paidSeats")}
                 value={<span className="tabular-nums">{t("paidSeatsValue", { pro: purchased("pro"), max: purchased("max") })}</span>}
               />
-            </>
-          ) : null}
-        </DefinitionList>
+            ) : null}
+            {summary.free_limit !== null ? (
+              <DefinitionListItem
+                surface
+                label={t("freeSeats")}
+                value={<span className="tabular-nums">{t("freeSeatsValue", { used: summary.free_used, total: summary.free_limit })}</span>}
+              />
+            ) : null}
+            {seatsRunning ? (
+              <>
+                <DefinitionListItem surface label={t("interval")} value={tIntervals(summary.billing_interval === "yearly" ? "yearly" : "monthly")} />
+                <DefinitionListItem surface label={t("periodEnd")} value={summary.period_end ? format.date(summary.period_end) : "—"} />
+              </>
+            ) : null}
+          </DefinitionList>
+        ) : null}
 
         {summary.renewal_due && summary.period_end ? (
           <Alert>
