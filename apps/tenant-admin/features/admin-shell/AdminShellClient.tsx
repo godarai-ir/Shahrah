@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, LogOut, Search, User, WalletCards } from "lucide-react";
+import { BookOpen, LogOut, Search, User } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -71,13 +71,6 @@ type AdminShellClientProps = {
     role: string;
   };
   permissions: string[];
-  walletSummary: {
-    availableBalanceIRR: number | null;
-    ledgerBalanceIRR: number | null;
-    committedUnsettledIRR: number;
-    reservedIRR: number;
-    syncStatus: string | null;
-  };
   subscriptionSummary: {
     planName: string | null;
     status: string | null;
@@ -103,7 +96,6 @@ function AdminShellClientContent({
   tenantSlug,
   currentUser,
   permissions,
-  walletSummary,
   subscriptionSummary,
   docsHref,
   appVersion,
@@ -171,7 +163,6 @@ function AdminShellClientContent({
               </div>
 
               <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
-                <WalletBalanceLink summary={walletSummary} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} appVersion={appVersion} />
                 {supportNavItem ? <SupportLink item={supportNavItem} /> : null}
                 <div className="hidden sm:block">
@@ -539,44 +530,6 @@ function subscribeToNothing() {
 
 function isApplePlatform() {
   return /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent);
-}
-
-function WalletBalanceLink({
-  summary,
-}: {
-  summary: {
-    availableBalanceIRR: number | null;
-    ledgerBalanceIRR: number | null;
-    committedUnsettledIRR: number;
-    reservedIRR: number;
-    syncStatus: string | null;
-  };
-}) {
-  const t = useTranslations("shell");
-  const moneyFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
-  const balanceLabel =
-    summary.availableBalanceIRR === null
-      ? t("wallet.unknown")
-      : t("wallet.available", { amount: moneyFormatter.format(summary.availableBalanceIRR) });
-  const isLowBalance = summary.availableBalanceIRR !== null && summary.availableBalanceIRR <= 0;
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon"
-      className={cn(
-        "hidden h-10 w-auto min-w-10 gap-2 px-3 md:inline-flex",
-        isLowBalance && "border-destructive/40 text-destructive hover:text-destructive",
-      )}
-      asChild
-    >
-      <Link href="/billing" aria-label={t("wallet.open")}>
-        <WalletCards data-icon="inline-start" aria-hidden="true" />
-        <span className="hidden truncate text-xs font-medium sm:inline">{balanceLabel}</span>
-      </Link>
-    </Button>
-  );
 }
 
 function DocsLink({ href }: { href: string }) {

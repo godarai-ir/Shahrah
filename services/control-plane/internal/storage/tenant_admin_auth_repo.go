@@ -443,16 +443,17 @@ func (s *TenantAdminRepository) TouchTenantAdminLastLogin(ctx context.Context, t
 		id, slug, email, mobile, role string
 		active                        bool
 		createdAt, updatedAt          time.Time
+		lastLoginAt                   time.Time
 	)
 
 	queryErr := s.pool.QueryRow(ctx, `
 		UPDATE users u
-		SET updated_at = NOW()
+		SET updated_at = NOW(), last_login_at = NOW()
 		FROM tenants t
 		WHERE t.slug = $1 AND u.tenant_id = t.tenant_id AND u.user_id::text = $2
 		RETURNING u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
-		          COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
-	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
+		          COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at, u.last_login_at
+	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt, &lastLoginAt)
 	if queryErr != nil {
 		if queryErr == pgx.ErrNoRows {
 			return nil, nil
@@ -462,7 +463,7 @@ func (s *TenantAdminRepository) TouchTenantAdminLastLogin(ctx context.Context, t
 	}
 
 	result := buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt)
-	result.LastLoginAtISO = time.Now().Format(time.RFC3339)
+	result.LastLoginAtISO = lastLoginAt.Format(time.RFC3339)
 
 	return result, nil
 }

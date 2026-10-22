@@ -68,14 +68,14 @@ export type AdminNavItem = {
   requiredPermissions: Permission[];
 };
 
-/** Tab order on "Users & access": identity first, then what it grants, then grouping. */
+/** Tab order on "Users & access": members and teams first, then keys, virtual users, roles, and apps. */
 export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "users",
-  "personalAccessTokens",
-  "oidcClients",
-  "accessManagement",
   "teams",
+  "personalAccessTokens",
   "virtualUsers",
+  "accessManagement",
+  "oidcClients",
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];

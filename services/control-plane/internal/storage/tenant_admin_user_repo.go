@@ -64,7 +64,7 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
-		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(u.active, true), u.created_at, u.updated_at, u.last_login_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
 		         '{}'
@@ -75,7 +75,7 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
 		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3 OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE $3)
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at, u.last_login_at
 		ORDER BY u.updated_at DESC, u.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, tenantSlug, query, like, limit, offset)
@@ -93,7 +93,7 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 			active              bool
 			roles               []string
 		)
-		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &active, &item.CreatedAt, &item.UpdatedAt, &item.LastLoginAt, &roles); err != nil {
 			return nil, 0, err
 		}
 
@@ -139,7 +139,7 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 	if err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
 		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
-		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(u.active, true), u.created_at, u.updated_at, u.last_login_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
 		         '{}'
@@ -150,10 +150,10 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
 		  AND u.user_id::text = $2
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at, u.last_login_at
 		LIMIT 1
 	`, tenantSlug, userID).Scan(
-		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &item.Active, &item.CreatedAt, &item.UpdatedAt, &roles,
+		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &item.Active, &item.CreatedAt, &item.UpdatedAt, &item.LastLoginAt, &roles,
 	); err != nil {
 		return nil, err
 	}
