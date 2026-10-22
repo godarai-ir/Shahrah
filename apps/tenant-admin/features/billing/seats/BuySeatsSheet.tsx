@@ -13,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 import { useBillingFormat } from "../use-billing-format";
-import { createSeatOrder, quoteSeats, type PaidSeatType, type SeatQuote } from "./api";
-import { seatErrorMessage } from "./domain";
+import { createSeatOrder, quoteSeats, type PaidSeatType, type SeatInterval, type SeatQuote } from "./api";
+import { seatErrorMessage } from "@/lib/seats";
 
 export type BuySeatsTarget = {
   seat: PaidSeatType;
@@ -31,12 +31,20 @@ type BuySeatsSheetProps = {
   target: BuySeatsTarget;
 };
 
-/** Buys paid seats for the rest of the billing period, priced pro rata, through the payment gateway. */
+/**
+ * Buys paid seats through the payment gateway. With a running seat subscription
+ * the seats are priced pro rata to its period end; otherwise the purchase starts
+ * the subscription, and the admin picks its billing interval here.
+ */
 export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps) {
   const t = useTranslations("billingSeats");
   const format = useBillingFormat();
   const [seat, setSeat] = useState<PaidSeatType>(target.seat);
   const [quantity, setQuantity] = useState("1");
+  const [billingInterval, setBillingInterval] = useState<SeatInterval>("monthly");
+  // Unknown until the first quote: only a purchase that starts the seat
+  // subscription may choose an interval; later seats follow the subscription.
+  const [startsSubscription, setStartsSubscription] = useState(false);
   const [quote, setQuote] = useState<SeatQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -52,9 +60,11 @@ export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps
     let canceled = false;
     const timer = window.setTimeout(() => {
       setQuoting(true);
-      quoteSeats({ seat, quantity: count })
+      quoteSeats({ seat, quantity: count, billing_interval: startsSubscription ? billingInterval : undefined })
         .then((next) => {
-          if (!canceled) setQuote(next);
+          if (canceled) return;
+          setQuote(next);
+          setStartsSubscription(next.starts_subscription);
         })
         .catch((err: unknown) => {
           if (!canceled) {
@@ -71,7 +81,7 @@ export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps
       canceled = true;
       window.clearTimeout(timer);
     };
-  }, [count, open, seat, t, validCount]);
+  }, [count, billingInterval, open, seat, startsSubscription, t, validCount]);
 
   async function pay() {
     setPaying(true);
@@ -81,6 +91,7 @@ export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps
         kind: "purchase",
         seat,
         quantity: count,
+        billing_interval: startsSubscription ? billingInterval : undefined,
         assign_user_id: target.assignUserID,
         request_id: target.requestID,
         return_url: `${window.location.origin}/billing/seats`,
@@ -97,7 +108,8 @@ export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps
   }
 
   // A quote for other inputs is never shown, so the amount on the button always matches the order.
-  const shownQuote = quote && quote.seat === seat && quote.quantity === count ? quote : null;
+  const shownQuote =
+    quote && quote.seat === seat && quote.quantity === count && (!quote.starts_subscription || quote.billing_interval === billingInterval) ? quote : null;
 
   return (
     <FormSheet
@@ -135,6 +147,25 @@ export function BuySeatsSheet({ open, onOpenChange, target }: BuySeatsSheetProps
           error={validCount ? undefined : t("buy.quantityInvalid")}
           description={forMember ? t("buy.forMemberHint") : t("buy.quantityHint")}
         />
+
+        {startsSubscription ? (
+          <AppSelectField
+            label={t("buy.interval")}
+            value={billingInterval}
+            onValueChange={(value) => setBillingInterval(value === "yearly" ? "yearly" : "monthly")}
+            description={t("buy.intervalHint")}
+            options={[
+              { value: "monthly", label: t("intervals.monthly") },
+              { value: "yearly", label: t("intervals.yearly") },
+            ]}
+          />
+        ) : null}
+
+        {startsSubscription ? (
+          <Alert>
+            <AlertDescription>{t("buy.startsSubscription")}</AlertDescription>
+          </Alert>
+        ) : null}
 
         {error ? (
           <Alert variant="destructive">

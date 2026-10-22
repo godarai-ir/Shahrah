@@ -1,7 +1,7 @@
 {
   "eyebrow": "Billing",
-  "title": "Plan Features and Limits",
-  "subtitle": "Review the current plan features and effective limits for this workspace.",
+  "title": "Subscription",
+  "subtitle": "Your seat subscription and the organization's credit settings.",
   "badges": {
     "current": "Current plan",
     "override": "Custom override"
@@ -86,5 +86,23 @@
     "loadSubscription": "Failed to load subscription.",
     "loadEntitlements": "Failed to load plan limits and access.",
     "loadPage": "Failed to load plan page data."
+  },
+  "subscription": {
+    "title": "Your subscription",
+    "description": "Your subscription is what you pay for paid seats. Every feature is available on every subscription.",
+    "kind": "Subscription",
+    "free": "Free: up to 5 members with free seats",
+    "seats": "Seat subscription",
+    "interval": "Billing interval",
+    "periodEnd": "Period ends",
+    "paidSeats": "Paid seats",
+    "paidSeatsValue": "{pro, number} Pro · {max, number} Max",
+    "freeSeats": "Free seats",
+    "freeSeatsValue": "{used, number} of {total, number}",
+    "noRenewal": "Nothing renews automatically. Renew paid seats on the seats page during the 7 days before the period ends; when the period ends without a renewal, only the paid seats stop.",
+    "startHint": "Buying the first Pro or Max seat starts a seat subscription. You choose monthly or yearly billing then.",
+    "renewalDue": "Seat renewal is open until {date}.",
+    "manageSeats": "Manage seats",
+    "loadError": "The subscription could not be loaded."
   }
 }

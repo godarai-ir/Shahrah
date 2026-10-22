@@ -13,6 +13,7 @@ var (
 	ErrPlanVersionNotFound               = errors.New("plan version not found")
 	ErrPlanVersionPublished              = errors.New("published plan versions are immutable")
 	ErrPlanUserLimitReached              = errors.New("plan user limit reached")
+	ErrPlansRetired                      = errors.New("plans are retired; paid seats start the seat subscription")
 	ErrCreditBillingNotEnabled           = errors.New("tenant is not billed in credits")
 	ErrCreditPackNotFound                = errors.New("credit pack not found")
 	ErrCreditPackOrderNotFound           = errors.New("credit pack order not found")

@@ -28,7 +28,7 @@ export function SeatSummaryCards({ summary }: { summary: SeatSummary }) {
             ? format.count(summary.free_used)
             : t("summary.ofTotal", { used: format.count(summary.free_used), total: format.count(summary.free_limit) })
         }
-        description={freeLeft === null ? t("summary.freeUnlimited") : t("summary.freeLeft", { count: freeLeft })}
+        description={t("summary.freeLeft", { count: freeLeft ?? 0 })}
         tone={freeLeft === 0 ? "warning" : "default"}
       />
       <MetricCard
@@ -57,8 +57,12 @@ export function SeatSummaryCards({ summary }: { summary: SeatSummary }) {
         density="compact"
         icon={CalendarClock}
         label={t("summary.periodEnd")}
-        value={summary.period_end ? format.date(summary.period_end) : "—"}
-        description={summary.billing_interval ? t(`intervals.${summary.billing_interval === "yearly" ? "yearly" : "monthly"}`) : t("summary.noSubscription")}
+        value={summary.subscription_kind === "seats" && summary.period_end ? format.date(summary.period_end) : t("summary.noSubscription")}
+        description={
+          summary.subscription_kind === "seats"
+            ? t(`intervals.${summary.billing_interval === "yearly" ? "yearly" : "monthly"}`)
+            : t("summary.noSubscriptionHint")
+        }
         tone="muted"
       />
     </div>

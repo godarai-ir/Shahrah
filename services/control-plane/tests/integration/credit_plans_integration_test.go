@@ -179,7 +179,7 @@ func TestIntegration_UserCapCountsInvitationsAndIsAtomic(t *testing.T) {
 	store, pool := newCreditIntegrationStore(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
-	planID, versionID := draftCreditVersion(t, pool, "developer") // 3 users
+	planID, versionID := draftCreditVersion(t, pool, "free") // 5 free seats, no paid seats
 
 	tenantID := newCreditLedgerTenant(t, pool, credits.BillingUnitIRR)
 	subscribeTenant(t, pool, tenantID, planID, versionID, "active", now.AddDate(0, 0, -1), now.AddDate(0, 1, 0))
@@ -193,7 +193,7 @@ func TestIntegration_UserCapCountsInvitationsAndIsAtomic(t *testing.T) {
 		capped  int
 	)
 
-	for i := range 6 {
+	for i := range 8 {
 		wg.Go(func() {
 			_, _, err := store.InviteTenantAdminUser(ctx, tenantID, slug, platform.InviteTenantAdminUserRequest{
 				Email: fmt.Sprintf("invitee-%d-%s@credits.example", i, uuid.NewString()[:6]), Role: "member",
@@ -214,16 +214,16 @@ func TestIntegration_UserCapCountsInvitationsAndIsAtomic(t *testing.T) {
 	}
 
 	wg.Wait()
-	require.Equal(t, 2, invited, "one member plus two invitations fill three seats")
+	require.Equal(t, 4, invited, "one member plus four invitations fill the five free seats")
 	require.Equal(t, 4, capped)
 
 	seats, err := store.GetTenantSeatUsage(ctx, tenantID)
 	require.NoError(t, err)
-	require.Equal(t, 3, seats.Used)
+	require.Equal(t, 5, seats.Used)
 	require.Equal(t, 1, seats.ActiveMembers)
-	require.Equal(t, 2, seats.PendingInvitations)
+	require.Equal(t, 4, seats.PendingInvitations)
 	require.NotNil(t, seats.Limit)
-	require.Equal(t, 3, *seats.Limit)
+	require.Equal(t, 5, *seats.Limit)
 
 	// A deactivated member cannot come back while the plan is full, by either path.
 	sleeperID := addTenantUser(t, pool, tenantID, false)
@@ -249,55 +249,49 @@ func TestIntegration_UserCapCountsInvitationsAndIsAtomic(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestIntegration_UserCapGrandfathersAndBlocksDowngrades(t *testing.T) {
+func TestIntegration_UserCapGrandfathersAndRetiresPlanChanges(t *testing.T) {
 	store, pool := newCreditIntegrationStore(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
-	planID, versionID := draftCreditVersion(t, pool, "team") // 10 users
+	planID, versionID := draftCreditVersion(t, pool, "free") // 5 free seats
 
-	tenantID := newCreditLedgerTenant(t, pool, credits.BillingUnitIRR)
+	tenantID := newCreditLedgerTenant(t, pool, credits.BillingUnitCredit)
 	subscribeTenant(t, pool, tenantID, planID, versionID, "active", now.AddDate(0, 0, -1), now.AddDate(0, 1, 0))
 	slug := tenantSlug(t, pool, tenantID)
 
-	for range 4 {
+	for range 6 {
 		addTenantUser(t, pool, tenantID, true)
 	}
 
-	// The published developer plan allows 3 users; 4 active members do not fit.
+	// Plans can no longer be changed; members come from seats.
 	_, err := store.ChangeTenantSubscription(ctx, tenantID, platform.ChangeTenantSubscriptionRequest{PlanSlug: "developer", BillingInterval: "monthly"})
-	require.ErrorIs(t, err, billing.ErrPlanUserLimitReached)
+	require.ErrorIs(t, err, billing.ErrPlansRetired)
 
 	_, err = store.PrepareTenantSubscriptionChange(ctx, tenantID, platform.ChangeTenantSubscriptionRequest{PlanSlug: "developer", BillingInterval: "monthly"}, "https://cb.example", "https://return.example")
-	require.ErrorIs(t, err, billing.ErrPlanUserLimitReached)
+	require.ErrorIs(t, err, billing.ErrPlansRetired)
 
 	// A tenant already over its cap keeps its members but cannot add more.
-	_, err = pool.Exec(ctx, `
-		INSERT INTO tenant_entitlement_overrides (tenant_id, feature_key, value_json, reason, active)
-		VALUES ($1::uuid, 'users.max', '2'::jsonb, 'integration test', true)
-	`, tenantID)
-	require.NoError(t, err)
-
 	_, _, err = store.InviteTenantAdminUser(ctx, tenantID, slug, platform.InviteTenantAdminUserRequest{Email: "late-" + strings.ToLower(uuid.NewString()[:6]) + "@credits.example"})
 	require.ErrorIs(t, err, billing.ErrPlanUserLimitReached)
 
 	var activeMembers int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT COUNT(1) FROM users WHERE tenant_id = $1::uuid AND active`, tenantID).Scan(&activeMembers))
-	require.Equal(t, 4, activeMembers, "nobody is removed")
+	require.Equal(t, 6, activeMembers, "nobody is removed")
 }
 
-func TestIntegration_CreditTrialCapsUsersForCreditTenantsOnly(t *testing.T) {
+func TestIntegration_UserCapIsFiveFreeSeatsForEveryTenant(t *testing.T) {
 	store, pool := newCreditIntegrationStore(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
-	planID, versionID := draftCreditVersion(t, pool, "growth") // 30 users
+	planID, versionID := draftCreditVersion(t, pool, "growth") // a retired plan with 30 users
 
-	for unit, wantLimit := range map[string]int{credits.BillingUnitCredit: credits.TrialMaxUsers, credits.BillingUnitIRR: 30} {
+	for _, unit := range []string{credits.BillingUnitCredit, credits.BillingUnitIRR} {
 		tenantID := newCreditLedgerTenant(t, pool, unit)
 		subscribeTenant(t, pool, tenantID, planID, versionID, "trialing", now.AddDate(0, 0, -1), now.AddDate(0, 0, 13))
 
 		seats, err := store.GetTenantSeatUsage(ctx, tenantID)
 		require.NoError(t, err)
 		require.NotNil(t, seats.Limit)
-		require.Equal(t, wantLimit, *seats.Limit, unit)
+		require.Equal(t, 5, *seats.Limit, "users.max no longer applies: %s", unit)
 	}
 }

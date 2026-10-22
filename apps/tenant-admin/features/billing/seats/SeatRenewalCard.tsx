@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { useBillingFormat } from "../use-billing-format";
 import { createSeatOrder, updateSeatRenewal, type PaidSeatType, type SeatSummary } from "./api";
-import { seatErrorMessage } from "./domain";
+import { seatErrorMessage } from "@/lib/seats";
 
 type SeatRenewalCardProps = {
   summary: SeatSummary;

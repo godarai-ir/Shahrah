@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 import { updateCreditSettings, type CreditSettings } from "../credits/api";
-import { seatErrorMessage } from "./domain";
+import { seatErrorMessage } from "@/lib/seats";
 
 const CREDIT_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 

@@ -1,6 +1,7 @@
 import { hiddenRolesInUI } from "@/lib/access/role-display";
 import { fullName, guessDisplayName, resolveIdentity } from "@/lib/access/identity";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
+import type { SeatType } from "@/lib/seats";
 
 import type { UsersURLState } from "./url-state";
 
@@ -27,15 +28,15 @@ export function listUserRoleNames(user: TenantAdminUser): string[] {
 
 export function filterMembers(
   members: TenantAdminUser[],
-  state: Pick<UsersURLState, "q" | "role" | "status">,
+  state: Pick<UsersURLState, "q" | "seat" | "status">,
+  seatByUserID: ReadonlyMap<string, SeatType> = new Map(),
 ): TenantAdminUser[] {
   const needle = state.q.trim().toLocaleLowerCase();
-  const role = state.role.trim().toLowerCase();
 
   return members.filter((member) => {
     if (state.status === "active" && !isUserActive(member)) return false;
     if (state.status === "deactivated" && isUserActive(member)) return false;
-    if (role && !listUserRoleNames(member).includes(role)) return false;
+    if (state.seat && seatByUserID.get(member.id) !== state.seat) return false;
     if (!needle) return true;
 
     const identity = resolveIdentity(member);

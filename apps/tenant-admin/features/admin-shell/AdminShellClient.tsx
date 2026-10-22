@@ -73,6 +73,7 @@ type AdminShellClientProps = {
   permissions: string[];
   subscriptionSummary: {
     planName: string | null;
+    planSlug?: string | null;
     status: string | null;
     periodEnd: string | null;
   };
@@ -309,6 +310,7 @@ type SidebarContentProps = {
   allNavItems: AdminNavItem[];
   subscriptionSummary: {
     planName: string | null;
+    planSlug?: string | null;
     status: string | null;
     periodEnd: string | null;
   };
@@ -595,6 +597,7 @@ function SidebarPlanSummary({
 }: {
   summary: {
     planName: string | null;
+    planSlug?: string | null;
     status: string | null;
     periodEnd: string | null;
   };
@@ -602,7 +605,8 @@ function SidebarPlanSummary({
 }) {
   const t = useTranslations("shell");
   const numberFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
-  const planName = summary.planName ?? t("plan.unknown");
+  const planName =
+    summary.planSlug === "free" ? t("plan.free") : summary.planSlug === "seats" ? t("plan.seats") : (summary.planName ?? t("plan.unknown"));
   const isExpired = ["expired", "canceled"].includes(summary.status?.trim().toLowerCase() ?? "");
   const periodLabel = isExpired
     ? t("plan.expired")

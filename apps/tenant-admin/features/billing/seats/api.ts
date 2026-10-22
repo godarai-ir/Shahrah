@@ -2,15 +2,9 @@ import { z } from "zod";
 
 import { requestParsedJSON } from "@/lib/http/api-client";
 
-/** Seat types a member can hold; "unassigned" means no seat. */
-export const SEAT_TYPES = ["free", "pro", "max", "unassigned"] as const;
-export type SeatType = (typeof SEAT_TYPES)[number];
-export const PAID_SEAT_TYPES = ["pro", "max"] as const;
-export type PaidSeatType = (typeof PAID_SEAT_TYPES)[number];
+import { paidSeatType, setMemberSeatResultSchema, type PaidSeatType } from "@/lib/seats";
 
-const seatType = z.enum(SEAT_TYPES);
-const paidSeatType = z.enum(PAID_SEAT_TYPES);
-const creditAmount = z.string();
+export type { PaidSeatType } from "@/lib/seats";
 
 export const seatOfferSchema = z.object({
   type: z.enum(["free", "pro", "max"]),
@@ -51,6 +45,8 @@ export const seatRenewalQuoteSchema = z.object({
 export const seatSummarySchema = z.object({
   enforced: z.boolean(),
   subscription_status: z.string().optional().default(""),
+  /** "free" until the first paid seat purchase starts the "seats" subscription. */
+  subscription_kind: z.enum(["free", "seats"]).optional().default("free"),
   billing_interval: z.string().optional(),
   period_start: z.string().nullish(),
   period_end: z.string().nullish(),
@@ -63,30 +59,6 @@ export const seatSummarySchema = z.object({
   pending_requests: z.number(),
   renewal_due: seatRenewalQuoteSchema.nullish(),
   tax_percent: z.string(),
-});
-
-export const seatMemberSchema = z.object({
-  user_id: z.string(),
-  email: z.string().optional().default(""),
-  name: z.string().optional().default(""),
-  role: z.string().optional().default(""),
-  active: z.boolean(),
-  seat: seatType,
-  pending_seat: z.string().optional().default(""),
-  pending_effective_at: z.string().nullish(),
-  free_seat_used: z.boolean(),
-  personal_granted_credits: creditAmount,
-  personal_remaining_credits: creditAmount,
-  pool_used_credits: creditAmount,
-  pool_limit_credits: creditAmount.nullable(),
-  assigned_at: z.string().nullish(),
-});
-
-const seatMemberListSchema = z.object({ items: z.array(seatMemberSchema), total: z.number() });
-
-export const setMemberSeatResultSchema = z.object({
-  member: seatMemberSchema,
-  timing: z.enum(["immediate", "period_end"]),
 });
 
 export const seatQuoteSchema = z.object({
@@ -103,6 +75,8 @@ export const seatQuoteSchema = z.object({
   tax_percent: z.string(),
   tax_irr: z.number(),
   payable_irr: z.number(),
+  /** Paying this quote starts the seat subscription; the period begins now. */
+  starts_subscription: z.boolean().optional().default(false),
 });
 
 export const seatOrderSchema = z.object({
@@ -147,7 +121,6 @@ export type SeatOffer = z.infer<typeof seatOfferSchema>;
 export type SeatTypeCount = z.infer<typeof seatTypeCountSchema>;
 export type SeatRenewalQuote = z.infer<typeof seatRenewalQuoteSchema>;
 export type SeatSummary = z.infer<typeof seatSummarySchema>;
-export type SeatMember = z.infer<typeof seatMemberSchema>;
 export type SeatQuote = z.infer<typeof seatQuoteSchema>;
 export type SeatOrder = z.infer<typeof seatOrderSchema>;
 export type SeatRequest = z.infer<typeof seatRequestSchema>;
@@ -156,25 +129,9 @@ export function getSeatSummary() {
   return requestParsedJSON(seatSummarySchema, "/api/billing/seats");
 }
 
-export function listSeatMembers(input: { q?: string; seat?: string } = {}) {
-  const params = new URLSearchParams({ limit: "500" });
-  if (input.q) params.set("q", input.q);
-  if (input.seat) params.set("seat", input.seat);
-  return requestParsedJSON(seatMemberListSchema, `/api/billing/seats/members?${params.toString()}`);
-}
+export type SeatInterval = "monthly" | "yearly";
 
-export function setMemberSeat(userID: string, input: { seat: SeatType; request_id?: string }) {
-  return requestParsedJSON(setMemberSeatResultSchema, `/api/billing/seats/members/${encodeURIComponent(userID)}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  });
-}
-
-export function cancelPendingSeatChange(userID: string) {
-  return requestParsedJSON(seatMemberSchema, `/api/billing/seats/members/${encodeURIComponent(userID)}/pending`, { method: "DELETE" });
-}
-
-export function quoteSeats(input: { seat: PaidSeatType; quantity: number }) {
+export function quoteSeats(input: { seat: PaidSeatType; quantity: number; billing_interval?: SeatInterval }) {
   return requestParsedJSON(seatQuoteSchema, "/api/billing/seats/quote", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -186,6 +143,7 @@ export function createSeatOrder(input: {
   kind: "purchase" | "renewal";
   seat?: PaidSeatType;
   quantity?: number;
+  billing_interval?: SeatInterval;
   assign_user_id?: string;
   request_id?: string;
   return_url: string;
@@ -211,11 +169,6 @@ export function denySeatRequest(requestID: string, note: string) {
 export function parseSeatSummary(payload: unknown): SeatSummary | null {
   const parsed = seatSummarySchema.safeParse(payload);
   return parsed.success ? parsed.data : null;
-}
-
-export function parseSeatMembers(payload: unknown): SeatMember[] {
-  const parsed = seatMemberListSchema.safeParse(payload);
-  return parsed.success ? parsed.data.items : [];
 }
 
 export function parseSeatRequests(payload: unknown): SeatRequest[] {

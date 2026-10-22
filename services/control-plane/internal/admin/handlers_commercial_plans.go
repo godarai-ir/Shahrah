@@ -524,6 +524,8 @@ func mapPlanStoreError(err error) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
 	case errors.Is(err, billingdomain.ErrSubscriptionPaymentIntentNotFound):
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	case errors.Is(err, billingdomain.ErrPlansRetired):
+		return fiber.NewError(fiber.StatusConflict, err.Error())
 	default:
 		return err
 	}

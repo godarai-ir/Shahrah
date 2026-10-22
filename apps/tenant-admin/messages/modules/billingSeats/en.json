@@ -13,14 +13,12 @@
     "yearly": "Yearly"
   },
   "tabs": {
-    "members": "Members",
     "requests": "Requests",
     "orders": "Orders"
   },
   "summary": {
     "free": "Free seats",
     "ofTotal": "{used} of {total}",
-    "freeUnlimited": "Your plan has no member cap",
     "freeLeft": "{count, number} free seats left",
     "pro": "Pro seats",
     "max": "Max seats",
@@ -28,54 +26,14 @@
     "unassigned": "Members without a seat",
     "unassignedHint": "They cannot send messages in GodarChat",
     "periodEnd": "Period ends",
-    "noSubscription": "No active subscription"
-  },
-  "members": {
-    "columns": {
-      "member": "Member",
-      "seat": "Seat",
-      "personal": "Personal credits",
-      "pool": "Organization credits used (this month)",
-      "actions": "Actions"
-    },
-    "pending": "From {date}: {seat}",
-    "remainingOf": "{remaining} of {granted}",
-    "poolOfLimit": "{used} of {limit}",
-    "changeSeat": "Change seat",
-    "cancelPending": "Cancel scheduled change",
-    "actionsFor": "Actions for {member}",
-    "search": "Search name or email",
-    "noResults": "No member matches.",
-    "empty": "No members yet.",
-    "pendingCanceled": "The member keeps their current seat."
-  },
-  "change": {
-    "title": "Change seat for {member}",
-    "current": "Current seat: {seat}",
-    "target": "New seat",
-    "apply": "Apply",
-    "schedule": "Schedule for period end",
-    "saved": "Seat updated.",
-    "whenNow": "Applies now",
-    "whenPeriodEnd": "Applies at the end of the period",
-    "nowHint": "The change applies right away.",
-    "paidSeatHint": "One available seat is taken from the organization's stock and the member gets this month's full quota now.",
-    "periodEndHint": "The member keeps their current seat until {date}, then the new seat applies. You can cancel the change until then.",
-    "blocked": {
-      "same": "The member already has this seat.",
-      "back_to_free": "A paid seat cannot go back to free.",
-      "free_used": "This member already used their free seat. Each member gets the free seat once."
-    },
-    "noStockTitle": "No seat of this type is available",
-    "noStockDescription": "Buy a seat and it goes to this member once paid.",
-    "buyAndAssign": "Buy and assign",
-    "buyAndAssignFor": "Buy and assign ({amount})"
+    "noSubscription": "No seat subscription yet",
+    "noSubscriptionHint": "The first paid seat starts it"
   },
   "buy": {
     "open": "Buy seats",
     "title": "Buy seats",
     "titleForMember": "Buy a seat for {member}",
-    "description": "Seats run to the end of the current subscription period; you pay only for the days left.",
+    "description": "With a seat subscription, new seats run to its period end and you pay only for the days left. Without one, this payment starts it.",
     "seat": "Seat type",
     "quantity": "Quantity",
     "quantityHint": "Bought seats stay in the organization's stock until you assign them.",
@@ -92,7 +50,10 @@
     "pay": "Pay {amount}",
     "payPending": "Pay",
     "rules": "Seats activate right after payment with this month's full quota. Seat reductions apply at the end of the period and are not refunded.",
-    "noPaymentURL": "The payment gateway returned no payment link. Try again."
+    "noPaymentURL": "The payment gateway returned no payment link. Try again.",
+    "interval": "Billing interval",
+    "intervalHint": "Every seat bought later follows this interval.",
+    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on this page during the 7 days before its period ends."
   },
   "requests": {
     "columns": {
@@ -148,9 +109,9 @@
   },
   "renewal": {
     "title": "Seat renewal",
-    "description": "Paid seats stay active until the end of the period they were paid for. After your plan renews, renew the seats too.",
-    "dueTitle": "Seats are not renewed through {date}",
-    "dueDescription": "{seats, number} seats need payment for the rest of the new period ({amount}). Seats not renewed are taken from members on their end date.",
+    "description": "Paid seats renew together for the next period of your seat subscription. Nothing renews automatically: pay the renewal during the 7 days before the period ends, or paid seats are taken back and members are left without a seat.",
+    "dueTitle": "Renew seats through {date}",
+    "dueDescription": "{seats, number} seats need payment for the next period ({amount}). Seats not renewed are taken from members when the current period ends.",
     "keep": "{seat} seats to renew",
     "keepHint": "You hold {held, number}; {assigned, number} are assigned.",
     "saveKeep": "Save",
@@ -186,8 +147,7 @@
     "seat_unchanged": "The member already has this seat.",
     "seat_back_to_free": "A paid seat cannot go back to free.",
     "free_seat_used": "This member already used their free seat.",
-    "free_seats_full": "Every free seat of the plan is taken.",
-    "seats_need_active_subscription": "Paid seats need an active subscription.",
+    "free_seats_full": "All free seats are taken. Buy a paid seat for more members.",
     "seat_purchase_required": "No seat of this type is available.",
     "member_not_found": "Member not found.",
     "no_pending_seat_change": "This member has no scheduled change.",
@@ -197,6 +157,7 @@
     "seat_renewal_not_due": "No seats need renewal.",
     "invalid_seat_renewal": "You cannot renew more seats than you hold.",
     "invalid_seat_pool_limit": "The limit must be a positive number with at most two decimals.",
-    "payment_provider_unavailable": "The payment gateway is unavailable."
+    "payment_provider_unavailable": "The payment gateway is unavailable.",
+    "seat_interval_locked": "New seats follow the billing interval of your seat subscription."
   }
 }

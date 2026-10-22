@@ -535,6 +535,7 @@ func seatErrorStatus(err error) (int, string) {
 		{seats.ErrInvalidSeatType, fiber.StatusBadRequest, "invalid_seat_type"},
 		{seats.ErrInvalidQuantity, fiber.StatusBadRequest, "invalid_seat_quantity"},
 		{seats.ErrIntervalNotSupported, fiber.StatusConflict, "seat_interval_not_supported"},
+		{seats.ErrIntervalLocked, fiber.StatusConflict, "seat_interval_locked"},
 		{seats.ErrSameSeat, fiber.StatusConflict, "seat_unchanged"},
 		{seats.ErrBackToFree, fiber.StatusConflict, "seat_back_to_free"},
 		{seats.ErrFreeSeatUsed, fiber.StatusConflict, "free_seat_used"},

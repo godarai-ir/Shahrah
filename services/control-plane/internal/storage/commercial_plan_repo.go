@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/singleflight"
@@ -412,74 +412,10 @@ func (s *SubscriptionRepository) GetTenantSubscription(ctx context.Context, tena
 	return scanTenantSubscription(rows)
 }
 
-func (s *SubscriptionRepository) ChangeTenantSubscription(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest) (*platform.TenantSubscription, error) {
-	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
-	if req.PlanSlug == "free" {
-		req.PlanSlug = "developer"
-	}
-
-	if req.BillingInterval == "" {
-		req.BillingInterval = "monthly"
-	}
-
-	target, err := s.catalog.publishedPlanBySlug(ctx, req.PlanSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	if fitErr := s.ensurePlanFitsSeats(ctx, tenantID, target.Versions[0].ID); fitErr != nil {
-		return nil, fitErr
-	}
-
-	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
-	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
-		return nil, currentErr
-	}
-
-	if current != nil && subscriptionStatusIsCurrent(current.Status) {
-		var currentOrder, targetOrder int
-		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder); err != nil {
-			return nil, err
-		}
-
-		if err := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, target.ID).Scan(&targetOrder); err != nil {
-			return nil, err
-		}
-
-		if current.Status != "trialing" && targetOrder < currentOrder {
-			if _, err := s.pool.Exec(ctx, `
-				UPDATE tenant_subscriptions
-				SET pending_version_id = $2::uuid,
-				    cancel_at_period_end = true,
-				    metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
-				    updated_at = NOW()
-				WHERE subscription_id = $1::uuid
-			`, current.ID, target.Versions[0].ID, mustJSON(map[string]interface{}{
-				"pending_plan_slug":        req.PlanSlug,
-				"pending_billing_interval": normalizeBillingInterval(req.BillingInterval),
-			})); err != nil {
-				return nil, err
-			}
-
-			if eventErr := s.insertSubscriptionEvent(ctx, tenantID, current.ID, "downgrade_scheduled", "tenant", map[string]interface{}{
-				"target_plan_slug": req.PlanSlug,
-			}); eventErr != nil {
-				return nil, eventErr
-			}
-
-			s.entitlements.invalidateTenantEntitlements(ctx, tenantID)
-
-			return s.GetTenantSubscription(ctx, tenantID)
-		}
-	}
-
-	return s.upsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{
-		TenantID:        tenantID,
-		PlanSlug:        req.PlanSlug,
-		BillingInterval: req.BillingInterval,
-		Status:          "active",
-		Metadata:        req.Metadata,
-	}, "tenant")
+// ChangeTenantSubscription is retired: tenants are on the free plan until a
+// paid seat purchase starts their seat subscription.
+func (s *SubscriptionRepository) ChangeTenantSubscription(_ context.Context, _ string, _ platform.ChangeTenantSubscriptionRequest) (*platform.TenantSubscription, error) {
+	return nil, billingdomain.ErrPlansRetired
 }
 
 func subscriptionStatusIsCurrent(status string) bool {
@@ -497,8 +433,12 @@ func (s *SubscriptionRepository) UpsertTenantSubscription(ctx context.Context, r
 
 func (s *SubscriptionRepository) upsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {
 	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
-	if req.PlanSlug == "free" || req.PlanSlug == "" {
-		req.PlanSlug = "developer"
+	if req.PlanSlug == "" {
+		req.PlanSlug = seats.FreePlanSlug
+	}
+
+	if req.PlanSlug != seats.FreePlanSlug && req.PlanSlug != seats.SeatsPlanSlug {
+		return nil, billingdomain.ErrPlansRetired
 	}
 
 	interval := normalizeBillingInterval(req.BillingInterval)
@@ -946,7 +886,11 @@ func (s *EntitlementRepository) DeleteTenantEntitlementOverride(ctx context.Cont
 	})
 }
 
-// ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.
+// ProcessSubscriptionTransitions ends seat subscriptions whose period is over.
+// A subscription whose seats were renewed moves on to its next period; any
+// other one ends and the tenant goes back to the free plan, which never
+// expires. Paid seats then lapse on their own (RunSeatLifecycle). Nothing is
+// charged here: seats are always prepaid.
 func (s *SubscriptionRepository) ProcessSubscriptionTransitions(ctx context.Context, now time.Time, limit int) (int, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.subscriptionDBTimeout)
 	defer cancel()
@@ -971,132 +915,15 @@ func (s *SubscriptionRepository) ProcessSubscriptionTransitions(ctx context.Cont
 		return 0, nil
 	}
 
-	type transition struct {
-		subscriptionID  string
-		tenantID        string
-		status          string
-		interval        string
-		periodStart     time.Time
-		periodEnd       time.Time
-		cancelAtEnd     bool
-		pendingVersion  string
-		pendingInterval string
-	}
-
-	rows, err := tx.Query(ctx, `
-		SELECT subscription_id::text, tenant_id::text, status, billing_interval, current_period_start, current_period_end,
-		       cancel_at_period_end, COALESCE(pending_version_id::text, ''),
-		       COALESCE(metadata->>'pending_billing_interval', '')
-		FROM tenant_subscriptions
-		WHERE status IN ('trialing', 'active', 'past_due') AND current_period_end <= $1
-		ORDER BY current_period_end ASC, subscription_id ASC
-		LIMIT $2
-		FOR UPDATE SKIP LOCKED
-	`, now, limit)
+	items, err := endedSeatSubscriptionsTx(ctx, tx, now, limit)
 	if err != nil {
 		return 0, err
 	}
 
-	items := []transition{}
-
-	for rows.Next() {
-		var item transition
-		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.status, &item.interval, &item.periodStart, &item.periodEnd, &item.cancelAtEnd, &item.pendingVersion, &item.pendingInterval); err != nil {
-			rows.Close()
-			return 0, err
-		}
-
-		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return 0, err
-	}
-
-	rows.Close()
-
 	tenantIDs := make([]string, 0, len(items))
-	for i := range items {
-		item := &items[i]
-		if err := issueHybridInvoiceForSubscriptionTx(ctx, tx, item.subscriptionID, item.tenantID, item.periodStart, item.periodEnd); err != nil {
+	for _, item := range items {
+		if err := endSeatSubscriptionPeriodTx(ctx, tx, item, now); err != nil {
 			return 0, err
-		}
-
-		decision := billingdomain.DecideSubscriptionTransition(billingdomain.SubscriptionTransitionInput{
-			Status:          item.status,
-			Interval:        item.interval,
-			CancelAtEnd:     item.cancelAtEnd,
-			PendingVersion:  item.pendingVersion,
-			PendingInterval: item.pendingInterval,
-		})
-
-		if decision.Kind == billingdomain.SubscriptionTransitionDowngrade {
-			interval := decision.Interval
-
-			var planID string
-			if err := tx.QueryRow(ctx, `SELECT plan_id::text FROM plan_versions WHERE version_id = $1::uuid`, item.pendingVersion).Scan(&planID); err != nil {
-				return 0, err
-			}
-
-			priceSnapshot := map[string]interface{}{"billing_interval": interval, "currency": "IRR", "amount_minor": 0, "discount_percent": 0}
-
-			var (
-				currency string
-				amount   *float64
-				discount float64
-			)
-
-			err := tx.QueryRow(ctx, `
-				SELECT currency, amount_minor::double precision, discount_percent::double precision
-				FROM plan_prices
-				WHERE version_id = $1::uuid AND billing_interval = $2
-			`, item.pendingVersion, interval).Scan(&currency, &amount, &discount)
-			if err == nil {
-				priceSnapshot["currency"] = currency
-
-				priceSnapshot["discount_percent"] = discount
-				if amount != nil {
-					priceSnapshot["amount_minor"] = *amount
-				}
-			} else if !errors.Is(err, pgx.ErrNoRows) {
-				return 0, err
-			}
-
-			if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'canceled', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
-				return 0, err
-			}
-
-			newSubscriptionID := uuid.NewString()
-			periodStart := now.UTC()
-
-			periodEnd := addBillingInterval(periodStart, interval)
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO tenant_subscriptions (
-					subscription_id, tenant_id, plan_id, version_id, status, billing_interval,
-					current_period_start, current_period_end, cancel_at_period_end, price_snapshot_json, metadata
-				) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'active', $5, $6, $7, false, $8, '{}'::jsonb)
-			`, newSubscriptionID, item.tenantID, planID, item.pendingVersion, interval, periodStart, periodEnd, mustJSON(priceSnapshot)); err != nil {
-				return 0, err
-			}
-
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
-				VALUES ($1::uuid, $2::uuid, $3, 'system', $4)
-			`, item.tenantID, newSubscriptionID, decision.EventType, mustJSON(map[string]interface{}{"previous_subscription_id": item.subscriptionID})); err != nil {
-				return 0, err
-			}
-		} else {
-			if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
-				return 0, err
-			}
-
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
-				VALUES ($1::uuid, $2::uuid, $3, 'system', '{}'::jsonb)
-			`, item.tenantID, item.subscriptionID, decision.EventType); err != nil {
-				return 0, err
-			}
 		}
 
 		tenantIDs = append(tenantIDs, item.tenantID)
@@ -1113,102 +940,76 @@ func (s *SubscriptionRepository) ProcessSubscriptionTransitions(ctx context.Cont
 	return len(items), nil
 }
 
-func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscriptionID, tenantID string, periodStart, periodEnd time.Time) error {
-	var (
-		rawUsageIRR     int64
-		giftCreditIRR   int64
-		discountIRR     int64
-		billingSnapshot []byte
-	)
+// endedSeatSubscription is a current, non-free subscription whose period is over.
+type endedSeatSubscription struct {
+	subscriptionID string
+	tenantID       string
+	interval       string
+	periodEnd      time.Time
+	paidThrough    time.Time
+}
 
-	if err := tx.QueryRow(ctx, `
-		SELECT
-			COALESCE(SUM(amount_irr) FILTER (WHERE tx_type = 'usage_debit' AND status = 'successful'), 0)::bigint,
-			COALESCE(SUM(amount_irr) FILTER (WHERE tx_type = 'gift_credit' AND status = 'successful'), 0)::bigint
-		FROM wallet_transactions
-		WHERE tenant_id = $1::uuid AND created_at >= $2 AND created_at < $3
-	`, tenantID, periodStart, periodEnd).Scan(&rawUsageIRR, &giftCreditIRR); err != nil {
-		return err
-	}
-
-	if err := tx.QueryRow(ctx, `
-		SELECT COALESCE(SUM(used_amount_irr), 0)::bigint
-		FROM discount_redemptions
-		WHERE tenant_id = $1::uuid AND created_at >= $2 AND created_at < $3
-		  AND status IN ('active', 'used')
-	`, tenantID, periodStart, periodEnd).Scan(&discountIRR); err != nil {
-		return err
-	}
-
-	if err := tx.QueryRow(ctx, `
-		SELECT COALESCE(
-			(SELECT jsonb_build_object('profile_type', profile_type, 'data', data)
-			 FROM billing_profiles
-			 WHERE tenant_id = $1::uuid),
-			'{}'::jsonb
-		)
-	`, tenantID).Scan(&billingSnapshot); err != nil {
-		return err
-	}
-
-	finalAmountIRR := rawUsageIRR - discountIRR
-	if finalAmountIRR < 0 {
-		finalAmountIRR = 0
-	}
-
-	invoiceID := uuid.NewString()
-	invoiceNumber := fmt.Sprintf("INV-%s-%s", periodEnd.UTC().Format("200601"), strings.Split(subscriptionID, "-")[0])
-
-	var insertedID string
-
-	err := tx.QueryRow(ctx, `
-		INSERT INTO invoices (
-			invoice_id, invoice_number, tenant_id, subscription_id, status, issued_at,
-			period_start, period_end, billing_profile_snapshot, raw_usage_irr, discount_irr,
-			gift_credit_irr, cache_savings_irr, final_amount_irr, net_adjustment_irr, metadata
-		)
-		VALUES (
-			$1::uuid, $2, $3::uuid, $4::uuid, 'issued', NOW(),
-			$5, $6, $7, $8, $9, $10, 0, $11, 0,
-			jsonb_build_object('settlement_model', 'hybrid')
-		)
-		ON CONFLICT DO NOTHING
-		RETURNING invoice_id::text
-	`, invoiceID, invoiceNumber, tenantID, subscriptionID, periodStart, periodEnd, billingSnapshot,
-		rawUsageIRR, discountIRR, giftCreditIRR, finalAmountIRR).Scan(&insertedID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-
+func endedSeatSubscriptionsTx(ctx context.Context, tx pgx.Tx, now time.Time, limit int) ([]endedSeatSubscription, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT ts.subscription_id::text, ts.tenant_id::text, ts.billing_interval, ts.current_period_end,
+		       COALESCE((SELECT MAX(b.paid_through) FROM tenant_seat_blocks b WHERE b.tenant_id = ts.tenant_id),
+		                ts.current_period_end)
+		FROM tenant_subscriptions ts
+		JOIN commercial_plans p ON p.plan_id = ts.plan_id
+		WHERE ts.status IN ('trialing', 'active', 'past_due') AND ts.current_period_end <= $1 AND p.slug <> $3
+		ORDER BY ts.current_period_end ASC, ts.subscription_id ASC
+		LIMIT $2
+		FOR UPDATE OF ts SKIP LOCKED
+	`, now, limit, seats.FreePlanSlug)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	defer rows.Close()
 
-	lineItems := []struct {
-		itemType    string
-		description string
-		amountIRR   int64
-	}{
-		{itemType: "usage", description: "Wallet usage debits", amountIRR: rawUsageIRR},
-		{itemType: "discount", description: "Discount redemptions", amountIRR: -discountIRR},
-		{itemType: "gift_credit", description: "Gift credits redeemed", amountIRR: -giftCreditIRR},
-	}
-	for _, line := range lineItems {
-		if line.amountIRR == 0 {
-			continue
+	items := []endedSeatSubscription{}
+
+	for rows.Next() {
+		var item endedSeatSubscription
+		if err := rows.Scan(&item.subscriptionID, &item.tenantID, &item.interval, &item.periodEnd, &item.paidThrough); err != nil {
+			return nil, err
 		}
 
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
+func endSeatSubscriptionPeriodTx(ctx context.Context, tx pgx.Tx, item endedSeatSubscription, now time.Time) error {
+	if next, renewed := seats.NextPeriod(item.periodEnd, item.paidThrough, item.interval); renewed {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO invoice_line_items (
-				line_item_id, invoice_id, item_type, provider_name, description, quantity, amount_irr, metadata
-			)
-			VALUES ($1::uuid, $2::uuid, $3, '', $4, 1, $5, '{}'::jsonb)
-		`, uuid.NewString(), insertedID, line.itemType, line.description, line.amountIRR); err != nil {
+			UPDATE tenant_subscriptions
+			SET current_period_start = current_period_end, current_period_end = $2, updated_at = NOW()
+			WHERE subscription_id = $1::uuid
+		`, item.subscriptionID, next); err != nil {
 			return err
 		}
+
+		_, err := tx.Exec(ctx, `
+			INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
+			VALUES ($1::uuid, $2::uuid, 'seat_subscription_renewed', 'system', $3)
+		`, item.tenantID, item.subscriptionID, mustJSON(map[string]interface{}{"period_end": next}))
+
+		return err
 	}
 
-	return nil
+	if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, item.subscriptionID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
+		VALUES ($1::uuid, $2::uuid, 'seat_subscription_ended', 'system', '{}'::jsonb)
+	`, item.tenantID, item.subscriptionID); err != nil {
+		return err
+	}
+
+	return startFreeSubscriptionTx(ctx, tx, item.tenantID, now, "seat_subscription_ended", "system")
 }
 
 func (s *PlanCatalogRepository) planIDBySlug(ctx context.Context, slug string) (string, error) {
@@ -1522,30 +1323,6 @@ func parseJSONMap(raw []byte) map[string]interface{} {
 	}
 
 	return map[string]interface{}{}
-}
-
-func numericFeatureLimit(value interface{}) (float64, bool) {
-	switch v := value.(type) {
-	case nil:
-		return 0, false
-	case int:
-		return float64(v), v >= 0
-	case int64:
-		return float64(v), v >= 0
-	case float64:
-		return v, v >= 0
-	case string:
-		raw := strings.TrimSpace(strings.ToLower(v))
-		if raw == "" || raw == "custom" || raw == "unlimited" || raw == "null" {
-			return 0, false
-		}
-
-		parsed, err := strconv.ParseFloat(raw, 64)
-
-		return parsed, err == nil && parsed >= 0
-	default:
-		return 0, false
-	}
 }
 
 func normalizeJSONNumbers(value interface{}) interface{} {

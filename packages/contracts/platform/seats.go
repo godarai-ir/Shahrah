@@ -62,8 +62,11 @@ type SeatTypeCount struct {
 
 // SeatSummary is a tenant's seat overview.
 type SeatSummary struct {
-	Enforced           bool            `json:"enforced"`
-	SubscriptionStatus string          `json:"subscription_status,omitempty"`
+	Enforced           bool   `json:"enforced"`
+	SubscriptionStatus string `json:"subscription_status,omitempty"`
+	// SubscriptionKind is "free" until the first paid seat purchase starts the
+	// "seats" subscription. Billing interval and period are set only for "seats".
+	SubscriptionKind   string          `json:"subscription_kind"`
 	BillingInterval    string          `json:"billing_interval,omitempty"`
 	PeriodStart        *time.Time      `json:"period_start,omitempty"`
 	PeriodEnd          *time.Time      `json:"period_end,omitempty"`
@@ -74,7 +77,8 @@ type SeatSummary struct {
 	Paid               []SeatTypeCount `json:"paid"`
 	Offers             []SeatTypeOffer `json:"offers"`
 	PendingRequests    int             `json:"pending_requests"`
-	// RenewalDue is set when paid seats lapse before the subscription period ends.
+	// RenewalDue is set while the seat subscription's renewal window is open
+	// and some paid seats are not yet paid for the next period.
 	RenewalDue *SeatRenewalQuote `json:"renewal_due,omitempty"`
 	TaxPercent string            `json:"tax_percent"`
 }
@@ -122,6 +126,9 @@ type SetMemberSeatResult struct {
 type SeatQuoteRequest struct {
 	Seat     string `json:"seat"`
 	Quantity int    `json:"quantity"`
+	// BillingInterval picks monthly or yearly for the purchase that starts the
+	// seat subscription. Later purchases follow the subscription's interval.
+	BillingInterval string `json:"billing_interval,omitempty"`
 }
 
 // SeatQuote is the price of a seat purchase. Amounts are IRR.
@@ -139,6 +146,9 @@ type SeatQuote struct {
 	TaxPercent            string    `json:"tax_percent"`
 	TaxIRR                int64     `json:"tax_irr"`
 	PayableIRR            int64     `json:"payable_irr"`
+	// StartsSubscription is true when paying this quote starts the seat
+	// subscription: the period then begins at the purchase.
+	StartsSubscription bool `json:"starts_subscription"`
 }
 
 // SeatRenewalLine is one block of seats a renewal pays for.
@@ -162,11 +172,13 @@ type SeatRenewalQuote struct {
 
 // CreateSeatOrderRequest starts a seat purchase or renewal.
 type CreateSeatOrderRequest struct {
-	Kind      string `json:"kind,omitempty"`
-	Seat      string `json:"seat,omitempty"`
-	Quantity  int    `json:"quantity,omitempty"`
-	Provider  string `json:"provider"`
-	ReturnURL string `json:"return_url,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	Seat     string `json:"seat,omitempty"`
+	Quantity int    `json:"quantity,omitempty"`
+	// BillingInterval is used only by the purchase that starts the seat subscription.
+	BillingInterval string `json:"billing_interval,omitempty"`
+	Provider        string `json:"provider"`
+	ReturnURL       string `json:"return_url,omitempty"`
 	// AssignUserID gives one of the bought seats to this member once paid.
 	AssignUserID string `json:"assign_user_id,omitempty"`
 	// RequestID approves this upgrade request once paid.

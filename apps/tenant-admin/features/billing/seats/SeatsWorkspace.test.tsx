@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { SeatMember, SeatSummary } from "./api";
+import type { SeatSummary } from "./api";
+import type { BuySeatsTarget } from "./BuySeatsSheet";
 import { SeatsWorkspace } from "./SeatsWorkspace";
 
 vi.mock("next-intl", async (importOriginal) => {
@@ -31,11 +32,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const summary: SeatSummary = {
   enforced: true,
   subscription_status: "active",
+  subscription_kind: "seats",
   billing_interval: "monthly",
   period_start: "2026-10-01T00:00:00Z",
   period_end: "2026-11-01T00:00:00Z",
-  free_limit: 10,
-  free_used: 10,
+  free_limit: 5,
+  free_used: 5,
   unassigned: 1,
   pending_invitations: 0,
   paid: [
@@ -46,23 +48,6 @@ const summary: SeatSummary = {
   pending_requests: 0,
   renewal_due: null,
   tax_percent: "10.00",
-};
-
-const member: SeatMember = {
-  user_id: "user-1",
-  email: "sara@example.com",
-  name: "Sara",
-  role: "member",
-  active: true,
-  seat: "free",
-  pending_seat: "",
-  pending_effective_at: null,
-  free_seat_used: true,
-  personal_granted_credits: "500.00",
-  personal_remaining_credits: "125.00",
-  pool_used_credits: "0.00",
-  pool_limit_credits: null,
-  assigned_at: "2026-10-02T00:00:00Z",
 };
 
 const quote = {
@@ -85,17 +70,17 @@ function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function renderWorkspace() {
+function renderWorkspace(initialBuyTarget?: BuySeatsTarget, current: SeatSummary = summary) {
   return render(
     <SeatsWorkspace
-      summary={summary}
-      members={[member]}
+      summary={current}
       requests={[]}
       orders={[]}
       settings={null}
       canManageMembers
       canManageBilling
       paymentResult={null}
+      initialBuyTarget={initialBuyTarget}
     />,
   );
 }
@@ -103,34 +88,58 @@ function renderWorkspace() {
 describe("SeatsWorkspace", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("shows each member's personal credits", () => {
+  it("summarizes the seat stock without a members list", () => {
     renderWorkspace();
 
     expect(screen.getByText("0 free seats left")).toBeInTheDocument();
-    expect(screen.getByText("Sara")).toBeInTheDocument();
-    expect(screen.getByText(/125\.00 .* of 500\.00/)).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Members" })).not.toBeInTheDocument();
   });
 
-  it("offers to buy a seat for the member when an upgrade has none in stock", async () => {
-    const fetchMock = vi.fn(async (url: string) =>
-      url.includes("/seats/members/")
-        ? jsonResponse(409, { error: { code: "seat_purchase_required", type: "seats", message: "no seat", quote } })
-        : jsonResponse(200, quote),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    renderWorkspace();
+  it("opens checkout for the member the users list sent here", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(200, quote)));
+    renderWorkspace({ seat: "pro", assignUserID: "user-1", assignLabel: "Sara" });
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Actions for Sara" }), { button: 0, ctrlKey: false });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Change seat" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/billing/seats/members/user-1", expect.objectContaining({ method: "PUT", body: JSON.stringify({ seat: "pro" }) })),
-    );
-    expect(await screen.findByText("No seat of this type is available")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Buy and assign/ }));
     expect(await screen.findByText("Buy a seat for Sara")).toBeInTheDocument();
     expect(await screen.findByText("12 of 31 days")).toBeInTheDocument();
+    expect(screen.queryByText("Billing interval")).not.toBeInTheDocument();
+  });
+
+  it("lets a free organization buy its first paid seat and pick the interval", async () => {
+    const freeSummary: SeatSummary = {
+      ...summary,
+      subscription_kind: "free",
+      billing_interval: undefined,
+      period_start: null,
+      period_end: null,
+    };
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { billing_interval?: string };
+      const interval = body.billing_interval ?? "monthly";
+      return jsonResponse(200, {
+        ...quote,
+        billing_interval: interval,
+        remaining_days: 31,
+        period_days: 31,
+        price_irr: quote.unit_period_price_irr,
+        starts_subscription: true,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderWorkspace(undefined, freeSummary);
+
+    expect(screen.getByText("No seat subscription yet")).toBeInTheDocument();
+
+    const buy = screen.getByRole("button", { name: "Buy seats" });
+    expect(buy).toBeEnabled();
+    buy.click();
+
+    expect(await screen.findByText("Billing interval")).toBeInTheDocument();
+    expect(screen.getByText(/This payment starts your seat subscription/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/billing/seats/quote",
+        expect.objectContaining({ body: expect.stringContaining('"billing_interval":"monthly"') }),
+      ),
+    );
   });
 });

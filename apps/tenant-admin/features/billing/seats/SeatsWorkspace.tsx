@@ -16,24 +16,19 @@ import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppLocale } from "@/hooks/use-locale-format";
 import { APIClientError } from "@/lib/http/api-client";
+import { seatErrorMessage } from "@/lib/seats";
 
 import type { CreditSettings } from "../credits/api";
 import { useBillingFormat } from "../use-billing-format";
 import {
   approveSeatRequest,
-  cancelPendingSeatChange,
   denySeatRequest,
   purchaseRequiredQuote,
-  type PaidSeatType,
-  type SeatMember,
   type SeatOrder,
   type SeatRequest,
   type SeatSummary,
 } from "./api";
 import { BuySeatsSheet, type BuySeatsTarget } from "./BuySeatsSheet";
-import { ChangeSeatDialog } from "./ChangeSeatDialog";
-import { seatErrorMessage } from "./domain";
-import { SeatMembersTable } from "./SeatMembersTable";
 import { SeatRenewalCard } from "./SeatRenewalCard";
 import { SeatRequestsTable } from "./SeatRequestsTable";
 import { SeatSettingsCard } from "./SeatSettingsCard";
@@ -48,7 +43,6 @@ const ORDER_TONE: Record<string, "success" | "pending" | "error" | "neutral"> = 
 
 type SeatsWorkspaceProps = {
   summary: SeatSummary;
-  members: SeatMember[];
   requests: SeatRequest[];
   orders: SeatOrder[];
   settings: CreditSettings | null;
@@ -57,39 +51,24 @@ type SeatsWorkspaceProps = {
   /** Buying and renewing seats needs billing:manage. */
   canManageBilling: boolean;
   paymentResult: "success" | "failed" | null;
+  /** Checkout to open on arrival, set when the members list sends a seat purchase for one member. */
+  initialBuyTarget?: BuySeatsTarget | null;
 };
 
-/** Member seats: who holds which seat, buying and renewing paid seats, and upgrade requests. */
+/** Seat stock: buying and renewing paid seats, upgrade requests, and orders. Members are managed on the users page. */
 export function SeatsWorkspace(props: SeatsWorkspaceProps) {
-  const { members, requests, orders, settings, canManageMembers, canManageBilling, paymentResult } = props;
+  const { requests, orders, settings, canManageMembers, canManageBilling, paymentResult, initialBuyTarget = null } = props;
   const t = useTranslations("billingSeats");
   const format = useBillingFormat();
   const locale = useAppLocale();
   const router = useRouter();
   const [summary, setSummary] = useState(props.summary);
-  const [changing, setChanging] = useState<SeatMember | null>(null);
-  const [buyTarget, setBuyTarget] = useState<BuySeatsTarget | null>(null);
+  const [buyTarget, setBuyTarget] = useState<BuySeatsTarget | null>(canManageBilling ? initialBuyTarget : null);
   const [pendingID, setPendingID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const openRequests = requests.filter((request) => request.status === "pending").length;
 
   const refresh = useCallback(() => router.refresh(), [router]);
-
-  const cancelPending = useCallback(
-    async (member: SeatMember) => {
-      setPendingID(member.user_id);
-      setError(null);
-      try {
-        await cancelPendingSeatChange(member.user_id);
-        showFeedbackToast({ kind: "success", title: t("members.pendingCanceled") });
-        refresh();
-      } catch (err) {
-        setError(seatErrorMessage(t, err));
-      }
-      setPendingID(null);
-    },
-    [refresh, t],
-  );
 
   const approve = useCallback(
     async (request: SeatRequest) => {
@@ -122,11 +101,6 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
     },
     [refresh, t],
   );
-
-  const buyForMember = useCallback((member: SeatMember, seat: PaidSeatType) => {
-    setChanging(null);
-    setBuyTarget({ seat, assignUserID: member.user_id, assignLabel: member.name || member.email });
-  }, []);
 
   const orderColumns = useMemo<ColumnDef<SeatOrder>[]>(
     () => [
@@ -178,25 +152,21 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-3xl text-sm text-muted-foreground">{t("intro")}</p>
         {canManageBilling ? (
-          <Button type="button" onClick={() => setBuyTarget({ seat: "pro" })} disabled={summary.subscription_status !== "active"}>
+          <Button type="button" onClick={() => setBuyTarget({ seat: "pro" })}>
             <ShoppingCart data-icon="inline-start" />
             {t("buy.open")}
           </Button>
         ) : null}
       </div>
 
-      <Tabs defaultValue="members">
+      <Tabs defaultValue="requests">
         <TabsList>
-          <TabsTrigger value="members">{t("tabs.members")}</TabsTrigger>
           <TabsTrigger value="requests">
             {t("tabs.requests")}
             {openRequests > 0 ? <Badge variant="secondary" className="ms-2 tabular-nums">{format.count(openRequests)}</Badge> : null}
           </TabsTrigger>
           <TabsTrigger value="orders">{t("tabs.orders")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="members" className="pt-4">
-          <SeatMembersTable members={members} canManage={canManageMembers} pendingUserID={pendingID} onChangeSeat={setChanging} onCancelPending={cancelPending} />
-        </TabsContent>
         <TabsContent value="requests" className="pt-4">
           <SeatRequestsTable requests={requests} canManage={canManageMembers} pendingID={pendingID} onApprove={approve} onDeny={deny} />
         </TabsContent>
@@ -208,17 +178,6 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
       <SeatRenewalCard summary={summary} canManage={canManageBilling} onSummaryChange={setSummary} />
       {settings ? <SeatSettingsCard initialSettings={settings} canManage={canManageBilling} /> : null}
 
-      <ChangeSeatDialog
-        key={changing?.user_id ?? "closed"}
-        member={changing}
-        onOpenChange={(open) => !open && setChanging(null)}
-        onChanged={() => {
-          showFeedbackToast({ kind: "success", title: t("change.saved") });
-          refresh();
-        }}
-        onBuyForMember={buyForMember}
-        periodEnd={summary.period_end}
-      />
       {buyTarget ? (
         <BuySeatsSheet
           key={`${buyTarget.seat}:${buyTarget.assignUserID ?? ""}:${buyTarget.requestID ?? ""}`}

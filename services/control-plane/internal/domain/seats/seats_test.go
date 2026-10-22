@@ -154,3 +154,41 @@ func TestKeys(t *testing.T) {
 	require.Equal(t, "seat_free:t:u", FreeGrantKey("t", "u"))
 	require.Equal(t, "credit:seat:t:u:window:202610", WindowKey(" t", "u ", "202610"))
 }
+
+func TestPeriodEnd(t *testing.T) {
+	start := time.Date(2026, time.October, 22, 9, 0, 0, 0, time.UTC)
+
+	monthly, err := PeriodEnd(start, "monthly")
+	require.NoError(t, err)
+	require.Equal(t, time.Date(2026, time.November, 22, 9, 0, 0, 0, time.UTC), monthly)
+
+	yearly, err := PeriodEnd(start, "annual")
+	require.NoError(t, err)
+	require.Equal(t, time.Date(2027, time.October, 22, 9, 0, 0, 0, time.UTC), yearly)
+
+	_, err = PeriodEnd(start, "quarterly")
+	require.ErrorIs(t, err, ErrIntervalNotSupported)
+}
+
+func TestRenewalOpen(t *testing.T) {
+	end := time.Date(2026, time.November, 22, 0, 0, 0, 0, time.UTC)
+
+	require.False(t, RenewalOpen(end, end.Add(-RenewalWindow-time.Second)), "too early")
+	require.True(t, RenewalOpen(end, end.Add(-RenewalWindow)), "window opens")
+	require.True(t, RenewalOpen(end, end.Add(-time.Second)), "last moment")
+	require.False(t, RenewalOpen(end, end), "period over")
+}
+
+func TestNextPeriod(t *testing.T) {
+	end := time.Date(2026, time.November, 22, 0, 0, 0, 0, time.UTC)
+
+	next, renewed := NextPeriod(end, end.AddDate(0, 1, 0), "monthly")
+	require.True(t, renewed)
+	require.Equal(t, end.AddDate(0, 1, 0), next)
+
+	_, renewed = NextPeriod(end, end, "monthly")
+	require.False(t, renewed, "seats paid only to the period end are not renewed")
+
+	_, renewed = NextPeriod(end, end.AddDate(0, 1, 0), "quarterly")
+	require.False(t, renewed)
+}

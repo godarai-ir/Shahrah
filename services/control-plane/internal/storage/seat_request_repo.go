@@ -232,7 +232,7 @@ func (s *SeatRepository) GetSeatStatus(ctx context.Context, tenantID, userID str
 		status.Lifetime = offer.Lifetime
 	}
 
-	if seatType.Paid() && sub.Found {
+	if seatType.Paid() && sub.running(now) {
 		if slice, ok := credits.CurrentPlanSlice(sub.PeriodStart, sub.PeriodEnd, now); ok {
 			renews := slice.End
 			status.RenewsAt = &renews

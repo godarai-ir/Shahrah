@@ -53,8 +53,9 @@ func paidSeatType(raw string) (seats.Type, error) {
 	return seatType, nil
 }
 
-// QuoteSeats prices buying paid seats from now to the end of the tenant's
-// current billing period.
+// QuoteSeats prices buying paid seats. With a running seat subscription the
+// seats are prorated to its period end; otherwise the purchase starts the seat
+// subscription and pays for a whole period of the requested interval.
 func (s *SeatRepository) QuoteSeats(ctx context.Context, tenantID string, req platform.SeatQuoteRequest, now time.Time) (*platform.SeatQuote, error) {
 	return s.quoteSeats(ctx, s.pool, tenantID, req, now.UTC())
 }
@@ -78,16 +79,17 @@ func (s *SeatRepository) quoteSeats(ctx context.Context, q interface {
 		return nil, err
 	}
 
-	if !sub.Found || sub.Status != "active" || !sub.PeriodEnd.After(now) {
-		return nil, seats.ErrSeatsUnavailable
-	}
-
-	unitPrice, listPrice, err := seatUnitPeriodPrice(ctx, q, seatType, sub.Interval)
+	period, err := seatPurchasePeriod(sub, req.BillingInterval, now)
 	if err != nil {
 		return nil, err
 	}
 
-	proration := seats.Prorate(unitPrice, sub.PeriodStart, sub.PeriodEnd, now)
+	unitPrice, listPrice, err := seatUnitPeriodPrice(ctx, q, seatType, period.interval)
+	if err != nil {
+		return nil, err
+	}
+
+	proration := seats.Prorate(unitPrice, period.start, period.end, now)
 
 	taxPercent, err := creditTaxPercent(ctx, q)
 	if err != nil {
@@ -98,12 +100,42 @@ func (s *SeatRepository) quoteSeats(ctx context.Context, q interface {
 	tax := seatTaxIRR(price, taxPercent)
 
 	return &platform.SeatQuote{
-		Seat: string(seatType), Quantity: req.Quantity, BillingInterval: seats.NormalizeInterval(sub.Interval),
-		PeriodStart: sub.PeriodStart, PeriodEnd: sub.PeriodEnd,
+		Seat: string(seatType), Quantity: req.Quantity, BillingInterval: period.interval,
+		PeriodStart: period.start, PeriodEnd: period.end, StartsSubscription: period.starts,
 		RemainingDays: proration.RemainingDays, PeriodDays: proration.PeriodDays,
 		ListPriceIRRPerCredit: listPrice, UnitPeriodPriceIRR: unitPrice,
 		PriceIRR: price, TaxPercent: taxPercent.StringFixed(2), TaxIRR: tax, PayableIRR: price + tax,
 	}, nil
+}
+
+// seatPeriod is the billing period a seat purchase pays for.
+type seatPeriod struct {
+	interval   string
+	start, end time.Time
+	// starts is true when the purchase starts the seat subscription.
+	starts bool
+}
+
+// seatPurchasePeriod picks the period of a seat purchase: the running seat
+// subscription's, or a new one of the requested interval starting now.
+func seatPurchasePeriod(sub seatSubscription, requested string, now time.Time) (seatPeriod, error) {
+	if sub.running(now) {
+		interval := seats.NormalizeInterval(sub.Interval)
+		if strings.TrimSpace(requested) != "" && seats.NormalizeInterval(requested) != interval {
+			return seatPeriod{}, seats.ErrIntervalLocked
+		}
+
+		return seatPeriod{interval: interval, start: sub.PeriodStart, end: sub.PeriodEnd}, nil
+	}
+
+	interval := seats.NormalizeInterval(requested)
+
+	end, err := seats.PeriodEnd(now, interval)
+	if err != nil {
+		return seatPeriod{}, err
+	}
+
+	return seatPeriod{interval: interval, start: now, end: end, starts: true}, nil
 }
 
 // seatUnitPeriodPrice is one seat for a whole billing period at the current
@@ -141,22 +173,28 @@ func seatTaxIRR(priceIRR int64, taxPercent decimal.Decimal) int64 {
 	return decimal.NewFromInt(priceIRR).Mul(taxPercent).Div(decimal.NewFromInt(100)).Round(0).IntPart()
 }
 
-// quoteSeatRenewal prices carrying the tenant's paid seats that lapse before
-// the current period ends to that end. It fails with ErrRenewalNotDue when
-// every paid seat already runs to the period end.
+// quoteSeatRenewal prices the seat subscription's next period for the paid
+// seats the tenant keeps. It is open for seats.RenewalWindow before the
+// period ends and fails with ErrRenewalNotDue otherwise, or when every kept
+// seat is already paid for the next period. Nothing renews automatically.
 func (s *SeatRepository) quoteSeatRenewal(ctx context.Context, q interface {
 	rowQuerier
 	rowsQuerier
 }, tenantID string, sub seatSubscription, now time.Time,
 ) (*platform.SeatRenewalQuote, error) {
-	if !sub.Found || sub.Status != "active" {
-		return nil, seats.ErrSeatsUnavailable
+	if !sub.running(now) || !seats.RenewalOpen(sub.PeriodEnd, now) {
+		return nil, seats.ErrRenewalNotDue
+	}
+
+	nextEnd, err := seats.PeriodEnd(sub.PeriodEnd, sub.Interval)
+	if err != nil {
+		return nil, err
 	}
 
 	rows, err := q.Query(ctx, `
 		SELECT block_id::text, seat_type, COALESCE(renew_quantity, quantity), paid_through
 		FROM tenant_seat_blocks
-		WHERE tenant_id = $1::uuid AND paid_through > $2 AND paid_through < $3
+		WHERE tenant_id = $1::uuid AND paid_through > $2 AND paid_through <= $3
 		  AND COALESCE(renew_quantity, quantity) > 0
 		ORDER BY paid_through, seat_type, block_id
 	`, tenantID, now, sub.PeriodEnd)
@@ -184,7 +222,7 @@ func (s *SeatRepository) quoteSeatRenewal(ctx context.Context, q interface {
 		return nil, err
 	}
 
-	quote := &platform.SeatRenewalQuote{Lines: lines, PeriodEnd: sub.PeriodEnd, TaxPercent: taxPercent.StringFixed(2)}
+	quote := &platform.SeatRenewalQuote{Lines: lines, PeriodEnd: nextEnd, TaxPercent: taxPercent.StringFixed(2)}
 
 	for _, line := range lines {
 		unitPrice, _, priceErr := seatUnitPeriodPrice(ctx, q, seats.Type(line.Seat), sub.Interval)
@@ -192,9 +230,8 @@ func (s *SeatRepository) quoteSeatRenewal(ctx context.Context, q interface {
 			return nil, priceErr
 		}
 
-		// The renewal covers paid_through to the period end, at the share of
-		// the period it spans.
-		quote.PriceIRR += seats.Prorate(unitPrice, sub.PeriodStart, sub.PeriodEnd, line.PaidThrough).AmountIRR * int64(line.Quantity)
+		// Seats are renewed together, a whole next period at a time.
+		quote.PriceIRR += unitPrice * int64(line.Quantity)
 	}
 
 	quote.TaxIRR = seatTaxIRR(quote.PriceIRR, taxPercent)
@@ -298,7 +335,9 @@ func (s *SeatRepository) CreateSeatOrder(ctx context.Context, tenantID string, r
 
 	switch strings.TrimSpace(req.Kind) {
 	case "", platform.SeatOrderPurchase:
-		quote, err := s.QuoteSeats(ctx, tenantID, platform.SeatQuoteRequest{Seat: req.Seat, Quantity: req.Quantity}, now)
+		quote, err := s.QuoteSeats(ctx, tenantID, platform.SeatQuoteRequest{
+			Seat: req.Seat, Quantity: req.Quantity, BillingInterval: req.BillingInterval,
+		}, now)
 		if err != nil {
 			return nil, err
 		}
@@ -330,8 +369,8 @@ func (s *SeatRepository) CreateSeatOrder(ctx context.Context, tenantID string, r
 		}
 
 		order.kind, order.seat = platform.SeatOrderRenewal, renewal.Lines[0].Seat
-		order.interval, order.periodStart, order.periodEnd = seats.NormalizeInterval(sub.Interval), sub.PeriodStart, sub.PeriodEnd
-		order.periodDays = seats.Prorate(1, sub.PeriodStart, sub.PeriodEnd, sub.PeriodStart).PeriodDays
+		order.interval, order.periodStart, order.periodEnd = seats.NormalizeInterval(sub.Interval), sub.PeriodEnd, renewal.PeriodEnd
+		order.periodDays = seats.Prorate(1, sub.PeriodEnd, renewal.PeriodEnd, sub.PeriodEnd).PeriodDays
 		order.remainingDays = order.periodDays
 		order.listPrice = listPrice
 		order.price, order.taxPercent, order.tax, order.payable = renewal.PriceIRR, renewal.TaxPercent, renewal.TaxIRR, renewal.PayableIRR
@@ -568,6 +607,10 @@ func (s *SeatRepository) CompleteSeatOrderByAuthority(ctx context.Context, autho
 func applySeatOrderTx(ctx context.Context, tx pgx.Tx, order *platform.SeatOrder, now time.Time) (string, error) {
 	if order.Kind == platform.SeatOrderRenewal {
 		return "", renewSeatBlocksTx(ctx, tx, order)
+	}
+
+	if err := startSeatSubscriptionForOrderTx(ctx, tx, order, now); err != nil {
+		return "", err
 	}
 
 	var blockID string

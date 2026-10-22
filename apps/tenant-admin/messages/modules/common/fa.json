@@ -39,9 +39,6 @@
   "table": {
     "columns": "ستون‌ها",
     "optionalColumns": "ستون‌های اختیاری",
-    "density": "چگالی",
-    "densityCompact": "فشرده",
-    "densityRelaxed": "معمولی",
     "selectAll": "انتخاب همه",
     "selectRow": "انتخاب ردیف",
     "selectedCount": "{count, plural, other {# مورد انتخاب شده}}",

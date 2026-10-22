@@ -35,7 +35,9 @@
     "daysRemaining": "{days} روز",
     "unknown": "پلن نامشخص",
     "noEndDate": "بدون تاریخ پایان",
-    "expired": "پایان یافته"
+    "expired": "پایان یافته",
+    "free": "رایگان",
+    "seats": "اشتراک صندلی"
   },
   "appVersion": {
     "label": "نسخه"
@@ -54,7 +56,7 @@
     "topup": "خرید اعتبار",
     "seats": "صندلی‌ها",
     "billingProfile": "هویت مالی",
-    "plan": "پلن",
+    "plan": "اشتراک",
     "settings": "تنظیمات حساب",
     "accountSettings": "حساب کاربری",
     "requestLoggingSettings": "تنظیمات لاگ درخواست",
@@ -70,7 +72,7 @@
     "oidcClients": "برنامه‌های متصل",
     "users": "اعضا",
     "logs": "لاگ درخواست‌ها",
-    "teams": "تیم‌ها",
+    "teams": "تیم‌ها",
     "traces": "ردیابی درخواست‌ها",
     "metrics": "سنجه‌های عملکرد",
     "gatewayPolicies": "سیاست‌های گیت‌وی",

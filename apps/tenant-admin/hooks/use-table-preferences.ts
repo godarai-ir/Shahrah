@@ -2,11 +2,9 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
-import type { TableDensity } from "@/components/ui/table";
+export type TablePreferences = { hiddenColumns: string[] };
 
-export type TablePreferences = { density: TableDensity; hiddenColumns: string[] };
-
-const DEFAULT_PREFERENCES: TablePreferences = { density: "compact", hiddenColumns: [] };
+const DEFAULT_PREFERENCES: TablePreferences = { hiddenColumns: [] };
 
 export function tablePreferencesKey(tableId: string) {
   return `table-prefs:${tableId}`;
@@ -27,7 +25,6 @@ export function readTablePreferences(tableId: string, defaults?: Partial<TablePr
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<TablePreferences>;
     return {
-      density: parsed.density === "relaxed" || parsed.density === "compact" ? parsed.density : fallback.density,
       hiddenColumns: Array.isArray(parsed.hiddenColumns)
         ? parsed.hiddenColumns.filter((id): id is string => typeof id === "string")
         : fallback.hiddenColumns,
@@ -79,11 +76,6 @@ export function useTablePreferences(tableId: string, defaults?: Partial<TablePre
     listeners.forEach((listener) => listener());
   }, [tableId]);
 
-  const setDensity = useCallback(
-    (density: TableDensity) => update({ ...preferences, density }),
-    [preferences, update],
-  );
-
   const columnVisibility = useMemo<Record<string, boolean>>(
     () => Object.fromEntries(preferences.hiddenColumns.map((id) => [id, false])),
     [preferences.hiddenColumns],
@@ -96,5 +88,5 @@ export function useTablePreferences(tableId: string, defaults?: Partial<TablePre
     });
   }, [preferences, update]);
 
-  return { density: preferences.density, setDensity, columnVisibility, setColumnVisibility };
+  return { columnVisibility, setColumnVisibility };
 }

@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/google/uuid"
@@ -44,21 +44,23 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	plans, err := store.ListPublicCommercialPlans(ctx)
 	require.NoError(t, err)
 
-	slugs := planSlugs(plans)
-	for _, expected := range []string{"developer", "team", "growth", "enterprise"} {
-		assert.Contains(t, slugs, expected)
-	}
+	// Plans are retired: only the free plan and the seat subscription remain.
+	assert.ElementsMatch(t, []string{seats.FreePlanSlug, seats.SeatsPlanSlug}, planSlugs(plans))
 
 	features, err := store.ListFeatureCatalog(ctx)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(features), 20)
 
 	tenant := createIntegrationTenant(t, pool, "entitlement-"+uuid.NewString()[:8])
-	_, err = store.UpsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{TenantID: tenant.ID, PlanSlug: "developer", BillingInterval: "yearly"}, "test")
+	_, err = store.UpsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{TenantID: tenant.ID, PlanSlug: seats.FreePlanSlug}, "test")
 	require.NoError(t, err)
 	base, err := store.ResolveEffectiveEntitlements(ctx, tenant.ID)
 	require.NoError(t, err)
-	assert.EqualValues(t, 3, base.Features[platform.FeatureUsersMax])
+	assert.Nil(t, base.Features[platform.FeatureUsersMax], "members come from seats, not users.max")
+	assert.Equal(t, true, base.Features["rbac.enabled"], "every feature is on for every tenant")
+
+	_, err = store.UpsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{TenantID: tenant.ID, PlanSlug: "developer"}, "test")
+	require.ErrorIs(t, err, billingdomain.ErrPlansRetired)
 
 	_, err = store.UpsertTenantEntitlementOverride(ctx, platform.UpsertTenantEntitlementOverrideRequest{
 		TenantID: tenant.ID, FeatureKey: platform.FeatureUsersMax, Value: 10, Reason: "contract", CreatedBy: "test",
@@ -70,7 +72,7 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 	assert.EqualValues(t, 10, effective.Overrides[platform.FeatureUsersMax])
 }
 
-func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
+func TestIntegration_PublishedVersionAndRetiredPlanChanges(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
@@ -111,58 +113,16 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	_, err = store.UpsertPlanEntitlement(ctx, planSlug, version.Version, platform.UpsertPlanEntitlementRequest{FeatureKey: platform.FeatureUsersMax, Value: 6})
 	assert.ErrorIs(t, err, billingdomain.ErrPlanVersionPublished)
 
-	tenant := createIntegrationTenant(t, pool, "downgrade-"+uuid.NewString()[:8])
-	paymentChange, err := store.PrepareTenantSubscriptionChange(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{
+	// Tenants can no longer buy or change plans: paid seats start the seat
+	// subscription instead.
+	tenant := createIntegrationTenant(t, pool, "retired-"+uuid.NewString()[:8])
+	_, err = store.PrepareTenantSubscriptionChange(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{
 		PlanSlug: planSlug, BillingInterval: "yearly", Provider: "mock",
 	}, "http://localhost/callback", "http://localhost/return")
-	require.NoError(t, err)
-	require.NotNil(t, paymentChange.PaymentIntent)
-	assert.Equal(t, "payment_required", paymentChange.Mode)
-	assert.Equal(t, float64(120000), paymentChange.PaymentIntent.AmountMinor)
-	assert.Equal(t, float64(20), paymentChange.PaymentIntent.DiscountPercent)
+	require.ErrorIs(t, err, billingdomain.ErrPlansRetired)
 
-	authority := "test_" + uuid.NewString()
-	require.NoError(t, store.AttachSubscriptionPaymentGatewayData(ctx, paymentChange.PaymentIntent.PublicID, authority, "http://localhost/pay", map[string]interface{}{"test": true}))
-	_, paidSubscription, alreadyProcessed, err := store.CompleteSubscriptionPaymentByAuthority(ctx, authority, map[string]interface{}{"status": "ok"}, "ref-1", "txn-1", "", "")
-	require.NoError(t, err)
-	assert.False(t, alreadyProcessed)
-	require.NotNil(t, paidSubscription)
-	assert.Equal(t, planSlug, paidSubscription.PlanSlug)
-
-	_, _, alreadyProcessed, err = store.CompleteSubscriptionPaymentByAuthority(ctx, authority, map[string]interface{}{"status": "ok"}, "ref-1", "txn-1", "", "")
-	require.NoError(t, err)
-	assert.True(t, alreadyProcessed)
-
-	_, err = store.UpsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{TenantID: tenant.ID, PlanSlug: "growth", BillingInterval: "monthly"}, "test")
-	require.NoError(t, err)
-	scheduled, err := store.ChangeTenantSubscription(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{PlanSlug: "developer", BillingInterval: "monthly"})
-	require.NoError(t, err)
-	assert.True(t, scheduled.CancelAtPeriodEnd)
-	assert.NotEmpty(t, scheduled.PendingVersionID)
-	_, err = pool.Exec(ctx, `UPDATE tenant_subscriptions SET current_period_end = NOW() - INTERVAL '1 minute' WHERE subscription_id = $1::uuid`, scheduled.ID)
-	require.NoError(t, err)
-	processed, err := store.ProcessSubscriptionTransitions(ctx, time.Now().UTC(), 10)
-	require.NoError(t, err)
-	assert.Equal(t, 1, processed)
-
-	current, err := store.GetTenantSubscription(ctx, tenant.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "developer", current.PlanSlug)
-
-	_, err = pool.Exec(ctx, `UPDATE tenant_subscriptions SET status = 'expired', updated_at = NOW() WHERE subscription_id = $1::uuid`, current.ID)
-	require.NoError(t, err)
-	store.InvalidateEffectiveEntitlements(ctx, tenant.ID)
-
-	expired, err := store.GetTenantSubscription(ctx, tenant.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "developer", expired.PlanSlug)
-	assert.Equal(t, "expired", expired.Status)
-
-	entitlements, err := store.ResolveEffectiveEntitlements(ctx, tenant.ID)
-	require.NoError(t, err)
-	require.NotNil(t, entitlements.Subscription)
-	assert.Equal(t, "expired", entitlements.Subscription.Status)
-	assert.Contains(t, entitlements.Features, platform.FeatureUsersMax)
+	_, err = store.ChangeTenantSubscription(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{PlanSlug: "developer", BillingInterval: "monthly"})
+	require.ErrorIs(t, err, billingdomain.ErrPlansRetired)
 }
 
 func planSlugs(plans []platform.CommercialPlan) []string {

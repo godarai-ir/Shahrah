@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { SeatMember } from "@/lib/seats";
+
 import UsersAccessManagement from "./UsersAccessManagement";
 
 const tMock = (key: string, values?: Record<string, unknown>) => {
@@ -14,10 +16,11 @@ const tMock = (key: string, values?: Record<string, unknown>) => {
 vi.mock("next-intl", () => ({ useTranslations: () => tMock, useLocale: () => "en" }));
 
 const replaceMock = vi.fn();
+const pushMock = vi.fn();
 let currentSearch = "";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: replaceMock, push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ replace: replaceMock, push: pushMock, refresh: vi.fn() }),
   usePathname: () => "/users",
   useSearchParams: () => new URLSearchParams(currentSearch),
 }));
@@ -33,11 +36,30 @@ const users = [{
   updated_at: "2026-07-01T00:00:00Z",
 }];
 
+const seatMember = {
+  user_id: "user-1",
+  email: "member@example.com",
+  name: "",
+  role: "member",
+  active: true,
+  seat: "free",
+  pending_seat: "",
+  pending_effective_at: null,
+  free_seat_used: true,
+  personal_granted_credits: "500.00",
+  personal_remaining_credits: "125.00",
+  pool_used_credits: "30.00",
+  pool_limit_credits: null,
+  assigned_at: "2026-10-02T00:00:00Z",
+};
+
 const roles = [
   { id: "role-member", name: "member", display_name: "Member", is_system: true, permissions: ["user:list"] },
   { id: "role-support", name: "support_agent", display_name: "Support Agent", is_system: false, permissions: [] },
   { id: "role-billing", name: "billing_manager", display_name: "Billing Manager", is_system: false, permissions: ["billing:read"] },
 ];
+
+let seatChange: "ok" | "purchase_required" = "ok";
 
 function mockApi(userLimit: number, rejectInvite: false | "conflict" | "plan_limit" = false, usedSeats = users.length) {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
@@ -52,7 +74,16 @@ function mockApi(userLimit: number, rejectInvite: false | "conflict" | "plan_lim
         text: async () => JSON.stringify({ error: { code: "plan_user_limit_reached", message: "The plan's user limit is reached." } }),
       };
     }
-    const payload = url === "/api/users/seats"
+    if (url.startsWith("/api/billing/seats/members/") && seatChange === "purchase_required") {
+      return {
+        ok: false,
+        status: 409,
+        text: async () => JSON.stringify({ error: { code: "seat_purchase_required", message: "no seat" } }),
+      };
+    }
+    const payload = url.startsWith("/api/billing/seats/members")
+      ? { items: [seatMember], total: 1 }
+      : url === "/api/users/seats"
       ? { used: usedSeats, active_members: users.length, pending_invitations: usedSeats - users.length, limit: userLimit }
       : url === "/api/access-keys"
         ? { data: [{ id: "key-1", key_alias: "cli", key_type: "pat", created_by_user_id: "user-1" }] }
@@ -68,6 +99,8 @@ function renderPage() {
     <UsersAccessManagement
       initialUsers={users}
       initialError={null}
+      initialSeatMembers={[seatMember as SeatMember]}
+      seatPeriodEnd="2026-11-01T00:00:00Z"
       initialPermissionCatalog={[{ key: "billing:read", group: "billing", description: "" }]}
       currentUserID="admin"
       canManageUsers
@@ -79,6 +112,8 @@ describe("UsersAccessManagement", () => {
   beforeEach(() => {
     currentSearch = "";
     replaceMock.mockClear();
+    pushMock.mockClear();
+    seatChange = "ok";
     mockApi(2);
     Element.prototype.scrollIntoView = vi.fn();
   });
@@ -122,14 +157,52 @@ describe("UsersAccessManagement", () => {
     expect(screen.getByText("table.moreRoles")).toBeInTheDocument();
   });
 
-  it("writes the role filter to the URL instead of local state", async () => {
+  it("shows the seat, personal credits, and organization usage of each member", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "filters.role" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("combobox", { name: "filters.role" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Billing Manager" }));
+    const row = (await screen.findByRole("cell", { name: "member@example.com" })).closest("tr")!;
+    expect(within(row).getByText("form.seatOptions.free")).toBeInTheDocument();
+    expect(within(row).getByText(/seat\.remainingOf/)).toBeInTheDocument();
+    expect(within(row).getByText("30.00 seat.creditsUnit")).toBeInTheDocument();
+  });
 
-    expect(replaceMock).toHaveBeenCalledWith("/users?role=billing_manager", { scroll: false });
+  async function openChangeSeat() {
+    renderPage();
+
+    const row = (await screen.findByRole("cell", { name: "member@example.com" })).closest("tr")!;
+    fireEvent.pointerDown(within(row).getByRole("button", { name: "actions.openMenu" }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "seat.changeSeat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "seat.change.apply" }));
+  }
+
+  it("changes the seat of a member from the list", async () => {
+    await openChangeSeat();
+
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/billing/seats/members/user-1",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ seat: "pro" }) }),
+      ),
+    );
+  });
+
+  it("sends the admin to billing to buy a seat when none is in stock", async () => {
+    seatChange = "purchase_required";
+    await openChangeSeat();
+
+    fireEvent.click(await screen.findByRole("button", { name: "seat.change.buyAndAssign" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/billing/seats?buy=pro&assign=user-1");
+  });
+
+  it("writes the seat filter to the URL instead of local state", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "filters.seat" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("combobox", { name: "filters.seat" }));
+    fireEvent.click(await screen.findByRole("option", { name: "form.seatOptions.pro" }));
+
+    expect(replaceMock).toHaveBeenCalledWith("/users?seat=pro", { scroll: false });
   });
 
   it("filters the roster by status without refetching", async () => {

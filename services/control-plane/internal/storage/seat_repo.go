@@ -22,9 +22,11 @@ type SeatRepository struct{ *walletState }
 // seatsInvalidateReason is the runtime-profile invalidation reason of a seat change.
 const seatsInvalidateReason = "seats_changed"
 
-// seatSubscription is a tenant's current subscription, if any.
+// seatSubscription is a tenant's current subscription, if any: the free plan
+// or the seat subscription that paid seats follow.
 type seatSubscription struct {
 	ID          string
+	PlanSlug    string
 	Status      string
 	Interval    string
 	PeriodStart time.Time
@@ -32,16 +34,24 @@ type seatSubscription struct {
 	Found       bool
 }
 
+// running reports whether the tenant has a seat subscription whose period is
+// still going at now. Paid seats bought then follow its period.
+func (sub seatSubscription) running(now time.Time) bool {
+	return sub.Found && sub.PlanSlug == seats.SeatsPlanSlug && sub.Status == "active" && sub.PeriodEnd.After(now)
+}
+
 func currentSeatSubscription(ctx context.Context, q rowQuerier, tenantID string) (seatSubscription, error) {
 	var sub seatSubscription
 
 	err := q.QueryRow(ctx, `
-		SELECT subscription_id::text, status, COALESCE(billing_interval, 'monthly'), current_period_start, current_period_end
-		FROM tenant_subscriptions
-		WHERE tenant_id = $1::uuid AND status IN ('trialing', 'active', 'past_due')
-		ORDER BY updated_at DESC
+		SELECT ts.subscription_id::text, p.slug, ts.status, COALESCE(ts.billing_interval, 'monthly'),
+		       ts.current_period_start, ts.current_period_end
+		FROM tenant_subscriptions ts
+		JOIN commercial_plans p ON p.plan_id = ts.plan_id
+		WHERE ts.tenant_id = $1::uuid AND ts.status IN ('trialing', 'active', 'past_due')
+		ORDER BY ts.updated_at DESC
 		LIMIT 1
-	`, tenantID).Scan(&sub.ID, &sub.Status, &sub.Interval, &sub.PeriodStart, &sub.PeriodEnd)
+	`, tenantID).Scan(&sub.ID, &sub.PlanSlug, &sub.Status, &sub.Interval, &sub.PeriodStart, &sub.PeriodEnd)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return seatSubscription{}, nil
 	}
@@ -247,9 +257,12 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, no
 		return nil, err
 	}
 
-	summary := &platform.SeatSummary{SubscriptionStatus: sub.Status, PendingInvitations: usage.Pending}
+	summary := &platform.SeatSummary{
+		SubscriptionStatus: sub.Status, SubscriptionKind: seats.FreePlanSlug, PendingInvitations: usage.Pending,
+	}
 
-	if sub.Found {
+	if sub.running(now) {
+		summary.SubscriptionKind = seats.SeatsPlanSlug
 		summary.BillingInterval = seats.NormalizeInterval(sub.Interval)
 		summary.PeriodStart, summary.PeriodEnd = &sub.PeriodStart, &sub.PeriodEnd
 	}
@@ -299,7 +312,7 @@ func (s *SeatRepository) GetSeatSummary(ctx context.Context, tenantID string, no
 
 	summary.TaxPercent = taxPercent.StringFixed(2)
 
-	if sub.Found && sub.Status == "active" {
+	if sub.running(now) {
 		renewal, renewalErr := s.quoteSeatRenewal(ctx, s.pool, tenantID, sub, now)
 		if renewalErr == nil {
 			summary.RenewalDue = renewal
@@ -664,12 +677,12 @@ func setMemberSeatTx(ctx context.Context, tx pgx.Tx, tenantID, userID string, ta
 		return seats.Change{}, err
 	}
 
-	if availableErr := ensureSeatAvailableTx(ctx, tx, tenantID, change, sub, now); availableErr != nil {
+	if availableErr := ensureSeatAvailableTx(ctx, tx, tenantID, change, now); availableErr != nil {
 		return seats.Change{}, availableErr
 	}
 
-	// Without a running period there is nothing to wait for.
-	if change.Timing == seats.AtPeriodEnd && (!sub.Found || !sub.PeriodEnd.After(now)) {
+	// Without a running seat subscription there is nothing to wait for.
+	if change.Timing == seats.AtPeriodEnd && !sub.running(now) {
 		change.Timing = seats.Immediate
 	}
 
@@ -687,7 +700,9 @@ func setMemberSeatTx(ctx context.Context, tx pgx.Tx, tenantID, userID string, ta
 }
 
 // ensureSeatAvailableTx checks the tenant has room for the change's new seat.
-func ensureSeatAvailableTx(ctx context.Context, tx pgx.Tx, tenantID string, change seats.Change, sub seatSubscription, now time.Time) error {
+// A paid seat needs a free seat of its type in stock; without one the admin
+// buys it, which starts the seat subscription when there is none yet.
+func ensureSeatAvailableTx(ctx context.Context, tx pgx.Tx, tenantID string, change seats.Change, now time.Time) error {
 	switch {
 	case change.To == seats.Free:
 		usage, err := tenantSeatUsageTx(ctx, tx, tenantID)
@@ -708,10 +723,6 @@ func ensureSeatAvailableTx(ctx context.Context, tx pgx.Tx, tenantID string, chan
 			return seats.ErrFreeSeatsFull
 		}
 	case change.NeedsPaidSeat:
-		if !sub.Found || sub.Status != "active" {
-			return seats.ErrSeatsUnavailable
-		}
-
 		stock, err := loadSeatStock(ctx, tx, tenantID, now)
 		if err != nil {
 			return err

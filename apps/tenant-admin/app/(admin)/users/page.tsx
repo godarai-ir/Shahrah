@@ -6,7 +6,7 @@ import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import { parseSeatUsage, parseUserListPayload } from "@/features/users/api";
+import { parseSeatMembers, parseSeatPeriodEnd, parseSeatUsage, parseUserListPayload } from "@/features/users/api";
 import { mePermissionsResponseSchema } from "@/lib/contracts/roles";
 import { buildDocsBaseHref } from "@/lib/docs-href";
 
@@ -29,7 +29,7 @@ export default async function UsersPage() {
   const parsedCatalog = mePermissionsResponseSchema.safeParse(permissionsPayload);
   const initialPermissionCatalog = parsedCatalog.success ? parsedCatalog.data.catalog ?? [] : [];
 
-  const [usersResult, seatsResult] = await Promise.all([
+  const [usersResult, seatsResult, seatMembersResult, seatSummaryResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -39,6 +39,19 @@ export default async function UsersPage() {
       tenantSlug,
       method: "GET",
       path: "/api/v1/users/seats",
+    }),
+    // Seat columns are optional: a reader without billing access still gets the roster.
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/billing/seats/members?limit=500",
+      userID: auth.user.id,
+    }),
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/billing/seats",
+      userID: auth.user.id,
     }),
   ]);
 
@@ -61,7 +74,7 @@ export default async function UsersPage() {
   };
 
   return (
-    <AdminShell messageNamespaces={["accessManagement"]}
+    <AdminShell messageNamespaces={["accessManagement", "billingSeats"]}
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={{ title: t("usersPage.title"), description, helpHref: docsHref }}
@@ -69,6 +82,8 @@ export default async function UsersPage() {
       <UsersAccessManagement
         initialUsers={initialUsers}
         initialError={initialError}
+        initialSeatMembers={seatMembersResult.ok ? parseSeatMembers(seatMembersResult.payload) : []}
+        seatPeriodEnd={seatSummaryResult.ok ? parseSeatPeriodEnd(seatSummaryResult.payload) : null}
         initialPermissionCatalog={initialPermissionCatalog}
         currentUserID={auth.user.id}
         canManageUsers={canManageUsers}

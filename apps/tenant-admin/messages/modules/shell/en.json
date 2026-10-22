@@ -35,7 +35,9 @@
     "daysRemaining": "{days} days left",
     "unknown": "Unknown plan",
     "noEndDate": "No end date",
-    "expired": "Ended"
+    "expired": "Ended",
+    "free": "Free",
+    "seats": "Seat subscription"
   },
   "appVersion": {
     "label": "Version"
@@ -54,7 +56,7 @@
     "topup": "Buy credits",
     "seats": "Seats",
     "billingProfile": "Financial Identity",
-    "plan": "Plan",
+    "plan": "Subscription",
     "settings": "Account Settings",
     "accountSettings": "Account",
     "requestLoggingSettings": "Request Logging",
@@ -75,7 +77,7 @@
     "gatewayPolicies": "Gateway Policies",
     "gatewayRules": "Limit rules",
     "guardrails": "Guardrails",
-    "teams": "Teams",
+    "teams": "Teams",
     "observe": "Observe",
     "accessAndUsers": "Users & access",
     "sectionTabs": "Subsections"

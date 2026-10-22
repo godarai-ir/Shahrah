@@ -20,16 +20,18 @@ import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { SearchField } from "@/components/app-ui/SearchField";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TablePagination } from "@/components/app-ui/TablePagination";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DataTable } from "@/components/ui/data-table";
-import { useCalendarLocale } from "@/hooks/use-locale-format";
+import { useCalendarLocale, useDateTimeFormatter, useNumberFormatter } from "@/hooks/use-locale-format";
 import { listTenantKeys, type TenantKey } from "@/lib/api/access-keys";
 import type { PermissionItem } from "@/lib/contracts/roles";
 import { memberDisplayName, resolveIdentity } from "@/lib/access/identity";
@@ -37,9 +39,11 @@ import { hiddenRolesInUI, resolveRoleDisplayName } from "@/lib/access/role-displ
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { APIClientError } from "@/lib/http/api-client";
+import { personalUsagePercent, SEAT_TONE, SEAT_TYPES, seatErrorMessage, type SeatMember } from "@/lib/seats";
 import { cn } from "@/lib/utils";
 
 import { MemberDetailSheet } from "./member-detail-sheet";
+import { MemberSeatDialog } from "./member-seat-dialog";
 import {
   filterMembers,
   hasTenantAdminRole,
@@ -49,9 +53,11 @@ import {
 import { parseUsersURLState, patchUsersURL, type MemberStatusFilter } from "./url-state";
 import {
   assignUserRole,
+  cancelPendingSeatChange,
   getUserSeats,
   inviteUser,
   updateUserProfile,
+  listSeatMembers,
   listUserRoles,
   listUsers,
   setUserActive,
@@ -68,6 +74,10 @@ type UsersAccessManagementProps = {
   initialUsers: TenantAdminUser[];
   initialError: string | null;
   initialPermissionCatalog: PermissionItem[];
+  /** Seat, personal credits, and organization usage per member; empty when the seat service is unreadable. */
+  initialSeatMembers: SeatMember[];
+  /** When a scheduled seat change takes effect, or null without a subscription. */
+  seatPeriodEnd: string | null;
   currentUserID: string;
   canManageUsers: boolean;
 };
@@ -81,7 +91,10 @@ const ROSTER_FETCH_LIMIT = 200;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
+  const tSeats = useTranslations("billingSeats");
   const calendarLocale = useCalendarLocale();
+  const creditFormatter = useNumberFormatter({ maximumFractionDigits: 0 });
+  const dateFormatter = useDateTimeFormatter({ year: "numeric", month: "2-digit", day: "2-digit" });
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -96,6 +109,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [seats, setSeats] = useState<SeatUsage | null>(null);
+  const [seatMembers, setSeatMembers] = useState<SeatMember[]>(props.initialSeatMembers);
+  const [changingSeatUserID, setChangingSeatUserID] = useState<string | null>(null);
+  const [cancelingSeatUserID, setCancelingSeatUserID] = useState<string | null>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
@@ -167,7 +183,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   };
   const identityLabel = mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email");
 
-  const filteredUsers = useMemo(() => filterMembers(users, urlState), [users, urlState]);
+  const seatTypeByUserID = useMemo(
+    () => new Map(seatMembers.map((member) => [member.user_id, member.seat])),
+    [seatMembers],
+  );
+  const filteredUsers = useMemo(
+    () => filterMembers(users, urlState, seatTypeByUserID),
+    [users, urlState, seatTypeByUserID],
+  );
   // Clamped rather than reset on filter change, so narrowing the results cannot
   // strand the table on a page that no longer exists.
   const lastPage = Math.max(0, Math.ceil(filteredUsers.length / PAGE_SIZE) - 1);
@@ -175,6 +198,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const pageUsers = useMemo(
     () => filteredUsers.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
     [filteredUsers, page],
+  );
+  const seatByUserID = useMemo(
+    () => new Map(seatMembers.map((member) => [member.user_id, member])),
+    [seatMembers],
+  );
+  const changingSeatUser = useMemo(
+    () => users.find((user) => user.id === changingSeatUserID) ?? null,
+    [users, changingSeatUserID],
   );
   const openMember = useMemo(
     () => users.find((user) => user.id === urlState.member) ?? null,
@@ -185,7 +216,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "member",
       header: t("table.member"),
-      meta: { label: t("table.member"), headerClassName: "w-[28%]" },
+      meta: { label: t("table.member") },
       cell: ({ row }) => {
         const displayName = memberDisplayName(row.original);
         return (
@@ -205,11 +236,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "identity",
       header: identityLabel,
-      meta: { label: identityLabel, headerClassName: "w-[28%]" },
+      meta: { label: identityLabel },
       cell: ({ row }) => {
         const identity = resolveIdentity(row.original);
         return (
-          <span dir="ltr" className="block truncate font-mono text-xs" title={identity}>
+          <span dir="ltr" className="block max-w-56 truncate font-mono text-xs" title={identity}>
             {identity}
           </span>
         );
@@ -244,9 +275,69 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       },
     },
     {
+      id: "seat",
+      header: t("table.seat"),
+      meta: { label: t("table.seat"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={SEAT_TONE[seat.seat]}>{t(`form.seatOptions.${seat.seat}`)}</StatusBadge>
+            {seat.pending_seat ? (
+              <span className="text-xs text-muted-foreground">
+                {t("seat.pending", {
+                  seat: t(`form.seatOptions.${seat.pending_seat === "pro" ? "pro" : "unassigned"}`),
+                  date: seat.pending_effective_at ? dateFormatter.format(new Date(seat.pending_effective_at)) : "—",
+                })}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      id: "personalCredits",
+      header: t("table.personalCredits"),
+      meta: { optional: true, label: t("table.personalCredits"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat || (seat.seat === "unassigned" && Number(seat.personal_granted_credits) === 0)) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
+          <div className="flex min-w-36 flex-col gap-1">
+            <span className="text-sm tabular-nums">
+              {t("seat.remainingOf", {
+                remaining: formatConsumedCredits(seat.personal_remaining_credits),
+                granted: formatCredits(seat.personal_granted_credits),
+              })}
+            </span>
+            <Progress value={personalUsagePercent(seat)} aria-label={t("table.personalCredits")} />
+          </div>
+        );
+      },
+    },
+    {
+      id: "poolUsage",
+      header: t("table.poolUsage"),
+      meta: { optional: true, label: t("table.poolUsage"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="tabular-nums">
+            {seat.pool_limit_credits
+              ? t("seat.poolOfLimit", { used: formatConsumedCredits(seat.pool_used_credits), limit: formatCredits(seat.pool_limit_credits) })
+              : formatConsumedCredits(seat.pool_used_credits)}
+          </span>
+        );
+      },
+    },
+    {
       id: "status",
       header: t("table.status"),
-      meta: { label: t("table.status") },
+      meta: { label: t("table.status"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
       cell: ({ row }) => {
         const active = isUserActive(row.original);
         return (
@@ -260,7 +351,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "lastActivity",
       header: t("table.lastActivity"),
-      meta: { optional: true, label: t("table.lastActivity") },
+      meta: { optional: true, label: t("table.lastActivity"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
       cell: ({ row }) => (
         <DateTimeValue
           value={row.original.last_login_at}
@@ -299,6 +390,22 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                   isAssigningRoleUserID === user.id,
                 onSelect: () => openRoleForm(user),
               },
+              {
+                label: t("seat.changeSeat"),
+                disabled: !props.canManageUsers || !seatByUserID.has(user.id),
+                onSelect: () => setChangingSeatUserID(user.id),
+              },
+              ...(seatByUserID.get(user.id)?.pending_seat
+                ? [
+                    {
+                      label: t("seat.cancelPending"),
+                      disabled: !props.canManageUsers,
+                      pending: cancelingSeatUserID === user.id,
+                      pendingLabel: t("seat.cancelPending"),
+                      onSelect: () => void cancelPendingSeat(user.id),
+                    },
+                  ]
+                : []),
               active
                 ? {
                     label: t("actions.deactivate"),
@@ -316,6 +423,19 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       },
     },
   ];
+
+  // Caps are whole numbers, so they show without decimals.
+  function formatCredits(value: string): string {
+    const amount = Number(value);
+    return creditFormatter.format(Number.isFinite(amount) ? amount : 0);
+  }
+
+  // Consumption is fractional on the server; it is rounded to whole credits and marked approximate.
+  function formatConsumedCredits(value: string): string {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount === 0) return creditFormatter.format(0);
+    return `~${creditFormatter.format(Math.round(amount))}`;
+  }
 
   const matchCount = filteredUsers.length;
   const from = matchCount === 0 ? 0 : page * PAGE_SIZE + 1;
@@ -349,6 +469,29 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     }
   }
 
+  // Seat state changes with every seat or status change, so it reloads with the roster.
+  async function refreshSeatMembers() {
+    try {
+      setSeatMembers((await listSeatMembers()).items);
+    } catch {
+      // Readers without billing access keep the columns they already have.
+    }
+  }
+
+  async function cancelPendingSeat(userID: string) {
+    if (!props.canManageUsers) return;
+    setCancelingSeatUserID(userID);
+    try {
+      await cancelPendingSeatChange(userID);
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("seat.pendingCanceled") });
+      await refreshSeatMembers();
+    } catch (error) {
+      showFeedbackToast({ kind: "error", title: t("alerts.error"), description: seatErrorMessage(tSeats, error) });
+    } finally {
+      setCancelingSeatUserID(null);
+    }
+  }
+
   async function loadUsers() {
     setIsLoading(true);
     try {
@@ -356,7 +499,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       search.set("limit", String(ROSTER_FETCH_LIMIT));
       search.set("offset", "0");
 
-      const [data] = await Promise.all([listUsers(search), refreshSeats()]);
+      const [data] = await Promise.all([listUsers(search), refreshSeats(), refreshSeatMembers()]);
       setUsers(data.data ?? []);
       setBanner(null);
     } catch (error) {
@@ -603,18 +746,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             }
             filters={
               <>
-                <FilterField label={t("filters.role")} hideLabel>
+                <FilterField label={t("filters.seat")} hideLabel>
                   <AppSelectField
-                    value={urlState.role || "all"}
-                    onValueChange={(value) => patchURL({ role: value === "all" ? null : value })}
-                    ariaLabel={t("filters.role")}
+                    value={urlState.seat || "all"}
+                    onValueChange={(value) => patchURL({ seat: value === "all" ? null : value })}
+                    ariaLabel={t("filters.seat")}
                     triggerClassName="h-8 w-40 text-xs"
                     options={[
-                      { value: "all", label: t("filters.allRoles") },
-                      ...availableRoles.map((role) => ({
-                        value: role.name,
-                        label: resolveRoleDisplayName(role.name, availableRoles, t),
-                      })),
+                      { value: "all", label: t("filters.allSeats") },
+                      ...SEAT_TYPES.map((seat) => ({ value: seat, label: t(`form.seatOptions.${seat}`) })),
                     ]}
                   />
                 </FilterField>
@@ -712,6 +852,20 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         }}
       />
 
+      <MemberSeatDialog
+        key={changingSeatUserID ?? "closed"}
+        member={changingSeatUserID ? seatByUserID.get(changingSeatUserID) ?? null : null}
+        memberLabel={changingSeatUser ? memberDisplayName(changingSeatUser) || resolveIdentity(changingSeatUser) : ""}
+        periodEnd={props.seatPeriodEnd}
+        onOpenChange={(open) => {
+          if (!open) setChangingSeatUserID(null);
+        }}
+        onChanged={() => {
+          showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("seat.change.saved") });
+          void refreshSeatMembers();
+        }}
+      />
+
       <FormSheet
         open={inviteOpen}
         onOpenChange={handleInviteOpenChange}
@@ -805,6 +959,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         description={t("usersPage.upgradeDialog.description", { limit: usersLimit ?? 0 })}
         cancelLabel={t("usersPage.upgradeDialog.cancel")}
         actionLabel={t("usersPage.upgradeDialog.action")}
+        upgradeHref="/billing/seats"
       />
 
       <FormSheet

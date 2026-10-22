@@ -23,7 +23,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  type TableDensity,
 } from "@/components/ui/table";
 import { useTablePreferences } from "@/hooks/use-table-preferences";
 import { cn } from "@/lib/utils";
@@ -47,15 +46,13 @@ export const SELECTION_COLUMN_ID = "__select";
 export type DataTableColumnOption = { id: string; label: string; visible: boolean };
 
 type DataTableContextValue = {
-  density: TableDensity;
-  setDensity: (density: TableDensity) => void;
   optionalColumns: DataTableColumnOption[];
   setColumnVisible: (id: string, visible: boolean) => void;
 };
 
 const DataTableContext = React.createContext<DataTableContextValue | null>(null);
 
-/** Density and column controls of the enclosing DataTable; null outside one. */
+/** Column controls of the enclosing DataTable; null outside one. */
 export function useDataTableContext() {
   return React.useContext(DataTableContext);
 }
@@ -105,7 +102,7 @@ export function DataTable<TData, TValue>({
     () => columns.filter((column) => column.meta?.optional && column.meta.defaultHidden).map(getColumnId),
     [columns],
   );
-  const { density, setDensity, columnVisibility, setColumnVisibility } = useTablePreferences(tableId, {
+  const { columnVisibility, setColumnVisibility } = useTablePreferences(tableId, {
     hiddenColumns: defaultHidden,
   });
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
@@ -178,8 +175,6 @@ export function DataTable<TData, TValue>({
 
   // The table instance is stable across renders, so column options are rebuilt every render.
   const context: DataTableContextValue = {
-    density,
-    setDensity,
     optionalColumns: optionalColumnOptions(table),
     setColumnVisible: (id, visible) => setColumnVisibility({ ...columnVisibility, [id]: visible }),
   };
@@ -193,7 +188,7 @@ export function DataTable<TData, TValue>({
     <DataTableContext.Provider value={context}>
       <div data-slot="data-table" className={cn("flex min-w-0 flex-col gap-3", className)}>
         {bar ? <div className="sticky top-16 z-10">{bar}</div> : null}
-        <Table className="text-xs lg:text-sm" density={density} dir={dir}>
+        <Table className="text-xs lg:text-sm" dir={dir}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

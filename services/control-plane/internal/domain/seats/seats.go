@@ -51,6 +51,61 @@ var Offers = map[Type]Offer{
 // PaidTypes lists the seat types tenants buy, in rank order.
 var PaidTypes = []Type{Pro, Max}
 
+// FreeSeatLimit is how many members of a tenant may hold a free seat. Every
+// paid seat a tenant buys adds one more member on top of it.
+const FreeSeatLimit = 5
+
+// Subscription plans. A tenant without paid seats is on FreePlanSlug, which
+// never expires; its first paid seat purchase starts a SeatsPlanSlug
+// subscription whose period every later seat follows.
+const (
+	FreePlanSlug  = "free"
+	SeatsPlanSlug = "seats"
+)
+
+// RenewalWindow is how long before the end of a seat subscription its renewal
+// can be paid. Nothing renews or is charged automatically.
+const RenewalWindow = 7 * 24 * time.Hour
+
+// PeriodEnd is the end of a seat subscription period of the interval that
+// starts at start.
+func PeriodEnd(start time.Time, interval string) (time.Time, error) {
+	switch NormalizeInterval(interval) {
+	case "monthly":
+		return start.AddDate(0, 1, 0), nil
+	case "yearly":
+		return start.AddDate(1, 0, 0), nil
+	default:
+		return time.Time{}, ErrIntervalNotSupported
+	}
+}
+
+// FreePeriodEnd is the period end of a free subscription, which never expires.
+var FreePeriodEnd = time.Date(9999, time.December, 31, 0, 0, 0, 0, time.UTC)
+
+// NextPeriod decides what happens when a seat subscription's period ends. When
+// the seats were paid through past the period end, the subscription moves on
+// to the next period of its interval and NextPeriod returns its end; otherwise
+// the subscription ends and the tenant moves back to the free plan.
+func NextPeriod(periodEnd, paidThrough time.Time, interval string) (time.Time, bool) {
+	if !paidThrough.After(periodEnd) {
+		return time.Time{}, false
+	}
+
+	next, err := PeriodEnd(periodEnd, interval)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return next, true
+}
+
+// RenewalOpen reports whether a seat subscription ending at periodEnd can be
+// renewed at now.
+func RenewalOpen(periodEnd, now time.Time) bool {
+	return now.Before(periodEnd) && !now.Before(periodEnd.Add(-RenewalWindow))
+}
+
 var (
 	// ErrInvalidSeatType is returned for an unknown seat type.
 	ErrInvalidSeatType = errors.New("seat type must be free, pro, max, or unassigned")
@@ -64,6 +119,9 @@ var (
 	ErrInvalidQuantity = errors.New("seat quantity must be between 1 and 1000")
 	// ErrIntervalNotSupported is returned for a billing interval seats cannot use.
 	ErrIntervalNotSupported = errors.New("seats are billed monthly or yearly")
+	// ErrIntervalLocked is returned for a seat purchase whose interval differs
+	// from the running seat subscription's.
+	ErrIntervalLocked = errors.New("seats follow the billing interval of the seat subscription")
 )
 
 // MaxQuantityPerOrder bounds one seat order.

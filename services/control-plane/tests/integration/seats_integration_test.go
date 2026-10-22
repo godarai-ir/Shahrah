@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// seatTenant is a credit tenant on an active team plan (10 free seats) whose
-// monthly period started start.
+// seatTenant is a credit tenant with a monthly seat subscription whose period
+// started start.
 func seatTenant(t *testing.T, pool *pgxpool.Pool, start time.Time) string {
 	t.Helper()
 
-	planID, versionID := draftCreditVersion(t, pool, "team")
+	planID, versionID := draftCreditVersion(t, pool, seats.SeatsPlanSlug)
 	tenantID := newCreditLedgerTenant(t, pool, credits.BillingUnitCredit)
 
 	_, err := pool.Exec(context.Background(), `
@@ -175,7 +175,7 @@ func TestIntegration_SeatsPurchaseAssignsAndGrantsAProSeat(t *testing.T) {
 	usage, err := store.GetTenantSeatUsage(ctx, tenantID)
 	require.NoError(t, err)
 	require.NotNil(t, usage.Limit)
-	require.Equal(t, 10+2, *usage.Limit, "paid seats add members beyond the plan's free seats")
+	require.Equal(t, seats.FreeSeatLimit+2, *usage.Limit, "paid seats add members beyond the free seats")
 }
 
 func TestIntegration_SeatsDowngradesWaitForThePeriodEnd(t *testing.T) {

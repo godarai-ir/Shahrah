@@ -89,6 +89,7 @@ async function loadSubscriptionSummary(
   userID: string,
 ): Promise<{
   planName: string | null;
+  planSlug: string | null;
   status: string | null;
   periodEnd: string | null;
 }> {
@@ -99,15 +100,18 @@ async function loadSubscriptionSummary(
     userID,
   });
 
-  if (!response.ok) return { planName: null, status: null, periodEnd: null };
+  if (!response.ok) return { planName: null, planSlug: null, status: null, periodEnd: null };
 
   const parsedPayload = tenantSubscriptionSchema.safeParse(response.payload);
-  if (!parsedPayload.success) return { planName: null, status: null, periodEnd: null };
+  if (!parsedPayload.success) return { planName: null, planSlug: null, status: null, periodEnd: null };
   const payload = parsedPayload.data;
+  const planSlug = payload.plan_slug?.trim() || null;
   return {
-    planName: payload.plan_display_name?.trim() || payload.plan_slug?.trim() || null,
+    planName: payload.plan_display_name?.trim() || planSlug,
+    planSlug,
     status: payload.status?.trim() || null,
-    periodEnd: payload.trial_ends_at?.trim() || payload.current_period_end?.trim() || null,
+    // The free plan never ends, so it has no period to count down.
+    periodEnd: planSlug === "free" ? null : payload.trial_ends_at?.trim() || payload.current_period_end?.trim() || null,
   };
 }
 

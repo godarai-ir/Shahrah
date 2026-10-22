@@ -82,7 +82,7 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
-	seedDefaultTenantSubscription(t, pool, "developer")
+	seedDefaultTenantSubscription(t, pool, "free")
 
 	createdKey := createVirtualKey(t, app, `{"key_alias":"db-tenant-key"}`)
 	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":200}`, provider.URL))
@@ -348,7 +348,7 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
 }
 
-func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *testing.T) {
+func TestIntegration_OnboardingVerifyProvisionsTheFreePlanAndCredit(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
@@ -388,19 +388,20 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 	require.NoError(t, pool.QueryRow(ctx, `SELECT billing_unit FROM tenants WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&billingUnit))
 	assert.Equal(t, "credit", billingUnit, "new tenants are billed in credits from signup")
 
+	// Plans and trials are retired: whatever plan the form asked for, a new
+	// tenant starts on the free plan, which never expires.
 	var (
-		planSlug, status string
-		trialDays        int
+		planSlug  string
+		trialEnds *time.Time
 	)
 	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT p.slug, ts.status, EXTRACT(DAY FROM ts.trial_ends_at - ts.trial_started_at)::int
+		SELECT p.slug, ts.trial_ends_at
 		FROM tenant_subscriptions ts
 		JOIN commercial_plans p ON p.plan_id = ts.plan_id
-		WHERE ts.tenant_id = $1::uuid AND ts.status = 'trialing'
-	`, provisioned.Tenant.ID).Scan(&planSlug, &status, &trialDays))
-	assert.Equal(t, "team", planSlug)
-	assert.Equal(t, "trialing", status)
-	assert.Equal(t, 15, trialDays)
+		WHERE ts.tenant_id = $1::uuid AND ts.status = 'active'
+	`, provisioned.Tenant.ID).Scan(&planSlug, &trialEnds))
+	assert.Equal(t, "free", planSlug)
+	assert.Nil(t, trialEnds)
 
 	var balance, credit float64
 	require.NoError(t, pool.QueryRow(ctx, `SELECT balance_irr FROM wallets WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&balance))
