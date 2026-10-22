@@ -13,22 +13,13 @@ const walletPayloadSchema = z.object({
   sync_status: z.string().optional(),
 });
 
-const tenantSubscriptionSchema = z.object({
-  plan_slug: z.string().optional(),
-  plan_display_name: z.string().optional(),
-  status: z.string().optional(),
-  current_period_end: z.string().optional(),
-  trial_ends_at: z.string().optional(),
-});
-
 export async function loadAdminShellData(tenantSlug: string, userID: string) {
-  const [permissions, walletSummary, subscriptionSummary] = await Promise.all([
+  const [permissions, walletSummary] = await Promise.all([
     loadCurrentPermissions(tenantSlug, userID),
     loadWalletSummary(tenantSlug, userID),
-    loadSubscriptionSummary(tenantSlug, userID),
   ]);
 
-  return { permissions, walletSummary, subscriptionSummary };
+  return { permissions, walletSummary };
 }
 
 export function getAppVersion(): string {
@@ -81,37 +72,6 @@ async function loadWalletSummary(tenantSlug: string, userID: string): Promise<{
     committedUnsettledIRR: Number.isFinite(committedUnsettled) ? committedUnsettled : 0,
     reservedIRR: Number.isFinite(reserved) ? reserved : 0,
     syncStatus: payload.sync_status?.trim() || null,
-  };
-}
-
-async function loadSubscriptionSummary(
-  tenantSlug: string,
-  userID: string,
-): Promise<{
-  planName: string | null;
-  planSlug: string | null;
-  status: string | null;
-  periodEnd: string | null;
-}> {
-  const response = await fetchControlPlaneJSON({
-    tenantSlug,
-    method: "GET",
-    path: "/api/v1/subscription",
-    userID,
-  });
-
-  if (!response.ok) return { planName: null, planSlug: null, status: null, periodEnd: null };
-
-  const parsedPayload = tenantSubscriptionSchema.safeParse(response.payload);
-  if (!parsedPayload.success) return { planName: null, planSlug: null, status: null, periodEnd: null };
-  const payload = parsedPayload.data;
-  const planSlug = payload.plan_slug?.trim() || null;
-  return {
-    planName: payload.plan_display_name?.trim() || planSlug,
-    planSlug,
-    status: payload.status?.trim() || null,
-    // The free plan never ends, so it has no period to count down.
-    periodEnd: planSlug === "free" ? null : payload.trial_ends_at?.trim() || payload.current_period_end?.trim() || null,
   };
 }
 

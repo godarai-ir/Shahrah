@@ -21,7 +21,6 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -56,7 +55,6 @@ import { ShellPageHeading } from "@/components/app-ui/ShellPageHeading";
 import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { PermissionsProvider } from "@/components/permissions-context";
 import { AdminShellPageProvider, useAdminShellPage } from "@/features/admin-shell/page-context";
-import { useNumberFormatter } from "@/hooks/use-locale-format";
 import { getLocaleDirection } from "@/lib/locale-direction";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
@@ -71,17 +69,10 @@ type AdminShellClientProps = {
     role: string;
   };
   permissions: string[];
-  subscriptionSummary: {
-    planName: string | null;
-    planSlug?: string | null;
-    status: string | null;
-    periodEnd: string | null;
-  };
   docsHref: string;
   appVersion: string;
 };
 
-const WHOLE_NUMBER_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 0 };
 export default function AdminShellClient({
   ...props
 }: AdminShellClientProps) {
@@ -97,7 +88,6 @@ function AdminShellClientContent({
   tenantSlug,
   currentUser,
   permissions,
-  subscriptionSummary,
   docsHref,
   appVersion,
 }: AdminShellClientProps) {
@@ -136,7 +126,6 @@ function AdminShellClientContent({
           tenantSlug={tenantSlug}
           navItems={visibleNavItems}
           allNavItems={navItems}
-          subscriptionSummary={subscriptionSummary}
           onNavigate={(href) => {
             router.replace(href);
             router.refresh();
@@ -308,12 +297,6 @@ type SidebarContentProps = {
   tenantSlug: string;
   navItems: AdminNavItem[];
   allNavItems: AdminNavItem[];
-  subscriptionSummary: {
-    planName: string | null;
-    planSlug?: string | null;
-    status: string | null;
-    periodEnd: string | null;
-  };
   onNavigate: (href: string) => void;
 };
 
@@ -321,7 +304,6 @@ function AdminSidebar({
   tenantSlug,
   navItems,
   allNavItems,
-  subscriptionSummary,
   onNavigate,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
@@ -442,9 +424,6 @@ function AdminSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border! p-2 group-data-[collapsible=icon]:hidden">
-        <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
-      </SidebarFooter>
       <SidebarRail aria-label={t("menu.toggle")} title={t("menu.toggle")} />
     </Sidebar>
   );
@@ -589,55 +568,4 @@ function getUserInitials(value: string): string {
   }
 
   return source.slice(0, 2).toUpperCase();
-}
-
-function SidebarPlanSummary({
-  summary,
-  onNavigate,
-}: {
-  summary: {
-    planName: string | null;
-    planSlug?: string | null;
-    status: string | null;
-    periodEnd: string | null;
-  };
-  onNavigate: () => void;
-}) {
-  const t = useTranslations("shell");
-  const numberFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
-  const planName =
-    summary.planSlug === "free" ? t("plan.free") : summary.planSlug === "seats" ? t("plan.seats") : (summary.planName ?? t("plan.unknown"));
-  const isExpired = ["expired", "canceled"].includes(summary.status?.trim().toLowerCase() ?? "");
-  const periodLabel = isExpired
-    ? t("plan.expired")
-    : summary.periodEnd
-      ? formatDaysRemaining(summary.periodEnd, t, numberFormatter)
-      : t("plan.noEndDate");
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton tooltip={t("nav.plan")} className="gap-2 text-xs" asChild>
-          <Link href="/billing/plan" onClick={onNavigate} aria-label={`${t("plan.label", { name: planName })} · ${periodLabel}`}>
-            <span className={cn("size-2 shrink-0 rounded-full", isExpired ? "bg-warning" : "bg-success")} aria-hidden="true" />
-            <span className="min-w-0 truncate font-medium">{planName}</span>
-            <span className={cn("ms-auto shrink-0 truncate", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>
-              {periodLabel}
-            </span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
-function formatDaysRemaining(
-  value: string,
-  t: (key: string, values?: Record<string, string | number>) => string,
-  numberFormatter: Intl.NumberFormat,
-): string {
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) return value;
-  const days = Math.max(0, Math.ceil((timestamp - Date.now()) / (24 * 60 * 60 * 1000)));
-  return t("plan.daysRemaining", { days: numberFormatter.format(days) });
 }

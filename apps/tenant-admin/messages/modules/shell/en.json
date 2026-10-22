@@ -30,15 +30,6 @@
   "docs": {
     "open": "View docs"
   },
-  "plan": {
-    "label": "Plan: {name}",
-    "daysRemaining": "{days} days left",
-    "unknown": "Unknown plan",
-    "noEndDate": "No end date",
-    "expired": "Ended",
-    "free": "Free",
-    "seats": "Seat subscription"
-  },
   "appVersion": {
     "label": "Version"
   },

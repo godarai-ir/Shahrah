@@ -30,15 +30,6 @@
   "docs": {
     "open": "مشاهده مستندات"
   },
-  "plan": {
-    "label": "طرح فعال: {name}",
-    "daysRemaining": "{days} روز",
-    "unknown": "پلن نامشخص",
-    "noEndDate": "بدون تاریخ پایان",
-    "expired": "پایان یافته",
-    "free": "رایگان",
-    "seats": "اشتراک صندلی"
-  },
   "appVersion": {
     "label": "نسخه"
   },
