@@ -192,7 +192,7 @@ describe("UsersAccessManagement", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "seat.change.buyAndAssign" }));
 
-    expect(pushMock).toHaveBeenCalledWith("/billing/seats?buy=pro&assign=user-1");
+    expect(pushMock).toHaveBeenCalledWith("/billing/seats/buy?seat=pro&assign=user-1");
   });
 
   it("writes the seat filter to the URL instead of local state", async () => {

@@ -46,7 +46,7 @@
     "proratedValue": "{remaining, number} از {total, number} روز",
     "periodEnd": "معتبر تا",
     "price": "قیمت",
-    "tax": "مالیات ({percent, number}٪)",
+    "tax": "مالیات بر ارزش افزوده ({percent, number}٪)",
     "payable": "مبلغ قابل پرداخت",
     "pay": "پرداخت {amount}",
     "payPending": "پرداخت",
@@ -54,7 +54,16 @@
     "noPaymentURL": "درگاه پرداخت آدرس پرداخت برنگرداند. دوباره تلاش کنید.",
     "interval": "دوره‌ی صورتحساب",
     "intervalHint": "صندلی‌هایی که بعداً بخرید هم همین دوره را دنبال می‌کنند.",
-    "startsSubscription": "این پرداخت اشتراک صندلی شما را شروع می‌کند. اشتراک خودکار تمدید نمی‌شود: در ۷ روز پایانی دوره، آن را از همین صفحه تمدید کنید."
+    "startsSubscription": "این پرداخت اشتراک صندلی شما را شروع می‌کند. اشتراک خودکار تمدید نمی‌شود: در ۷ روز پایانی دوره، آن را از همین صفحه تمدید کنید.",
+    "monthlyCredits": "{credits} اعتبار شخصی در ماه",
+    "back": "بازگشت به صندلی‌ها",
+    "formTitle": "صندلی و تعداد",
+    "summaryTitle": "خلاصه‌ی سفارش",
+    "pageDescription": "نوع و تعداد صندلی را انتخاب کنید و از درگاه پرداخت کنید.",
+    "monthlyPrice": "{price} برای هر صندلی در ماه",
+    "yearlyPrice": "{price} برای هر صندلی در سال",
+    "creditsTotal": "اعتبار شخصی این خرید",
+    "creditsTotalValue": "{credits} اعتبار در ماه"
   },
   "requests": {
     "columns": {

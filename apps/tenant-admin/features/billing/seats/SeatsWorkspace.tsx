@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ShoppingCart } from "lucide-react";
@@ -16,7 +17,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppLocale } from "@/hooks/use-locale-format";
 import { APIClientError } from "@/lib/http/api-client";
-import { seatErrorMessage } from "@/lib/seats";
+import { buySeatsHref, seatErrorMessage } from "@/lib/seats";
 
 import type { CreditSettings } from "../credits/api";
 import { useBillingFormat } from "../use-billing-format";
@@ -28,7 +29,6 @@ import {
   type SeatRequest,
   type SeatSummary,
 } from "./api";
-import { BuySeatsSheet, type BuySeatsTarget } from "./BuySeatsSheet";
 import { SeatRenewalCard } from "./SeatRenewalCard";
 import { SeatRequestsTable } from "./SeatRequestsTable";
 import { SeatSettingsCard } from "./SeatSettingsCard";
@@ -51,19 +51,16 @@ type SeatsWorkspaceProps = {
   /** Buying and renewing seats needs billing:manage. */
   canManageBilling: boolean;
   paymentResult: "success" | "failed" | null;
-  /** Checkout to open on arrival, set when the members list sends a seat purchase for one member. */
-  initialBuyTarget?: BuySeatsTarget | null;
 };
 
 /** Seat stock: buying and renewing paid seats, upgrade requests, and orders. Members are managed on the users page. */
 export function SeatsWorkspace(props: SeatsWorkspaceProps) {
-  const { requests, orders, settings, canManageMembers, canManageBilling, paymentResult, initialBuyTarget = null } = props;
+  const { requests, orders, settings, canManageMembers, canManageBilling, paymentResult } = props;
   const t = useTranslations("billingSeats");
   const format = useBillingFormat();
   const locale = useAppLocale();
   const router = useRouter();
   const [summary, setSummary] = useState(props.summary);
-  const [buyTarget, setBuyTarget] = useState<BuySeatsTarget | null>(canManageBilling ? initialBuyTarget : null);
   const [pendingID, setPendingID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const openRequests = requests.filter((request) => request.status === "pending").length;
@@ -80,14 +77,14 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         refresh();
       } catch (err) {
         if (err instanceof APIClientError && purchaseRequiredQuote(err.payload) !== undefined) {
-          setBuyTarget({ seat: request.requested_seat, assignUserID: request.user_id, assignLabel: request.name || request.email, requestID: request.id });
+          router.push(buySeatsHref(request.requested_seat, request.user_id, request.id));
         } else {
           setError(seatErrorMessage(t, err));
         }
       }
       setPendingID(null);
     },
-    [refresh, t],
+    [refresh, router, t],
   );
 
   const deny = useCallback(
@@ -150,9 +147,11 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{t("intro")}</p>
         {canManageBilling ? (
-          <Button type="button" onClick={() => setBuyTarget({ seat: "pro" })}>
-            <ShoppingCart data-icon="inline-start" />
-            {t("buy.open")}
+          <Button asChild>
+            <Link href="/billing/seats/buy">
+              <ShoppingCart data-icon="inline-start" />
+              {t("buy.open")}
+            </Link>
           </Button>
         ) : null}
       </div>
@@ -178,15 +177,6 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
 
       <SeatRenewalCard summary={summary} canManage={canManageBilling} onSummaryChange={setSummary} />
       {settings ? <SeatSettingsCard initialSettings={settings} canManage={canManageBilling} /> : null}
-
-      {buyTarget ? (
-        <BuySeatsSheet
-          key={`${buyTarget.seat}:${buyTarget.assignUserID ?? ""}:${buyTarget.requestID ?? ""}`}
-          open
-          onOpenChange={(open) => !open && setBuyTarget(null)}
-          target={buyTarget}
-        />
-      ) : null}
     </div>
   );
 }

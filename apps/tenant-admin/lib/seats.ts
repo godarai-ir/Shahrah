@@ -107,3 +107,12 @@ export const SEAT_TONE: Record<SeatType, "info" | "success" | "neutral" | "warni
   free: "neutral",
   unassigned: "warning",
 };
+
+/** The checkout page, buying one seat for a member when `assignUserID` is set. */
+export function buySeatsHref(seat: PaidSeatType, assignUserID?: string, requestID?: string): string {
+  const params = new URLSearchParams({ seat });
+  if (assignUserID) params.set("assign", assignUserID);
+  if (requestID) params.set("request", requestID);
+
+  return `/billing/seats/buy?${params.toString()}`;
+}

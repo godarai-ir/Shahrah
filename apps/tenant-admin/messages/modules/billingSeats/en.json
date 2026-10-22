@@ -46,7 +46,7 @@
     "proratedValue": "{remaining, number} of {total, number} days",
     "periodEnd": "Valid until",
     "price": "Price",
-    "tax": "Tax ({percent, number}%)",
+    "tax": "VAT ({percent, number}%)",
     "payable": "Amount due",
     "pay": "Pay {amount}",
     "payPending": "Pay",
@@ -54,7 +54,16 @@
     "noPaymentURL": "The payment gateway returned no payment link. Try again.",
     "interval": "Billing interval",
     "intervalHint": "Every seat bought later follows this interval.",
-    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on this page during the 7 days before its period ends."
+    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on this page during the 7 days before its period ends.",
+    "monthlyCredits": "{credits} personal credits a month",
+    "back": "Back to seats",
+    "formTitle": "Seat and quantity",
+    "summaryTitle": "Order summary",
+    "pageDescription": "Choose the seat type and quantity, then pay through the gateway.",
+    "monthlyPrice": "{price} per seat a month",
+    "yearlyPrice": "{price} per seat a year",
+    "creditsTotal": "Personal credits in this purchase",
+    "creditsTotalValue": "{credits} credits a month"
   },
   "requests": {
     "columns": {

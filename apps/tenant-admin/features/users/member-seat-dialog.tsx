@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useDateTimeFormatter } from "@/hooks/use-locale-format";
 import { APIClientError } from "@/lib/http/api-client";
-import { previewSeatChange, SEAT_TYPES, seatErrorMessage, type PaidSeatType, type SeatMember, type SeatType } from "@/lib/seats";
+import { buySeatsHref, previewSeatChange, SEAT_TYPES, seatErrorMessage, type PaidSeatType, type SeatMember, type SeatType } from "@/lib/seats";
 
 import { setMemberSeat } from "./api";
 
@@ -63,7 +63,7 @@ export function MemberSeatDialog({ member, memberLabel, onOpenChange, onChanged,
   // Buying happens in billing, which opens checkout for one seat assigned to this member.
   function buyForMember(seat: PaidSeatType) {
     if (!member) return;
-    router.push(`/billing/seats?buy=${seat}&assign=${encodeURIComponent(member.user_id)}`);
+    router.push(buySeatsHref(seat, member.user_id));
   }
 
   return (
