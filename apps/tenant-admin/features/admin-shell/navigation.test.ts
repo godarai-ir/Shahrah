@@ -80,9 +80,19 @@ describe("admin access navigation items", () => {
 });
 
 describe("admin sidebar sections", () => {
-  it("keeps the sidebar at ten first-level entries", () => {
+  it("keeps the sidebar at eleven first-level entries", () => {
     const itemCount = ADMIN_NAV_SECTIONS.reduce((sum, section) => sum + section.itemKeys.length, 0);
-    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(10);
+    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(11);
+  });
+
+  it("lists seats as a top-level entry right after the dashboard, not a billing tab", () => {
+    expect(ROOT_NAV_ITEM_KEYS).toEqual(["dashboard", "seats"]);
+    expect(BILLING_TAB_KEYS).not.toContain("seats");
+    const active = buildAdminNavItems("/billing/seats", t).filter((item) => item.isActive).map((item) => item.key);
+    expect(active).toContain("seats");
+    expect(active).not.toContain("billing");
+    const visible = filterVisibleNavItems(buildAdminNavItems("/billing/seats", t), ["billing:read", "settings:list"]);
+    expect(resolveNavTabs("/billing/seats", visible)).toBeNull();
   });
 
   it("only references keys that buildAdminNavItems produces", () => {

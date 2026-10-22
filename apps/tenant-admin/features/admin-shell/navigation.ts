@@ -79,7 +79,7 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "seats", "billingProfile", "plan"];
+export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
 
@@ -97,7 +97,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
 ];
 
 /** Items rendered above the sections, outside any group. */
-export const ROOT_NAV_ITEM_KEYS: AdminNavKey[] = ["dashboard"];
+export const ROOT_NAV_ITEM_KEYS: AdminNavKey[] = ["dashboard", "seats"];
 
 export type AdminNavTabGroup = {
   /** Sidebar entry that owns the tabs. */
@@ -199,7 +199,8 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/billing",
       title: t("nav.billing"),
       icon: CircleDollarSign,
-      isActive: pathname.startsWith("/billing"),
+      // Seats moved to its own sidebar entry, so it no longer lights up the billing parent.
+      isActive: pathname.startsWith("/billing") && !pathname.startsWith("/billing/seats"),
       requiredPermissions: ["billing:read", "billing:manage", "billing:documents_read", "settings:list"],
     },
     {
