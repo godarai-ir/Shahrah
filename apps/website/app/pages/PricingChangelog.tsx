@@ -44,7 +44,7 @@ export function PricingChangelog({ changelog }: { changelog: PublicPricingChange
           <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">تغییرات قیمت و نرخ‌نامه</h1>
           <p className="leading-8 text-muted-foreground">
             هر تغییر در قیمت هر کردیت یا نرخ‌نامه‌ی مدل‌ها همراه با تاریخ اعمال آن در این صفحه ثبت می‌شود. کردیت‌هایی که
-            قبلاً خریده‌اید هیچ‌وقت ارزش مصرفشان را از دست نمی‌دهند. افزایش قیمت پلن‌ها و افزایش نرخ مدل‌ها دست‌کم ۳۰ روز
+            قبلاً خریده‌اید هیچ‌وقت ارزش مصرفشان را از دست نمی‌دهند. افزایش قیمت صندلی‌ها و افزایش نرخ مدل‌ها دست‌کم ۳۰ روز
             پیش از اعمال اعلام می‌شود؛ کاهش‌ها فوراً اعمال می‌شوند.
           </p>
           <Link href="/pricing" className="text-sm font-medium text-primary hover:underline">بازگشت به قیمت‌گذاری</Link>
@@ -70,7 +70,7 @@ export function PricingChangelog({ changelog }: { changelog: PublicPricingChange
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      بسته‌های کردیت از {formatDate(price.effective_from)} · پلن‌ها از دوره‌ی بعد از {formatDate(price.plan_effective_from)}
+                      بسته‌های کردیت از {formatDate(price.effective_from)} · صندلی‌ها از دوره‌ی بعد از {formatDate(price.plan_effective_from)}
                     </p>
                   </li>
                 ))}
