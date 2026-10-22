@@ -4,12 +4,12 @@ import type { ToolStep } from './patterns';
 
 const tools: ToolStep[] = [
   { icon: Database, name: 'CRM', text: 'سابقه‌ی مشتری و سفارش‌ها' },
-  { icon: MessageCircle, name: 'بله و ایتا', text: 'پیام‌رسان‌های داخلی' },
+  { icon: MessageCircle, name: 'پیام‌رسان‌ها', text: 'تلگرام، واتساپ، بله و …' },
   { icon: KanbanSquare, name: 'Jira', text: 'تسک‌ها و پروژه‌ها' },
   { icon: NotebookText, name: 'Notion', text: 'سندها و دانش تیم' },
 ];
 
-// A drawn product window: an assistant connected to the team's tools finishes one task.
+// A drawn product window until the GodarChat screenshot arrives: an assistant connected to the team's tools finishes one task.
 export function HeroWindow() {
   return (
     <ProductWindow
@@ -19,7 +19,7 @@ export function HeroWindow() {
     >
       <ToolSteps
         steps={tools}
-        result={{ title: 'پیش‌نویس پاسخ سفارش ۱۴۸۲', text: 'آماده‌ی تأیید همکار پشتیبانی' }}
+        result={{ title: 'پیش‌نویس پاسخ سفارش ۱۴۸۲', text: 'همکار پشتیبانی می‌خواند و می‌فرستد' }}
       />
     </ProductWindow>
   );

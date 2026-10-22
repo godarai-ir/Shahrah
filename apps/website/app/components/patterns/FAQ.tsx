@@ -1,8 +1,10 @@
-import { ChevronDown } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
 import { sectionHeading } from '../sectionType';
+import type { Action } from './PageHero';
 import { Section } from './Section';
 
-export type FAQItem = { question: string; answer: string };
+export type FAQItem = { question: string; answer: string; link?: Action };
 export type FAQGroup = { title: string; items: FAQItem[] };
 
 function FAQList({ items }: { items: FAQItem[] }) {
@@ -14,7 +16,18 @@ function FAQList({ items }: { items: FAQItem[] }) {
             {item.question}
             <ChevronDown className="size-5 shrink-0 text-site-ink-soft transition-transform duration-500 group-open:rotate-180" />
           </summary>
-          <p className="pb-5 pe-9 text-base leading-8 text-site-ink-soft">{item.answer}</p>
+          <div className="flex flex-col gap-3 pb-5 pe-9">
+            <p className="m-0 text-base leading-8 text-site-ink-soft">{item.answer}</p>
+            {item.link ? (
+              <Link
+                href={item.link.href}
+                className="group/link inline-flex w-fit items-center gap-2 rounded-full text-sm font-medium text-site-ink transition-colors hover:text-site-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-accent"
+              >
+                {item.link.label}
+                <ArrowLeft aria-hidden="true" className="size-4 transition-transform duration-300 group-hover/link:-translate-x-0.5" />
+              </Link>
+            ) : null}
+          </div>
         </details>
       ))}
     </div>

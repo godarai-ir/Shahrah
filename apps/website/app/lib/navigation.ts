@@ -64,6 +64,11 @@ const pendingRoutes = new Set<string>([
 
 const link = (item: NavLink): NavLink => ({ ...item, ready: !pendingRoutes.has(item.href) });
 
+/** Whether a route's page exists yet, so content can link to it without producing a 404. */
+export function isReady(href: string): boolean {
+  return !pendingRoutes.has(href);
+}
+
 export function visibleLinks(links: NavLink[]): NavLink[] {
   return links.filter((item) => item.ready !== false);
 }

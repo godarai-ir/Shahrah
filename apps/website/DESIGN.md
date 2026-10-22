@@ -209,7 +209,8 @@ Round, calm and unmistakable.
 The hero image of the system: a real screenshot, or an illustrative coded window until screenshots arrive, framed as an app window.
 - **Frame:** Daylight Paper surface, 24px corners, Window lift shadow, a title bar with the window name in label size and a Pencil Line divider below it.
 - **Content:** real GodarChat or admin screenshots; coded mocks are labelled «نمونه» and never carry invented numbers presented as fact.
-- **Motion:** one demonstration per window, such as a tool row resolving from a spinner to a Steady Blue check. Plays once on entry and respects reduced motion.
+- **Motion:** one demonstration per window: tool rows arrive one by one (350ms apart), then the result resolves from a spinner to a Steady Blue check. It waits until the window scrolls into view, plays once, and shows the finished state under reduced motion or without script.
+- **Overhang:** in a hero, the window may cross its panel's reading-start edge (about 40px) so it reads as an object resting on the bench.
 
 ### Team Tabs
 - **Style:** equal-width tabs over a Pencil Line rule; the active tab is semibold Workshop Ink with a 2px Workshop Ink underline, inactive tabs are Graphite. On mobile the row scrolls horizontally.

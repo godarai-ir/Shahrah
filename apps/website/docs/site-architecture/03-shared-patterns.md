@@ -9,7 +9,7 @@
 | توکن‌های رنگ | ✅ پرامپت ۰۰: `--ford-*` به `--site-*` تغییر نام داد؛ چهار تیند `--tone-*` و `--site-night-strong` اضافه شد. `/workplace` هنوز توکن‌های جدای `--wp-*` دارد (۹ فایل در `components/workplace/` و `pages/Workplace.tsx`). | `wp-*` در پرامپت ۰۳ حذف می‌شود. |
 | پوستهٔ سایت | ✅ `SiteShell` روی `bg-site-ground text-site-ink`. `Navbar` و فوتر (`Trust.tsx`) هنوز رنگ خام دارند. | ناوبری و فوتر در پرامپت ۰۱. |
 | کلاس‌های مشترک بخش | `components/sectionType.ts`: `sectionHeading`، `sectionCopy`، `sectionSpace`، `buttonPrimary`، `buttonQuiet` | مبنای همهٔ صفحه‌ها؛ گسترش با `sectionPanel` و تیندها. |
-| حرکت | ✅ `step-pending` / `step-complete` (نمایش «تکمیل ابزار» در `ToolSteps`). `water-ripple` و `FordArt` هنوز در پنج بخش Home استفاده می‌شوند. | `FordArt` و `water-ripple` در پرامپت ۰۲ همراه بازطراحی Home حذف می‌شوند. |
+| حرکت | ✅ `step-row` / `step-pending` / `step-complete`: ردیف‌های `ToolSteps` یکی‌یکی می‌آیند و نتیجه یک بار کامل می‌شود؛ `PlayOnView` آن را تا ورود به دید نگه می‌دارد و بدون اسکریپت یا با reduced-motion حالت نهایی دیده می‌شود. ✅ پرامپت ۰۲: `FordArt` و `water-ripple` حذف شدند. | — |
 | رسانه | ✅ `MediaSlot` روی توکن‌ها و `cn()`؛ `ProductWindow` با prop `media` از آن استفاده می‌کند. | — |
 
 ## توکن‌های تیند تمایز
@@ -30,6 +30,8 @@
 ## الگوها
 
 ✅ همه در `app/components/patterns/` با خروجی واحد `index.ts` ساخته شدند. `PageHero`، `ProductStage`/`ProductWindow`، `ToolSteps`، `FeatureRow`، `ControlChecklist`، `StepList`، `FAQ`، `ClosingBand` و `Section` اکنون در Home استفاده می‌شوند؛ `PillarGrid`، `PillarCrossLinks`، `ComparisonTable` و `TrustStrip` فقط در `/_patterns`. `TeamTabs` پیمایش کیبوردی (فلش در جهت RTL، Home/End) گرفت؛ داده‌اش در پرامپت ۱۰ به `lib/teams.ts` می‌رود.
+
+افزوده‌های پرامپت ۰۲: `ProductStage` گزینهٔ `overhang` دارد تا پنجره از لبهٔ پنل بیرون بزند؛ `FAQItem` پیوند اختیاری `link` دارد؛ `PillarGrid` و هر محتوایی که به صفحه‌ای ساخته‌نشده اشاره می‌کند از `isReady()` در `lib/navigation.ts` استفاده می‌کند تا پیوند ۴۰۴ ساخته نشود.
 
 | الگو | کامپوننت فعلی | ساخت یا بازسازی | Props و حالت‌ها |
 | --- | --- | --- | --- |
@@ -52,7 +54,7 @@
 
 - **LogoStrip و QuoteCard:** کد بماند، استفاده نشود تا محتوای واقعی (`PRODUCT.md`).
 - **کاروسل داستان مشتری** (`WorkplaceGuide` بخش داستان‌ها): حذف از صفحه تا محتوای واقعی.
-- **تصویرسازی آب و گدار** (`FordArt`، `water-ripple`): بازنشسته طبق `DESIGN.md`. چون Home هنوز از آن‌ها استفاده می‌کند، در پرامپت ۰۲ حذف می‌شوند.
+- **تصویرسازی آب و گدار**: ✅ در پرامپت ۰۲ همراه `Collab` و `WorkflowCard` حذف شد.
 
 ## زمین بازی سیستم طراحی
 

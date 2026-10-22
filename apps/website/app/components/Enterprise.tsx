@@ -1,47 +1,56 @@
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { WaterEdge } from './FordArt';
+import { isReady } from '@/app/lib/navigation';
 import { ControlChecklist, Section } from './patterns';
-import type { ControlGroup } from './patterns';
+import type { ControlGroup, ControlItem } from './patterns';
 import { sectionCopy, sectionHeading } from './sectionType';
 
+// Links only to pages that exist; the rest of the claim still stands as plain text.
+const item = (label: string, href?: string): ControlItem => ({ label, href: href && isReady(href) ? href : undefined });
+
+// Every item is a confirmed capability (PRODUCT.md and docs/site-architecture/04-open-questions.md).
+// SSO and user sync carry the On-Premise qualifier until user sync is confirmed for the cloud too.
 const groups: ControlGroup[] = [
   {
-    title: 'امنیت و حریم خصوصی',
+    title: 'امنیت',
+    surface: 'guard',
     items: [
-      { label: 'گاردریل‌ها داده‌ی حساس را قبل از رسیدن به مدل می‌گیرند' },
-      { label: 'هر دستیار فقط به ابزارهای مجاز خودش دسترسی دارد' },
-      { label: 'هر درخواست در گزارش رخدادها ثبت می‌شود' },
+      item('گاردریل معنایی روی ورودی، خروجی و فایل‌ها', '/features/guardrails'),
+      item('گدارAI با داده‌ی شما مدل آموزش نمی‌دهد', '/features/security'),
     ],
-    surface: 'panel',
   },
   {
-    title: 'مدیریت و مصرف',
+    title: 'مدیریت',
+    surface: 'govern',
     items: [
-      { label: 'مشخص می‌کنید چه کسی از کدام دستیار استفاده کند' },
-      { label: 'برای هر تیم سقف مصرف می‌گذارید' },
-      { label: 'کیف پول تومانی و گزارش مالی روشن' },
+      item('نقش و دسترسی هر تیم به مدل، دستیار و ابزار', '/features/governance'),
+      item('ثبت هر درخواست و هر تغییر تنظیمات'),
+      item('مدت نگهداری گزارش‌ها به انتخاب شما', '/features/observability'),
     ],
-    surface: 'panel-deep',
   },
   {
-    title: 'استقرار و پشتیبانی',
+    title: 'هزینه',
+    surface: 'cost',
     items: [
-      { label: 'روی ابر گدارAI، همین امروز و بدون نصب' },
-      { label: 'داخل سرور خودتان، برای داده‌ی محرمانه' },
-      { label: 'رابط راست‌به‌چپ و پشتیبانی فارسی' },
+      item('سقف مصرف برای هر تیم و هر کلید', '/features/cost-control'),
+      item('پرداخت تومانی و فاکتور رسمی', '/pricing'),
     ],
+  },
+  {
+    title: 'استقرار',
     surface: 'panel',
+    items: [
+      item('روی ابر گدارAI، بدون نصب'),
+      item('روی سرورهای خودتان، با قرارداد سالانه', '/on-premise'),
+      item('ورود سازمانی و همگام‌سازی کاربران در استقرار داخل سازمان', '/on-premise'),
+    ],
   },
 ];
 
 export function Enterprise() {
   return (
-    <Section id="terms" layout="flex flex-col gap-14">
-      <WaterEdge className="text-site-line" />
+    <Section id="enterprise" layout="flex flex-col gap-14">
       <div className="flex flex-col gap-6">
         <div>
-          <h2 className={`max-w-3xl ${sectionHeading}`}>داده و دسترسی‌ها همیشه دست خودتان است</h2>
+          <h2 className={`max-w-3xl ${sectionHeading}`}>داده و دسترسی‌ها دست خودتان است</h2>
         </div>
         <div>
           <p className={`max-w-3xl ${sectionCopy}`}>
@@ -50,20 +59,7 @@ export function Enterprise() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-3 px-1">
-          <span className="text-sm text-site-ink-soft">کجا اجرا شود</span>
-          <Link
-            href="/on-premise"
-            className="group inline-flex items-center gap-2 rounded-full text-sm font-medium text-site-ink transition-colors hover:text-site-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-accent"
-          >
-            درخواست استقرار درون‌سازمانی
-            <ArrowLeft className="size-4 transition-transform duration-500 group-hover:-translate-x-0.5" />
-          </Link>
-        </div>
-
-        <ControlChecklist groups={groups} />
-      </div>
+      <ControlChecklist groups={groups} />
     </Section>
   );
 }

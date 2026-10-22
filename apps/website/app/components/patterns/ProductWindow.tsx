@@ -41,12 +41,14 @@ type ProductStageProps = {
   backdrop?: ReactNode;
   /** Size and padding utilities. */
   layout?: string;
+  /** Lets the window cross the panel's edge, so it reads as an object resting on the bench. */
+  overhang?: boolean;
 };
 
 // The bench a Product Window rests on: a 24px-cornered panel, tinted when the section belongs to a differentiator.
-export function ProductStage({ children, tone = 'panel', backdrop, layout = 'w-full p-6 sm:p-10' }: ProductStageProps) {
+export function ProductStage({ children, tone = 'panel', backdrop, layout = 'w-full p-6 sm:p-10', overhang = false }: ProductStageProps) {
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden rounded-3xl ${surfaceClass[tone]} ${layout}`}>
+    <div className={`relative flex items-center justify-center rounded-3xl ${overhang ? '' : 'overflow-hidden'} ${surfaceClass[tone]} ${layout}`}>
       {backdrop}
       {children}
     </div>

@@ -1,22 +1,13 @@
-import { MediaSlot } from './MediaSlot';
-import { Ripples, WaterLines } from './FordArt';
 import { HeroWindow } from './HeroWindow';
+import { MediaSlot } from './MediaSlot';
 import { PageHero, ProductStage } from './patterns';
 
-// Until the product tour exists, the first viewport shows a drawn product window.
-// A real video in `heroDemo` replaces it automatically.
+// Until the GodarChat screenshot or product tour exists, the first viewport shows a drawn product window.
+// It crosses the panel's reading-start edge (right in RTL) so it reads as an object resting on the bench.
 function HeroScene() {
   return (
-    <ProductStage
-      layout="size-full p-6 sm:p-10"
-      backdrop={
-        <>
-          <WaterLines className="text-site-accent/25" />
-          <Ripples />
-        </>
-      }
-    >
-      <div className="relative w-full max-w-sm">
+    <ProductStage overhang layout="size-full p-6 sm:p-10">
+      <div className="relative w-full max-w-sm lg:-ms-20 lg:me-auto">
         <HeroWindow />
       </div>
     </ProductStage>
@@ -26,11 +17,22 @@ function HeroScene() {
 export function Hero() {
   return (
     <PageHero
-      title="دستیاری که شرکتتان را می‌شناسد"
-      lead="گدارAI هوش مصنوعی را به ابزارهای روزمره‌ی تیم‌تان وصل می‌کند، از CRM تا بله و ایتا. کارهای تکراری با دستیار؛ تصمیم‌های مهم با خودتان."
-      primary={{ href: '/demo', label: 'با ما حرف بزنید' }}
-      secondary={{ href: '/onboarding', label: '۱۵ روز رایگان امتحان کنید' }}
-      visual={<MediaSlot id="heroDemo" priority className="rounded-3xl" fallback={<HeroScene />} />}
+      title={
+        <>
+          هوش مصنوعی برای کار <span className="text-site-accent">هر روز</span> تیم‌ها؛ بی‌گدار به آب نزنید.
+        </>
+      }
+      lead="به هر تیم دستیاری بدهید که با دانش و ابزارهای خودش کار می‌کند. دسترسی، داده و هزینه دست سازمانتان می‌ماند."
+      primary={{ href: '/onboarding', label: '۱۵ روز رایگان شروع کنید' }}
+      secondary={{ href: '/demo', label: 'درخواست دمو' }}
+      visual={
+        <MediaSlot
+          id="heroDemo"
+          priority
+          className="h-auto overflow-visible rounded-3xl sm:h-auto lg:h-full"
+          fallback={<HeroScene />}
+        />
+      }
     />
   );
 }

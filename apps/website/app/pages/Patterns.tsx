@@ -63,7 +63,7 @@ export function Patterns() {
       <Section layout="grid grid-cols-1 gap-6 md:grid-cols-2">
         {pillars.map((pillar) => (
           <ProductStage key={pillar.id} tone={pillar.id}>
-            <ProductWindow title={pillar.title} meta="نمونه" media="pillarControl" />
+            <ProductWindow title={pillar.title} meta="نمونه" media="teamSupport" />
           </ProductStage>
         ))}
       </Section>

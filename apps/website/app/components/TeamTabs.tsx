@@ -2,7 +2,9 @@
 
 import { useId, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
+import Link from 'next/link';
+import { isReady } from '@/app/lib/navigation';
 import { Section } from './patterns';
 import { sectionHeading } from './sectionType';
 import { MediaSlot } from './MediaSlot';
@@ -33,8 +35,8 @@ const teams: Team[] = [
     label: 'پشتیبانی',
     tasks: [
       { title: 'پیش‌نویس پاسخ', text: 'از روی مستندات و سابقه‌ی خود مشتری جواب تیکت را می‌نویسد.' },
-      { title: 'دسته‌بندی پیام‌ها', text: 'پیام‌های رسیده به بله، ایتا، واتساپ یا تلگرام را دسته‌بندی می‌کند و فوری‌ها را جلو می‌اندازد.' },
-      { title: 'تأیید قبل از ارسال', text: 'اگر بخواهید، هیچ جوابی بدون تأیید همکار پشتیبانی برای مشتری نمی‌رود.' },
+      { title: 'دسته‌بندی پیام‌ها', text: 'پیام‌های رسیده در پیام‌رسان‌ها مانند تلگرام، واتساپ، بله و … را دسته‌بندی می‌کند و فوری‌ها را جلو می‌اندازد.' },
+      { title: 'خلاصه‌ی تیکت‌های باز', text: 'تیکت‌های باز هفته را خلاصه می‌کند تا سرپرست تیم ببیند کار کجا مانده است.' },
     ],
     media: 'teamSupport',
   },
@@ -183,6 +185,15 @@ export function TeamTabs() {
               </li>
             ))}
           </ul>
+          {isReady(`/teams/${active.id}`) ? (
+            <Link
+              href={`/teams/${active.id}`}
+              className="group inline-flex w-fit items-center gap-2 rounded-full text-sm font-medium text-site-ink transition-colors hover:text-site-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-accent"
+            >
+              {`دیدن همه‌ی کارهای تیم ${active.label}`}
+              <ArrowLeft aria-hidden="true" className="size-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+            </Link>
+          ) : null}
         </div>
       </div>
     </Section>

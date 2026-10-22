@@ -269,18 +269,16 @@
   --color-site-night-strong: var(--site-night-strong);
 }
 
-/* Retired water motif, still drawn on the home page until its redesign (prompt 02) removes it. */
-@keyframes water-ripple {
-  0% {
+/* Tool steps inside a product window: rows arrive one by one, then the result resolves from a spinner to a check.
+   Held until PlayOnView marks the block as in view; `--i` is a row's index and `--done` when the result resolves. */
+@keyframes step-row-in {
+  from {
     opacity: 0;
-    transform: scale(0.35);
+    transform: translateY(6px);
   }
-  15% {
-    opacity: 0.55;
-  }
-  100% {
-    opacity: 0.16;
-    transform: scale(1);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -301,31 +299,33 @@
   }
 }
 
-.water-ripple {
-  animation: water-ripple 5.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+.step-row {
+  animation: step-row-in 0.4s ease-out calc(var(--i, 0) * 0.35s + 0.2s) both paused;
 }
 
 .step-pending {
-  animation: step-pending-out 0.2s linear 2.6s both;
+  animation: step-pending-out 0.2s linear var(--done, 2.6s) both paused;
 }
 
 .step-complete {
-  animation: step-complete-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 2.6s both;
+  animation: step-complete-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--done, 2.6s) both paused;
+}
+
+[data-in-view] .step-row,
+[data-in-view] .step-pending,
+[data-in-view] .step-complete {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .water-ripple {
+  .step-row,
+  .step-complete {
     animation: none;
-    opacity: 0.16;
   }
 
   .step-pending {
     animation: none;
     opacity: 0;
-  }
-
-  .step-complete {
-    animation: none;
   }
 }
 
