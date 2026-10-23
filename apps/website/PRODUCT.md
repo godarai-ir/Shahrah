@@ -59,7 +59,8 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 - Data policy: GodarAI does not train models on customer data (no claim is made about upstream providers); log retention is configurable.
 - Deployment and pricing: GodarAI cloud on a monthly subscription; On-Premise on an annual contract, requiring Kubernetes infrastructure, through questionnaire, technical session and installation. Official invoices are issued; a mid-period plan change is prorated.
 - OpenAI models are stably available inside GodarAI; chat history from ChatGPT can be imported.
-- Getting started: there is no time-limited trial. Every new workspace gets an initial gift credit to enter the panel and test the product; the credit never expires. Never say «۱۵ روز», «آزمایش ۱۵ روزه» or any trial length.
+- Pricing (`/pricing`): a monthly seat per colleague, priced in tomans before VAT. «گدار برای کسب‌وکارها» (up to 100 people): regular user 2,250,000 tomans / 4,000 credits a month, pro user 11,250,000 tomans / 20,000 credits; monthly credit is personal and resets each month; add-on credit goes to a shared organization pool. «گدار برای سازمان‌ها»: custom price, adds SSO, on-premise or private cloud, SLA, a dedicated account manager and BYOK. The developer gateway no longer has plans of its own on the pricing page.
+- Getting started: there is no time-limited trial. Every new workspace gets a one-time gift credit of 500 credits to enter the panel and test the product; the credit never expires. Never say «۱۵ روز», «آزمایش ۱۵ روزه» or any trial length.
 - Entry points on the site: sign-up with gift credit (`/onboarding`), demo booking (`/demo`), pricing, docs, catalog, blog, On-Premise request (`/on-premise`).
 - Persian terminology follows `docs/content-glossary.md` (for example «درگاه»، «فضای کاری»، «گزارش رخداد»).
 

@@ -1,608 +1,509 @@
 'use client';
 
-import { createContext, useContext, useEffect, useId, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, Info, Minus } from 'lucide-react';
-import { ClosingBand, FAQ } from '@/app/components/patterns';
-import { buttonOnNavy, buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
+import { ArrowDown, Check, Minus, Search } from 'lucide-react';
+import { ClosingBand, ComparisonTable, FAQ, Section } from '@/app/components/patterns';
+import { buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
 
-export type PublicPlanPrice = {
-  billing_interval: 'monthly' | 'quarterly' | 'yearly';
-  currency: string;
-  amount_minor?: number | null;
-  discount_percent: number;
-};
+// Workplace pricing: a monthly seat per colleague, each with its own monthly credit. All counts are estimates
+// derived from the same credit formulas the owner's pricing reference uses.
 
-export type PublicCommercialPlan = {
-  slug: string;
-  display_name: string;
-  description?: string;
-  prices?: PublicPlanPrice[];
-  features?: Record<string, unknown>;
-};
+const fa = (value: number) => value.toLocaleString('fa-IR');
 
-type BillingInterval = PublicPlanPrice['billing_interval'];
-type ComparisonValue = boolean | string;
-type TooltipState = {
-  id: string;
-  label: string;
-  description: string;
-  left: number;
-  top: number;
-  placement: 'top' | 'bottom';
-  pinned: boolean;
-};
+type Model = 'light' | 'mid' | 'heavy';
+type Task = 'msg' | 'text' | 'office' | 'image' | 'kb';
 
-type FeatureTooltipContextValue = {
-  activeId?: string;
-  show: (id: string, label: string, description: string, trigger: HTMLElement) => void;
-  hide: (id: string) => void;
-  togglePinned: (id: string, label: string, description: string, trigger: HTMLElement) => void;
-};
+const modelRates: Record<Model, [number, number]> = { light: [0.125, 1], mid: [1, 5], heavy: [2, 10] };
+const modelNames: Record<Model, string> = { light: 'سبک', mid: 'میان‌رده', heavy: 'سنگین' };
 
-const FeatureTooltipContext = createContext<FeatureTooltipContextValue | null>(null);
+function taskCredits(task: Task, model: Model) {
+  const [input, output] = modelRates[model];
 
-const featureExplanations: Record<string, string> = {
-  'کش معنایی (Semantic Caching)': 'پاسخ درخواست‌هایی که از نظر معنایی شبیه‌اند ذخیره و دوباره استفاده می‌شود تا زمان پاسخ و هزینه مصرف مدل کاهش پیدا کند.',
-  'قواعد مدیریت هزینه و نرخ درخواست (Budget & Rate Limits)': 'برای هزینه مصرفی و تعداد درخواست‌ها در یک بازه زمانی سقف تعیین می‌کنید تا مصرف سرویس قابل‌کنترل بماند.',
-  'خروجی OpenTelemetry': 'داده‌های پایش را با استاندارد OpenTelemetry به ابزارهای مانیتورینگ و مشاهده‌پذیری سازمان خود ارسال می‌کنید.',
-  'استقرار در محل یا VPC': 'گدارAI در زیرساخت اختصاصی یا ابر مجازی خصوصی سازمان شما اجرا می‌شود تا کنترل بیشتری روی شبکه و داده‌ها داشته باشید.',
-  'API یکسان برای بیش از ۱۲۰۰ مدل (Unified API)': 'با یک API ثابت به مدل‌های مختلف دسترسی دارید و می‌توانید بدون تغییر گسترده کد، مدل یا سرویس‌دهنده را عوض کنید.',
-  'مدل مجازی (Virtual Model)': 'یک نام ثابت برای یک یا چند مدل واقعی تعریف می‌کنید تا مسیریابی، جابه‌جایی و سیاست‌های دسترسی بدون تغییر کد مصرف‌کننده مدیریت شوند.',
-  'محیط تست زنده (Live Playground)': 'پرامپت‌ها، مدل‌ها و تنظیمات را پیش از اتصال اپلیکیشن، مستقیماً در محیط وب آزمایش و مقایسه می‌کنید.',
-  'کش درخواست‌های مشابه (Simple Caching)': 'پاسخ درخواست‌های کاملاً یکسان برای مدت مشخص ذخیره می‌شود تا درخواست تکراری دوباره به مدل ارسال نشود.',
-  'کش درخواست‌های هم‌معنی (Semantic Caching)': 'درخواست‌های دارای مفهوم مشابه، حتی با متن متفاوت، می‌توانند از پاسخ ذخیره‌شده استفاده کنند.',
-  'توزیع بار وزنی بین مدل‌ها (Weighted Load Balancing)': 'درصدی از ترافیک را بر اساس وزن دلخواه بین چند مدل یا سرویس‌دهنده تقسیم می‌کنید.',
-  'مسیریابی بر مبنای سرعت (Latency-based Routing)': 'هر درخواست به مسیری هدایت می‌شود که در آن لحظه زمان پاسخ بهتری دارد.',
-  'مسیر جایگزین خودکار هنگام خطا (Fallback)': 'اگر مدل یا سرویس‌دهنده اصلی پاسخ ندهد، درخواست به‌صورت خودکار به مسیر جایگزین ارسال می‌شود.',
-  'فراداده سفارشی (Custom Metadata)': 'اطلاعات دلخواه مانند شناسه مشتری، پروژه یا محیط اجرا را به درخواست‌ها اضافه می‌کنید تا گزارش‌گیری و جست‌وجو دقیق‌تر شود.',
-  'ردیابی درخواست (Tracing)': 'مسیر کامل پردازش هر درخواست، از ورود تا پاسخ مدل، ثبت می‌شود تا خطا و کندی را دقیق‌تر بررسی کنید.',
-  'خروجی سازگار با OpenTelemetry': 'لاگ‌ها و ردگیری‌ها را با استاندارد OpenTelemetry به ابزار مانیتورینگ مورد استفاده سازمان می‌فرستید.',
-  'نسخه‌بندی پرامپت و متغیرها (Prompt Versioning)': 'تغییرات پرامپت را نسخه‌بندی می‌کنید و متغیرهای آن را بدون تغییر مستقیم در کد مدیریت می‌کنید.',
-  'اتصال سرویس حفاظت هوشمند ثالث (Third-party Guardrails)': 'سرویس‌های تخصصی کنترل محتوا و ایمنی را به مسیر پردازش درخواست و پاسخ مدل متصل می‌کنید.',
-  'وب‌هوک حفاظت هوشمند اختصاصی (Guardrail Webhook)': 'منطق اختصاصی کنترل محتوا را در سرویس خود پیاده می‌کنید و گدارAI آن را هنگام پردازش فراخوانی می‌کند.',
-  'کلید دسترسی شخصی (Private Access Token)': 'این کلید به یک کاربر تعلق دارد و برای کارهای شخصی، ابزارهای توسعه و دسترسی برنامه‌نویسی همان کاربر استفاده می‌شود.',
-  'کلید دسترسی مجازی (Virtual Access Token)': 'از این کلید برای اتصال اپلیکیشن‌ها و سرویس‌های نرم‌افزاری به گدارAI می‌توانید استفاده کنید، بدون اینکه کلید اصلی کاربر را در اختیار آن‌ها قرار دهید.',
-  'کنترل دسترسی مبتنی بر نقش (RBAC)': 'سطح دسترسی افراد را با نقش‌هایی مانند مدیر، توسعه‌دهنده یا مشاهده‌گر کنترل می‌کنید.',
-  'ورود یکپارچه (SSO)': 'کاربران با حساب سازمانی و سرویس هویت مرکزی مجموعه وارد می‌شوند و نیازی به حساب جداگانه ندارند.',
-  'ثبت وقایع مدیریتی (Audit Log)': 'تغییرات حساس و فعالیت‌های مدیریتی ثبت می‌شوند تا امکان بررسی امنیتی و حسابرسی وجود داشته باشد.',
-  'استقرار ابری (SaaS)': 'سرویس روی زیرساخت مدیریت‌شده گدارAI ارائه می‌شود و نیازی به نصب و نگهداری توسط تیم شما ندارد.',
-  'استقرار در محل یا ابر خصوصی (On-premise / VPC)': 'سرویس در زیرساخت خود سازمان یا شبکه ابری خصوصی آن مستقر می‌شود.',
-  'توافقنامه سطح خدمات (SLA)': 'تعهد رسمی درباره سطح دسترس‌پذیری، کیفیت پشتیبانی و زمان پاسخ‌گویی سرویس است.',
-};
+  return {
+    msg: (2 * input + 0.5 * output) / 0.8,
+    text: 15 * input + 0.6 * output,
+    office: 15 * input + 3 * output + 6,
+    image: 10 * (1 + 0.5 * input + 0.3 * output),
+    kb: 8 + 8 * input + 0.6 * output,
+  }[task];
+}
 
-const planDefinitions = [
+// Rounds a monthly count to a readable step, the way the pricing reference does.
+function roundCount(value: number) {
+  const step = value < 100 ? 10 : value < 1000 ? 50 : value < 3000 ? 100 : value < 10000 ? 500 : 1000;
+  const whole = Math.floor(value / step);
+
+  return (whole + ((value - whole * step) / step >= 0.3 ? 1 : 0)) * step;
+}
+
+const monthlyCount = (credits: number, task: Task, model: Model) => roundCount(credits / taskCredits(task, model));
+
+const giftCredits = 500;
+const seats = [
   {
-    slug: 'developer',
-    name: 'توسعه‌دهنده',
-    description: 'برای شروع، نمونه‌سازی و پروژه‌های کوچک',
-    features: ['۳ کاربر', 'دسترسی یکپارچه به بیش از ۱۲۰۰ مدل (Unified API)', 'ثبت لاگ تا ۳ روز', 'ردیابی درخواست تا ۳۰ روز', 'تا ۳ قالب پرامپت'],
+    id: 'regular',
+    name: 'کاربر عادی',
+    tagline: 'برای کار روزمره',
+    credits: 4000,
+    price: 2250000,
+    popular: true,
+    roles: ['مدیر پروژه', 'کارشناس فروش و بازاریابی', 'پشتیبانی', 'منابع انسانی', 'تحلیل‌گر'],
+    sign: 'بیشتر کارهای روزانه‌اش را با کمک گدار انجام می‌دهد، ولی کارش پر از فایل حجیم یا مدل‌های سنگین نیست.',
+    extra: undefined,
   },
   {
-    slug: 'team',
-    name: 'تیم',
-    description: 'برای تیم‌هایی که محصول را به محیط عملیاتی می‌برند',
-    features: ['۱۰ کاربر', 'کش معنایی (Semantic Caching)', 'قواعد مدیریت هزینه و نرخ درخواست (Budget & Rate Limits)', 'ثبت لاگ تا ۳۰ روز', 'ردیابی درخواست تا ۹۰ روز'],
-  },
-  {
-    slug: 'growth',
-    name: 'رشد',
-    description: 'برای کسب‌وکارهای در حال رشد با نیازهای پیشرفته',
-    features: ['۳۰ کاربر', 'هشدارهای نظارتی و مدیریتی', 'خروجی OpenTelemetry', 'ورود یکپارچه (SSO)', 'وب‌هوک حفاظت هوشمند اختصاصی (Guardrail Webhook)'],
-  },
-  {
-    slug: 'enterprise',
-    name: 'سازمانی',
-    description: 'برای مقیاس بالا، استقرار اختصاصی و الزامات سازمانی',
-    features: ['تعداد کاربر سفارشی', 'استقرار در محل یا VPC', 'نقش‌ها و نگهداری داده سفارشی', 'مدیریت واحدهای سازمان', 'آنبوردینگ اختصاصی و پشتیبانی با اولویت بالا'],
+    id: 'pro',
+    name: 'کاربر حرفه‌ای',
+    tagline: 'برای کسی که کارش را با گدار پیش می‌برد',
+    credits: 20000,
+    price: 11250000,
+    popular: false,
+    roles: ['تحلیل‌گر ارشد', 'تولیدکننده‌ی محتوا', 'توسعه‌دهنده', 'پژوهشگر', 'مدیر محصول'],
+    sign: 'کارش را عملاً با گدار پیش می‌برد: ساعت‌ها در روز، فایل‌های حجیم یا عامل‌های هوش مصنوعی.',
+    extra: 'و اجرای عامل‌های هوش مصنوعی چندمرحله‌ای، گفتگوهای طولانی با مدل‌های سنگین و کار روی فایل‌های حجیم.',
   },
 ] as const;
 
-const comparisonSections: Array<{
-  title: string;
-  rows: Array<{ label: string; values: [ComparisonValue, ComparisonValue, ComparisonValue, ComparisonValue] }>;
-}> = [
+const cardTasks: { task: Task; label: string }[] = [
+  { task: 'msg', label: 'پیام گفتگو' },
+  { task: 'text', label: 'خلاصه‌ی گزارش ۲۰ صفحه‌ای' },
+  { task: 'office', label: 'تحلیل اکسل و ساخت گزارش Word' },
+  { task: 'image', label: 'استخراج اطلاعات از عکس و فاکتور' },
+];
+
+const quiz = [
+  { id: 'free', label: 'فقط می‌خواهد گدار را امتحان کند', seat: 'trial', text: 'اعتبار هدیه کافی است؛ ۵۰۰ اعتبار برای امتحان. بعد از آن به کاربر عادی یا حرفه‌ای می‌رود.' },
+  { id: 'regular', label: 'چت، ترجمه و خلاصه‌سازی', seat: 'regular', text: 'کاربر عادی مناسب است؛ مصرف روزمره و سبک تا متوسط.' },
+  { id: 'daily', label: 'تحلیل فایل و گزارش، هر روز', seat: 'pro', text: 'کاربر حرفه‌ای مناسب است؛ تحلیل روزانه‌ی فایل و گزارش.' },
+  { id: 'heavy', label: 'فایل‌های سنگین یا عامل هوش مصنوعی', seat: 'pro', text: 'کاربر حرفه‌ای شروع خوبی است. اگر مصرفش بیشتر شد، ادمین اعتبار اضافه می‌خرد یا با فروش صحبت می‌کنید.' },
+] as const;
+
+const exampleTasks: { task: Task; category: string; label: string }[] = [
+  { task: 'text', category: 'متن', label: 'خلاصه‌ی یک گزارش ۲۰ صفحه‌ای' },
+  { task: 'image', category: 'عکس', label: 'استخراج اطلاعات از ۱۰ عکس یا فاکتور اسکن‌شده' },
+  { task: 'office', category: 'Word و Excel', label: 'تحلیل یک فایل اکسل و ساخت گزارش Word از آن' },
+  { task: 'kb', category: 'منابع دانشی سازمان', label: 'پرسش از اسناد سازمان و گرفتن پاسخ همراه با منبع' },
+];
+
+type Cell = 'yes' | 'no' | string;
+const comparison: { title: string; rows: { label: string; note?: string; business: Cell; enterprise: Cell }[] }[] = [
   {
-    title: 'محدودیت‌های اصلی',
+    title: 'ویژگی‌ها',
     rows: [
-      { label: 'تعداد کاربران', values: ['۳', '۱۰', '۳۰', 'سفارشی'] },
+      { label: 'دسترسی به بیش از ۱۳۰ مدل', note: 'GPT، Claude، Gemini، Grok، Kimi و…', business: 'yes', enterprise: 'yes' },
+      { label: 'ورودی و خروجی فایل چندرسانه‌ای', note: 'تصویر، PDF، ساخت و ویرایش فایل Word و Excel، اجرای کد', business: 'yes', enterprise: 'yes' },
+      { label: 'عامل هوش مصنوعی اختصاصی، چندمرحله‌ای و خودکار', note: 'زمان‌بندی‌شده یا با رویداد', business: 'yes', enterprise: 'yes' },
+      { label: 'تعامل با ابزارهای بیرون سازمان', note: 'MCP', business: 'yes', enterprise: 'yes' },
     ],
   },
+  { title: 'داده‌ی سازمان', rows: [{ label: 'تعامل با منابع دانشی', business: 'yes', enterprise: 'yes' }] },
   {
-    title: 'درگاه هوش مصنوعی',
+    title: 'مدیریت و امنیت',
     rows: [
-      { label: 'API یکسان برای بیش از ۱۲۰۰ مدل (Unified API)', values: [true, true, true, true] },
-      { label: 'مدل مجازی (Virtual Model)', values: [true, true, true, true] },
-      { label: 'محیط تست زنده (Live Playground)', values: [true, true, true, true] },
-      { label: 'کش درخواست‌های مشابه (Simple Caching)', values: ['TTL یک‌روزه', true, true, true] },
-      { label: 'کش درخواست‌های هم‌معنی (Semantic Caching)', values: [false, true, true, true] },
-    ],
-  },
-  {
-    title: 'کنترل و نظارت',
-    rows: [
-      { label: 'توزیع بار وزنی بین مدل‌ها (Weighted Load Balancing)', values: [false, true, true, true] },
-      { label: 'مسیریابی بر مبنای سرعت (Latency-based Routing)', values: [false, true, true, true] },
-      { label: 'مسیریابی بر مبنای اولویت', values: [true, true, true, true] },
-      { label: 'مسیر جایگزین خودکار هنگام خطا (Fallback)', values: [true, true, true, 'قابلیت‌های پیشرفته'] },
-      { label: 'قواعد مدیریت هزینه ریالی و دلاری', values: [false, true, true, true] },
-      { label: 'قواعد نرخ درخواست', values: [false, true, true, true] },
-    ],
-  },
-  {
-    title: 'مشاهده‌پذیری',
-    rows: [
-      { label: 'دوره نگهداری لاگ', values: ['۳ روز', '۳۰ روز', '۳۰ روز', 'سفارشی'] },
-      { label: 'ردیابی درخواست (Tracing)', values: ['۳۰ روز', '۹۰ روز', '۹۰ روز', 'خروجی S3 سازگار'] },
-      { label: 'فراداده سفارشی (Custom Metadata)', values: [false, true, true, true] },
-      { label: 'قیمت‌گذاری سفارشی مدل‌ها', values: [false, true, true, true] },
-      { label: 'گزارش شاخص‌های عملیاتی و هزینه‌ای', values: [true, true, true, true] },
-      { label: 'فیلتر با فراداده سفارشی', values: [false, true, true, true] },
-      { label: 'هشدارهای نظارتی و مدیریتی', values: [false, false, true, true] },
-      { label: 'خروجی سازگار با OpenTelemetry', values: [false, false, true, true] },
-    ],
-  },
-  {
-    title: 'مدیریت پرامپت و حفاظت هوشمند',
-    rows: [
-      { label: 'تعداد قالب پرامپت', values: ['تا ۳', 'نامحدود', 'نامحدود', 'نامحدود'] },
-      { label: 'نسخه‌بندی پرامپت و متغیرها (Prompt Versioning)', values: [true, true, true, true] },
-      { label: 'اتصال سرویس حفاظت هوشمند ثالث (Third-party Guardrails)', values: [false, true, true, true] },
-      { label: 'وب‌هوک حفاظت هوشمند اختصاصی (Guardrail Webhook)', values: [false, false, true, true] },
-    ],
-  },
-  {
-    title: 'امنیت و استقرار',
-    rows: [
-      { label: 'کلید دسترسی شخصی (Private Access Token)', values: [true, true, true, true] },
-      { label: 'کلید دسترسی مجازی (Virtual Access Token)', values: [false, true, true, true] },
-      { label: 'کنترل دسترسی مبتنی بر نقش (RBAC)', values: [false, true, true, 'نقش‌های سفارشی'] },
-      { label: 'ورود یکپارچه (SSO)', values: [false, false, true, true] },
-      { label: 'مدیریت تیم‌ها', values: [false, true, true, true] },
-      { label: 'مدیریت واحدهای سازمان', values: [false, false, false, true] },
-      { label: 'ثبت وقایع مدیریتی (Audit Log)', values: [false, false, true, true] },
-      { label: 'استقرار ابری (SaaS)', values: [true, true, true, true] },
-      { label: 'استقرار در محل یا ابر خصوصی (On-premise / VPC)', values: [false, false, false, true] },
+      { label: 'نقش‌های ادمین سازمان، ادمین تیم و عضو', business: 'yes', enterprise: 'yes' },
+      { label: 'سقف و گزارش مصرف برای هر نفر، تیم، مدل یا ابزار', business: 'yes', enterprise: 'yes' },
+      { label: 'ثبت وقایع مدیریتی', note: 'Audit Log', business: 'yes', enterprise: 'yes' },
+      { label: 'گاردریل‌های معنایی', business: 'yes', enterprise: 'yes' },
+      { label: 'ورود یکپارچه', note: 'SSO', business: 'با درخواست', enterprise: 'yes' },
+      { label: 'استقرار در محل یا ابر خصوصی', note: 'On-premise / VPC', business: 'no', enterprise: 'yes' },
+      { label: 'استفاده از کلید API خودتان', note: 'BYOK', business: 'no', enterprise: 'yes' },
     ],
   },
   {
     title: 'پشتیبانی',
     rows: [
-      { label: 'نوع پشتیبانی', values: ['چت‌بات', 'محصول عملیاتی', 'محصول عملیاتی', 'اولویت بالا و آنبوردینگ اختصاصی'] },
-      { label: 'توافقنامه سطح خدمات (SLA)', values: [false, 'SLA استاندارد', 'SLA سازمانی', 'SLA سازمانی'] },
+      { label: 'نوع پشتیبانی', business: 'تیکت', enterprise: 'مدیر مشتری اختصاصی' },
+      { label: 'توافق‌نامه‌ی سطح خدمات', note: 'SLA', business: 'no', enterprise: 'yes' },
     ],
+  },
+  { title: 'توسعه‌دهندگان', rows: [{ label: 'دسترسی به API مدل‌های هوش مصنوعی', business: 'yes', enterprise: 'yes' }] },
+];
+
+const faqs = [
+  {
+    question: 'اعتبار چیست؟',
+    answer: 'اعتبار واحد مصرف در گدار است. هر کاربر هر ماه مقداری اعتبار می‌گیرد و هر پیام، فایل یا اجرای عامل هوش مصنوعی مقداری از آن را مصرف می‌کند. مدل قوی‌تر یا متن طولانی‌تر اعتبار بیشتری می‌برد.',
+  },
+  {
+    question: 'مصرف اعتبار چطور حساب می‌شود؟',
+    answer: 'اعتبار هر پاسخ از دو بخش می‌آید: پردازش مدل، و ابزارهایی که گدار برای جواب دادن اجرا می‌کند، مثل جستجوی وب. یک پیام معمولی با مدل سبک حدود ۰٫۷۵ اعتبار، با مدل میان‌رده حدود ۴٫۵ و با مدل سنگین حدود ۹ اعتبار می‌برد. اعتبار هر پاسخ زیر همان پاسخ نشان داده می‌شود.',
+  },
+  {
+    question: 'تعداد پیام روی کارت‌ها دقیق است؟',
+    answer: 'نه، تقریبی است و فرض می‌کند بخشی از اعتبار صرف ابزارها می‌شود. با مدل سبک تعداد پیام چند برابر می‌شود و با گفتگوی طولانی یا عامل هوش مصنوعی سنگین کمتر.',
+  },
+  {
+    question: 'اعتبار هدیه چطور کار می‌کند؟',
+    answer: 'هر حساب یک بار ۵۰۰ اعتبار هدیه می‌گیرد تا وارد پنل شود و گدار را امتحان کند. این اعتبار تاریخ انقضا ندارد و تجدید نمی‌شود. برای ادامه، نوع کاربر عادی یا حرفه‌ای را انتخاب می‌کنید.',
+  },
+  { question: 'اعتبار مصرف‌نشده به ماه بعد می‌رسد؟', answer: 'نه. اعتبار ماهانه‌ی کاربران در پایان هر ماه صفر می‌شود و منتقل نمی‌شود.' },
+  {
+    question: 'اگر اعتبار تمام شود چه می‌شود؟',
+    answer: 'پاسخی که در حال تولید است کامل می‌شود. بعد از آن، اگر اعتبار کاربر تمام شده باشد، از اعتبار اضافه‌ی مشترک سازمان برداشت می‌شود. اگر آن هم نباشد، استفاده تا خرید اعتبار اضافه یا شروع ماه بعد متوقف می‌شود. هیچ هزینه‌ای بیش از آنچه خریده‌اید ثبت نمی‌شود.',
+  },
+  {
+    question: 'فرق نوع کاربر عادی و حرفه‌ای چیست؟',
+    answer: 'قابلیت‌ها یکی است و فقط اعتبار ماهانه فرق می‌کند: ۴٬۰۰۰ و ۲۰٬۰۰۰ اعتبار. مدیر تیم یا ادمین پنل برای هر همکار نوع کاربر جدا انتخاب می‌کند و هر وقت لازم شد آن را تغییر می‌دهد.',
+  },
+  {
+    question: 'اعتبار کاربرها بین هم مشترک است؟',
+    answer: 'نه. اعتبار هر کاربر مال خود اوست و به دیگری منتقل نمی‌شود. مشترک بودن فقط برای اعتبار اضافه است که سازمان می‌خرد و ادمین می‌تواند سقف برداشت هر نفر از آن را تعیین کند.',
+  },
+  {
+    question: 'API و اتوماسیون از کجا اعتبار می‌گیرند؟',
+    answer: 'درخواست‌هایی که به هیچ همکاری وصل نیستند، مثل API و عامل‌های هوش مصنوعی خودکار، فقط از اعتبار اضافه‌ی مشترک سازمان کم می‌کنند. ادمین می‌تواند برای آن‌ها سقف ماهانه بگذارد.',
+  },
+  {
+    question: 'وقتی کاربر اضافه یا حذف می‌کنم صورتحساب چطور می‌شود؟',
+    answer: 'کاربر تازه فوراً فعال می‌شود و هزینه و اعتبارش به نسبت روزهای باقی‌مانده‌ی ماه حساب می‌شود. حذف کاربر از ماه بعد اعمال می‌شود.',
+  },
+  {
+    question: 'کدام مدل‌ها در دسترس‌اند؟',
+    answer: 'بیش از ۱۳۰ مدل از ارائه‌دهنده‌های مختلف، با اعتبار یکسان برای همه‌ی انواع کاربر. اعتبار به مدل یا ارائه‌دهنده‌ی خاصی وابسته نیست.',
+  },
+  {
+    question: 'اگر دلار گران شود، قیمت تغییر می‌کند؟',
+    answer: 'نرخ مدل‌ها بر حسب اعتبار ثابت است و بودجه‌های شما جابه‌جا نمی‌شود. قیمت تومانی تا نوسان ۱۰٪ دلار تغییر نمی‌کند. هر تغییر قیمت ۳۰ روز قبل اعلام می‌شود و از ماه بعد اعمال می‌شود.',
+  },
+  {
+    question: 'چه زمانی گدار برای سازمان‌ها لازم است؟',
+    answer: 'وقتی بیش از ۱۰۰ نفر هستید، یا به استقرار در محل یا ابر خصوصی، ورود یکپارچه (SSO)، پشتیبانی اولویت‌دار با SLA، مدیر مشتری اختصاصی یا کلید API خودتان (BYOK) نیاز دارید. با تیم فروش صحبت کنید تا با هم قیمت را تعیین کنیم.',
+    link: { href: '/demo', label: 'تماس با فروش' },
   },
 ];
 
-const pricingFaqs = [
-  {
-    question: 'گدارAI چیست و هزینه آن شامل چه چیزی می‌شود؟',
-    answer: 'گدارAI فضای کاری هوش مصنوعی برای همه‌ی تیم‌ها و درگاه مدل‌های زبانی برای تیم فنی است. هزینه‌ی پلن، امکانات و سقف استفاده‌ی جدول مقایسه را پوشش می‌دهد؛ مصرف مدل‌ها جداگانه و با کردیت از کیف پول تومانی کم می‌شود.',
-  },
-  {
-    question: 'کدام پلن برای تیم ما مناسب‌تر است؟',
-    answer: 'برای نمونه‌سازی و پروژه‌های کوچک از پلن توسعه‌دهنده شروع کنید. پلن تیم برای محصول‌های عملیاتی، پلن رشد برای حجم بالاتر و کنترل‌های پیشرفته، و پلن سازمانی برای استقرار اختصاصی، ساختارهای بزرگ و نیازهای سفارشی طراحی شده است.',
-  },
-  {
-    question: 'آیا می‌توانیم قبل از خرید، گدارAI را آزمایش کنیم؟',
-    answer: 'بله. با ثبت‌نام، اعتبار هدیه‌ی اولیه می‌گیرید تا اتصال API، مدل‌ها و جریان کاری خود را پیش از تصمیم نهایی ارزیابی کنید. این اعتبار تاریخ انقضا ندارد.',
-  },
-  {
-    question: 'پرداخت ماهانه، سه‌ماهه و سالانه چه تفاوتی دارند؟',
-    answer: 'امکانات هر پلن ثابت است و تفاوت اصلی در دوره صورتحساب و تخفیف احتمالی همان دوره است. با انتخاب گزینه‌های بالای کارت‌ها، قیمت به‌روز هر دوره را می‌بینید.',
-  },
-  {
-    question: 'آیا برای تیم‌ها و محیط‌های مختلف می‌توان محدودیت جداگانه تعریف کرد؟',
-    answer: 'بله. از پلن تیم به بالا می‌توانید برای کنترل هزینه و نرخ درخواست قانون تعریف کنید. امکانات دقیق مدیریت تیم، نقش‌ها و واحدهای سازمانی بسته به پلن متفاوت است و در جدول مقایسه آمده است.',
-  },
-  {
-    question: 'کلیدهای سرویس‌دهنده‌های مدل چگونه محافظت می‌شوند؟',
-    answer: 'اپلیکیشن‌های شما با توکن دسترسی گدارAI کار می‌کنند و لازم نیست کلید اصلی سرویس‌دهنده را در اختیار هر کاربر یا سرویس بگذارید. امکان مدیریت توکن‌های شخصی و مجازی و کنترل دسترسی مبتنی بر نقش، مطابق پلن انتخابی در دسترس است.',
-  },
-  {
-    question: 'آیا امکان استقرار در زیرساخت خودمان وجود دارد؟',
-    answer: 'بله. در پلن سازمانی می‌توانید درباره استقرار در محل یا ابر خصوصی (VPC)، نگهداری داده و الزامات شبکه با تیم ما هماهنگ کنید. جزئیات معماری و تعهدات اجرایی متناسب با نیاز سازمان تعیین می‌شود.',
-  },
-  {
-    question: 'آیا بعداً می‌توانیم پلن را تغییر دهیم؟',
-    answer: 'بله. تغییر پلن وسط دوره به‌تناسب محاسبه می‌شود.',
-  },
-  {
-    question: 'فاکتور رسمی می‌دهید؟',
-    answer: 'بله. برای هر پرداخت فاکتور رسمی صادر می‌شود.',
-  },
-  {
-    question: 'پرداخت چطور است؟',
-    answer: 'با کیف پول تومانی و کردیت پیش‌پرداخت، بدون کارت بین‌المللی.',
-  },
-  {
-    question: 'برای پرسش‌های فنی یا انتخاب پلن از کجا کمک بگیریم؟',
-    answer: 'از صفحه تماس با ما یا ایمیل support@godarai.ir با تیم گدارAI در ارتباط باشید. برای پلن سازمانی، بررسی نیازهای فنی، ظرفیت، استقرار و آنبوردینگ به‌صورت اختصاصی انجام می‌شود.',
-  },
-] as const;
+const segmentButton = (pressed: boolean) =>
+  `inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-2 text-label font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus ${
+    pressed ? 'border-site-ink bg-site-night text-site-night-ink' : 'border-site-line-strong text-site-ink hover:bg-site-panel'
+  }`;
 
-type PlanDefinition = (typeof planDefinitions)[number];
-
-export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) {
-  const [interval, setInterval] = useState<BillingInterval>('monthly');
-  const plansBySlug = new Map(plans.map((plan) => [plan.slug.toLowerCase(), plan]));
-
+function Bullet({ children }: { children: ReactNode }) {
   return (
-    <FeatureTooltipProvider>
-      <main className="bg-site-ground">
-        <section className="px-4 pb-10 pt-10 sm:px-6 lg:pb-16 lg:pt-20">
-          <div className="mx-auto max-w-content">
-            <header className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
-              <h1 className="text-balance text-h1 font-extrabold text-site-ink lg:text-display">قیمت روشن. به تومان.</h1>
-              <p className="max-w-2xl text-lead font-light text-site-ink-soft">
-                اول با اعتبار هدیه امتحان کنید. بعد پلن ماهانه را انتخاب کنید، یا گدارAI را روی سرورهای خودتان نصب کنید.
-              </p>
-            </header>
+    <li className="flex items-start gap-3">
+      <Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-site-ink" />
+      <span className="text-body text-site-ink">{children}</span>
+    </li>
+  );
+}
 
-            <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-card border border-site-line bg-site-sand px-6 py-5 sm:flex-row">
-              <p className="m-0 text-body font-medium text-site-ink">اعتبار هدیه برای شروع؛ بدون تاریخ انقضا.</p>
+function Plans() {
+  return (
+    <section className="bg-site-ground px-4 pb-10 pt-12 sm:px-6 lg:pb-20 lg:pt-20">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-10">
+        <header className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
+          <h1 className="m-0 text-balance text-h1 font-extrabold text-site-ink lg:text-display">به اندازه‌ی کار هر نفر. به تومان.</h1>
+          <p className={`m-0 max-w-2xl ${sectionCopy}`}>
+            هر همکار با یک اشتراک ماهانه به همه‌ی مدل‌ها و ابزارهای گدار دسترسی دارد. شما فقط نوع کاربر هر نفر را انتخاب می‌کنید.
+          </p>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <article className="flex flex-col gap-6 rounded-card border border-site-line-strong bg-site-surface p-6 lg:p-8">
+            <div className="flex flex-col gap-2">
+              <h2 className="m-0 text-h3 font-semibold text-site-ink">گدار برای کسب‌وکارها</h2>
+              <p className="m-0 text-body text-site-ink-soft">برای شرکت‌ها و تیم‌ها تا ۱۰۰ نفر.</p>
+            </div>
+            <div className="flex flex-col gap-1 border-y border-site-line py-5">
+              <span className="text-caption text-site-ink-soft">شروع از</span>
+              <span className="text-h2 font-extrabold text-site-ink">{fa(seats[0].price)} تومان</span>
+              <span className="text-label text-site-ink-soft">به ازای هر کاربر در ماه</span>
+            </div>
+            <p className="m-0 text-label text-site-ink">
+              می‌خواهید اول امتحان کنید؟ هر حساب یک بار {fa(giftCredits)} اعتبار هدیه می‌گیرد؛ بدون تاریخ انقضا.{' '}
+              <a href="#seats" className={textLink}>
+                نوع‌های کاربر
+                <ArrowDown aria-hidden="true" className="size-4" />
+              </a>
+            </p>
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              <Bullet>دسترسی به بیش از ۱۳۰ مدل، از جمله GPT، Claude، Gemini و Grok</Bullet>
+              <Bullet>ساخت عامل هوش مصنوعی اختصاصی برای کارهای تکراری تیم، مثل پاسخ به مشتری یا تهیه‌ی گزارش</Bullet>
+              <Bullet>تعامل با ابزارهای بیرونی سازمان (MCP)</Bullet>
+              <Bullet>گاردریل معنایی برای درخواست‌ها و موضوع‌هایی که سازمان مجاز نمی‌داند</Bullet>
+              <Bullet>گزارش مصرف و مدیریت کاربران</Bullet>
+            </ul>
+            <div className="mt-auto flex flex-col gap-3">
               <Link href="/onboarding" className={buttonPrimary}>
                 شروع با اعتبار هدیه
               </Link>
+              <p className="m-0 text-caption text-site-ink-soft">قیمت‌ها بدون احتساب مالیات بر ارزش افزوده است.</p>
             </div>
+          </article>
 
-            <div className="mt-10 flex justify-center">
-              <div aria-label="دوره پرداخت" className="inline-grid grid-cols-3 rounded-full border border-site-line bg-site-surface p-1" role="group">
-                {(['monthly', 'quarterly', 'yearly'] as BillingInterval[]).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    aria-pressed={interval === item}
-                    onClick={() => setInterval(item)}
-                    className={`min-h-11 rounded-full px-4 text-label font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus sm:px-6 ${interval === item ? 'bg-site-ink text-site-surface' : 'text-site-ink-soft hover:bg-site-panel'}`}
-                  >
-                    {intervalLabel(item)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-8 grid items-stretch gap-3 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {planDefinitions.map((definition) => (
-                <PlanCard key={definition.slug} definition={definition} plan={plansBySlug.get(definition.slug)} interval={interval} />
-              ))}
-            </div>
-
-            {plans.length === 0 ? (
-              <p className="mt-5 text-center text-label text-site-ink-soft">
-                فهرست قیمت‌ها الان بارگیری نشد؛ جزئیات پلن‌ها همچنان قابل مقایسه است. برای قیمت با ما تماس بگیرید.
-              </p>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="bg-site-panel px-4 py-10 sm:px-6 lg:py-20">
-          <div className="mx-auto grid max-w-content gap-3 sm:gap-6 lg:grid-cols-3">
-            <div className="flex flex-col gap-4 rounded-card bg-site-night p-6 text-site-night-ink lg:col-span-2 lg:p-10">
-              <h2 className="m-0 text-h3 font-bold lg:text-h2">روی سرورهای خودتان.</h2>
-              <p className="m-0 max-w-xl text-body text-site-night-soft">
-                نصب داخل زیرساخت سازمان (Kubernetes) با قرارداد سالانه و پشتیبانی؛ همان فضای کاری، گاردریل و کنترل هزینه، با ورود سازمانی.
-              </p>
-              <div>
-                <Link href="/on-premise" className={buttonOnNavy}>
-                  درخواست استقرار در سازمان
-                  <ArrowLeft aria-hidden="true" className="size-4" />
-                </Link>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 rounded-card border border-site-line bg-site-surface p-6 lg:p-8">
-              <h2 className="m-0 text-h3 font-semibold text-site-ink">مصرف مدل‌ها</h2>
+          <article className="flex flex-col gap-6 rounded-card border border-site-line bg-site-sand p-6 lg:p-8">
+            <div className="flex flex-col gap-2">
+              <h2 className="m-0 text-h3 font-semibold text-site-ink">گدار برای سازمان‌ها</h2>
               <p className="m-0 text-body text-site-ink-soft">
-                مصرف مدل با کردیت از کیف پول تومانی کم می‌شود و برای هر تیم و هر کلید سقف می‌گذارید.
+                برای سازمان‌هایی که به استقرار اختصاصی، ورود یکپارچه، پشتیبانی با تعهد سطح خدمات و مدیر مشتری اختصاصی نیاز دارند.
               </p>
-              <Link href="/features/cost-control" className={textLink}>
-                مدیریت هزینه
-                <ArrowLeft aria-hidden="true" className="size-4" />
+            </div>
+            <div className="flex flex-col gap-1 border-y border-site-line-strong py-5">
+              <span className="text-h2 font-extrabold text-site-ink">قیمت سفارشی</span>
+              <span className="text-label text-site-ink-soft">بر اساس تعداد کاربر و حجم مصرف</span>
+            </div>
+            <p className="m-0 text-label font-medium text-site-ink">همه‌ی امکانات گدار برای کسب‌وکارها، به‌علاوه:</p>
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              <Bullet>ورود یکپارچه (SSO)</Bullet>
+              <Bullet>استقرار در محل یا ابر خصوصی</Bullet>
+              <Bullet>پشتیبانی اولویت‌دار با تعهد سطح خدمات (SLA)</Bullet>
+              <Bullet>مدیر مشتری اختصاصی</Bullet>
+              <Bullet>استفاده از کلید API خودتان (BYOK)</Bullet>
+            </ul>
+            <div className="mt-auto">
+              <Link href="/demo" className={`${buttonSecondary} w-full`}>
+                تماس با فروش
               </Link>
             </div>
-          </div>
-        </section>
-
-        <section aria-labelledby="compare-plans" className="px-4 py-10 sm:px-6 lg:py-20">
-          <div className="mx-auto max-w-content">
-            <div className="flex max-w-2xl flex-col gap-4">
-              <h2 id="compare-plans" className={sectionHeading}>همه‌ی قابلیت‌ها، کنار هم.</h2>
-              <p className={`m-0 ${sectionCopy}`}>تفاوت محدودیت‌ها، امنیت، مشاهده‌پذیری و پشتیبانی هر پلن.</p>
-            </div>
-
-            <div className="mt-8 max-w-full overflow-hidden rounded-card border border-site-line bg-site-surface">
-              <div className="max-w-full overflow-x-auto" dir="ltr" tabIndex={0}>
-                <table className="w-full min-w-230 border-collapse text-label" dir="rtl">
-                  <caption className="sr-only">مقایسه‌ی قابلیت‌های پلن‌های توسعه‌دهنده، تیم، رشد و سازمانی</caption>
-                  <thead>
-                    <tr className="border-b border-site-line">
-                      <th className="sticky right-0 bg-site-surface px-5 py-5 text-right font-medium text-site-ink-soft" scope="col">قابلیت</th>
-                      {planDefinitions.map((plan) => (
-                        <th key={plan.slug} className={`min-w-40 px-4 py-5 text-center text-body font-bold text-site-ink ${plan.slug === 'growth' ? 'bg-site-sand' : ''}`} scope="col">
-                          {plan.name}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonSections.map((section) => (
-                      <ComparisonSection key={section.title} section={section} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <p className="mt-3 text-label text-site-ink-soft md:hidden">برای دیدن همه‌ی ستون‌ها، جدول را به طرفین بکشید.</p>
-          </div>
-        </section>
-
-        <FAQ title="پیش از انتخاب پلن بدانید." id="pricing-faq" items={pricingFaqs.map((item) => ({ ...item }))} />
-
-        <ClosingBand
-          title="هنوز مطمئن نیستید؟"
-          titleMuted="با هم انتخاب می‌کنیم."
-          copy="نیازهای تیم، حجم درخواست و الزامات استقرار را بگویید تا پلن درست را پیدا کنیم."
-          primary={{ href: '/demo', label: 'درخواست دمو' }}
-          secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
-        />
-      </main>
-    </FeatureTooltipProvider>
+          </article>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; plan?: PublicCommercialPlan; interval: BillingInterval }) {
-  const price = plan?.prices?.find((item) => item.billing_interval === interval);
-  const isDeveloper = definition.slug === 'developer';
-  const isGrowth = definition.slug === 'growth';
-  const isEnterprise = definition.slug === 'enterprise';
+function Seats() {
+  const [picked, setPicked] = useState<(typeof quiz)[number] | undefined>();
+  const highlight = (id: string) => (picked?.seat === id ? 'border-site-ink ring-2 ring-site-ink' : 'border-site-line');
 
   return (
-    <article className={`relative flex flex-col rounded-card border bg-site-surface p-6 ${isGrowth ? 'border-site-ink' : 'border-site-line'}`}>
-      {isGrowth ? (
-        <span className="absolute -top-3 right-5 rounded-full bg-site-ink px-3 py-0.5 text-caption font-medium text-site-surface">پیشنهاد ما</span>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        <h2 className="m-0 text-h3 font-bold text-site-ink">{definition.name}</h2>
-        <p className="m-0 min-h-14 text-label text-site-ink-soft">{definition.description}</p>
+    <Section id="seats" tone="panel" layout="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <h2 className={`max-w-3xl ${sectionHeading}`}>هر همکار، کاربر خودش.</h2>
+        <p className={`m-0 max-w-2xl ${sectionCopy}`}>
+          هر کاربر یکی از نوع‌های زیر را دارد. مدیر تیم یا ادمین پنل هر وقت لازم شد، نوع کاربر هر نفر را تغییر می‌دهد.
+        </p>
       </div>
 
-      <div className="mt-5 min-h-24 border-b border-site-line pb-5">
-        {isDeveloper ? (
-          <>
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-h2 font-extrabold text-site-ink">{formatAmount(0)}</span>
-              <span className="text-label font-medium text-site-ink-soft">رایگان</span>
-            </div>
-            <p className="mt-2 text-label text-site-ink-soft">بدون نیاز به پرداخت</p>
-          </>
-        ) : price?.amount_minor != null ? (
-          <>
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-h2 font-extrabold text-site-ink">{formatAmount(price.amount_minor)}</span>
-              <span className="text-label font-medium text-site-ink-soft">{currencyLabel(price.currency)} / {intervalUnit(interval)}</span>
-            </div>
-            {price.discount_percent > 0 ? <p className="mt-2 text-label font-medium text-site-success">{formatAmount(price.discount_percent)}٪ تخفیف</p> : null}
-          </>
-        ) : (
-          <>
-            <p className="m-0 text-h3 font-bold text-site-ink">{isEnterprise ? 'قیمت‌گذاری سفارشی' : 'استعلام قیمت'}</p>
-            <p className="mt-2 text-label text-site-ink-soft">متناسب با نیاز و دوره‌ی پرداخت</p>
-          </>
-        )}
-      </div>
-
-      <p className="mt-5 text-label font-semibold text-site-ink">امکانات کلیدی</p>
-      <ul className="mt-3 flex flex-1 flex-col gap-3 text-label text-site-ink">
-        {definition.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2.5">
-            <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-site-success" />
-            <FeatureLabel label={feature} description={featureExplanations[feature]} />
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href={isEnterprise ? '/demo' : `/onboarding?plan=${encodeURIComponent(definition.slug)}`}
-        className={`mt-6 ${isGrowth ? buttonPrimary : buttonSecondary}`}
-      >
-        {isEnterprise ? 'تماس با فروش' : 'شروع با اعتبار هدیه'}
-        <ArrowLeft aria-hidden="true" className="size-4" />
-      </Link>
-    </article>
-  );
-}
-
-function ComparisonSection({ section }: { section: (typeof comparisonSections)[number] }) {
-  return (
-    <>
-      <tr>
-        <th className="bg-site-panel px-5 py-3 text-right text-label font-bold text-site-ink" colSpan={5} scope="colgroup">{section.title}</th>
-      </tr>
-      {section.rows.map((row) => (
-        <tr key={row.label} className="border-b border-site-line last:border-b-0">
-          <th className="sticky right-0 z-10 w-1/4 bg-site-surface px-5 py-4 text-right font-medium text-site-ink" scope="row">
-            <FeatureLabel label={row.label} description={featureExplanations[row.label]} />
-          </th>
-          {row.values.map((value, index) => (
-            <td key={`${row.label}-${planDefinitions[index].slug}`} className={`px-4 py-4 text-center ${index === 2 ? 'bg-site-ground' : ''}`}>
-              <ComparisonCell value={value} />
-            </td>
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-label font-medium text-site-ink">این همکار بیشتر چه کار می‌کند؟</p>
+        <div className="flex flex-wrap gap-2">
+          {quiz.map((option) => (
+            <button key={option.id} type="button" aria-pressed={picked?.id === option.id} onClick={() => setPicked(option)} className={segmentButton(picked?.id === option.id)}>
+              {option.label}
+            </button>
           ))}
-        </tr>
-      ))}
-    </>
+        </div>
+        <p aria-live="polite" className="m-0 min-h-7 text-body text-site-ink">
+          {picked ? picked.text : 'یکی از گزینه‌ها را بزنید تا نوع کاربر مناسب را نشان بدهیم.'}
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {seats.map((seat) => (
+          <article key={seat.id} className={`flex flex-col gap-5 rounded-card border bg-site-surface p-6 lg:p-8 ${highlight(seat.id)}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <h3 className="m-0 text-h3 font-semibold text-site-ink">{seat.name}</h3>
+                <p className="m-0 text-label text-site-ink-soft">{seat.tagline}</p>
+              </div>
+              {seat.popular ? (
+                <span className="shrink-0 rounded-full bg-site-accent px-3 py-1 text-caption font-medium text-site-on-accent">پرکاربردترین</span>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1 border-y border-site-line py-4">
+              <span className="text-h3 font-extrabold text-site-ink">{fa(seat.price)} تومان در ماه</span>
+              <span className="text-label text-site-ink-soft">{fa(seat.credits)} اعتبار هر ماه</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="m-0 text-label text-site-ink-soft">در یک ماه، با مدل سبک، حدود:</p>
+              <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                {cardTasks.map((item) => (
+                  <li key={item.task} className="text-body text-site-ink">
+                    <span className="font-semibold">{fa(monthlyCount(seat.credits, item.task, 'light'))}</span> {item.label}
+                  </li>
+                ))}
+              </ul>
+              {seat.extra ? <p className="m-0 text-label text-site-ink-soft">{seat.extra}</p> : null}
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="m-0 text-caption font-medium text-site-ink-soft">مناسب برای</p>
+              <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+                {seat.roles.map((role) => (
+                  <li key={role} className="rounded-full border border-site-line px-3 py-1 text-caption text-site-ink">
+                    {role}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="m-0 mt-auto text-label text-site-ink-soft">نشانه: {seat.sign}</p>
+          </article>
+        ))}
+
+        <article className={`flex flex-col gap-5 rounded-card border bg-site-surface p-6 lg:p-8 ${highlight('trial')}`}>
+          <div className="flex flex-col gap-1">
+            <h3 className="m-0 text-h3 font-semibold text-site-ink">اعتبار هدیه</h3>
+            <p className="m-0 text-label text-site-ink-soft">برای دمو و آشنایی با گدار</p>
+          </div>
+          <div className="flex flex-col gap-1 border-y border-site-line py-4">
+            <span className="text-h3 font-extrabold text-site-ink">رایگان</span>
+            <span className="text-label text-site-ink-soft">{fa(giftCredits)} اعتبار، یک بار برای هر حساب</span>
+          </div>
+          <p className="m-0 text-body text-site-ink">
+            حدود {fa(monthlyCount(giftCredits, 'msg', 'light'))} پیام با مدل سبک. این اعتبار تاریخ انقضا ندارد و تجدید نمی‌شود.
+          </p>
+          <Link href="/onboarding" className={`${buttonSecondary} mt-auto`}>
+            شروع با اعتبار هدیه
+          </Link>
+        </article>
+      </div>
+    </Section>
   );
 }
 
-function ComparisonCell({ value }: { value: ComparisonValue }) {
-  if (value === true) return <><Check aria-hidden="true" className="mx-auto size-5 text-site-success" /><span className="sr-only">دارد</span></>;
-  if (value === false) return <><Minus aria-hidden="true" className="mx-auto size-5 text-site-line-strong" /><span className="sr-only">ندارد</span></>;
-  return <span className="text-site-ink">{value}</span>;
-}
-
-function FeatureLabel({ label, description }: { label: string; description?: string }) {
-  if (!description) return <span>{label}</span>;
-
-  const { leading, trailing, trailingDirection } = splitFeatureLabel(label);
+function Examples() {
+  const [model, setModel] = useState<Model>('light');
 
   return (
-    <span>
-      {leading ? <>{leading}{' '}</> : null}
-      <span className="inline-flex whitespace-nowrap items-center gap-1.5" dir={trailingDirection}>
-        <span>{trailing}</span>
-        <FeatureHelp label={label} description={description} />
-      </span>
-    </span>
+    <Section id="examples" layout="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <h2 className={`max-w-3xl ${sectionHeading}`}>هر کار را چند بار در ماه می‌شود انجام داد؟</h2>
+        <p className={`m-0 max-w-2xl ${sectionCopy}`}>
+          تعداد تقریبی تکرار هر کار در ماه، برای هر نوع کاربر. عددها برای همان یک کار است؛ اگر چند کار را ترکیب کنید، تقسیم می‌شود.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <p id="model-label" className="m-0 text-label font-medium text-site-ink">با کدام مدل کار می‌کنید؟</p>
+        <div role="group" aria-labelledby="model-label" className="flex flex-wrap gap-2">
+          {(Object.keys(modelNames) as Model[]).map((key) => (
+            <button key={key} type="button" aria-pressed={model === key} onClick={() => setModel(key)} className={segmentButton(model === key)}>
+              {modelNames[key]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ComparisonTable
+        caption={`تعداد تقریبی تکرار هر کار در ماه با مدل ${modelNames[model]}`}
+        columns={['کاربر عادی', 'کاربر حرفه‌ای']}
+        rows={exampleTasks.map((item) => ({
+          label: item.label,
+          note: item.category,
+          values: seats.map((seat) => `حدود ${fa(monthlyCount(seat.credits, item.task, model))} بار`),
+        }))}
+      />
+
+      <p className="m-0 max-w-3xl text-label text-site-ink-soft">
+        مدل سبک، سریع و کم‌مصرف است؛ مدل میان‌رده برای بیشتر کارها کافی است؛ و مدل سنگین، دقیق‌تر ولی پرمصرف‌تر.
+      </p>
+    </Section>
   );
 }
 
-function splitFeatureLabel(label: string) {
-  const parentheticalStart = label.lastIndexOf(' (');
-  if (parentheticalStart > 0) {
-    return {
-      leading: label.slice(0, parentheticalStart),
-      trailing: label.slice(parentheticalStart + 1),
-      trailingDirection: 'rtl' as const,
-    };
+function CellValue({ value }: { value: Cell }) {
+  if (value === 'yes') {
+    return (
+      <>
+        <Check aria-hidden="true" className="size-5 text-site-ink" />
+        <span className="sr-only">دارد</span>
+      </>
+    );
   }
 
-  const lastSpace = label.lastIndexOf(' ');
-  return {
-    leading: lastSpace > 0 ? label.slice(0, lastSpace) : '',
-    trailing: lastSpace > 0 ? label.slice(lastSpace + 1) : label,
-    trailingDirection: 'rtl' as const,
-  };
-}
-
-function FeatureHelp({ label, description }: { label: string; description: string }) {
-  const id = useId();
-  const tooltip = useContext(FeatureTooltipContext);
-  const isOpen = tooltip?.activeId === id;
-
-  return (
-    <button
-      type="button"
-      aria-describedby={isOpen ? id : undefined}
-      aria-label={`راهنمای ${label}`}
-      data-feature-tooltip-trigger="true"
-      onBlur={() => tooltip?.hide(id)}
-      onClick={(event) => tooltip?.togglePinned(id, label, description, event.currentTarget)}
-      onFocus={(event) => tooltip?.show(id, label, description, event.currentTarget)}
-      onMouseEnter={(event) => tooltip?.show(id, label, description, event.currentTarget)}
-      onMouseLeave={() => tooltip?.hide(id)}
-      className="inline-grid size-6 shrink-0 place-items-center rounded-full text-site-ink-soft transition-colors hover:bg-site-panel hover:text-site-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus"
-    >
-      <Info aria-hidden="true" className="size-3.5" />
-    </button>
-  );
-}
-
-function FeatureTooltipProvider({ children }: { children: ReactNode }) {
-  const [active, setActive] = useState<TooltipState | null>(null);
-
-  useEffect(() => {
-    if (!active) return;
-
-    const close = () => setActive(null);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Element && event.target.closest('[data-feature-tooltip-trigger]')) return;
-      close();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
-    document.addEventListener('pointerdown', handlePointerDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', close);
-      window.removeEventListener('scroll', close, true);
-      document.removeEventListener('pointerdown', handlePointerDown);
-    };
-  }, [active]);
-
-  const createState = (id: string, label: string, description: string, trigger: HTMLElement, pinned: boolean): TooltipState => {
-    const rect = trigger.getBoundingClientRect();
-    const tooltipWidth = Math.min(288, window.innerWidth - 24);
-    const left = Math.min(
-      Math.max(rect.left + rect.width / 2 - tooltipWidth / 2, 12),
-      window.innerWidth - tooltipWidth - 12,
+  if (value === 'no') {
+    return (
+      <>
+        <Minus aria-hidden="true" className="size-5 text-site-ink-soft" />
+        <span className="sr-only">ندارد</span>
+      </>
     );
-    const placement = rect.bottom + 168 < window.innerHeight ? 'bottom' : 'top';
+  }
 
-    return {
-      id,
-      label,
-      description,
-      left,
-      top: placement === 'bottom' ? rect.bottom + 8 : rect.top - 8,
-      placement,
-      pinned,
-    };
-  };
+  return <span className="text-label text-site-ink">{value}</span>;
+}
 
-  const value: FeatureTooltipContextValue = {
-    activeId: active?.id,
-    show: (id, label, description, trigger) => {
-      setActive((current) => {
-        if (current?.id === id && current.pinned) return current;
-        return createState(id, label, description, trigger, false);
-      });
-    },
-    hide: (id) => {
-      setActive((current) => current?.id === id && !current.pinned ? null : current);
-    },
-    togglePinned: (id, label, description, trigger) => {
-      setActive((current) => current?.id === id && current.pinned ? null : createState(id, label, description, trigger, true));
-    },
-  };
+function Compare() {
+  const [query, setQuery] = useState('');
+  const term = query.trim().toLowerCase();
+  const groups = comparison
+    .map((group) => ({ ...group, rows: group.rows.filter((row) => !term || `${row.label} ${row.note ?? ''}`.toLowerCase().includes(term)) }))
+    .filter((group) => group.rows.length > 0);
 
   return (
-    <FeatureTooltipContext.Provider value={value}>
-      {children}
-      {active ? createPortal(
-        <div
-          id={active.id}
-          role="tooltip"
-          dir="rtl"
-          className="pointer-events-none fixed z-50 max-h-svh w-72 overflow-y-auto rounded-card border border-site-line bg-site-surface p-3 text-right text-caption font-normal text-site-ink"
-          style={{
-            left: active.left,
-            top: active.top,
-            transform: active.placement === 'top' ? 'translateY(-100%)' : undefined,
-          }}
-        >
-          <span className="mb-1 block font-bold text-site-ink">{active.label}</span>
-          {active.description}
-        </div>,
-        document.body,
-      ) : null}
-    </FeatureTooltipContext.Provider>
+    <Section id="compare" tone="panel" layout="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <h2 className={`max-w-3xl ${sectionHeading}`}>کسب‌وکارها یا سازمان‌ها؟ ردیف به ردیف.</h2>
+        <label className="relative flex max-w-md items-center">
+          <span className="sr-only">جستجوی قابلیت</span>
+          <Search aria-hidden="true" className="pointer-events-none absolute start-4 size-4 text-site-ink-soft" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="جستجوی قابلیت، مثلاً SSO"
+            className="w-full rounded-field border border-site-line-strong bg-site-surface py-3 pe-4 ps-11 text-body text-site-ink placeholder:text-site-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus"
+          />
+        </label>
+      </div>
+
+      <div className="overflow-hidden rounded-card border border-site-line bg-site-surface">
+        <table className="w-full border-collapse text-start">
+          <caption className="sr-only">مقایسه‌ی گدار برای کسب‌وکارها و سازمان‌ها</caption>
+          <thead>
+            <tr className="bg-site-panel">
+              <th scope="col" className="px-4 py-4 text-start text-label font-medium text-site-ink-soft sm:px-6">قابلیت</th>
+              <th scope="col" className="w-24 px-2 py-4 text-center text-label font-semibold text-site-ink sm:w-40">کسب‌وکارها</th>
+              <th scope="col" className="w-24 px-2 py-4 text-center text-label font-semibold text-site-ink sm:w-40">سازمان‌ها</th>
+            </tr>
+          </thead>
+          {groups.length ? (
+            groups.map((group) => (
+              <tbody key={group.title}>
+                <tr className="border-t border-site-line bg-site-ground">
+                  <th scope="rowgroup" colSpan={3} className="px-4 py-3 text-start text-caption font-semibold text-site-ink-soft sm:px-6">
+                    {group.title}
+                  </th>
+                </tr>
+                {group.rows.map((row) => (
+                  <tr key={row.label} className="border-t border-site-line">
+                    <th scope="row" className="px-4 py-4 text-start align-top font-normal sm:px-6">
+                      <span className="block text-body text-site-ink">{row.label}</span>
+                      {row.note ? <span className="block text-caption text-site-ink-soft">{row.note}</span> : null}
+                    </th>
+                    <td className="px-2 py-4 align-top">
+                      <span className="flex justify-center text-center">
+                        <CellValue value={row.business} />
+                      </span>
+                    </td>
+                    <td className="px-2 py-4 align-top">
+                      <span className="flex justify-center text-center">
+                        <CellValue value={row.enterprise} />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ))
+          ) : (
+            <tbody>
+              <tr className="border-t border-site-line">
+                <td colSpan={3} className="px-6 py-6 text-center text-body text-site-ink-soft">
+                  قابلیتی با این عبارت پیدا نشد.
+                </td>
+              </tr>
+            </tbody>
+          )}
+        </table>
+      </div>
+    </Section>
   );
 }
 
-function intervalLabel(value: BillingInterval) {
-  if (value === 'quarterly') return 'سه‌ماهه';
-  if (value === 'yearly') return 'سالانه';
-  return 'ماهانه';
-}
-
-function intervalUnit(value: BillingInterval) {
-  if (value === 'quarterly') return 'سه ماه';
-  if (value === 'yearly') return 'سال';
-  return 'ماه';
-}
-
-function formatAmount(value: number) {
-  return new Intl.NumberFormat('fa-IR').format(value);
-}
-
-function currencyLabel(currency: string) {
-  const labels: Record<string, string> = { IRR: 'ریال', IRT: 'تومان', USD: 'دلار' };
-  return labels[currency.toUpperCase()] ?? currency;
+export function CommercialPricing() {
+  return (
+    <main className="bg-site-ground">
+      <Plans />
+      <Seats />
+      <Examples />
+      <Compare />
+      <FAQ id="pricing-faq" title="پیش از انتخاب بدانید." items={faqs} />
+      <ClosingBand
+        title="هوش مصنوعی را در کار روزمره‌ی همه‌ی تیم‌ها جا بیندازید."
+        copy="با چند کاربر شروع کنید، مصرف را ببینید و بر اساس کار واقعی تیم، نوع کاربر هر نفر را تنظیم کنید. اگر کمک خواستید، یک جلسه‌ی ۳۰ دقیقه‌ای با ما بگذارید."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
+        secondary={{ href: '/demo', label: 'رزرو دمو' }}
+      />
+    </main>
+  );
 }
