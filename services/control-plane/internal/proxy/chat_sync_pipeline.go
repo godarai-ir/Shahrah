@@ -225,8 +225,10 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 		guardrailOverrides = state.guardrailOverrides
 	}
 
-	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(c.Context(), completion, selection, guardrailOverrides)
+	judgeUsage := &guardrails.JudgeUsage{}
+	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(guardrails.WithJudgeUsage(c.Context(), judgeUsage), completion, selection, guardrailOverrides)
 	h.recordGuardrailChecks(c, outputResult.Checks)
+	h.pipeline.chargeJudgeUsage(c.Context(), h.logs, authInfo, tunnelRequest.RequestID, tunnelRequest.TraceID, request.Model, "guardrail_output", judgeUsage)
 
 	if err != nil {
 		h.observeBlockedChat(c, request, originalBody, authInfo, tunnelRequest, finalCost, startedAt, requestLog)
@@ -268,8 +270,8 @@ func (h *ChatCompletionHandler) observeBlockedChat(
 		RequestID:       tunnelRequest.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           request.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -319,8 +321,8 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 		RequestID:       tunnelRequest.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           request.Model,
 		InputTokens:     result.finalCost.InputTokens,
 		OutputTokens:    result.finalCost.OutputTokens,
@@ -360,7 +362,6 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 		}), tunnelRequest.RequestMetadata), tunnelRequest.Deployment),
 	})

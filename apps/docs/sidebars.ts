@@ -103,6 +103,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'financial/overview',
         'financial/rate-card',
+        'budget-me',
         'cost-tracking',
       ],
     },
@@ -157,7 +158,6 @@ const sidebars: SidebarsConfig = {
         'guides/tenant-team-account-model',
         'guides/user-management',
         'guides/team-management',
-        'guides/org-unit-management',
         'guides/virtual-account-management',
         'guides/api-keys',
         'guides/api-key-rotation',

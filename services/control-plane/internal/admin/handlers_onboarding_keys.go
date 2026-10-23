@@ -96,7 +96,7 @@ func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -152,10 +152,6 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		}
 
 		req.VirtualUserID = virtualUser.ID
-		if req.OrgUnitID == "" {
-			req.OrgUnitID = virtualUser.OrgUnitID
-			req.OrgID = virtualUser.OrgUnitID
-		}
 	}
 
 	if req.KeyType == platform.KeyTypeVAT && req.VirtualUserID != "" && h.virtualUsers != nil {
@@ -174,11 +170,6 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 
 		if req.TeamID == "" {
 			req.TeamID = virtualUser.TeamID
-		}
-
-		if req.OrgUnitID == "" {
-			req.OrgUnitID = virtualUser.OrgUnitID
-			req.OrgID = virtualUser.OrgUnitID
 		}
 	}
 
@@ -240,7 +231,7 @@ func (h *Handlers) CreateVATKey(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -297,14 +288,6 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 		req.TeamID = virtualUser.TeamID
 	}
 
-	if req.OrgUnitID == "" {
-		req.OrgUnitID = virtualUser.OrgUnitID
-	}
-
-	if req.OrgID == "" {
-		req.OrgID = req.OrgUnitID
-	}
-
 	if req.TeamID == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "virtual user team_id is required for vat")
 	}
@@ -342,7 +325,7 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListVirtualUserTokens(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -383,7 +366,7 @@ func (h *Handlers) ListVirtualUserTokens(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -455,7 +438,7 @@ func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -495,7 +478,7 @@ func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -536,7 +519,7 @@ func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
 
 // ListKeys returns all tenant keys without exposing raw key material.
 func (h *Handlers) ListKeys(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -612,7 +595,6 @@ func (h *Handlers) ensureLegacyVATVirtualUser(c *fiber.Ctx, tenantID string, req
 	created, err := h.virtualUsers.CreateVirtualUser(c.Context(), tenantID, platform.CreateVirtualUserRequest{
 		Alias:       alias,
 		DisplayName: "Legacy VAT " + req.TeamID,
-		OrgUnitID:   req.OrgUnitID,
 		TeamID:      req.TeamID,
 		Metadata: map[string]interface{}{
 			"source": "legacy_vat_key_endpoint",

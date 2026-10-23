@@ -41,7 +41,6 @@ func TestValidateBudgetAppliesPer(t *testing.T) {
 		string(platform.BudgetAppliesPerTenant),
 		string(platform.BudgetAppliesPerUser),
 		string(platform.BudgetAppliesPerTeam),
-		string(platform.BudgetAppliesPerOrgUnit),
 		string(platform.BudgetAppliesPerModel),
 		string(platform.BudgetAppliesPerVirtualAccount),
 		"metadata.project_id",

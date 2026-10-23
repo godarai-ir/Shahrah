@@ -158,7 +158,7 @@ func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider strin
 		b = &testBudgeter{}
 	}
 
-	h := NewImagesHandler(rt, tunnel, b, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	h := NewImagesHandler(rt, tunnel, b, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -173,7 +173,7 @@ func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider strin
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				modelName: allowedTypes,
@@ -192,13 +192,11 @@ func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider strin
 
 type rateLimitCountingBudgeter struct {
 	testBudgeter
-	calls               int
-	lastEstimatedTokens int
+	calls int
 }
 
-func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, estimatedTokens int) (*cache.RateLimitResult, error) {
+func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string) (*cache.RateLimitResult, error) {
 	b.calls++
-	b.lastEstimatedTokens = estimatedTokens
 
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
@@ -501,7 +499,6 @@ func TestImagesHandlerVariationEstimateUsesDeploymentModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, 1, budgeter.calls)
-	assert.Equal(t, 2124, budgeter.lastEstimatedTokens)
 	outboundForm := readMultipartForm(t, tunnel.lastReq.Headers["Content-Type"], tunnel.lastReq.Body)
 	assert.Equal(t, []string{"dall-e-2"}, outboundForm.Value["model"])
 }

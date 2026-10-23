@@ -68,7 +68,6 @@ type ListRequestLogsV2Params struct {
 	PayloadMode       string
 	ActorType         string
 	ActorID           string
-	OrgUnitID         string
 	TeamID            string
 	StatusCode        *int
 	From              *time.Time
@@ -248,17 +247,4 @@ type CreateLogExportV2Request struct {
 
 type ListLogExportsV2Response struct {
 	Data []LogExportJobV2 `json:"data"`
-}
-
-type LogReplayDraftV2 struct {
-	LogID          string                 `json:"log_id"`
-	Supported      bool                   `json:"supported"`
-	Reason         string                 `json:"reason,omitempty"`
-	Route          string                 `json:"route,omitempty"`
-	RequestType    string                 `json:"request_type,omitempty"`
-	Model          string                 `json:"model,omitempty"`
-	Provider       string                 `json:"provider,omitempty"`
-	RequestPayload map[string]interface{} `json:"request_payload,omitempty"`
-	SafeHeaders    map[string]string      `json:"safe_headers,omitempty"`
-	Warnings       []string               `json:"warnings,omitempty"`
 }

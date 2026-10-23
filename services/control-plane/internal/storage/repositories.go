@@ -9,6 +9,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -68,8 +69,12 @@ type walletState struct {
 	entitlementCache       cache.Cache
 	budgetWindowTTLGrace   time.Duration
 	hotPathDBTimeout       time.Duration
-	ledger                 *WalletLedgerRepository
-	rates                  *ExchangeRateRepository
+	creditOverageCeilingMC int64
+	// runtimeProfileInvalidator recompiles a tenant's runtime profile, for
+	// example after its billing unit changes.
+	runtimeProfileInvalidator RuntimeProfileInvalidator
+	ledger                    *WalletLedgerRepository
+	rates                     *ExchangeRateRepository
 }
 
 // WalletLedgerRepository persists wallet balances, ledger entries, and budget settlements.
@@ -87,6 +92,18 @@ type FinancialRepository struct{ *walletState }
 // CreditRateCardRepository persists credit rate-card versions and model multipliers.
 type CreditRateCardRepository struct{ *walletState }
 
+// CreditLedgerRepository persists credit lots, the append-only credit ledger, and
+// its balance projections.
+type CreditLedgerRepository struct{ *walletState }
+
+// CreditPriceRepository persists dollar-rate samples, credit list-price
+// revisions, and the public pricing changelog.
+type CreditPriceRepository struct{ *walletState }
+
+// CreditPackRepository persists credit add-on packs, their orders, and tenant
+// credit billing settings.
+type CreditPackRepository struct{ *walletState }
+
 // WalletRepository is a compatibility composition of focused wallet capabilities.
 type WalletRepository struct {
 	*WalletLedgerRepository
@@ -94,6 +111,10 @@ type WalletRepository struct {
 	*WalletPaymentRepository
 	*FinancialRepository
 	*CreditRateCardRepository
+	*CreditLedgerRepository
+	*CreditPackRepository
+	*CreditPriceRepository
+	*SeatRepository
 }
 
 // SupportRepository persists support tickets and support-only tenant operations.
@@ -123,7 +144,7 @@ type PromptRepository struct {
 	pool *pgxpool.Pool
 }
 
-// IAMRepository persists organizational units, teams, virtual users, and memberships.
+// IAMRepository persists teams, virtual users, and memberships.
 type IAMRepository struct {
 	pool                      *pgxpool.Pool
 	runtimeProfileInvalidator RuntimeProfileInvalidator
@@ -322,16 +343,24 @@ func newWalletRepository(
 	clickhouseMetricsReady bool,
 	logger *zap.Logger,
 	sharedCache cache.Cache,
+	invalidator RuntimeProfileInvalidator,
 	storageConfig Config,
 ) *WalletRepository {
+	ceilingMC := storageConfig.Wallets.CreditOverageCeilingMC
+	if ceilingMC <= 0 {
+		ceilingMC = credits.DefaultOverageCeilingCredits * credits.MillicreditsPerCredit
+	}
+
 	state := &walletState{
-		pool:                   pool,
-		clickhouse:             clickhouse,
-		clickhouseMetricsReady: clickhouseMetricsReady,
-		logger:                 logger,
-		entitlementCache:       sharedCache,
-		budgetWindowTTLGrace:   storageConfig.Wallets.BudgetWindowTTLGrace,
-		hotPathDBTimeout:       storageConfig.HotPath.DatabaseTimeout,
+		pool:                      pool,
+		clickhouse:                clickhouse,
+		clickhouseMetricsReady:    clickhouseMetricsReady,
+		logger:                    logger,
+		entitlementCache:          sharedCache,
+		budgetWindowTTLGrace:      storageConfig.Wallets.BudgetWindowTTLGrace,
+		hotPathDBTimeout:          storageConfig.HotPath.DatabaseTimeout,
+		creditOverageCeilingMC:    ceilingMC,
+		runtimeProfileInvalidator: invalidator,
 	}
 
 	return composeWalletRepository(state)
@@ -349,6 +378,10 @@ func composeWalletRepository(state *walletState) *WalletRepository {
 		WalletPaymentRepository:  &WalletPaymentRepository{walletState: state},
 		FinancialRepository:      &FinancialRepository{walletState: state},
 		CreditRateCardRepository: &CreditRateCardRepository{walletState: state},
+		CreditLedgerRepository:   &CreditLedgerRepository{walletState: state},
+		CreditPackRepository:     &CreditPackRepository{walletState: state},
+		CreditPriceRepository:    &CreditPriceRepository{walletState: state},
+		SeatRepository:           &SeatRepository{walletState: state},
 	}
 }
 

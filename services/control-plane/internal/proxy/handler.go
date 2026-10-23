@@ -36,7 +36,7 @@ const httpErrorFloor = 400
 type budgeter interface {
 	EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error)
 	EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error)
-	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error)
+	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string) (*cache.RateLimitResult, error)
 	CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error
 	FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
 	FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
@@ -86,10 +86,6 @@ func applyDeploymentPricingOverride(
 	return pipeline.applyDeploymentPricingOverride(ctx, estimated, deployment)
 }
 
-type walletStore interface {
-	DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error)
-}
-
 type usageLogger interface {
 	LogRequest(ctx context.Context, entry platform.RequestLogEntry) error
 	LogSpend(ctx context.Context, log platform.SpendLog) error
@@ -105,22 +101,21 @@ type promptResolver interface {
 
 // ChatCompletionHandler serves chat completion requests.
 type ChatCompletionHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	vmResolver       virtualmodels.VirtualModelResolver
-	vmEngine         virtualmodels.RoutingEngine
-	vmExec           virtualmodels.FallbackExecutor
-	emitMetric       func(input metricsobs.BuildInput)
-	responseCache    *responsecache.Service
-	guardrails       *guardrails.Engine
-	guardrailRepo    guardrailResolver
-	prompts          promptResolver
-	resources        providerNativeResourceStore
-	deployments      responseDeploymentLister
-	providerFeatures ProviderFeatureConfig
+	llmRouter     *router.Router
+	pipeline      *RequestPipeline
+	billing       budgeter
+	logs          usageLogger
+	logger        *zap.Logger
+	vmResolver    virtualmodels.VirtualModelResolver
+	vmEngine      virtualmodels.RoutingEngine
+	vmExec        virtualmodels.FallbackExecutor
+	emitMetric    func(input metricsobs.BuildInput)
+	responseCache *responsecache.Service
+	guardrails    *guardrails.Engine
+	guardrailRepo guardrailResolver
+	prompts       promptResolver
+	resources     providerNativeResourceStore
+	deployments   responseDeploymentLister
 }
 
 // NewChatCompletionHandlerWithDependencies creates a chat handler from explicit dependencies.
@@ -147,27 +142,26 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 	)
 
 	return &ChatCompletionHandler{
-		llmRouter:        deps.Base.Router,
-		pipeline:         deps.Base.requestPipeline(),
-		billing:          deps.Base.Billing,
-		logs:             deps.Base.logger(),
-		logger:           deps.Base.Logger,
-		vmResolver:       resolver,
-		vmEngine:         engine,
-		vmExec:           exec,
-		emitMetric:       deps.Base.metricEmitter(),
-		guardrailRepo:    deps.GuardrailResolver,
-		prompts:          deps.PromptResolver,
-		guardrails:       deps.Guardrails,
-		responseCache:    deps.ResponseCache,
-		resources:        deps.Base.ProviderResources,
-		deployments:      deps.Base.Deployments,
-		providerFeatures: deps.Base.ProviderFeatures,
+		llmRouter:     deps.Base.Router,
+		pipeline:      deps.Base.requestPipeline(),
+		billing:       deps.Base.Billing,
+		logs:          deps.Base.logger(),
+		logger:        deps.Base.Logger,
+		vmResolver:    resolver,
+		vmEngine:      engine,
+		vmExec:        exec,
+		emitMetric:    deps.Base.metricEmitter(),
+		guardrailRepo: deps.GuardrailResolver,
+		prompts:       deps.PromptResolver,
+		guardrails:    deps.Guardrails,
+		responseCache: deps.ResponseCache,
+		resources:     deps.Base.ProviderResources,
+		deployments:   deps.Base.Deployments,
 	}
 }
 
 // NewChatCompletionHandler creates a new chat completion handler.
-func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, budget budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
+func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, budget budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ChatCompletionHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -179,7 +173,6 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 			Tunnel:              tunnel,
 			Billing:             budget,
 			BillingCapabilities: compatibilityBillingCapabilities(),
-			Wallets:             wallets,
 			RequestLogger:       logs,
 			SpendLogger:         logs,
 			Logger:              logger,
@@ -380,14 +373,6 @@ func (h *ChatCompletionHandler) chatDeploymentRequestValidationError(
 	deployment *router.Deployment,
 ) (int, string, error) {
 	provider := deployment.Provider
-	if isMistralProvider(provider) && !mistralEndpointEnabled(h.providerFeatures, "chat_completions") {
-		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("mistral AI chat completions are disabled")
-	}
-
-	if isZAIProvider(provider) && h.providerFeatures.Configured && !h.providerFeatures.ZAIEnabled {
-		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("z.ai chat completions are disabled")
-	}
-
 	if err := validateProviderMediaInput(req, provider); err != nil {
 		return fiber.StatusBadRequest, "invalid_request_error", err
 	}
@@ -1098,7 +1083,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: req.Model,
+		TeamID: authInfo.TeamID, UserID: authInfo.UserID, Model: req.Model,
 		CostUSD: 0, CostIRR: 0, ResponseTimeMS: responseTimeMS, Status: "success",
 		RequestMetadata: metadata, CompletionStart: start, CompletionEnd: time.Now(),
 	})
@@ -1308,8 +1293,8 @@ func (h *ChatCompletionHandler) handleStream(
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
-				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
+				UserID:          authInfo.UserID,
 				Model:           req.Model,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -1348,7 +1333,6 @@ func (h *ChatCompletionHandler) handleStream(
 					"endpoint":    "/v1/chat/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.RequestMetadata), tunnelReq.Deployment),
 			})
@@ -1887,7 +1871,6 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 		Object  string                `json:"object"`
 		Usage   contractsopenai.Usage `json:"usage"`
 		CostUSD float64               `json:"cost_usd"`
-		CostIRR float64               `json:"cost_irr"`
 		Credits string                `json:"credits,omitempty"`
 	}{
 		Object: "godarai.telemetry",
@@ -1897,7 +1880,6 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 			TotalTokens:      cost.TotalTokens,
 		},
 		CostUSD: cost.TotalCostUSD,
-		CostIRR: cost.TotalCostIRR,
 		Credits: creditsText,
 	})
 	if err != nil {

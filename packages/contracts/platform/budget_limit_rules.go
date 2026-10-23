@@ -12,11 +12,20 @@ const (
 
 type BudgetAppliesPer string
 
+// BudgetOnExceed is what happens to a request that would exceed a credit budget.
+type BudgetOnExceed string
+
+const (
+	// BudgetOnExceedBlock refuses the request with HTTP 402.
+	BudgetOnExceedBlock BudgetOnExceed = "block"
+	// BudgetOnExceedAlert allows the request and records an alert.
+	BudgetOnExceedAlert BudgetOnExceed = "alert"
+)
+
 const (
 	BudgetAppliesPerTenant         BudgetAppliesPer = "tenant"
 	BudgetAppliesPerUser           BudgetAppliesPer = "user"
 	BudgetAppliesPerTeam           BudgetAppliesPer = "team"
-	BudgetAppliesPerOrgUnit        BudgetAppliesPer = "org_unit"
 	BudgetAppliesPerModel          BudgetAppliesPer = "model"
 	BudgetAppliesPerVirtualAccount BudgetAppliesPer = "virtualaccount"
 )
@@ -35,8 +44,14 @@ type BudgetLimitRule struct {
 	BudgetAppliesPer    *string                `json:"budget_applies_per,omitempty"`
 	BlockOnBudgetExceed bool                   `json:"block_on_budget_exceed"`
 	Alerts              map[string]interface{} `json:"alerts,omitempty"`
-	CreatedAt           time.Time              `json:"created_at"`
-	UpdatedAt           time.Time              `json:"updated_at"`
+	// Limit is the credit limit as a decimal string with two decimals.
+	Limit *string `json:"limit,omitempty"`
+	// LimitMC is Limit in millicredits; credit tenants enforce it.
+	LimitMC         *int64         `json:"limit_mc,omitempty"`
+	OnExceed        BudgetOnExceed `json:"on_exceed,omitempty"`
+	AlertThresholds []int          `json:"alert_thresholds,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type CreateBudgetLimitRuleRequest struct {
@@ -51,6 +66,9 @@ type CreateBudgetLimitRuleRequest struct {
 	BudgetAppliesPer    *string                `json:"budget_applies_per,omitempty"`
 	BlockOnBudgetExceed *bool                  `json:"block_on_budget_exceed,omitempty"`
 	Alerts              map[string]interface{} `json:"alerts,omitempty"`
+	Limit               *string                `json:"limit,omitempty"`
+	OnExceed            *BudgetOnExceed        `json:"on_exceed,omitempty"`
+	AlertThresholds     []int                  `json:"alert_thresholds,omitempty"`
 }
 
 type UpdateBudgetLimitRuleRequest struct {
@@ -64,6 +82,9 @@ type UpdateBudgetLimitRuleRequest struct {
 	BudgetAppliesPer    *string                `json:"budget_applies_per,omitempty"`
 	BlockOnBudgetExceed *bool                  `json:"block_on_budget_exceed,omitempty"`
 	Alerts              map[string]interface{} `json:"alerts,omitempty"`
+	Limit               *string                `json:"limit,omitempty"`
+	OnExceed            *BudgetOnExceed        `json:"on_exceed,omitempty"`
+	AlertThresholds     []int                  `json:"alert_thresholds,omitempty"`
 }
 
 type UpdateBudgetLimitRuleStatusRequest struct {

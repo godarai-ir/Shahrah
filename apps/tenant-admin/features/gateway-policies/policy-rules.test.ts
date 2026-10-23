@@ -42,10 +42,10 @@ function budget(ruleID: string, overrides: Partial<BudgetLimitRule> = {}, condit
       enabled: true,
       priority: 100,
       conditions: { combinator: "AND", conditions },
-      limit_to: 5_000_000,
+      limit: "5000",
       unit: "cost_per_month",
-      block_on_budget_exceed: true,
-      alerts: { enabled: false },
+      on_exceed: "block",
+      alert_thresholds: [80, 100],
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z",
       ...overrides,
@@ -72,12 +72,12 @@ describe("readRuleTargets / buildRuleConditions", () => {
 
   it("writes raw IDs with subjectKind, keeps labels that differ from the ID, and drops empty groups", () => {
     const conditions = buildRuleConditions({
-      subject: { kind: "organization_unit", ids: ["ou-1", "ou-2"], labels: { "ou-1": "Finance", "ou-2": "ou-2" } },
+      subject: { kind: "virtual_account", ids: ["ou-1", "ou-2"], labels: { "ou-1": "Finance", "ou-2": "ou-2" } },
       models: [],
       metadata: [{ field: "metadata", operator: "exists", metadataKey: "project" }],
     });
     expect(conditions).toEqual([
-      { field: "subject", operator: "in", subjectKind: "organization_unit", values: ["ou-1", "ou-2"], valueLabels: { "ou-1": "Finance" } },
+      { field: "subject", operator: "in", subjectKind: "virtual_account", values: ["ou-1", "ou-2"], valueLabels: { "ou-1": "Finance" } },
       { field: "metadata", operator: "exists", metadataKey: "project" },
     ]);
   });
@@ -147,12 +147,12 @@ describe("simulateRequest", () => {
   it("enforces every matching blocking budget and reports the rest", () => {
     const rules = [
       budget("blocking"),
-      budget("alert-only", { block_on_budget_exceed: false }),
+      budget("alert-only", { on_exceed: "alert" }),
       budget("off", { enabled: false }, [team("checkout")]),
       rate("later", { effective_from: "2026-12-01T00:00:00Z" }),
     ];
     const result = simulateRequest(rules, request, NOW);
-    expect(result.budget.map(({ rule, outcome }) => [rule.rule_id, outcome])).toEqual([["alert-only", "noEffect"], ["blocking", "enforced"]]);
+    expect(result.budget.map(({ rule, outcome }) => [rule.rule_id, outcome])).toEqual([["alert-only", "alertOnly"], ["blocking", "enforced"]]);
     expect(result.dormant.map(({ item, reason }) => [item.rule.rule_id, reason])).toEqual([["later", "scheduled"], ["off", "disabled"]]);
   });
 });
@@ -168,16 +168,16 @@ describe("ruleSentence", () => {
   });
 
   it("names every target and the window size when there are several", () => {
-    const item = rate("r", { limit: { dimension: "tokens", max: 1000, window: { value: 5, unit: "hour" } } }, [
+    const item = rate("r", { limit: { dimension: "requests", max: 1000, window: { value: 5, unit: "hour" } } }, [
       user("u1", "u2"),
       { field: "metadata", operator: "exists", metadataKey: "project" },
     ]);
-    expect(ruleSentence(item, format)).toBe("برای هر یک از کاربران «u1»، «u2» روی همه مدل‌ها حداکثر ۱٬۰۰۰ توکن در هر ۵ ساعت، به شرط ۱ شرط متادیتا");
+    expect(ruleSentence(item, format)).toBe("برای هر یک از کاربران «u1»، «u2» روی همه مدل‌ها حداکثر ۱٬۰۰۰ درخواست در هر ۵ ساعت، به شرط ۱ شرط متادیتا");
   });
 
   it("reads a budget rule with its applies-per scope", () => {
     expect(ruleSentence(budget("b", { budget_applies_per: "team" }), format)).toBe(
-      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰٬۰۰۰ ریال هزینه در هر ماه، جدا برای هر تیم",
+      "برای همه درخواست‌کننده‌ها روی همه مدل‌ها حداکثر ۵٬۰۰۰ اعتبار در هر ماه، جدا برای هر تیم",
     );
   });
 

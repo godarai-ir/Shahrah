@@ -5,7 +5,7 @@ import "testing"
 func TestValidateTenantSlugRejectsInfrastructureHosts(t *testing.T) {
 	t.Parallel()
 
-	for _, slug := range []string{"admin", "auth", "chat"} {
+	for _, slug := range []string{"admin", "auth", "chat", "files"} {
 		slug := slug
 		t.Run(slug, func(t *testing.T) {
 			t.Parallel()

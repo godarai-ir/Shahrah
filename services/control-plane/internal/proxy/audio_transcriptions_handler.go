@@ -33,14 +33,13 @@ const (
 
 // AudioTranscriptionsHandler serves OpenAI-compatible speech-to-text requests.
 type AudioTranscriptionsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	resources        providerNativeResourceStore
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	resources  providerNativeResourceStore
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type audioTranscriptionMetadata struct {
@@ -51,7 +50,7 @@ type audioTranscriptionMetadata struct {
 }
 
 // NewAudioTranscriptionsHandler creates a new audio transcriptions handler.
-func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioTranscriptionsHandler {
+func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioTranscriptionsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -62,7 +61,6 @@ func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.Tun
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -73,14 +71,13 @@ func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.Tun
 // NewAudioTranscriptionsHandlerWithDependencies creates an audio transcriptions handler from explicit dependencies.
 func NewAudioTranscriptionsHandlerWithDependencies(deps BaseHandlerDependencies) *AudioTranscriptionsHandler {
 	return &AudioTranscriptionsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		resources:        deps.ProviderResources,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		resources:  deps.ProviderResources,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -172,7 +169,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 
 	quotaStart := time.Now()
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -238,10 +235,6 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	providerSupport := audioTranscriptionsProviderSupport(dep.Provider)
 	if !providerSupport.Supported {
 		return writeAPIError(c, fiber.StatusNotImplemented, providerSupport.Message, "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "audio_transcriptions") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio transcriptions are disabled", "provider_disabled")
 	}
 
 	if isMistralProvider(dep.Provider) && accountSelector != "" &&
@@ -490,8 +483,8 @@ func (h *AudioTranscriptionsHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           requestedModel,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -525,7 +518,6 @@ func (h *AudioTranscriptionsHandler) handleSync(
 			"endpoint":        "/v1" + audioTranscriptionsPath,
 			"key_type":        authInfo.KeyType,
 			"team_id":         authInfo.TeamID,
-			"org_unit_id":     authInfo.OrgUnitID,
 			"tenant_slug":     tenantSlug,
 			"response_format": tunnelReq.RequestMetadata["response_format"],
 			"file_count":      tunnelReq.RequestMetadata["file_count"],
@@ -664,8 +656,8 @@ func (h *AudioTranscriptionsHandler) handleStream(
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
-				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
+				UserID:          authInfo.UserID,
 				Model:           requestedModel,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -699,7 +691,6 @@ func (h *AudioTranscriptionsHandler) handleStream(
 					"endpoint":    "/v1" + audioTranscriptionsPath,
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 					"stream":      true,
 				}, tunnelReq.Deployment),

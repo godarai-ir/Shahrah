@@ -48,6 +48,8 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 		req.AmountIRR = amountIRR
 		req.TrackingNumber = strings.TrimSpace(firstFormValue(form.Value, "tracking_number"))
 		req.BankTransactionDateJalali = strings.TrimSpace(firstFormValue(form.Value, "bank_transaction_date_jalali"))
+		req.CreditPackOrderID = strings.TrimSpace(firstFormValue(form.Value, "credit_pack_order_id"))
+		req.SeatOrderID = strings.TrimSpace(firstFormValue(form.Value, "seat_order_id"))
 
 		receipts := form.File["receipt_image"]
 		if len(receipts) > 1 {
@@ -101,7 +103,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 			h.supportFiles.DeleteObject(context.WithoutCancel(c.Context()), receipt.ObjectKey)
 		}
 
-		return err
+		return creditPackError(c, err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(item)
@@ -202,6 +204,61 @@ func (h *Handlers) ListBankTransfers(c *fiber.Ctx) error {
 	return c.JSON(platform.BankTransferListResponse{Data: items})
 }
 
+// ListPlatformBankTransfers lists the cross-tenant bank transfer review queue.
+func (h *Handlers) ListPlatformBankTransfers(c *fiber.Ctx) error {
+	if h.wallets == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "wallet store not configured")
+	}
+
+	status := strings.TrimSpace(c.Query("status", "pending_review"))
+	if status == "all" {
+		status = ""
+	}
+
+	result, err := h.wallets.ListPlatformBankTransferRequests(c.Context(), status, strings.TrimSpace(c.Query("q")), c.QueryInt("limit", 50), c.QueryInt("offset", 0))
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(result)
+}
+
+// DownloadPlatformBankTransferReceipt streams a tenant's receipt image to support staff.
+func (h *Handlers) DownloadPlatformBankTransferReceipt(c *fiber.Ctx) error {
+	if h.wallets == nil || h.supportFiles == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "private file storage is not configured")
+	}
+
+	tenantID := strings.TrimSpace(c.Params("tenantID"))
+	fileName := strings.TrimSpace(c.Params("fileName"))
+
+	contentType, ok := supportfiles.ValidateBankTransferReceiptFileName(fileName)
+	if !ok {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+
+	exists, err := h.wallets.BankTransferReceiptExists(c.Context(), tenantID, "/api/wallet/bank-transfer-receipts/"+fileName)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+
+	object, err := h.supportFiles.Get(c.Context(), supportfiles.BankTransferReceiptObjectKey(tenantID, fileName))
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+
+	c.Set(fiber.HeaderContentType, contentType)
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	c.Set("X-Content-Type-Options", "nosniff")
+	c.Context().SetBodyStream(object.Body, -1)
+
+	return nil
+}
+
 func (h *Handlers) ApprovePlatformBankTransfer(c *fiber.Ctx) error {
 	return h.reviewPlatformBankTransfer(c, true)
 }
@@ -224,10 +281,19 @@ func (h *Handlers) reviewPlatformBankTransfer(c *fiber.Ctx, approve bool) error 
 		item *platform.BankTransferRequest
 		err  error
 	)
+
+	if !approve && strings.TrimSpace(req.Reason) == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "reason is required to reject a bank transfer")
+	}
+
 	if approve {
 		item, err = h.wallets.ApproveBankTransferRequest(c.Context(), c.Params("tenantID"), c.Params("requestID"), req, supportActor(c))
 	} else {
 		item, err = h.wallets.RejectBankTransferRequest(c.Context(), c.Params("tenantID"), c.Params("requestID"), req, supportActor(c))
+	}
+
+	if status, _ := creditPackErrorStatus(err); status != 0 {
+		return creditPackError(c, err)
 	}
 
 	if err != nil {

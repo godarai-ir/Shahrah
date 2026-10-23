@@ -10,12 +10,25 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
+
+// testRateLimitCache returns an in-memory cache for limiter tests.
+func testRateLimitCache(t *testing.T) cache.Cache {
+	t.Helper()
+
+	counters, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+
+	return counters
+}
 
 type semanticTesterMock struct {
 	calls int
@@ -87,7 +100,7 @@ func TestTestTenantSemanticGuardrail(t *testing.T) {
 			t.Parallel()
 
 			tester := &semanticTesterMock{err: tc.testerErr}
-			h := &Handlers{catalogState: catalogState{semanticGuardrails: tester, semanticTestLimiter: newAuthRateLimiter()}}
+			h := &Handlers{catalogState: catalogState{semanticGuardrails: tester, semanticTestLimiter: newAuthRateLimiter(testRateLimitCache(t))}}
 
 			if tc.nilTester {
 				h.semanticGuardrails = nil
@@ -105,7 +118,7 @@ func TestTestTenantSemanticGuardrailIsRateLimitedPerTenant(t *testing.T) {
 	t.Parallel()
 
 	tester := &semanticTesterMock{}
-	h := &Handlers{catalogState: catalogState{semanticGuardrails: tester, semanticTestLimiter: newAuthRateLimiter()}}
+	h := &Handlers{catalogState: catalogState{semanticGuardrails: tester, semanticTestLimiter: newAuthRateLimiter(testRateLimitCache(t))}}
 	app := setupSemanticTestApp(h, "tenant_admin")
 
 	for range semanticTestRateLimit {

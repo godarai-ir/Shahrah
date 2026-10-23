@@ -201,7 +201,7 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	responseTimeMS := 0
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: originalRequestID, TokenHash: authInfo.TokenHash, TenantID: currentTenant.ID,
-		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: model,
+		TeamID: authInfo.TeamID, UserID: authInfo.UserID, Model: model,
 		InputTokens: finalCost.InputTokens, OutputTokens: finalCost.OutputTokens, TotalTokens: finalCost.TotalTokens,
 		CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR, ResponseTimeMS: responseTimeMS,
 		Status: "success", RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, model),

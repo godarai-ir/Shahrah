@@ -325,7 +325,7 @@ func (h *TokenBazaarGenerateContentHandler) Handle(c *fiber.Ctx) error {
 
 	reservation, err := h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
 	if err != nil {
-		return writeBudgetCheckError(c, err)
+		return writeGeminiBudgetError(c, err)
 	}
 
 	if stream {

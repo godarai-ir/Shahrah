@@ -247,7 +247,6 @@
     "duration": "Duration",
     "ttft": "First token",
     "costUSD": "Cost USD",
-    "costIRR": "Cost IRR",
     "model": "Effective model",
     "cache": "Cache",
     "cacheSimilarity": "Cache similarity",
@@ -259,7 +258,8 @@
     "trace": "Trace ID",
     "unavailable": "—",
     "guardrails": "Guardrails",
-    "guardrailCheck": "{hook}: {slug} ({status})"
+    "guardrailCheck": "{hook}: {slug} ({status})",
+    "credits": "Credits"
   },
   "save": {
     "titleNew": "Save to prompt registry",

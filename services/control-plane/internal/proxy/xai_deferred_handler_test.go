@@ -36,13 +36,13 @@ func TestXAIDeferredCompletionLifecycleIsOwnedAndExactlyOnce(t *testing.T) {
 		Body:       []byte(`{"request_id":"deferred_1"}`),
 	}}
 	handler := NewChatCompletionHandlerWithDependencies(ChatCompletionDependencies{Base: BaseHandlerDependencies{
-		Router: rt, Tunnel: tunnel, Billing: &xaiResponsesBudgeter{}, Wallets: &testWallets{},
+		Router: rt, Tunnel: tunnel, Billing: &xaiResponsesBudgeter{},
 		ProviderResources: resources, Deployments: deployments, RequestLogger: &testLogs{}, SpendLogger: &testLogs{}, Logger: zap.NewNop(),
 	}})
 
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{TenantID: "tenant_a", KeyID: "key_1", TokenHash: "hash_1", Role: "team_admin"})
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{TenantID: "tenant_a", KeyID: "key_1", TokenHash: "hash_1", Role: "member"})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
 
 		return c.Next()

@@ -1385,7 +1385,7 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	return c.JSON(account)
 }
 
-// ListAccessPrincipals returns user/team/org-unit principals for access picker controls.
+// ListAccessPrincipals returns user/team principals for access picker controls.
 func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
@@ -1399,9 +1399,9 @@ func (h *Handlers) ListAccessPrincipals(c *fiber.Ctx) error {
 
 	kind := strings.TrimSpace(strings.ToLower(c.Query("kind")))
 	switch kind {
-	case "user", "team", "org_unit":
+	case "user", "team":
 	default:
-		return fiber.NewError(fiber.StatusBadRequest, "kind must be user, team or org_unit")
+		return fiber.NewError(fiber.StatusBadRequest, "kind must be user or team")
 	}
 
 	permissionErr := requireAccessPrincipalSearchPermission(c, kind)

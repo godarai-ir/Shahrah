@@ -5,15 +5,14 @@ import {
   BookOpen,
   Building2,
   CircleDollarSign,
-  CreditCard,
+  Coins,
+  Armchair,
   Eye,
   FileSearch2,
   FileText,
   FlaskConical,
   Gauge,
-  Landmark,
   LayoutDashboard,
-  LineChart,
   KeyRound,
   Plug,
   Route,
@@ -34,10 +33,8 @@ export type AdminNavKey =
   | "quickStart"
   | "billing"
   | "topup"
-  | "bankTransfer"
-  | "billingReports"
+  | "seats"
   | "billingProfile"
-  | "billingDocuments"
   | "plan"
   | "providerAccounts"
   | "virtualModels"
@@ -49,7 +46,7 @@ export type AdminNavKey =
   | "accessManagement"
   | "personalAccessTokens"
   | "oidcClients"
-  | "orgStructure"
+  | "teams"
   | "users"
   | "logs"
   | "traces"
@@ -71,18 +68,18 @@ export type AdminNavItem = {
   requiredPermissions: Permission[];
 };
 
-/** Tab order on "Users & access": identity first, then what it grants, then grouping. */
+/** Tab order on "Users & access": members and teams first, then keys, virtual users, roles, and apps. */
 export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "users",
+  "teams",
   "personalAccessTokens",
-  "oidcClients",
-  "accessManagement",
-  "orgStructure",
   "virtualUsers",
+  "accessManagement",
+  "oidcClients",
 ];
 
 export const OBSERVE_TAB_KEYS: AdminNavKey[] = ["logs", "traces", "metrics"];
-export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "bankTransfer", "billingReports", "billingDocuments", "billingProfile", "plan"];
+export const BILLING_TAB_KEYS: AdminNavKey[] = ["billing", "topup", "billingProfile", "plan"];
 
 export type AdminNavSectionKey = "build" | "operations" | "organization";
 
@@ -100,7 +97,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
 ];
 
 /** Items rendered above the sections, outside any group. */
-export const ROOT_NAV_ITEM_KEYS: AdminNavKey[] = ["dashboard"];
+export const ROOT_NAV_ITEM_KEYS: AdminNavKey[] = ["dashboard", "seats"];
 
 export type AdminNavTabGroup = {
   /** Sidebar entry that owns the tabs. */
@@ -187,7 +184,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       title: t("nav.supportTickets"),
       icon: LifeBuoy,
       isActive: pathname.startsWith("/support/tickets"),
-      requiredPermissions: ["support_ticket:read_own", "support_ticket:read_all"],
+      requiredPermissions: [],
     },
     {
       key: "quickStart",
@@ -202,32 +199,25 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/billing",
       title: t("nav.billing"),
       icon: CircleDollarSign,
-      isActive: pathname.startsWith("/billing"),
+      // Seats moved to its own sidebar entry, so it no longer lights up the billing parent.
+      isActive: pathname.startsWith("/billing") && !pathname.startsWith("/billing/seats"),
       requiredPermissions: ["billing:read", "billing:manage", "billing:documents_read", "settings:list"],
     },
     {
       key: "topup",
-      href: "/billing/topup",
+      href: "/billing/credits",
       title: t("nav.topup"),
-      icon: CreditCard,
-      isActive: pathname.startsWith("/billing/topup"),
-      requiredPermissions: ["billing:manage", "settings:manage", "settings:list"],
+      icon: Coins,
+      isActive: pathname.startsWith("/billing/credits") || pathname.startsWith("/billing/topup"),
+      requiredPermissions: ["billing:read", "billing:manage", "settings:list"],
     },
     {
-      key: "bankTransfer",
-      href: "/billing/bank-transfer",
-      title: t("nav.bankTransfer"),
-      icon: Landmark,
-      isActive: pathname.startsWith("/billing/bank-transfer"),
-      requiredPermissions: ["billing:manage", "settings:manage"],
-    },
-    {
-      key: "billingReports",
-      href: "/billing/reports",
-      title: t("nav.billingReports"),
-      icon: LineChart,
-      isActive: pathname.startsWith("/billing/reports"),
-      requiredPermissions: ["billing:read", "settings:list"],
+      key: "seats",
+      href: "/billing/seats",
+      title: t("nav.seats"),
+      icon: Armchair,
+      isActive: pathname.startsWith("/billing/seats"),
+      requiredPermissions: ["billing:read", "billing:manage", "settings:list", "user:list", "user:manage"],
     },
     {
       key: "billingProfile",
@@ -236,14 +226,6 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: UserCog,
       isActive: pathname.startsWith("/billing/profile"),
       requiredPermissions: ["billing:profile_manage", "billing:manage", "settings:manage"],
-    },
-    {
-      key: "billingDocuments",
-      href: "/billing/documents",
-      title: t("nav.billingDocuments"),
-      icon: FileText,
-      isActive: pathname.startsWith("/billing/documents"),
-      requiredPermissions: ["billing:documents_read", "billing:read", "settings:list"],
     },
     {
       key: "plan",
@@ -367,12 +349,12 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       requiredPermissions: ["settings:list"],
     },
     {
-      key: "orgStructure",
-      href: "/org-structure",
-      title: t("nav.orgStructure"),
+      key: "teams",
+      href: "/teams",
+      title: t("nav.teams"),
       icon: Building2,
-      isActive: ["/org-structure", "/teams", "/org-units"].some((prefix) => pathname.startsWith(prefix)),
-      requiredPermissions: ["team:read", "team:manage", "org_unit:list", "org_unit:read"],
+      isActive: ["/teams"].some((prefix) => pathname.startsWith(prefix)),
+      requiredPermissions: ["team:read", "team:manage"],
     },
     {
       // Rate and budget rules share one list at the section root; the old per-type routes redirect here.
@@ -413,7 +395,7 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       href: "/users",
       title: t("nav.accessAndUsers"),
       icon: Users,
-      isActive: ["/users", "/org-structure", "/teams", "/org-units", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
+      isActive: ["/users", "/teams", "/roles", "/personal-access-tokens", "/oidc-clients", "/virtual-users"].some((prefix) => pathname.startsWith(prefix)),
       // Personal access tokens are open to everyone; the individual tabs gate themselves.
       requiredPermissions: [],
     },

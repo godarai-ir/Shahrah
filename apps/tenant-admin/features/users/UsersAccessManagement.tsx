@@ -7,6 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 
 import { AppEmailField } from "@/components/app-ui/AppEmailField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { DataTableBulkBar } from "@/components/app-ui/DataTableBulkBar";
 import { DataTableToolbar } from "@/components/app-ui/DataTableToolbar";
@@ -19,25 +20,30 @@ import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { SearchField } from "@/components/app-ui/SearchField";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TablePagination } from "@/components/app-ui/TablePagination";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DataTable } from "@/components/ui/data-table";
-import { useCalendarLocale } from "@/hooks/use-locale-format";
+import { useCalendarLocale, useDateTimeFormatter, useNumberFormatter } from "@/hooks/use-locale-format";
 import { listTenantKeys, type TenantKey } from "@/lib/api/access-keys";
 import type { PermissionItem } from "@/lib/contracts/roles";
-import { guessDisplayName, resolveIdentity } from "@/lib/access/identity";
+import { memberDisplayName, resolveIdentity } from "@/lib/access/identity";
 import { hiddenRolesInUI, resolveRoleDisplayName } from "@/lib/access/role-display";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
+import { APIClientError } from "@/lib/http/api-client";
+import { personalUsagePercent, SEAT_TONE, SEAT_TYPES, seatErrorMessage, type SeatMember } from "@/lib/seats";
 import { cn } from "@/lib/utils";
 
 import { MemberDetailSheet } from "./member-detail-sheet";
+import { MemberSeatDialog } from "./member-seat-dialog";
 import {
   filterMembers,
   hasTenantAdminRole,
@@ -47,13 +53,16 @@ import {
 import { parseUsersURLState, patchUsersURL, type MemberStatusFilter } from "./url-state";
 import {
   assignUserRole,
-  getUserEntitlements,
+  cancelPendingSeatChange,
+  getUserSeats,
   inviteUser,
+  updateUserProfile,
+  listSeatMembers,
   listUserRoles,
   listUsers,
   setUserActive,
-  type EffectiveEntitlements,
   type RoleDefinition,
+  type SeatUsage,
 } from "./api";
 
 type Banner = {
@@ -63,15 +72,17 @@ type Banner = {
 
 type UsersAccessManagementProps = {
   initialUsers: TenantAdminUser[];
-  initialTotal: number;
   initialError: string | null;
   initialPermissionCatalog: PermissionItem[];
+  /** Seat, personal credits, and organization usage per member; empty when the seat service is unreadable. */
+  initialSeatMembers: SeatMember[];
+  /** When a scheduled seat change takes effect, or null without a subscription. */
+  seatPeriodEnd: string | null;
   currentUserID: string;
   canManageUsers: boolean;
 };
 
 const PAGE_SIZE = 25;
-const USERS_FEATURE_KEY = "users.max";
 /**
  * The control plane has no role or status filter on the user list, so the whole
  * roster is fetched once and filtered here. 200 is the server's own page cap.
@@ -80,7 +91,10 @@ const ROSTER_FETCH_LIMIT = 200;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
+  const tSeats = useTranslations("billingSeats");
   const calendarLocale = useCalendarLocale();
+  const creditFormatter = useNumberFormatter({ maximumFractionDigits: 0 });
+  const dateFormatter = useDateTimeFormatter({ year: "numeric", month: "2-digit", day: "2-digit" });
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -88,14 +102,16 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const urlState = useMemo(() => parseUsersURLState(new URLSearchParams(queryString)), [queryString]);
 
   const [users, setUsers] = useState<TenantAdminUser[]>(props.initialUsers);
-  const [total, setTotal] = useState(props.initialTotal);
   const [requestedPage, setRequestedPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
+  const [seats, setSeats] = useState<SeatUsage | null>(null);
+  const [seatMembers, setSeatMembers] = useState<SeatMember[]>(props.initialSeatMembers);
+  const [changingSeatUserID, setChangingSeatUserID] = useState<string | null>(null);
+  const [cancelingSeatUserID, setCancelingSeatUserID] = useState<string | null>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpdatingUserID, setIsUpdatingUserID] = useState<string | null>(null);
   const [isAssigningRoleUserID, setIsAssigningRoleUserID] = useState<string | null>(null);
@@ -111,7 +127,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [bulkNotice, setBulkNotice] = useState<{ kind: "success" | "warning" | "error"; message: string } | null>(null);
   const bulkClearRef = useRef<() => void>(() => {});
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
+  // "auto" lets the control plane pick: the free seat while one is left.
+  const [inviteSeat, setInviteSeat] = useState("auto");
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError ? { kind: "error", message: props.initialError } : null,
   );
@@ -134,8 +154,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
     void Promise.allSettled([
       loadRoles(),
-      getUserEntitlements().then((response) => {
-        if (isMounted) setEntitlements(response);
+      getUserSeats().then((response) => {
+        if (isMounted) setSeats(response);
       }),
       // Team admins and above can read the tenant key list; anyone else gets an
       // error here and the drawer simply hides its key metrics.
@@ -163,7 +183,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   };
   const identityLabel = mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email");
 
-  const filteredUsers = useMemo(() => filterMembers(users, urlState), [users, urlState]);
+  const seatTypeByUserID = useMemo(
+    () => new Map(seatMembers.map((member) => [member.user_id, member.seat])),
+    [seatMembers],
+  );
+  const filteredUsers = useMemo(
+    () => filterMembers(users, urlState, seatTypeByUserID),
+    [users, urlState, seatTypeByUserID],
+  );
   // Clamped rather than reset on filter change, so narrowing the results cannot
   // strand the table on a page that no longer exists.
   const lastPage = Math.max(0, Math.ceil(filteredUsers.length / PAGE_SIZE) - 1);
@@ -171,6 +198,14 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const pageUsers = useMemo(
     () => filteredUsers.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
     [filteredUsers, page],
+  );
+  const seatByUserID = useMemo(
+    () => new Map(seatMembers.map((member) => [member.user_id, member])),
+    [seatMembers],
+  );
+  const changingSeatUser = useMemo(
+    () => users.find((user) => user.id === changingSeatUserID) ?? null,
+    [users, changingSeatUserID],
   );
   const openMember = useMemo(
     () => users.find((user) => user.id === urlState.member) ?? null,
@@ -181,9 +216,9 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "member",
       header: t("table.member"),
-      meta: { label: t("table.member"), headerClassName: "w-[28%]" },
+      meta: { label: t("table.member") },
       cell: ({ row }) => {
-        const displayName = guessDisplayName(resolveIdentity(row.original));
+        const displayName = memberDisplayName(row.original);
         return (
           <button
             type="button"
@@ -201,11 +236,11 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "identity",
       header: identityLabel,
-      meta: { label: identityLabel, headerClassName: "w-[28%]" },
+      meta: { label: identityLabel },
       cell: ({ row }) => {
         const identity = resolveIdentity(row.original);
         return (
-          <span dir="ltr" className="block truncate font-mono text-xs" title={identity}>
+          <span dir="ltr" className="block max-w-56 truncate font-mono text-xs" title={identity}>
             {identity}
           </span>
         );
@@ -240,9 +275,69 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       },
     },
     {
+      id: "seat",
+      header: t("table.seat"),
+      meta: { label: t("table.seat"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={SEAT_TONE[seat.seat]}>{t(`form.seatOptions.${seat.seat}`)}</StatusBadge>
+            {seat.pending_seat ? (
+              <span className="text-xs text-muted-foreground">
+                {t("seat.pending", {
+                  seat: t(`form.seatOptions.${seat.pending_seat === "pro" ? "pro" : "unassigned"}`),
+                  date: seat.pending_effective_at ? dateFormatter.format(new Date(seat.pending_effective_at)) : "—",
+                })}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      id: "personalCredits",
+      header: t("table.personalCredits"),
+      meta: { optional: true, label: t("table.personalCredits"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat || (seat.seat === "unassigned" && Number(seat.personal_granted_credits) === 0)) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
+          <div className="flex min-w-36 flex-col gap-1">
+            <span className="text-sm tabular-nums">
+              {t("seat.remainingOf", {
+                remaining: formatConsumedCredits(seat.personal_remaining_credits),
+                granted: formatCredits(seat.personal_granted_credits),
+              })}
+            </span>
+            <Progress value={personalUsagePercent(seat)} aria-label={t("table.personalCredits")} />
+          </div>
+        );
+      },
+    },
+    {
+      id: "poolUsage",
+      header: t("table.poolUsage"),
+      meta: { optional: true, label: t("table.poolUsage"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
+      cell: ({ row }) => {
+        const seat = seatByUserID.get(row.original.id);
+        if (!seat) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="tabular-nums">
+            {seat.pool_limit_credits
+              ? t("seat.poolOfLimit", { used: formatConsumedCredits(seat.pool_used_credits), limit: formatCredits(seat.pool_limit_credits) })
+              : formatConsumedCredits(seat.pool_used_credits)}
+          </span>
+        );
+      },
+    },
+    {
       id: "status",
       header: t("table.status"),
-      meta: { label: t("table.status") },
+      meta: { label: t("table.status"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
       cell: ({ row }) => {
         const active = isUserActive(row.original);
         return (
@@ -256,7 +351,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     {
       id: "lastActivity",
       header: t("table.lastActivity"),
-      meta: { optional: true, label: t("table.lastActivity") },
+      meta: { optional: true, label: t("table.lastActivity"), headerClassName: "whitespace-nowrap", cellClassName: "whitespace-nowrap" },
       cell: ({ row }) => (
         <DateTimeValue
           value={row.original.last_login_at}
@@ -295,6 +390,22 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                   isAssigningRoleUserID === user.id,
                 onSelect: () => openRoleForm(user),
               },
+              {
+                label: t("seat.changeSeat"),
+                disabled: !props.canManageUsers || !seatByUserID.has(user.id),
+                onSelect: () => setChangingSeatUserID(user.id),
+              },
+              ...(seatByUserID.get(user.id)?.pending_seat
+                ? [
+                    {
+                      label: t("seat.cancelPending"),
+                      disabled: !props.canManageUsers,
+                      pending: cancelingSeatUserID === user.id,
+                      pendingLabel: t("seat.cancelPending"),
+                      onSelect: () => void cancelPendingSeat(user.id),
+                    },
+                  ]
+                : []),
               active
                 ? {
                     label: t("actions.deactivate"),
@@ -313,13 +424,27 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     },
   ];
 
+  // Caps are whole numbers, so they show without decimals.
+  function formatCredits(value: string): string {
+    const amount = Number(value);
+    return creditFormatter.format(Number.isFinite(amount) ? amount : 0);
+  }
+
+  // Consumption is fractional on the server; it is rounded to whole credits and marked approximate.
+  function formatConsumedCredits(value: string): string {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount === 0) return creditFormatter.format(0);
+    return `~${creditFormatter.format(Math.round(amount))}`;
+  }
+
   const matchCount = filteredUsers.length;
   const from = matchCount === 0 ? 0 : page * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE + pageUsers.length, matchCount);
   const canPrev = page > 0;
   const canNext = (page + 1) * PAGE_SIZE < matchCount;
-  const usersLimit = coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]);
-  const hasReachedUsersLimit = usersLimit !== null && total >= usersLimit;
+  // Seats are active members plus pending invitations, the same count the server caps.
+  const usersLimit = seats?.limit ?? null;
+  const hasReachedUsersLimit = usersLimit !== null && seats !== null && seats.used >= usersLimit;
 
   function handleOpenInvite() {
     if (hasReachedUsersLimit) {
@@ -335,6 +460,38 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     if (!open) setInviteError(null);
   }
 
+  // Seats change with every invite and status change, so they reload with the roster.
+  async function refreshSeats() {
+    try {
+      setSeats(await getUserSeats());
+    } catch {
+      // The server enforces the cap; a stale count only affects the early hint.
+    }
+  }
+
+  // Seat state changes with every seat or status change, so it reloads with the roster.
+  async function refreshSeatMembers() {
+    try {
+      setSeatMembers((await listSeatMembers()).items);
+    } catch {
+      // Readers without billing access keep the columns they already have.
+    }
+  }
+
+  async function cancelPendingSeat(userID: string) {
+    if (!props.canManageUsers) return;
+    setCancelingSeatUserID(userID);
+    try {
+      await cancelPendingSeatChange(userID);
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("seat.pendingCanceled") });
+      await refreshSeatMembers();
+    } catch (error) {
+      showFeedbackToast({ kind: "error", title: t("alerts.error"), description: seatErrorMessage(tSeats, error) });
+    } finally {
+      setCancelingSeatUserID(null);
+    }
+  }
+
   async function loadUsers() {
     setIsLoading(true);
     try {
@@ -342,9 +499,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       search.set("limit", String(ROSTER_FETCH_LIMIT));
       search.set("offset", "0");
 
-      const data = await listUsers(search);
+      const [data] = await Promise.all([listUsers(search), refreshSeats(), refreshSeatMembers()]);
       setUsers(data.data ?? []);
-      setTotal(data.total ?? 0);
       setBanner(null);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.loadUsersError")) });
@@ -379,18 +535,27 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
     setIsInviting(true);
     try {
-      await inviteUser({ email, role: inviteRole });
+      await inviteUser({
+        email,
+        role: inviteRole,
+        first_name: inviteFirstName.trim(),
+        last_name: inviteLastName.trim(),
+        seat_type: inviteSeat === "auto" ? undefined : inviteSeat,
+      });
       showFeedbackToast({
         kind: "success",
         title: t("alerts.success"),
         description: t("messages.invitationSuccess"),
       });
       setInviteEmail("");
+      setInviteFirstName("");
+      setInviteLastName("");
       setInviteRole(resolveDefaultInviteRole(availableRoles));
+      setInviteSeat("auto");
       setInviteOpen(false);
       await loadUsers();
     } catch (error) {
-      setInviteError(normalizeError(error, t("messages.inviteError")));
+      setInviteError(normalizeError(error, t("messages.inviteError"), t("messages.planUserLimitReached")));
     } finally {
       setIsInviting(false);
     }
@@ -411,7 +576,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       showFeedbackToast({
         kind: "error",
         title: t("alerts.error"),
-        description: normalizeError(error, t("messages.updateStatusError")),
+        description: normalizeError(error, t("messages.updateStatusError"), t("messages.planUserLimitReached")),
       });
     } finally {
       setIsUpdatingUserID(null);
@@ -437,7 +602,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
       await loadUsers();
       return true;
     } catch (error) {
-      setRoleError(normalizeError(error, t("messages.roleAssignmentError")));
+      setRoleError(normalizeError(error, t("messages.roleAssignmentError"), t("messages.planUserLimitReached")));
       return false;
     } finally {
       setIsAssigningRoleUserID(null);
@@ -581,18 +746,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             }
             filters={
               <>
-                <FilterField label={t("filters.role")} hideLabel>
+                <FilterField label={t("filters.seat")} hideLabel>
                   <AppSelectField
-                    value={urlState.role || "all"}
-                    onValueChange={(value) => patchURL({ role: value === "all" ? null : value })}
-                    ariaLabel={t("filters.role")}
+                    value={urlState.seat || "all"}
+                    onValueChange={(value) => patchURL({ seat: value === "all" ? null : value })}
+                    ariaLabel={t("filters.seat")}
                     triggerClassName="h-8 w-40 text-xs"
                     options={[
-                      { value: "all", label: t("filters.allRoles") },
-                      ...availableRoles.map((role) => ({
-                        value: role.name,
-                        label: resolveRoleDisplayName(role.name, availableRoles, t),
-                      })),
+                      { value: "all", label: t("filters.allSeats") },
+                      ...SEAT_TYPES.map((seat) => ({ value: seat, label: t(`form.seatOptions.${seat}`) })),
                     ]}
                   />
                 </FilterField>
@@ -671,6 +833,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         onOpenChange={(open) => {
           if (!open) patchURL({ member: null });
         }}
+        onSaveName={async (member, firstName, lastName) => {
+          await updateUserProfile(member.id, { first_name: firstName, last_name: lastName });
+          showFeedbackToast({
+            kind: "success",
+            title: t("alerts.success"),
+            description: t("messages.nameUpdated"),
+          });
+          await loadUsers();
+        }}
         onChangeRole={(member) => {
           patchURL({ member: null });
           openRoleForm(member);
@@ -678,6 +849,20 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         onToggleActive={(member, activate) => {
           patchURL({ member: null });
           void changeUserStatus(member.id, activate);
+        }}
+      />
+
+      <MemberSeatDialog
+        key={changingSeatUserID ?? "closed"}
+        member={changingSeatUserID ? seatByUserID.get(changingSeatUserID) ?? null : null}
+        memberLabel={changingSeatUser ? memberDisplayName(changingSeatUser) || resolveIdentity(changingSeatUser) : ""}
+        periodEnd={props.seatPeriodEnd}
+        onOpenChange={(open) => {
+          if (!open) setChangingSeatUserID(null);
+        }}
+        onChanged={() => {
+          showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("seat.change.saved") });
+          void refreshSeatMembers();
         }}
       />
 
@@ -715,6 +900,24 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <AlertDescription>{inviteError}</AlertDescription>
             </Alert>
           ) : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AppTextField
+              id="invite-first-name"
+              label={t("form.firstName")}
+              value={inviteFirstName}
+              onChange={(event) => setInviteFirstName(event.target.value)}
+              autoComplete="given-name"
+              maxLength={100}
+            />
+            <AppTextField
+              id="invite-last-name"
+              label={t("form.lastName")}
+              value={inviteLastName}
+              onChange={(event) => setInviteLastName(event.target.value)}
+              autoComplete="family-name"
+              maxLength={100}
+            />
+          </div>
           <AppEmailField
             id="invite-email"
             label={t("form.email")}
@@ -737,6 +940,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
             }))}
             disabled={availableRoles.length === 0}
           />
+          <AppSelectField
+            label={t("form.seat")}
+            ariaLabel={t("form.seat")}
+            description={t("form.seatHint")}
+            value={inviteSeat}
+            onValueChange={setInviteSeat}
+            triggerClassName="h-10 w-full"
+            options={["auto", "free", "pro", "max", "unassigned"].map((seat) => ({ value: seat, label: t(`form.seatOptions.${seat}`) }))}
+          />
         </form>
       </FormSheet>
 
@@ -747,6 +959,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         description={t("usersPage.upgradeDialog.description", { limit: usersLimit ?? 0 })}
         cancelLabel={t("usersPage.upgradeDialog.cancel")}
         actionLabel={t("usersPage.upgradeDialog.action")}
+        upgradeHref="/billing/seats"
       />
 
       <FormSheet
@@ -839,16 +1052,12 @@ function resolveDefaultInviteRole(roles: RoleDefinition[]): string {
   return roles.find((role) => role.name === "member")?.name ?? roles[0]?.name ?? "";
 }
 
-function coerceNumericEntitlement(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
+export const PLAN_USER_LIMIT_REACHED = "plan_user_limit_reached";
 
-function normalizeError(error: unknown, fallback: string) {
+function normalizeError(error: unknown, fallback: string, planLimitMessage?: string) {
+  if (planLimitMessage && error instanceof APIClientError && error.code === PLAN_USER_LIMIT_REACHED) {
+    return planLimitMessage;
+  }
   if (error instanceof Error) return error.message;
   return fallback;
 }

@@ -29,14 +29,13 @@ import (
 
 // ImagesHandler serves image generation and edit requests.
 type ImagesHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	resources        providerNativeResourceStore
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	resources  providerNativeResourceStore
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type imageOperation struct {
@@ -46,7 +45,7 @@ type imageOperation struct {
 }
 
 // NewImagesHandler creates a new images handler.
-func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ImagesHandler {
+func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ImagesHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -57,7 +56,6 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -68,14 +66,13 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 // NewImagesHandlerWithDependencies creates an images handler from explicit dependencies.
 func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandler {
 	return &ImagesHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		resources:        deps.ProviderResources,
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		resources:  deps.ProviderResources,
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -246,7 +243,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 	estimated.Metadata = metadata
 	quotaStart := time.Now()
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -435,8 +432,8 @@ func (h *ImagesHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           requestedModel,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -468,7 +465,6 @@ func (h *ImagesHandler) handleSync(
 			"endpoint":    "/v1" + op.Path,
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 			"operation":   op.Name,
 		}, tunnelReq.Deployment),

@@ -47,7 +47,7 @@ func newModerationsTestApp(t *testing.T, modelName string, provider string, depl
 		allowedTypes = []string{"moderation"}
 	}
 
-	h := NewModerationsHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	h := NewModerationsHandler(rt, tunnel, &testBudgeter{}, logs, zap.NewNop(), emitMetric...)
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -58,7 +58,7 @@ func newModerationsTestApp(t *testing.T, modelName string, provider string, depl
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				modelName: allowedTypes,

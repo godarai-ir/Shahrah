@@ -112,7 +112,6 @@ func newTokenBazaarMessagesTestApp(
 		Tunnel:              tunnel,
 		Billing:             &tokenBazaarMessagesBudgeter{},
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             &testWallets{},
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              zap.NewNop(),
@@ -128,7 +127,7 @@ func newTokenBazaarMessagesTestApp(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})

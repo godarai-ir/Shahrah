@@ -21,13 +21,12 @@ import (
 
 // ModerationsHandler serves moderation requests.
 type ModerationsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type moderationValidationError struct {
@@ -41,7 +40,7 @@ func (e *moderationValidationError) Error() string {
 }
 
 // NewModerationsHandler creates a new moderations handler.
-func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ModerationsHandler {
+func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ModerationsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -52,7 +51,6 @@ func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -63,13 +61,12 @@ func NewModerationsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 // NewModerationsHandlerWithDependencies creates a moderations handler from explicit dependencies.
 func NewModerationsHandlerWithDependencies(deps BaseHandlerDependencies) *ModerationsHandler {
 	return &ModerationsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -147,7 +144,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -213,10 +210,6 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsModerationsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Moderations API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "moderations") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI moderations are disabled", "provider_disabled")
 	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
@@ -373,8 +366,8 @@ func (h *ModerationsHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           req.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -408,7 +401,6 @@ func (h *ModerationsHandler) handleSync(
 			"endpoint":    "/v1/moderations",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 			"input_count": moderationInputCount(req.Input),
 		}, tunnelReq.Deployment),

@@ -68,7 +68,7 @@ describe("CommandPalette", () => {
   });
 
   it("navigates to the selected command and records it as recent", async () => {
-    renderPalette(["support_ticket:create"]);
+    renderPalette([]);
     pressShortcut();
     const item = await screen.findByText("palette.actions.createSupportTicket");
 

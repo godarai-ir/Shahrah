@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,15 +15,10 @@ import (
 
 type entitlementResolverMock struct {
 	effective *platform.EffectiveEntitlementsResponse
-	userCount int
 }
 
 func (m entitlementResolverMock) ResolveEffectiveEntitlements(context.Context, string) (*platform.EffectiveEntitlementsResponse, error) {
 	return m.effective, nil
-}
-
-func (m entitlementResolverMock) CountActiveTenantUsers(context.Context, string) (int, error) {
-	return m.userCount, nil
 }
 
 func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
@@ -57,33 +53,45 @@ func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 }
 
-func TestEntitlementLimitUsesEffectiveOverrideValue(t *testing.T) {
-	h := &Handlers{billingState: billingState{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureUsersMax: float64(10)})}}}
+func TestActiveSubscriptionGateRejectsLapsedPlans(t *testing.T) {
+	cases := map[string]int{"active": fiber.StatusNoContent, "trialing": fiber.StatusNoContent, "expired": fiber.StatusForbidden, "past_due": fiber.StatusForbidden}
+
+	for status, want := range cases {
+		effective := activeEntitlements(nil)
+		effective.Subscription.Status = status
+		h := &Handlers{billingState: billingState{entitlements: entitlementResolverMock{effective: effective}}}
+		app := fiber.New()
+		app.Post("/invite", func(c *fiber.Ctx) error {
+			if err := h.requireActiveSubscription(c, "tenant-1"); err != nil {
+				return err
+			}
+
+			return c.SendStatus(fiber.StatusNoContent)
+		})
+
+		resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/invite", http.NoBody))
+		require.NoError(t, err)
+		assert.Equal(t, want, resp.StatusCode, status)
+		closeResponseBody(t, resp)
+	}
+}
+
+func TestPlanUserLimitReachedIsClientSafe(t *testing.T) {
 	app := fiber.New()
-	app.Post("/users/:used", func(c *fiber.Ctx) error {
-		used := 9
-		if c.Params("used") == "10" {
-			used = 10
-		}
+	app.Post("/invite", planUserLimitReached)
 
-		if err := h.requireEntitlementLimitAvailable(c, "tenant-1", platform.FeatureUsersMax, used, 1); err != nil {
-			return err
-		}
-
-		return c.SendStatus(fiber.StatusNoContent)
-	})
-
-	allowed, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/9", http.NoBody))
-	defer closeResponseBody(t, allowed)
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/invite", http.NoBody))
+	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusNoContent, allowed.StatusCode)
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 
-	denied, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/users/10", http.NoBody))
-	defer closeResponseBody(t, denied)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusForbidden, denied.StatusCode)
+	var body struct {
+		Error map[string]string `json:"error"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, "plan_user_limit_reached", body.Error["code"])
+	assert.NotRegexp(t, `\d`, body.Error["message"], "no counts or limits leak to the client")
 }
 
 func activeEntitlements(features map[string]interface{}) *platform.EffectiveEntitlementsResponse {

@@ -49,7 +49,6 @@ func newTestChatCompletionHandler(
 	router *llmrouter.Router,
 	tunnel *mockTunnelTransport,
 	billing *mockBilling,
-	wallet *mockWalletStore,
 	logs *mockLogger,
 	logger *zap.Logger,
 	dependencies proxy.ChatCompletionDependencies,
@@ -64,7 +63,6 @@ func newTestChatCompletionHandler(
 		Router:        router,
 		Tunnel:        tunnel,
 		Billing:       billing,
-		Wallets:       wallet,
 		RequestLogger: logs,
 		SpendLogger:   logs,
 		Logger:        logger,
@@ -89,7 +87,7 @@ func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequ
 	return m.response, m.proxyErr
 }
 
-func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
+func TestChatCompletionHandler_SimpleCacheHitSkipsProvider(t *testing.T) {
 	logger := zap.NewNop()
 	store, err := testcache.New(t, logger)
 	require.NoError(t, err)
@@ -104,7 +102,6 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 
 	tunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Body: providerBody}}
 	billing := &mockBilling{cost: platform.UsageCostBreakdown{InputTokens: 2, OutputTokens: 1, TotalTokens: 3, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}}
-	wallet := &mockWalletStore{}
 	logs := &mockLogger{}
 	metricInputs := make([]metricsobs.BuildInput, 0, 2)
 	service, err := responsecache.NewService(store, nil, responsecache.Config{
@@ -116,7 +113,6 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 		r,
 		tunnel,
 		billing,
-		wallet,
 		logs,
 		logger,
 		proxy.ChatCompletionDependencies{ResponseCache: service},
@@ -153,7 +149,6 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	assert.Equal(t, "hit", second.Header.Get(apiheaders.HeaderCacheStatus))
 	assert.NotEmpty(t, second.Header.Get(apiheaders.HeaderCachedTraceID))
 	assert.Equal(t, 1, tunnel.proxyCalls)
-	assert.Len(t, wallet.debitCalls, 1)
 	require.Len(t, logs.loggedSpends, 2)
 	assert.Zero(t, logs.loggedSpends[1].CostUSD)
 	require.Len(t, metricInputs, 2)
@@ -221,7 +216,7 @@ func (m *mockBilling) EstimateEmbeddingCost(ctx context.Context, req contractsop
 	return m.cost, m.estimateErr
 }
 
-func (m *mockBilling) CheckRateLimit(ctx context.Context, authCtx *platform.AuthContext, model string, estimatedTokens int) (*mcache.RateLimitResult, error) {
+func (m *mockBilling) CheckRateLimit(ctx context.Context, authCtx *platform.AuthContext, model string) (*mcache.RateLimitResult, error) {
 	return m.rateLimitRes, m.rateLimitErr
 }
 
@@ -374,7 +369,6 @@ func newDeepSeekOpenAIVirtualChatApp(
 		newDeepSeekOpenAIVirtualModelRouter(t, logger),
 		tunnel,
 		billing,
-		&mockWalletStore{},
 		logs,
 		logger,
 		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
@@ -400,18 +394,6 @@ func successfulChatTunnelResponse(t *testing.T, model string) *platform.TunnelRe
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       body,
 	}
-}
-
-// mockWalletStore implements walletStore interface.
-type mockWalletStore struct {
-	transaction *platform.Transaction
-	err         error
-	debitCalls  []platform.UsageCostBreakdown
-}
-
-func (m *mockWalletStore) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
-	m.debitCalls = append(m.debitCalls, breakdown)
-	return m.transaction, m.err
 }
 
 // mockLogger implements usageLogger interface.
@@ -628,7 +610,6 @@ func TestChatCompletionHandlerReportsMissingRuntimeProfileAsServiceUnavailable(t
 				r,
 				tunnel,
 				billing,
-				&mockWalletStore{},
 				&mockLogger{},
 				logger,
 			)
@@ -709,7 +690,6 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
 	handler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
@@ -717,7 +697,6 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 			Router:        r,
 			Tunnel:        mTunnel,
 			Billing:       mBilling,
-			Wallets:       mWallet,
 			RequestLogger: mLogs,
 			SpendLogger:   mLogs,
 			Logger:        logger,
@@ -837,7 +816,6 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 			},
 		},
 	}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{
 		virtualModels: map[string]*platform.VirtualModel{
 			"mistral": {
@@ -872,7 +850,6 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 			Router:        r,
 			Tunnel:        mTunnel,
 			Billing:       mBilling,
-			Wallets:       mWallet,
 			RequestLogger: mLogs,
 			SpendLogger:   mLogs,
 			Logger:        logger,
@@ -919,7 +896,6 @@ func TestChatCompletionHandler_VirtualModelDoesNotCallProviderWhenBudgetCheckFai
 		cost:      platform.UsageCostBreakdown{TotalTokens: 2},
 		budgetErr: errors.New("budget exhausted"),
 	}
-	wallet := &mockWalletStore{}
 	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
 		"hi-vm": {
 			ID:              "vm-hi",
@@ -943,7 +919,6 @@ func TestChatCompletionHandler_VirtualModelDoesNotCallProviderWhenBudgetCheckFai
 		r,
 		tunnel,
 		billing,
-		wallet,
 		logs,
 		logger,
 		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
@@ -1005,7 +980,6 @@ func TestChatCompletionHandler_VirtualModelSyncFallsBackAtProviderDispatch(t *te
 		{StatusCode: http.StatusOK, Body: successBody},
 	}}
 	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 2}}
-	wallet := &mockWalletStore{}
 	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
 		"hi-vm": {
 			ID:              "vm-hi",
@@ -1035,7 +1009,6 @@ func TestChatCompletionHandler_VirtualModelSyncFallsBackAtProviderDispatch(t *te
 		r,
 		tunnel,
 		billing,
-		wallet,
 		logs,
 		logger,
 		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
@@ -1315,7 +1288,6 @@ func TestChatCompletionHandler_DirectDeepSeekModelStillUsesRuntimeProfile(t *tes
 		newDeepSeekOpenAIVirtualModelRouter(t, logger),
 		tunnel,
 		billing,
-		&mockWalletStore{},
 		&mockLogger{},
 		logger,
 		proxy.ChatCompletionDependencies{},
@@ -1360,7 +1332,6 @@ func TestChatCompletionHandler_VirtualModelStreamsWithoutAliasDeployment(t *test
 
 	tunnel := &mockTunnelTransport{stream: stream}
 	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 1}}
-	wallet := &mockWalletStore{}
 	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
 		"hi-vm": {
 			ID:              "vm-hi",
@@ -1385,7 +1356,6 @@ func TestChatCompletionHandler_VirtualModelStreamsWithoutAliasDeployment(t *test
 		r,
 		tunnel,
 		billing,
-		wallet,
 		logs,
 		logger,
 		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
@@ -1460,7 +1430,6 @@ func TestChatCompletionHandler_VirtualModelStreamFallsBackBeforeCommit(t *testin
 
 	tunnel := &mockTunnelTransport{streams: []platform.TunnelStream{failed, succeeded}}
 	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 1}}
-	wallet := &mockWalletStore{}
 	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
 		"hi-vm": {
 			ID: "vm-hi", TenantID: "tenant-1", Alias: "hi-vm", RoutingStrategy: "priority", Enabled: true,
@@ -1483,7 +1452,7 @@ func TestChatCompletionHandler_VirtualModelStreamFallsBackBeforeCommit(t *testin
 			},
 		},
 	}}
-	handler := newTestChatCompletionHandler(r, tunnel, billing, wallet, logs, logger, proxy.ChatCompletionDependencies{VirtualModelStore: logs})
+	handler := newTestChatCompletionHandler(r, tunnel, billing, logs, logger, proxy.ChatCompletionDependencies{VirtualModelStore: logs})
 	app := setupTestApp(t, handler)
 	payload := []byte(`{"model":"hi-vm","stream":true,"messages":[{"role":"user","content":"hello"}]}`)
 
@@ -1511,10 +1480,9 @@ func TestChatCompletionHandler_ShouldRejectEmptyMessages(t *testing.T) {
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -1544,10 +1512,9 @@ func TestChatCompletionHandler_ShouldRejectMissingMessageRole(t *testing.T) {
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -1582,10 +1549,9 @@ func TestChatCompletionHandler_ShouldPassThroughTemperatureWithoutRangeValidatio
 		Body:       []byte(`{"id":"chatcmpl-pass-through","object":"chat.completion","model":"gpt-4","choices":[]}`),
 	}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	temps := []float64{-0.1, 2.1, 3.0}
@@ -1622,10 +1588,9 @@ func TestChatCompletionHandler_ShouldPassThroughTopPWithoutRangeValidation(t *te
 		Body:       []byte(`{"id":"chatcmpl-pass-through","object":"chat.completion","model":"gpt-4","choices":[]}`),
 	}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	topPValues := []float64{-0.1, 1.1, 1.5}
@@ -1659,10 +1624,9 @@ func TestChatCompletionHandler_ShouldRejectInvalidMaxTokens(t *testing.T) {
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -1693,10 +1657,9 @@ func TestChatCompletionHandler_DeniesWhenAllowlistEnforcedAndEmpty(t *testing.T)
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -1747,7 +1710,6 @@ func TestChatCompletionHandler_RejectsVirtualModelUnsupportedMode(t *testing.T) 
 		r,
 		&mockTunnelTransport{},
 		&mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}},
-		&mockWalletStore{},
 		&mockLogger{},
 		logger,
 	)
@@ -1812,10 +1774,9 @@ func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -1862,7 +1823,6 @@ func TestChatCompletionHandler_ShouldPreserveProviderJSONError(t *testing.T) {
 		r,
 		mTunnel,
 		&mockBilling{cost: platform.UsageCostBreakdown{}},
-		&mockWalletStore{},
 		&mockLogger{},
 		logger,
 	)
@@ -1902,10 +1862,9 @@ func TestChatCompletionHandler_LogsProviderAuthenticationFailures(t *testing.T) 
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -1954,10 +1913,9 @@ func TestChatCompletionHandler_ShouldTransformRateLimitError(t *testing.T) {
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -2027,10 +1985,9 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -2064,7 +2021,7 @@ func TestChatCompletionHandler_ShouldPassThroughValidProviderHeaders(t *testing.
 	// Verify GodarAI headers are added
 	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Trace-Id"))
 	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Cost-Usd"))
-	assert.NotEmpty(t, resp.Header.Get("X-GodarAI-Cost-Irr"))
+	assert.Empty(t, resp.Header.Get("X-GodarAI-Cost-Irr"), "the IRR header was removed")
 }
 
 func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing.T) {
@@ -2072,9 +2029,8 @@ func TestChatCompletionHandler_GuardrailBlocksInputBeforeProviderCall(t *testing
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2105,9 +2061,8 @@ func TestChatCompletionHandler_GuardrailAcceptsPlainSelectorHeader(t *testing.T)
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2137,7 +2092,6 @@ func TestChatCompletionHandler_TenantKeywordGuardrailBlocksInputBeforeProviderCa
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{
 		tenantGuardrails: []platform.TenantGuardrail{{
 			ID:          "guardrail-1",
@@ -2152,7 +2106,7 @@ func TestChatCompletionHandler_TenantKeywordGuardrailBlocksInputBeforeProviderCa
 			Config:      map[string]interface{}{"terms": []string{"hate"}},
 		}},
 	}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2188,9 +2142,8 @@ func TestChatCompletionHandler_GuardrailMutatesInputBeforeProviderCall(t *testin
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2225,9 +2178,8 @@ func TestChatCompletionHandler_GuardrailMutatesOutputResponse(t *testing.T) {
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2257,9 +2209,8 @@ func TestChatCompletionHandler_GuardrailRejectsStreamingWithOutputGuardrails(t *
 	r := newTestRouter(t, logger)
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger, proxy.ChatCompletionDependencies{
+	handler := newTestChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger, proxy.ChatCompletionDependencies{
 		Guardrails: guardrails.NewDefaultEngine(),
 	})
 	app := setupTestApp(t, handler)
@@ -2325,10 +2276,9 @@ func TestChatCompletionHandler_ShouldSetRateLimitHeaders(t *testing.T) {
 			RetryAfter: true,
 		},
 	}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	body := map[string]interface{}{
@@ -2386,10 +2336,9 @@ func TestChatCompletionHandler_ShouldAcceptValidTemperature(t *testing.T) {
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	validTemps := []float64{0, 0.5, 1.0, 1.5, 2.0}
@@ -2449,10 +2398,9 @@ func TestChatCompletionHandler_ShouldAcceptValidTopP(t *testing.T) {
 		},
 	}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	validTopPs := []float64{0, 0.5, 1.0}
@@ -2499,10 +2447,9 @@ func TestChatCompletionHandler_AcceptsMultimodalChatContent(t *testing.T) {
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 26}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2548,10 +2495,9 @@ func TestChatCompletionHandler_AcceptsFileChatContent(t *testing.T) {
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2605,10 +2551,9 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleTools(t *testing.T) {
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2678,10 +2623,9 @@ func TestChatCompletionHandler_RoundTripsStructuredOutputsResponseFormat(t *test
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2740,10 +2684,9 @@ func TestChatCompletionHandler_PreservesStructuredOutputRefusal(t *testing.T) {
 	respBody, _ := json.Marshal(validResponse)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: respBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2788,10 +2731,9 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleExtendedThinking(t *tes
 	}`)
 	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{StatusCode: http.StatusOK, Headers: map[string]string{}, Body: providerBody}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2842,9 +2784,8 @@ func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 88}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2939,9 +2880,8 @@ func TestChatCompletionHandler_ForwardsToolsAndResponseFormatForTokenBazaar(t *t
 		TotalCostUSD: 0.001, TotalTokens: 52,
 		ModelRuntimeProfile: &runtimeProfile, PricingRevision: runtimeProfile.CatalogRevision,
 	}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -2979,9 +2919,8 @@ func TestChatCompletionHandler_RejectsInvalidResponseFormatType(t *testing.T) {
 
 	mTunnel := &mockTunnelTransport{}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 52}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload := []byte(`{
@@ -3021,10 +2960,9 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 
 	mTunnel := &mockTunnelTransport{stream: stream}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{InputTokens: 10, OutputTokens: 5, TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{
@@ -3057,7 +2995,6 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	assert.Equal(t, 10, mBilling.finalizedUsage.PromptTokens)
 	assert.Equal(t, 5, mBilling.finalizedUsage.CompletionTokens)
 	assert.True(t, stream.closed)
-	require.Len(t, mWallet.debitCalls, 1)
 	require.Len(t, mLogs.loggedSpends, 1)
 	assert.Equal(t, "success", mLogs.loggedSpends[0].Status)
 	require.Len(t, mLogs.loggedEntries, 1)
@@ -3099,7 +3036,7 @@ func TestChatCompletionHandler_NormalizesGoogleGeminiUsageBeforeBillingAndRespon
 		ModelRuntimeProfile: &runtimeProfile,
 	}}
 	mLogs := &mockLogger{}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, &mockWalletStore{}, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload, err := json.Marshal(map[string]interface{}{
@@ -3159,7 +3096,7 @@ func TestChatCompletionHandler_NormalizesGoogleGeminiStreamingUsage(t *testing.T
 		PricingRevision:     runtimeProfile.CatalogRevision,
 		ModelRuntimeProfile: &runtimeProfile,
 	}}
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, &mockWalletStore{}, &mockLogger{}, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, &mockLogger{}, logger)
 	app := setupTestApp(t, handler)
 
 	payload, err := json.Marshal(map[string]interface{}{
@@ -3214,10 +3151,9 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 
 	mTunnel := &mockTunnelTransport{stream: stream}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{
@@ -3239,7 +3175,6 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	require.NoError(t, err)
 	assert.JSONEq(t, providerError, string(actualBody))
 	assert.True(t, stream.closed)
-	assert.Empty(t, mWallet.debitCalls)
 	assert.Empty(t, mLogs.loggedSpends)
 	require.Len(t, mLogs.loggedEntries, 1)
 	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)
@@ -3261,10 +3196,9 @@ func TestChatCompletionHandler_StreamCloseWithoutDoneFailsWithoutBilling(t *test
 
 	mTunnel := &mockTunnelTransport{stream: stream}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{
@@ -3286,7 +3220,6 @@ func TestChatCompletionHandler_StreamCloseWithoutDoneFailsWithoutBilling(t *test
 	assert.Contains(t, string(body), `"content":"Salam"`)
 	assert.Contains(t, string(body), `"code":"stream_incomplete"`)
 	assert.NotContains(t, strings.ToLower(string(body)), "panic")
-	assert.Empty(t, mWallet.debitCalls)
 	assert.Empty(t, mLogs.loggedSpends)
 	assert.True(t, stream.closed)
 	require.Len(t, mLogs.loggedEntries, 1)
@@ -3304,10 +3237,9 @@ func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T
 
 	mTunnel := &mockTunnelTransport{stream: stream}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
-	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
-	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mLogs, logger)
 	app := setupTestApp(t, handler)
 
 	payload, _ := json.Marshal(map[string]interface{}{

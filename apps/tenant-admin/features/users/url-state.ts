@@ -1,10 +1,12 @@
+import { SEAT_TYPES, type SeatType } from "@/lib/seats";
+
 export type MemberStatusFilter = "all" | "active" | "deactivated";
 
 export type UsersURLState = {
   /** Free-text search, matched against identity and display name. */
   q: string;
-  /** Role name from the tenant role catalog, or "" for every role. */
-  role: string;
+  /** Seat type, or "" for every seat. */
+  seat: SeatType | "";
   status: MemberStatusFilter;
   /** Member whose detail drawer is open. */
   member: string;
@@ -17,7 +19,7 @@ export function parseUsersURLState(params: URLSearchParams): UsersURLState {
 
   return {
     q: params.get("q")?.trim() ?? "",
-    role: params.get("role")?.trim() ?? "",
+    seat: SEAT_TYPES.find((seat) => seat === params.get("seat")?.trim()) ?? "",
     status: rawStatus && MEMBER_STATUSES.has(rawStatus) ? rawStatus : "all",
     member: params.get("member")?.trim() ?? "",
   };
@@ -38,5 +40,5 @@ export function patchUsersURL(
 }
 
 export function hasActiveUserFilters(state: UsersURLState): boolean {
-  return state.q !== "" || state.role !== "" || state.status !== "all";
+  return state.q !== "" || state.seat !== "" || state.status !== "all";
 }

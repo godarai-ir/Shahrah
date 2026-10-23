@@ -23,6 +23,7 @@ func proxyRouteScenarios() []struct {
 	deps Dependencies
 } {
 	all := Dependencies{
+		BudgetMeHandler:                   func(*fiber.Ctx) error { return nil },
 		ProxyHandler:                      &proxy.ChatCompletionHandler{},
 		CompletionsHandler:                &proxy.CompletionsHandler{},
 		ResponsesHandler:                  &proxy.ResponsesHandler{},

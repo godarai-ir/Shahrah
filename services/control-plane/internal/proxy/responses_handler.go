@@ -67,7 +67,7 @@ func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *Response
 }
 
 // NewResponsesHandler creates a new responses handler.
-func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ResponsesHandler {
+func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *ResponsesHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -78,7 +78,6 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -210,7 +209,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	estimated.Metadata = req.Metadata
 
-	rateLimitErr := h.checkResponsesRateLimit(c, authInfo, requestedModel, estimated.TotalTokens, startTime, quotaStart, requestLog)
+	rateLimitErr := h.checkResponsesRateLimit(c, authInfo, requestedModel, startTime, quotaStart, requestLog)
 	if rateLimitErr != nil {
 		return rateLimitErr
 	}
@@ -473,12 +472,11 @@ func (h *ResponsesHandler) checkResponsesRateLimit(
 	c *fiber.Ctx,
 	authInfo *platform.AuthContext,
 	requestedModel string,
-	estimatedTokens int,
 	startTime time.Time,
 	quotaStart time.Time,
 	requestLog *requestLogLifecycle,
 ) error {
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimatedTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err == nil {
@@ -1090,8 +1088,8 @@ func (h *ResponsesHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           req.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -1128,7 +1126,6 @@ func (h *ResponsesHandler) handleSync(
 			"endpoint":    "/v1/responses",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
 		}), tunnelReq.Deployment),
 	})
@@ -1341,8 +1338,8 @@ func (h *ResponsesHandler) handleStream(
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
-				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
+				UserID:          authInfo.UserID,
 				Model:           req.Model,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -1380,7 +1377,6 @@ func (h *ResponsesHandler) handleStream(
 					"endpoint":    "/v1/responses",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})

@@ -107,6 +107,33 @@ func FormatJalaliMonthKey(year, month int) string {
 	return fmt.Sprintf("%04d-%02d", year, month)
 }
 
+// AddJalaliMonths moves t by months on the Jalali calendar in Tehran, keeping
+// its Tehran time of day. A day the target month lacks becomes that month's
+// last day, so 31 Shahrivar plus one month is 30 Mehr and 30 Esfand of a leap
+// year plus twelve months is 29 Esfand.
+func AddJalaliMonths(t time.Time, months int) (time.Time, error) {
+	local := t.In(financialTehranLocation)
+
+	jy, jm, jd, err := jalaali.ToJalaali(local.Year(), local.Month(), local.Day())
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	year, month := shiftJalaliMonth(jy, int(jm), months)
+
+	length, err := jalaali.MonthLength(year, month)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	gYear, gMonth, gDay, err := jalaali.ToGregorian(year, jalaali.Month(month), min(jd, length))
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return time.Date(gYear, gMonth, gDay, local.Hour(), local.Minute(), local.Second(), local.Nanosecond(), financialTehranLocation).UTC(), nil
+}
+
 // FinancialTehranLocation returns the timezone used by financial date calculations.
 func FinancialTehranLocation() *time.Location {
 	return financialTehranLocation

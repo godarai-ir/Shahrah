@@ -11,8 +11,11 @@ import { compareByEvaluationOrder, ruleSchedule, type PolicyRule, type RuleSched
  */
 export type RateOutcome = "enforced" | "countOnly" | "notReached";
 
-/** - enforced: the request reserves against this budget. - noEffect: blocking is off, so the gateway skips the rule. */
-export type BudgetOutcome = "enforced" | "noEffect";
+/**
+ * - enforced: the request reserves against this budget and is refused once it is spent.
+ * - alertOnly: the spend is counted and crossings are logged, but the request is never refused.
+ */
+export type BudgetOutcome = "enforced" | "alertOnly";
 
 export type DormantReason = "disabled" | Exclude<RuleSchedule, "active">;
 
@@ -51,7 +54,8 @@ export function simulateRequest(rules: PolicyRule[], request: GatewayRequestCont
     }
 
     if (item.type === "budget") {
-      result.budget.push({ rule: item.rule, outcome: item.rule.block_on_budget_exceed ? "enforced" : "noEffect" });
+      const blocks = item.rule.on_exceed ? item.rule.on_exceed === "block" : item.rule.block_on_budget_exceed !== false;
+      result.budget.push({ rule: item.rule, outcome: blocks ? "enforced" : "alertOnly" });
       continue;
     }
 

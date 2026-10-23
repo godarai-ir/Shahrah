@@ -16,7 +16,7 @@ import {
 import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 
 export type PrincipalPickerItem = {
-  type: "user" | "team" | "org_unit" | "virtual_account" | "everyone";
+  type: "user" | "team" | "virtual_account" | "everyone";
   principal_id?: string;
   display_name?: string;
 };
@@ -76,7 +76,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
   function addSelectedCandidate() {
     if (!candidate) return;
     if (candidate.type === "external_identity") return;
-    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "org_unit" && candidate.type !== "virtual_account" && candidate.type !== "everyone") return;
+    if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "virtual_account" && candidate.type !== "everyone") return;
     if (candidate.type === "everyone" && props.everyoneConfirmation) {
       setEveryoneConfirmOpen(true);
       return;
@@ -133,7 +133,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
           onSelectedChange={props.disabled ? () => {} : setCandidate}
           onSearch={props.onSearchPrincipal}
           labels={props.principalSelectorLabels}
-          kinds={props.kinds ?? ["user", "team", "org_unit"]}
+          kinds={props.kinds ?? ["user", "team"]}
           includeEveryone={props.allowEveryone}
           className={cn("min-w-0 flex-1", isFilterVariant && "flex-1")}
           compact={isFilterVariant}

@@ -1,31 +1,6 @@
-import AdminShell from "@/features/admin-shell/AdminShell";
-import TopUpPanel from "@/features/billing/TopUpPanel";
-import { requirePermissionOr403 } from "@/lib/auth/permissions";
-import { requireAuth } from "@/lib/auth/session";
-import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function TopUpPage() {
-  const auth = await requireAuth("/login?next=/billing/topup");
-  const t = await getTranslations("topupPage");
-  const tenantSlug = auth.tenantSlug;
-  await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
-
-  const currentUser = {
-    id: auth.user.id,
-    email: auth.user.email,
-    mobile: auth.user.mobile,
-    role: auth.user.role,
-  };
-
-  return (
-    <AdminShell messageNamespaces={["topupPage"]}
-      tenantSlug={tenantSlug}
-      currentUser={currentUser}
-      pageHeader={{ title: t("title"), description: t("description") }}
-    >
-      <TopUpPanel initialError={null} />
-    </AdminShell>
-  );
+// Wallet top-ups ended with the credit cutover; credits are bought as packs.
+export default function RetiredWalletPage() {
+  redirect("/billing/credits");
 }

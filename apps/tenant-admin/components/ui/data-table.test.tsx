@@ -32,11 +32,6 @@ function openMenu(name: string) {
 describe("DataTable", () => {
   beforeEach(() => window.localStorage.clear());
 
-  it("defaults to compact density on the table element", () => {
-    render(<DataTable tableId="t" columns={columns} data={rows} emptyLabel="empty" />);
-    expect(screen.getByRole("table")).toHaveAttribute("data-density", "compact");
-  });
-
   it("hides an optional column from the column menu", async () => {
     render(<DataTable tableId="t" columns={columns} data={rows} emptyLabel="empty" toolbar={<DataTableToolbar />} />);
     expect(screen.getByText("usage-12")).toBeInTheDocument();

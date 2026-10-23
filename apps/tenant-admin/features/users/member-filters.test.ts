@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { SeatType } from "@/lib/seats";
+
 import { filterMembers, listUserRoleNames } from "./member-filters";
 import { parseUsersURLState, patchUsersURL } from "./url-state";
 import type { TenantAdminUser } from "@/lib/contracts/tenant-users";
@@ -40,14 +42,16 @@ describe("listUserRoleNames", () => {
 });
 
 describe("filterMembers", () => {
-  const base = { q: "", role: "", status: "all" } as const;
+  const base = { q: "", seat: "", status: "all" } as const;
+  const seats = new Map<string, SeatType>([["1", "pro"], ["2", "free"], ["3", "free"]]);
 
   it("keeps everyone with no filters", () => {
     expect(filterMembers(roster, base)).toHaveLength(3);
   });
 
-  it("matches a non-primary role", () => {
-    expect(filterMembers(roster, { ...base, role: "billing_manager" }).map((m) => m.id)).toEqual(["1"]);
+  it("filters by seat and drops members without seat data", () => {
+    expect(filterMembers(roster, { ...base, seat: "free" }, seats).map((m) => m.id)).toEqual(["2", "3"]);
+    expect(filterMembers(roster, { ...base, seat: "free" })).toEqual([]);
   });
 
   it("filters by status", () => {
@@ -60,13 +64,13 @@ describe("filterMembers", () => {
   });
 
   it("combines filters", () => {
-    expect(filterMembers(roster, { q: "a", role: "member", status: "active" }).map((m) => m.id)).toEqual(["2"]);
+    expect(filterMembers(roster, { q: "a", seat: "free", status: "active" }, seats).map((m) => m.id)).toEqual(["2"]);
   });
 });
 
 describe("users URL state", () => {
   it("defaults cleanly", () => {
-    expect(parseUsersURLState(new URLSearchParams())).toEqual({ q: "", role: "", status: "all", member: "" });
+    expect(parseUsersURLState(new URLSearchParams())).toEqual({ q: "", seat: "", status: "all", member: "" });
   });
 
   it("rejects an unknown status", () => {
@@ -74,8 +78,8 @@ describe("users URL state", () => {
   });
 
   it("reads every filter", () => {
-    expect(parseUsersURLState(new URLSearchParams("q=ada&role=member&status=active&member=u1"))).toEqual({
-      q: "ada", role: "member", status: "active", member: "u1",
+    expect(parseUsersURLState(new URLSearchParams("q=ada&seat=pro&status=active&member=u1"))).toEqual({
+      q: "ada", seat: "pro", status: "active", member: "u1",
     });
   });
 
@@ -84,8 +88,8 @@ describe("users URL state", () => {
   });
 
   it("preserves unrelated params", () => {
-    const next = patchUsersURL(new URLSearchParams("tab=members"), { role: "member" });
+    const next = patchUsersURL(new URLSearchParams("tab=members"), { seat: "pro" });
     expect(new URLSearchParams(next).get("tab")).toBe("members");
-    expect(new URLSearchParams(next).get("role")).toBe("member");
+    expect(new URLSearchParams(next).get("seat")).toBe("pro");
   });
 });

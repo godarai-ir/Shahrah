@@ -80,7 +80,7 @@
   "form": {
     "addTitle": "افزودن قانون جدید",
     "editTitle": "ویرایش قانون",
-    "headerDescription": "قانون محدودسازی را با ساختار استاندارد محصول تعریف کنید تا روی افراد، تیم‌ها، واحدهای سازمانی، مدل و فراداده اعمال شود.",
+    "headerDescription": "قانون محدودسازی را با ساختار استاندارد محصول تعریف کنید تا روی افراد، تیم‌ها، مدل و فراداده اعمال شود.",
     "ruleIdPlaceholder": "شناسه قانون را وارد کنید",
     "stickyDescription": "پس از ذخیره، به فهرست قوانین محدودسازی نرخ برمی‌گردید.",
     "sections": {
@@ -119,8 +119,7 @@
     },
     "options": {
       "dimension": {
-        "requests": "تعداد درخواست",
-        "tokens": "توکن"
+        "requests": "تعداد درخواست"
       },
       "windowUnit": {
         "minute": "در دقیقه",
@@ -189,7 +188,6 @@
     "principal": {
       "users": "کاربران",
       "teams": "تیم‌ها",
-      "orgUnits": "واحدهای سازمانی",
       "virtualAccounts": "اکانت‌های مجازی",
       "externalIdentities": "هویت خارجی",
       "everyone": "همه",
@@ -210,7 +208,6 @@
   "aria": {
     "filterFieldType": "نوع فیلتر",
     "metadataOperator": "عملگر فراداده",
-    "limitDimension": "واحد محدودیت",
     "windowUnit": "بازه زمانی",
     "conflictBehavior": "رفتار تعارض",
     "removeFilter": "حذف فیلتر",

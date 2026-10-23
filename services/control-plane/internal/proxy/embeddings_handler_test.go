@@ -41,7 +41,7 @@ func newEmbeddingsTestApp(t *testing.T, modelName string, provider string, deplo
 		logs = &testLogs{}
 	}
 
-	h := NewEmbeddingsHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewEmbeddingsHandler(rt, tunnel, &testBudgeter{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -52,7 +52,7 @@ func newEmbeddingsTestApp(t *testing.T, modelName string, provider string, deplo
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				modelName: {"embedding"},

@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
+	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +37,6 @@ func (b *builder) buildGateway() error {
 		b.tunnel,
 		b.billing,
 		billingCapabilities,
-		b.store.WalletLedgerRepository,
 		b.logger,
 		proxy.RequestPipelineConfig{DetachedWorkTimeout: b.cfg.Runtime.GatewayDetachedWorkTimeout},
 	)
@@ -48,7 +48,6 @@ func (b *builder) buildGateway() error {
 		RawTunnel:                 b.tunnel,
 		Billing:                   b.billing,
 		BillingCapabilities:       billingCapabilities,
-		Wallets:                   b.store.WalletLedgerRepository,
 		AnthropicRuntimeProfiles:  b.anthropicPricing,
 		ProviderResources:         b.store.ProviderResourceRepository,
 		AnthropicResources:        b.store.ProviderResourceRepository,
@@ -65,19 +64,12 @@ func (b *builder) buildGateway() error {
 		ResponseCache:             responseCache,
 		ProviderFeatures: proxy.ProviderFeatureConfig{
 			Configured:                   true,
-			MistralEnabled:               b.cfg.ProviderFeatures.MistralEnabled,
-			MistralEndpoints:             b.cfg.ProviderFeatures.MistralEndpoints,
 			MistralFilesEnabled:          b.cfg.ProviderFeatures.MistralFilesEnabled,
 			MistralBatchEnabled:          b.cfg.ProviderFeatures.MistralBatchEnabled,
 			MistralAgentsEnabled:         b.cfg.ProviderFeatures.MistralAgentsEnabled,
 			MistralConversationsEnabled:  b.cfg.ProviderFeatures.MistralConversationsEnabled,
 			MistralConversationStreaming: b.cfg.ProviderFeatures.MistralConversationStreaming,
-			AnthropicNativeEnabled:       b.cfg.ProviderFeatures.AnthropicNativeEnabled,
-			AnthropicFilesEnabled:        b.cfg.ProviderFeatures.AnthropicFilesEnabled,
-			AnthropicBatchesEnabled:      b.cfg.ProviderFeatures.AnthropicBatchesEnabled,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
-			ZAIEnabled:                   b.cfg.ProviderFeatures.ZAIEnabled,
-			ZAILayoutParsingEnabled:      b.cfg.ProviderFeatures.ZAILayoutParsingEnabled,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
@@ -158,6 +150,9 @@ func (b *builder) buildGateway() error {
 		GatewayMaxInFlight:                &b.cfg.Runtime.GatewayMaxInFlight,
 		CreditSurface:                     b.creditSurfaceMiddleware(),
 		RateCardHandler:                   proxy.NewRateCardHandler(b.billing, b.creditRateCards),
+		BudgetMeHandler:                   proxy.NewBudgetMeHandler(b.billing),
+		SeatRequestHandler:                b.seatRequestHandler(),
+		PricingChangelogHandler:           b.pricingChangelogHandler(),
 	}
 
 	return nil
@@ -216,4 +211,13 @@ func (b *builder) buildHTTP() error {
 	b.httpApp = app
 
 	return nil
+}
+
+// seatRequestHandler lets members ask for a better seat from the gateway.
+func (b *builder) seatRequestHandler() fiber.Handler {
+	if b.store == nil || b.store.SeatRepository == nil {
+		return nil
+	}
+
+	return proxy.NewSeatRequestHandler(b.store.SeatRepository)
 }

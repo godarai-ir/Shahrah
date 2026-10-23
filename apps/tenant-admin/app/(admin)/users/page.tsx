@@ -6,13 +6,12 @@ import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import { parseUserListPayload } from "@/features/users/api";
+import { parseSeatMembers, parseSeatPeriodEnd, parseSeatUsage, parseUserListPayload } from "@/features/users/api";
 import { mePermissionsResponseSchema } from "@/lib/contracts/roles";
 import { buildDocsBaseHref } from "@/lib/docs-href";
 
 export const dynamic = "force-dynamic";
 
-const USERS_FEATURE_KEY = "users.max";
 /** Matches the roster the client filters over; the control plane caps a page at 200. */
 const ROSTER_FETCH_LIMIT = 200;
 
@@ -30,7 +29,7 @@ export default async function UsersPage() {
   const parsedCatalog = mePermissionsResponseSchema.safeParse(permissionsPayload);
   const initialPermissionCatalog = parsedCatalog.success ? parsedCatalog.data.catalog ?? [] : [];
 
-  const [usersResult, entitlementsResult] = await Promise.all([
+  const [usersResult, seatsResult, seatMembersResult, seatSummaryResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
@@ -39,20 +38,33 @@ export default async function UsersPage() {
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v1/entitlements",
+      path: "/api/v1/users/seats",
+    }),
+    // Seat columns are optional: a reader without billing access still gets the roster.
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/billing/seats/members?limit=500",
+      userID: auth.user.id,
+    }),
+    fetchControlPlaneJSON({
+      tenantSlug,
+      method: "GET",
+      path: "/api/v1/billing/seats",
+      userID: auth.user.id,
     }),
   ]);
 
   const payload = parseUserListPayload(usersResult.payload);
   const initialUsers = usersResult.ok ? payload.data ?? [] : [];
-  const initialTotal = usersResult.ok ? payload.total ?? initialUsers.length : 0;
   const initialError = usersResult.ok ? null : usersResult.errorMessage ?? "Request failed.";
 
   // Plan usage belongs in the page header, not a tooltip beside the invite button.
-  const usersLimit = entitlementsResult.ok ? readUsersLimit(entitlementsResult.payload) : null;
-  const description = usersLimit === null
+  // Seats count active members and pending invitations, as the plan cap does.
+  const seats = seatsResult.ok ? parseSeatUsage(seatsResult.payload) : null;
+  const description = seats?.limit == null
     ? t("usersPage.description")
-    : t("usersPage.headerUsage", { used: initialTotal, limit: usersLimit });
+    : t("usersPage.headerUsage", { used: seats.used, limit: seats.limit });
 
   const currentUser = {
     id: auth.user.id,
@@ -62,31 +74,20 @@ export default async function UsersPage() {
   };
 
   return (
-    <AdminShell messageNamespaces={["accessManagement"]}
+    <AdminShell messageNamespaces={["accessManagement", "billingSeats"]}
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={{ title: t("usersPage.title"), description, helpHref: docsHref }}
     >
       <UsersAccessManagement
         initialUsers={initialUsers}
-        initialTotal={initialTotal}
         initialError={initialError}
+        initialSeatMembers={seatMembersResult.ok ? parseSeatMembers(seatMembersResult.payload) : []}
+        seatPeriodEnd={seatSummaryResult.ok ? parseSeatPeriodEnd(seatSummaryResult.payload) : null}
         initialPermissionCatalog={initialPermissionCatalog}
         currentUserID={auth.user.id}
         canManageUsers={canManageUsers}
       />
     </AdminShell>
   );
-}
-
-function readUsersLimit(payload: unknown): number | null {
-  if (!payload || typeof payload !== "object") return null;
-  const features = (payload as { features?: Record<string, unknown> }).features;
-  const value = features?.[USERS_FEATURE_KEY];
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
 }

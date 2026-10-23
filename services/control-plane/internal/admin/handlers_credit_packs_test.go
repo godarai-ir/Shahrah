@@ -1,0 +1,294 @@
+package admin
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+	"time"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+type creditPackStoreFake struct {
+	createErr   error
+	order       *platform.CreditPackOrder
+	attached    string
+	completed   int
+	failed      string
+	gotProvider string
+	settingsReq *platform.UpdateCreditSettingsRequest
+	settingsBy  platform.SupportActor
+}
+
+func (f *creditPackStoreFake) ListCreditPacks(context.Context) ([]platform.CreditPack, error) {
+	return []platform.CreditPack{{Slug: "credits-5000", Credits: 5000, PriceIRR: 45_000_000, PayableIRR: 45_000_000}}, nil
+}
+
+func (f *creditPackStoreFake) CreateCreditPackOrder(_ context.Context, tenantID string, req platform.CreateCreditPackOrderRequest, callbackURL, returnURL, _ string) (*platform.CreditPackOrder, error) {
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
+
+	f.gotProvider = req.Provider
+	status := platform.CreditPackOrderPending
+
+	if req.Provider == platform.CreditPackProviderBankTransfer {
+		status = platform.CreditPackOrderAwaitingTransfer
+	}
+
+	f.order = &platform.CreditPackOrder{
+		ID: "order-1", PublicID: "public-1", TenantID: tenantID, PackSlug: req.PackSlug, Credits: 5000,
+		PayableIRR: 45_000_000, Provider: req.Provider, Status: status, CallbackURL: callbackURL, ReturnURL: returnURL,
+	}
+
+	return f.order, nil
+}
+
+func (f *creditPackStoreFake) AttachCreditPackOrderGatewayData(_ context.Context, _, authority, _ string, _ map[string]interface{}) error {
+	f.attached = authority
+	f.order.Authority = authority
+
+	return nil
+}
+
+func (f *creditPackStoreFake) GetCreditPackOrder(context.Context, string, string) (*platform.CreditPackOrder, error) {
+	return f.order, nil
+}
+
+func (f *creditPackStoreFake) GetCreditPackOrderByAuthority(_ context.Context, authority string) (*platform.CreditPackOrder, error) {
+	if f.order == nil || f.order.Authority != authority {
+		return nil, billingdomain.ErrCreditPackOrderNotFound
+	}
+
+	return f.order, nil
+}
+
+func (f *creditPackStoreFake) ListCreditPackOrders(context.Context, string, int) ([]platform.CreditPackOrder, error) {
+	return []platform.CreditPackOrder{}, nil
+}
+
+func (f *creditPackStoreFake) CompleteCreditPackOrderByAuthority(_ context.Context, _ string, _ billingdomain.PaymentVerification) (*platform.CreditPackOrder, bool, error) {
+	f.completed++
+	f.order.Status = platform.CreditPackOrderCompleted
+
+	return f.order, false, nil
+}
+
+func (f *creditPackStoreFake) MarkCreditPackOrderFailedByAuthority(_ context.Context, _, reason string, _ map[string]interface{}) error {
+	f.failed = reason
+
+	return nil
+}
+
+func (f *creditPackStoreFake) GetCreditSettings(context.Context, string) (*platform.CreditSettings, error) {
+	return &platform.CreditSettings{BillingUnit: "credit"}, nil
+}
+
+func (f *creditPackStoreFake) UpdateCreditSettings(_ context.Context, _ string, req platform.UpdateCreditSettingsRequest, actor platform.SupportActor) (*platform.CreditSettings, error) {
+	f.settingsReq = &req
+	f.settingsBy = actor
+
+	return &platform.CreditSettings{BillingUnit: "credit"}, nil
+}
+
+func creditPackApp(store *creditPackStoreFake, defaultProvider string) *fiber.App {
+	return creditPackAppWith(store, PaymentConfig{DefaultSubscriptionProvider: defaultProvider})
+}
+
+func creditPackAppWith(store *creditPackStoreFake, payment PaymentConfig) *fiber.App {
+	h := &Handlers{billingState: billingState{creditPacks: store, payment: payment.withDefaults()}}
+	app := fiber.New()
+	app.Get("/api/v1/credits/packs/payment/callback/:provider", h.CreditPackPaymentCallback)
+
+	tenantRoutes := app.Group("/api/v1", func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{Role: "member", UserID: "user-1", Permissions: []string{"billing:manage"}})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	tenantRoutes.Post("/billing/credits/orders", h.CreateCreditPackOrder)
+	tenantRoutes.Put("/billing/credits/settings", h.UpdateCreditSettings)
+
+	return app
+}
+
+func postCreditPackOrder(t *testing.T, app *fiber.App, body string) (int, map[string]interface{}) {
+	t.Helper()
+
+	req := httptest.NewRequest(fiber.MethodPost, "/api/v1/billing/credits/orders", bytes.NewBufferString(body))
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	var payload map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
+	require.NoError(t, resp.Body.Close())
+
+	return resp.StatusCode, payload
+}
+
+func TestCreditPackOrderAndCallbackComplete(t *testing.T) {
+	store := &creditPackStoreFake{}
+	app := creditPackApp(store, "mock")
+
+	status, payload := postCreditPackOrder(t, app, `{"pack_slug":"credits-5000"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+	require.Equal(t, "mock", store.gotProvider, "falls back to the configured default provider")
+	require.NotEmpty(t, store.attached)
+
+	paymentURL, ok := payload["payment_url"].(string)
+	require.True(t, ok)
+	require.Contains(t, paymentURL, creditPackCallbackPath+"mock")
+
+	// The URL names a different provider; the order's own provider verifies.
+	callback := httptest.NewRequest(fiber.MethodGet, creditPackCallbackPath+"zarinpal?authority="+url.QueryEscape(store.attached), http.NoBody)
+	callbackResp, err := app.Test(callback)
+	require.NoError(t, err)
+	require.NoError(t, callbackResp.Body.Close())
+	require.Equal(t, fiber.StatusFound, callbackResp.StatusCode)
+	require.Equal(t, 1, store.completed)
+	assert.Contains(t, callbackResp.Header.Get("Location"), "payment_status=success")
+}
+
+func TestCreditPackCallbackRecordsFailedPayments(t *testing.T) {
+	store := &creditPackStoreFake{}
+	app := creditPackApp(store, "mock")
+
+	status, _ := postCreditPackOrder(t, app, `{"pack_slug":"credits-5000","provider":"mock"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+
+	callback := httptest.NewRequest(fiber.MethodGet, creditPackCallbackPath+"mock?status=canceled&authority="+url.QueryEscape(store.attached), http.NoBody)
+	callbackResp, err := app.Test(callback)
+	require.NoError(t, err)
+	require.NoError(t, callbackResp.Body.Close())
+	require.Equal(t, fiber.StatusFound, callbackResp.StatusCode)
+	require.Zero(t, store.completed)
+	require.NotEmpty(t, store.failed)
+	assert.Contains(t, callbackResp.Header.Get("Location"), "payment_status=failed")
+}
+
+func TestCreditPackOrderRefusesTheMockGatewayOutsideMockEnvironments(t *testing.T) {
+	store := &creditPackStoreFake{}
+	app := creditPackApp(store, "zarinpal")
+
+	for _, provider := range []string{"mock", "unknown"} {
+		status, payload := postCreditPackOrder(t, app, `{"pack_slug":"credits-5000","provider":"`+provider+`"}`)
+		require.Equal(t, fiber.StatusUnprocessableEntity, status, provider)
+		require.Equal(t, "payment_provider_unavailable", payload["error"].(map[string]interface{})["code"], provider)
+	}
+
+	status, payload := postCreditPackOrder(t, app, `{"pack_slug":"credits-5000","provider":"bank_transfer"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+	require.Equal(t, platform.CreditPackOrderAwaitingTransfer, payload["status"])
+	require.Empty(t, store.attached, "bank transfers never reach a gateway")
+}
+
+func TestProductionNeverAcceptsTheMockGateway(t *testing.T) {
+	// "mock" is also what an unset SUBSCRIPTION_PAYMENT_PROVIDER falls back to
+	// outside production, so production must not inherit it.
+	for _, defaultProvider := range []string{"", "mock"} {
+		store := &creditPackStoreFake{}
+		app := creditPackAppWith(store, PaymentConfig{Production: true, DefaultSubscriptionProvider: defaultProvider})
+
+		for _, body := range []string{`{"pack_slug":"credits-5000"}`, `{"pack_slug":"credits-5000","provider":"mock"}`} {
+			status, payload := postCreditPackOrder(t, app, body)
+			require.Equal(t, fiber.StatusUnprocessableEntity, status, "%q %s", defaultProvider, body)
+			require.Equal(t, "payment_provider_unavailable", payload["error"].(map[string]interface{})["code"])
+		}
+
+		require.Empty(t, store.attached, "no payment URL was ever created")
+	}
+}
+
+func TestProductionCallbackNeverCompletesAMockOrder(t *testing.T) {
+	store := &creditPackStoreFake{}
+
+	status, _ := postCreditPackOrder(t, creditPackApp(store, "mock"), `{"pack_slug":"credits-5000"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+	require.NotEmpty(t, store.attached)
+
+	// The same order reaching a production server, e.g. from a shared database.
+	prod := creditPackAppWith(store, PaymentConfig{Production: true, DefaultSubscriptionProvider: "zarinpal"})
+	callback := httptest.NewRequest(fiber.MethodGet, creditPackCallbackPath+"mock?authority="+url.QueryEscape(store.attached), http.NoBody)
+	callbackResp, err := prod.Test(callback)
+	require.NoError(t, err)
+	require.NoError(t, callbackResp.Body.Close())
+	require.Equal(t, fiber.StatusFound, callbackResp.StatusCode)
+	require.Zero(t, store.completed, "the mock gateway cannot approve a payment in production")
+	require.NotEmpty(t, store.failed)
+	assert.Contains(t, callbackResp.Header.Get("Location"), "payment_status=failed")
+}
+
+func TestMockGatewayIsTheLocalDefaultOnly(t *testing.T) {
+	require.Equal(t, "mock", PaymentConfig{}.withDefaults().DefaultSubscriptionProvider)
+	require.Empty(t, PaymentConfig{Production: true}.withDefaults().DefaultSubscriptionProvider)
+	require.Equal(t, "zarinpal", PaymentConfig{Production: true, DefaultSubscriptionProvider: "zarinpal"}.withDefaults().DefaultSubscriptionProvider)
+
+	local := &Handlers{billingState: billingState{payment: PaymentConfig{}.withDefaults()}}
+	require.IsType(t, &mockProvider{}, local.selectPaymentProvider("mock"))
+	require.IsType(t, &mockProvider{}, local.selectPaymentProvider(""))
+
+	prod := &Handlers{billingState: billingState{payment: PaymentConfig{Production: true}.withDefaults()}}
+	require.IsType(t, &unsupportedProvider{}, prod.selectPaymentProvider("mock"))
+	require.IsType(t, &unsupportedProvider{}, prod.selectPaymentProvider(""))
+}
+
+func TestCreditPackErrorsAreCoded(t *testing.T) {
+	store := &creditPackStoreFake{createErr: billingdomain.ErrCreditBillingNotEnabled}
+	app := creditPackApp(store, "mock")
+
+	status, payload := postCreditPackOrder(t, app, `{"pack_slug":"credits-5000"}`)
+	require.Equal(t, fiber.StatusConflict, status)
+	require.Equal(t, "credit_billing_not_enabled", payload["error"].(map[string]interface{})["code"])
+
+	req := httptest.NewRequest(fiber.MethodPut, "/api/v1/billing/credits/settings", bytes.NewBufferString(`{"overage_enabled":true}`))
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
+	settingsResp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	require.NoError(t, err)
+
+	var settingsPayload map[string]interface{}
+	require.NoError(t, json.NewDecoder(settingsResp.Body).Decode(&settingsPayload))
+	require.NoError(t, settingsResp.Body.Close())
+	require.Equal(t, fiber.StatusForbidden, settingsResp.StatusCode)
+	require.Equal(t, "overage_managed_by_support", settingsPayload["error"].(map[string]interface{})["code"])
+}
+
+func TestTenantCreditSettingsRejectOverageButKeepSeatSettings(t *testing.T) {
+	for _, body := range []string{`{"overage_enabled":true}`, `{"overage_enabled":false}`, `{"overage_cap_credits":"100"}`, `{"overage_cap_credits":""}`} {
+		store := &creditPackStoreFake{}
+		require.Equal(t, fiber.StatusForbidden, putTenantCreditSettings(t, creditPackApp(store, "mock"), body), body)
+		require.Nil(t, store.settingsReq, body)
+	}
+
+	store := &creditPackStoreFake{}
+	require.Equal(t, fiber.StatusOK, putTenantCreditSettings(t, creditPackApp(store, "mock"), `{"seat_upgrade_requests_enabled":false}`))
+	require.NotNil(t, store.settingsReq)
+	require.NotNil(t, store.settingsReq.SeatUpgradeRequestsEnabled)
+	require.False(t, *store.settingsReq.SeatUpgradeRequestsEnabled)
+	require.Equal(t, "tenant", store.settingsBy.Role)
+}
+
+func putTenantCreditSettings(t *testing.T, app *fiber.App, body string) int {
+	t.Helper()
+
+	req := httptest.NewRequest(fiber.MethodPut, "/api/v1/billing/credits/settings", bytes.NewBufferString(body))
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	return resp.StatusCode
+}

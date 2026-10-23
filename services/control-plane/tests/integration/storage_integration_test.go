@@ -82,7 +82,7 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
-	seedDefaultTenantSubscription(t, pool, "developer")
+	seedDefaultTenantSubscription(t, pool, "free")
 
 	createdKey := createVirtualKey(t, app, `{"key_alias":"db-tenant-key"}`)
 	createModel(t, app, fmt.Sprintf(`{"model_name":"gpt-4o-mini","provider":"openai","model":"gpt-4o-mini","api_base":"%s/v1","api_key":"sk-provider","rpm":200}`, provider.URL))
@@ -135,12 +135,12 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"tenant_id", "slug", "domain", "status", "created_at",
 		},
 		"verification_tokens": {
-			"id", "tenant_id", "organization_id", "team_id", "key_alias", "key_name", "token_hash",
+			"id", "tenant_id", "team_id", "key_alias", "key_name", "token_hash",
 			"models", "spend", "expires", "blocked", "virtual_user_id", "rotated_from_token_id",
 			"rotation_grace_expires_at", "revoked_reason", "created_at", "updated_at",
 		},
 		"virtual_users": {
-			"virtual_user_id", "tenant_id", "team_id", "org_unit_id", "alias", "display_name",
+			"virtual_user_id", "tenant_id", "team_id", "alias", "display_name",
 			"metadata", "active", "created_at", "updated_at",
 		},
 		"model_deployments": {
@@ -159,7 +159,7 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"rate_id", "source", "symbol", "usd_to_irr", "fetched_at", "updated_at",
 		},
 		"spend_logs": {
-			"request_id", "token_hash", "tenant_id", "organization_id", "team_id", "model",
+			"request_id", "token_hash", "tenant_id", "team_id", "model",
 			"input_tokens", "output_tokens", "total_tokens", "cost_usd", "cost_irr",
 			"response_time_ms", "status", "request_metadata", "completion_start_time", "completion_end_time",
 		},
@@ -178,7 +178,6 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 			"subscription_id", "tenant_id", "plan_id", "version_id", "status", "billing_interval",
 			"current_period_start", "current_period_end", "trial_started_at", "trial_ends_at", "converted_at", "pending_version_id", "price_snapshot_json",
 		},
-		"commercial_signup_settings":   {"settings_id", "trial_days", "signup_credit_irr", "updated_by", "updated_at"},
 		"tenant_entitlement_overrides": {"override_id", "tenant_id", "feature_key", "value_json", "reason", "expires_at", "created_by"},
 		"subscription_events":          {"event_id", "tenant_id", "subscription_id", "event_type", "actor", "payload"},
 		"subscription_payment_intents": {
@@ -348,7 +347,7 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 	assert.ErrorIs(t, err, storage.ErrOnboardingExpired)
 }
 
-func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *testing.T) {
+func TestIntegration_OnboardingVerifyProvisionsTheFreePlanAndCredit(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {
 		t.Skip("DATABASE_URL not set")
@@ -366,9 +365,6 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 
 	resetPersistentState(t, pool)
 
-	_, err = store.UpdateCommercialSignupSettings(ctx, 2000000, "integration-test")
-	require.NoError(t, err)
-
 	otp, err := store.CreateOnboardingOTP(ctx, storage.CreateOnboardingOTPParams{
 		TenantSlug: "verified-otp",
 		PlanSlug:   "team",
@@ -384,28 +380,28 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 	require.NotNil(t, provisioned)
 	assert.Equal(t, "verified-otp", provisioned.Tenant.Slug)
 
+	var billingUnit string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT billing_unit FROM tenants WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&billingUnit))
+	assert.Equal(t, "credit", billingUnit, "new tenants are billed in credits from signup")
+
+	// Plans and trials are retired: whatever plan the form asked for, a new
+	// tenant starts on the free plan, which never expires.
 	var (
-		planSlug, status string
-		trialDays        int
+		planSlug  string
+		trialEnds *time.Time
 	)
 	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT p.slug, ts.status, EXTRACT(DAY FROM ts.trial_ends_at - ts.trial_started_at)::int
+		SELECT p.slug, ts.trial_ends_at
 		FROM tenant_subscriptions ts
 		JOIN commercial_plans p ON p.plan_id = ts.plan_id
-		WHERE ts.tenant_id = $1::uuid AND ts.status = 'trialing'
-	`, provisioned.Tenant.ID).Scan(&planSlug, &status, &trialDays))
-	assert.Equal(t, "team", planSlug)
-	assert.Equal(t, "trialing", status)
-	assert.Equal(t, 15, trialDays)
+		WHERE ts.tenant_id = $1::uuid AND ts.status = 'active'
+	`, provisioned.Tenant.ID).Scan(&planSlug, &trialEnds))
+	assert.Equal(t, "free", planSlug)
+	assert.Nil(t, trialEnds)
 
-	var balance, credit float64
+	var balance float64
 	require.NoError(t, pool.QueryRow(ctx, `SELECT balance_irr FROM wallets WHERE tenant_id = $1::uuid`, provisioned.Tenant.ID).Scan(&balance))
-	require.NoError(t, pool.QueryRow(ctx, `
-		SELECT amount_irr FROM wallet_transactions
-		WHERE tenant_id = $1::uuid AND tx_type = 'SIGNUP_CREDIT'
-	`, provisioned.Tenant.ID).Scan(&credit))
-	assert.Equal(t, float64(2000000), balance)
-	assert.Equal(t, float64(2000000), credit)
+	assert.Equal(t, float64(0), balance)
 }
 
 func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
@@ -626,7 +622,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 
 	assignResp := performJSONRequest(t, app, http.MethodPatch, "http://localhost/api/v1/users/roles", "Bearer sk-master", fmt.Sprintf(`{
 		"email":"%s",
-		"roles":["billing_auditor","team_admin"],
+		"roles":["billing_auditor","member"],
 		"resourceType":"team"
 	}`, userEmail))
 	assert.Equal(t, http.StatusOK, assignResp.StatusCode)
@@ -634,7 +630,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	var assignOut platform.UpdateUserRolesResponse
 	decodeJSONBody(t, assignResp, &assignOut)
 	assert.Equal(t, userEmail, assignOut.Email)
-	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, assignOut.Roles)
+	assert.ElementsMatch(t, []string{"billing_auditor", "member"}, assignOut.Roles)
 	assert.Equal(t, "team", assignOut.ResourceType)
 
 	usersResp := performJSONRequest(t, app, http.MethodGet, "http://localhost/api/v1/users?query=roles-user@tenant.test", "Bearer sk-master", "")
@@ -643,8 +639,8 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	var users platform.TenantAdminUserListResponse
 	decodeJSONBody(t, usersResp, &users)
 	require.Len(t, users.Data, 1)
-	assert.ElementsMatch(t, []string{"billing_auditor", "team_admin"}, users.Data[0].Roles)
-	assert.Equal(t, "team_admin", users.Data[0].Role)
+	assert.ElementsMatch(t, []string{"billing_auditor", "member"}, users.Data[0].Roles)
+	assert.Equal(t, "member", users.Data[0].Role)
 
 	// Protected system role must not be mutable.
 	var tenantAdminRoleID string
@@ -788,24 +784,17 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	ctx := context.Background()
 	userID := uuid.NewString()
 	teamID := uuid.NewString()
-	orgID := uuid.NewString()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
-	`, teamID, orgID)
+	`, teamID)
 	require.NoError(t, err)
 
 	createAccountResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
@@ -940,17 +929,9 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	userBID := uuid.NewString()
 	teamAID := uuid.NewString()
 	teamBID := uuid.NewString()
-	orgID := uuid.NewString()
-
-	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
 
 	for _, uid := range []string{userManagerID, userAID, userBID} {
-		_, err = pool.Exec(ctx, `
+		_, err := pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
@@ -959,15 +940,15 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	}
 
 	for _, tid := range []string{teamAID, teamBID} {
-		_, err = pool.Exec(ctx, `
-			INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-			SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		_, err := pool.Exec(ctx, `
+			INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+			SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
-		`, tid, orgID)
+		`, tid)
 		require.NoError(t, err)
 	}
 
-	_, err = pool.Exec(ctx, `
+	_, err := pool.Exec(ctx, `
 		INSERT INTO team_memberships (tenant_id, team_id, user_id, role, created_at, updated_at)
 		SELECT t.tenant_id, t.team_id, $2::uuid, 'team_member', NOW(), NOW()
 		FROM teams t
@@ -1318,25 +1299,18 @@ func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.NewString()
-	orgID := uuid.NewString()
 	teamID := uuid.NewString()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
 		INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 		SELECT $1::uuid, tenant_id, 'owner', 'tenant_admin', true, NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
 	`, userID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
-		INSERT INTO teams (team_id, tenant_id, team_alias, organization_id, workspace_type, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'ml-team', $2::uuid, 'general', NOW(), NOW()
+		INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, created_at, updated_at)
+		SELECT $1::uuid, tenant_id, 'ml-team', 'general', NOW(), NOW()
 		FROM tenants WHERE slug = 'default'
-	`, teamID, orgID)
+	`, teamID)
 	require.NoError(t, err)
 
 	createResp := performJSONRequest(t, app, http.MethodPost, "http://localhost/api/v1/tenant-provider-accounts", "Bearer sk-master", `{
@@ -1384,18 +1358,11 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 	resetPersistentState(t, pool)
 
 	ctx := context.Background()
-	orgID := uuid.NewString()
 	managerUserID := uuid.NewString()
 	nonManagerUserID := uuid.NewString()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, created_at, updated_at)
-		SELECT $1::uuid, tenant_id, 'platform', NOW(), NOW()
-		FROM tenants WHERE slug = 'default'
-	`, orgID)
-	require.NoError(t, err)
 
 	for _, uid := range []string{managerUserID, nonManagerUserID} {
-		_, err = pool.Exec(ctx, `
+		_, err := pool.Exec(ctx, `
 			INSERT INTO users (user_id, tenant_id, user_alias, role, active, created_at, updated_at)
 			SELECT $1::uuid, tenant_id, 'member', 'member', true, NOW(), NOW()
 			FROM tenants WHERE slug = 'default'
@@ -1619,7 +1586,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
 		Cache:         memCache,
 		BudgetWindows: memCache,
-		Wallets:       store,
+		ExchangeRates: store,
 	}, 850000, "test")
 	promptApplication, err := prompts.NewService(store.PromptRepository)
 	require.NoError(t, err)
@@ -1629,7 +1596,6 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
-		Wallets:             store,
 		RequestLogger:       store,
 		SpendLogger:         store,
 		Logger:              logger,
@@ -1642,7 +1608,6 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
 			IAM: admin.IAMDependencies{
 				Keys:         store,
-				OrgUnits:     store,
 				Memberships:  store,
 				Users:        store,
 				VirtualUsers: store,
@@ -1683,8 +1648,13 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
 	ctx := context.Background()
+	// The credit ledger refuses TRUNCATE unless the session opts in for maintenance.
 	_, err := pool.Exec(ctx, `
+		SET LOCAL shahrah.credit_ledger_maintenance = 'on';
 		TRUNCATE TABLE
+			credit_ledger,
+			credit_ledger_keys,
+			credit_settlement_cursors,
 			tenant_onboarding_requests,
 			wallet_transactions,
 			wallets,

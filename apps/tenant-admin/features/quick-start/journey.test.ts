@@ -8,7 +8,6 @@ function makeResources(partial?: Partial<QuickStartResources>): QuickStartResour
     personalAccessTokenCount: 0,
     virtualUserCount: 0,
     teamCount: 0,
-    orgUnitCount: 0,
     rateLimitRuleCount: 0,
     budgetLimitRuleCount: 0,
     guardrailCount: 0,
@@ -190,7 +189,7 @@ describe("deriveQuickStartJourney", () => {
     expect(journey.exploreCards).toContain("guardrails");
   });
 
-  it("marks enterprise org-unit setup unavailable when permission is missing", () => {
+  it("activates the enterprise team step once a provider is connected", () => {
     const journey = deriveQuickStartJourney({
       subscription: { plan_slug: "enterprise" },
       entitlements: {
@@ -198,7 +197,6 @@ describe("deriveQuickStartJourney", () => {
           "auth.pat.enabled": true,
           "auth.vat.enabled": true,
           "teams.enabled": true,
-          "org_units.enabled": true,
           "guardrails.webhook.enabled": true,
         },
       },
@@ -209,14 +207,8 @@ describe("deriveQuickStartJourney", () => {
     });
 
     expect(journey.steps[0]).toMatchObject({ id: "connect_provider", status: "done" });
-    expect(journey.steps[1]).toMatchObject({
-      id: "create_org_unit",
-      status: "unavailable",
-      blockedBy: "permission",
-    });
-    // The unavailable org-unit step no longer blocks the rest of the enterprise path.
-    expect(journey.steps[2]).toMatchObject({ id: "create_team", status: "active" });
-    expect(journey.steps[3]).toMatchObject({ id: "create_service_identity", status: "locked", waitsForIndex: 3 });
+    expect(journey.steps[1]).toMatchObject({ id: "create_team", status: "active" });
+    expect(journey.steps[2]).toMatchObject({ id: "create_service_identity", status: "locked", waitsForIndex: 2 });
   });
 
   it("marks sample request and telemetry steps done from local quick-start progress", () => {

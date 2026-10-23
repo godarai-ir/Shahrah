@@ -14,7 +14,7 @@ import (
 
 func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T) {
 	store := &authHandlerTestStore{findUserErr: storage.ErrTenantAdminUserNotFound}
-	handler := NewAuthHandlers(store, nil)
+	handler := newTestAuthHandlers(t, store, nil)
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 
@@ -67,7 +67,7 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 		ExpiresInSeconds:  300,
 		OTPCode:           "123456",
 	}}
-	handler := NewAuthHandlers(store, nil)
+	handler := newTestAuthHandlers(t, store, nil)
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 
@@ -110,7 +110,7 @@ func TestCreateOTPRequestSendsMobileOTPThroughNotifier(t *testing.T) {
 		OTPCode:           "654321",
 	}}
 	notifier := &authHandlerTestOTPNotifier{}
-	handler := NewAuthHandlers(store, notifier)
+	handler := newTestAuthHandlers(t, store, notifier)
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 
@@ -184,7 +184,7 @@ func performCreateOTPRequest(t *testing.T, exposeDebugOTP bool) (int, map[string
 		ExpiresInSeconds:  300,
 		OTPCode:           "123456",
 	}}
-	handler := NewAuthHandlersWithConfig(store, nil, AuthHandlersConfig{ExposeDebugOTP: exposeDebugOTP})
+	handler := NewAuthHandlersWithConfig(store, nil, AuthHandlersConfig{ExposeDebugOTP: exposeDebugOTP, RateLimits: testRateLimitCache(t)})
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 
@@ -285,4 +285,10 @@ func (s *authHandlerTestStore) UpdateTenantAdminUserContact(context.Context, sto
 
 func (s *authHandlerTestStore) TouchTenantAdminLastLogin(context.Context, string, string) (*storage.TenantAdminUserResponse, error) {
 	return &storage.TenantAdminUserResponse{}, nil
+}
+
+func newTestAuthHandlers(t *testing.T, store AuthStore, notifier TenantAdminOTPNotifier) *AuthHandlers {
+	t.Helper()
+
+	return NewAuthHandlersWithConfig(store, notifier, AuthHandlersConfig{RateLimits: testRateLimitCache(t)})
 }

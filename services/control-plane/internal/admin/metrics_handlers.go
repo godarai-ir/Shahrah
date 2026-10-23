@@ -24,7 +24,7 @@ type metricsQueryInput struct {
 }
 
 func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 
@@ -130,7 +130,7 @@ func normalizeMetricsFilterValue(value interface{}) (interface{}, error) {
 }
 
 func (h *Handlers) ListModelMetricsFacets(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
+	if err := requireTenantAdminOrHigher(c); err != nil {
 		return err
 	}
 

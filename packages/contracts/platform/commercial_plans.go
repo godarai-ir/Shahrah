@@ -11,7 +11,6 @@ const (
 	FeatureTracesRetentionDays     = "traces.retention_days"
 	FeatureVATEnabled              = "auth.vat.enabled"
 	FeatureRBACEnabled             = "rbac.enabled"
-	FeatureOrgUnitsEnabled         = "org_units.enabled"
 )
 
 type CommercialPlan struct {
@@ -91,17 +90,6 @@ type TenantSubscription struct {
 	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 	CreatedAt          time.Time              `json:"created_at"`
 	UpdatedAt          time.Time              `json:"updated_at"`
-}
-
-type CommercialSignupSettings struct {
-	TrialDays       int       `json:"trial_days"`
-	SignupCreditIRR int64     `json:"signup_credit_irr"`
-	UpdatedBy       string    `json:"updated_by,omitempty"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-type UpdateCommercialSignupSettingsRequest struct {
-	SignupCreditIRR *int64 `json:"signup_credit_irr"`
 }
 
 type TenantEntitlementOverride struct {

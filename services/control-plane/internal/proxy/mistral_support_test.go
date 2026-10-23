@@ -145,21 +145,3 @@ func TestMistralFIMValidatesTokenBounds(t *testing.T) {
 		t.Fatal("invalid FIM token bounds were accepted")
 	}
 }
-
-func TestMistralFeatureFlagsFailClosed(t *testing.T) {
-	features := ProviderFeatureConfig{
-		Configured:       true,
-		MistralEnabled:   true,
-		MistralEndpoints: map[string]bool{"ocr": false},
-	}
-
-	if mistralEndpointEnabled(features, "ocr") {
-		t.Fatal("invalid endpoint feature flag must fail closed")
-	}
-
-	features.MistralEndpoints["ocr"] = true
-
-	if !mistralEndpointEnabled(features, "ocr") {
-		t.Fatal("enabled endpoint feature flag was rejected")
-	}
-}

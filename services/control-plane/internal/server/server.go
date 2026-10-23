@@ -72,6 +72,9 @@ type Dependencies struct {
 	GatewayMaxInFlight                *int
 	CreditSurface                     fiber.Handler
 	RateCardHandler                   fiber.Handler
+	BudgetMeHandler                   fiber.Handler
+	SeatRequestHandler                fiber.Handler
+	PricingChangelogHandler           fiber.Handler
 }
 
 // ExchangeRateReader exposes the persisted control-plane exchange-rate snapshot

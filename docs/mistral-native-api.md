@@ -21,7 +21,7 @@ SHAHRAH_MISTRAL_CONVERSATIONS_ENABLED=true
 SHAHRAH_MISTRAL_CONVERSATIONS_STREAMING_ENABLED=true
 ```
 
-`SHAHRAH_MISTRAL_ENABLED=false` همهٔ مسیرهای میسترال را خاموش می‌کند. مقدار نامعتبر نیز fail-closed تفسیر می‌شود. فعال‌سازی production باید مدل‌به‌مدل و پس از contract test و smoke واقعی انجام شود.
+سطوح native (Files، Batch، Agents، Conversations) با پرچم‌های مستقل `SHAHRAH_MISTRAL_*_ENABLED` کنترل می‌شوند و مقدار نامعتبر fail-closed تفسیر می‌شود. فعال‌سازی production باید مدل‌به‌مدل و پس از contract test و smoke واقعی انجام شود.
 
 چون `/v1/files` با API سازگار OpenAI مشترک است، برای create/list میسترال header زیر لازم است:
 

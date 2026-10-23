@@ -26,11 +26,6 @@ var permissionCatalog = map[string]permissionMeta{
 	"team:delete":             {Group: "teams", Description: "Allows deleting existing teams"},
 	"team:manage":             {Group: "teams", Description: "Allows updating team configuration and members"},
 	"team:read":               {Group: "teams", Description: "Allows viewing team details and members"},
-	"org_unit:create":         {Group: "organization_units", Description: "Allows creation of new organization units"},
-	"org_unit:delete":         {Group: "organization_units", Description: "Allows deleting existing organization units"},
-	"org_unit:manage":         {Group: "organization_units", Description: "Allows updating organization unit configuration and members"},
-	"org_unit:read":           {Group: "organization_units", Description: "Allows viewing organization unit details and members"},
-	"org_unit:list":           {Group: "organization_units", Description: "Allows listing and viewing all organization units"},
 	"virtual_account:create":  {Group: "virtual_accounts", Description: "Allows creation of new virtual accounts"},
 	"virtual_account:read":    {Group: "virtual_accounts", Description: "Allows viewing virtual account details"},
 	"virtual_account:manage":  {Group: "virtual_accounts", Description: "Allows updating virtual account configuration and tokens"},
@@ -48,14 +43,6 @@ var permissionCatalog = map[string]permissionMeta{
 	"billing:codes_redeem":    {Group: "billing", Description: "Allows redeeming gift and discount codes"},
 	"logs:read_metadata":      {Group: "logs", Description: "Allows listing request logs metadata and summary fields"},
 	"logs:read_content":       {Group: "logs", Description: "Allows viewing stored request and response payload content"},
-	"logs:export":             {Group: "logs", Description: "Allows exporting request logs"},
-	"logs:manage_views":       {Group: "logs", Description: "Allows creating and managing saved log views"},
-	"logs:replay":             {Group: "logs", Description: "Allows creating safe replay drafts from request logs"},
-	"support_ticket:create":   {Group: "support", Description: "Allows creating support tickets"},
-	"support_ticket:read_own": {Group: "support", Description: "Allows viewing support tickets created by the current user"},
-	"support_ticket:read_all": {Group: "support", Description: "Allows viewing all support tickets in the tenant"},
-	"support_ticket:reply":    {Group: "support", Description: "Allows replying to visible support tickets"},
-	"support_ticket:rate":     {Group: "support", Description: "Allows rating resolved support tickets created by the current user"},
 }
 
 // IsValidPermission reports whether a permission is present and documented.

@@ -9,18 +9,17 @@ export type PolicyCondition = RateLimitCondition;
 /** The identity a subject condition compares against. The gateway defaults to user when unset. */
 export type SubjectKind = NonNullable<PolicyCondition["subjectKind"]>;
 
-export const SUBJECT_KINDS: readonly SubjectKind[] = ["user", "team", "organization_unit", "virtual_account"];
+export const SUBJECT_KINDS: readonly SubjectKind[] = ["user", "team", "virtual_account"];
 
-export type SubjectPickerKind = "user" | "team" | "org_unit" | "virtual_account";
+export type SubjectPickerKind = "user" | "team" | "virtual_account";
 
 export function subjectKindFromPicker(kind: string): SubjectKind | null {
   if (kind === "user" || kind === "team" || kind === "virtual_account") return kind;
-  if (kind === "org_unit") return "organization_unit";
   return null;
 }
 
 export function pickerKindFromSubject(kind: SubjectKind): SubjectPickerKind {
-  return kind === "organization_unit" ? "org_unit" : kind;
+  return kind;
 }
 
 export type SubjectTarget = {
@@ -50,7 +49,7 @@ export type RuleTargets = {
   extra?: PolicyCondition[];
 };
 
-const LEGACY_TOKEN = /^(user|team|org_unit|virtual_account|external_identity|everyone):(.+)$/;
+const LEGACY_TOKEN = /^(user|team|virtual_account|external_identity|everyone):(.+)$/;
 
 function cleanValues(values: string[] | undefined): string[] {
   return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
-export type PrincipalSearchKind = "user" | "team" | "org_unit" | "virtual_account" | "external_identity";
+export type PrincipalSearchKind = "user" | "team" | "virtual_account" | "external_identity";
 export type PrincipalSelectionType = PrincipalSearchKind | "everyone";
 
 export type PrincipalSearchOption = {
@@ -29,7 +29,6 @@ export type PrincipalEntitySelection = {
 export type PrincipalEntitySelectLabels = {
   users: string;
   teams: string;
-  orgUnits: string;
   virtualAccounts: string;
   externalIdentities: string;
   everyone: string;
@@ -276,7 +275,6 @@ function PrincipalOptionRow(props: {
 
 function getKindLabel(kind: PrincipalSelectionType, labels: PrincipalEntitySelectLabels): string {
   if (kind === "team") return labels.teams;
-  if (kind === "org_unit") return labels.orgUnits;
   if (kind === "virtual_account") return labels.virtualAccounts;
   if (kind === "external_identity") return labels.externalIdentities;
   if (kind === "everyone") return labels.everyone;

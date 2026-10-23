@@ -169,6 +169,8 @@ func (e *Engine) judgePending(ctx context.Context, items []semanticItem, pending
 	}
 
 	response, err := e.judge.Judge(ctx, request)
+	recordJudgeCall(ctx, response, err)
+
 	language := ClassifyLanguage(state.Content)
 
 	for _, i := range pending {

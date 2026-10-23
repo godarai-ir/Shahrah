@@ -75,7 +75,7 @@ func TestRequestPipelineReserveAndSettleWithReservationManager(t *testing.T) {
 	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
 		BudgetReservations:      manager,
 		BudgetReservationPolicy: CapabilityFailClosed,
-	}, &testWallets{}, nil)
+	}, nil)
 	authInfo := &platform.AuthContext{TenantID: "tenant-1"}
 	estimated := platform.UsageCostBreakdown{TotalCostIRR: 1000}
 
@@ -101,13 +101,13 @@ func TestRequestPipelineReserveAndSettleWithReservationManager(t *testing.T) {
 	require.Equal(t, actual, manager.committed)
 }
 
-func TestRequestPipelineExternalBillingSkipsReserveAndReleasesExistingReservation(t *testing.T) {
+func TestRequestPipelineExternalBillingCommitsItsReservation(t *testing.T) {
 	reservation := &platform.BudgetReservation{ID: "reservation-1"}
 	manager := &pipelineBudgetManager{reservation: reservation}
 	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
 		BudgetReservations:      manager,
 		BudgetReservationPolicy: CapabilityFailClosed,
-	}, nil, nil)
+	}, nil)
 
 	actualReservation, err := pipeline.Reserve(t.Context(), BudgetRequest{
 		BillingMode: platform.BillingModeExternalBilled,
@@ -116,33 +116,34 @@ func TestRequestPipelineExternalBillingSkipsReserveAndReleasesExistingReservatio
 	require.Nil(t, actualReservation)
 	require.Empty(t, manager.reserveInput.RequestID)
 
+	// A BYOK reservation holds the platform fee and the rule windows' credits,
+	// so it is committed like any other.
+	actual := platform.UsageCostBreakdown{TotalCostUSD: 0.02}
 	err = pipeline.Settle(t.Context(), SettlementRequest{
 		Reservation: reservation,
 		BillingMode: platform.BillingModeExternalBilled,
+		Actual:      actual,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "external_billed", manager.releaseReason)
-	require.Zero(t, manager.committed.TotalCostIRR)
+	require.Equal(t, actual, manager.committed)
+	require.Empty(t, manager.releaseReason)
 }
 
-func TestRequestPipelineFallsBackToWalletDebit(t *testing.T) {
-	wallets := &testWallets{}
+func TestRequestPipelineSettlesWithoutReservationThroughTheLedger(t *testing.T) {
+	manager := &pipelineBudgetManager{}
 	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
+		BudgetReservations:      manager,
 		BudgetReservationPolicy: CapabilityFailOpen,
-	}, wallets, nil)
-	actual := platform.UsageCostBreakdown{TotalCostIRR: 500}
+	}, nil)
 
 	err := pipeline.Settle(t.Context(), SettlementRequest{
 		TenantID:  "tenant-1",
-		Actual:    actual,
+		Actual:    platform.UsageCostBreakdown{TotalCostUSD: 0.01},
 		RequestID: "request-1",
 	})
-	require.NoError(t, err)
-	require.Equal(t, []walletDebitCall{{
-		TenantID:  "tenant-1",
-		Breakdown: actual,
-		RequestID: "request-1",
-	}}, wallets.debits)
+	require.NoError(t, err, "the credit ledger settles the spend log; nothing is charged here")
+	require.Zero(t, manager.committed)
+	require.Empty(t, manager.releaseReason)
 }
 
 func TestRequestPipelineDispatchKeepsProviderResponseRaw(t *testing.T) {
@@ -152,7 +153,7 @@ func TestRequestPipelineDispatchKeepsProviderResponseRaw(t *testing.T) {
 		Body:       []byte(`{"provider_specific":true}`),
 	}
 	tunnel := &pipelineTunnel{response: response}
-	pipeline := NewRequestPipeline(tunnel, nil, &testBudgeter{}, BillingCapabilities{}, nil, nil)
+	pipeline := NewRequestPipeline(tunnel, nil, &testBudgeter{}, BillingCapabilities{}, nil)
 	request := platform.TunnelRequest{RequestID: "request-1", Body: []byte(`{"raw":true}`)}
 
 	actual, err := pipeline.Dispatch(t.Context(), request)

@@ -32,13 +32,12 @@ const (
 
 // AudioSpeechHandler serves OpenAI-compatible text-to-speech requests.
 type AudioSpeechHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 type audioSpeechMetadata struct {
@@ -50,7 +49,7 @@ type audioSpeechMetadata struct {
 }
 
 // NewAudioSpeechHandler creates a new audio speech handler.
-func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioSpeechHandler {
+func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *AudioSpeechHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -61,7 +60,6 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -72,13 +70,12 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 // NewAudioSpeechHandlerWithDependencies creates an audio speech handler from explicit dependencies.
 func NewAudioSpeechHandlerWithDependencies(deps BaseHandlerDependencies) *AudioSpeechHandler {
 	return &AudioSpeechHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
@@ -160,7 +157,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	quotaStart := time.Now()
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -225,10 +222,6 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsAudioSpeechProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Text to speech API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "audio_speech") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio speech is disabled", "provider_disabled")
 	}
 
 	if isMistralProvider(dep.Provider) {
@@ -390,8 +383,8 @@ func (h *AudioSpeechHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           requestedModel,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -425,7 +418,6 @@ func (h *AudioSpeechHandler) handleSync(
 			"endpoint":        "/v1" + audioSpeechPath,
 			"key_type":        authInfo.KeyType,
 			"team_id":         authInfo.TeamID,
-			"org_unit_id":     authInfo.OrgUnitID,
 			"tenant_slug":     tenantSlug,
 			"response_format": tunnelReq.RequestMetadata["response_format"],
 			"voice_type":      tunnelReq.RequestMetadata["voice_type"],
@@ -529,7 +521,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: tunnelReq.RequestID, TokenHash: authInfo.TokenHash,
-		TenantID: authInfo.TenantID, OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID,
+		TenantID: authInfo.TenantID, TeamID: authInfo.TeamID, UserID: authInfo.UserID,
 		Model: requestedModel, InputTokens: finalCost.InputTokens, OutputTokens: finalCost.OutputTokens,
 		TotalTokens: finalCost.TotalTokens, CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR,
 		ResponseTimeMS: responseTimeMS, Status: "success",
@@ -545,7 +537,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 		OutputTokens: finalCost.OutputTokens, CostUSD: finalCost.TotalCostUSD,
 		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
 			"endpoint": "/v1" + audioSpeechPath, "key_type": authInfo.KeyType,
-			"team_id": authInfo.TeamID, "org_unit_id": authInfo.OrgUnitID, "tenant_slug": tenantSlug,
+			"team_id": authInfo.TeamID, "tenant_slug": tenantSlug,
 			"response_format": tunnelReq.RequestMetadata["response_format"], "voice_type": tunnelReq.RequestMetadata["voice_type"],
 			"raw_stream": true,
 		}, tunnelReq.Deployment),
@@ -669,8 +661,8 @@ func (h *AudioSpeechHandler) handleStream(
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
-				OrganizationID:  authInfo.OrganizationID,
 				TeamID:          authInfo.TeamID,
+				UserID:          authInfo.UserID,
 				Model:           requestedModel,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -704,7 +696,6 @@ func (h *AudioSpeechHandler) handleStream(
 					"endpoint":      "/v1" + audioSpeechPath,
 					"key_type":      authInfo.KeyType,
 					"team_id":       authInfo.TeamID,
-					"org_unit_id":   authInfo.OrgUnitID,
 					"tenant_slug":   tenantSlug,
 					"stream_format": "sse",
 				}, tunnelReq.Deployment),

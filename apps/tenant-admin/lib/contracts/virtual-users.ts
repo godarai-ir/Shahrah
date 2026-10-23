@@ -6,7 +6,6 @@ export const virtualUserSchema = z.object({
   tenant_id: z.string(),
   alias: z.string(),
   display_name: z.string().optional(),
-  org_unit_id: z.string().optional(),
   team_id: z.string().optional(),
   active: z.boolean(),
   metadata: z.record(z.string(), z.unknown()).optional(),

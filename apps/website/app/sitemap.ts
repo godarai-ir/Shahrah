@@ -24,6 +24,7 @@ const staticRoutes = [
   "/integrations",
   "/on-premise",
   "/pricing",
+  "/pricing/changelog",
   "/privacy",
   "/signup",
   "/terms",

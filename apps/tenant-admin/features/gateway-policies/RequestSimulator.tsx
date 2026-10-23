@@ -24,7 +24,6 @@ type Identity = { id: string; label: string };
 const IDENTITY_FIELD: Record<SubjectKind, keyof GatewayRequestContext> = {
   user: "userId",
   team: "teamId",
-  organization_unit: "organizationUnitId",
   virtual_account: "apiKeyId",
 };
 
@@ -34,9 +33,9 @@ const RATE_OUTCOME_STATUS: Record<RateOutcome, "success" | "warning" | "neutral"
   notReached: "neutral",
 };
 
-const BUDGET_OUTCOME_STATUS: Record<BudgetOutcome, "success" | "neutral"> = {
+const BUDGET_OUTCOME_STATUS: Record<BudgetOutcome, "success" | "warning"> = {
   enforced: "success",
-  noEffect: "neutral",
+  alertOnly: "warning",
 };
 
 function parseMetadataEntries(raw: string): string[] {
@@ -102,13 +101,12 @@ export function RequestSimulator({ rules, onOpenRule }: RequestSimulatorProps) {
           <PrincipalEntitySelect
             id="simulator-subject"
             selected={null}
-            kinds={["user", "team", "org_unit", "virtual_account"]}
+            kinds={["user", "team", "virtual_account"]}
             onSearch={searchPolicyPrincipals}
             triggerClassName="h-9 min-h-9 rounded-lg"
             labels={{
               users: t("editor.picker.users"),
               teams: t("editor.picker.teams"),
-              orgUnits: t("editor.picker.orgUnits"),
               virtualAccounts: t("editor.picker.virtualAccounts"),
               externalIdentities: t("editor.picker.externalIdentities"),
               everyone: t("targets.anySubject"),

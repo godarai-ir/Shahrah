@@ -33,7 +33,7 @@ export const rateLimitConditionSchema = z
     values: z.array(z.string().min(1)).optional(),
     value: z.union([z.string(), z.number(), z.boolean()]).optional(),
     metadataKey: z.string().optional(),
-    subjectKind: z.enum(["user", "team", "virtual_account", "organization_unit"]).optional(),
+    subjectKind: z.enum(["user", "team", "virtual_account"]).optional(),
     /** Display names captured when the value was picked; the gateway ignores this key. */
     valueLabels: z.record(z.string(), z.string()).optional(),
   })
@@ -68,7 +68,7 @@ export const rateLimitRuleSchema = z.object({
     conditions: z.array(rateLimitConditionSchema).default([]),
   }),
   limit: z.object({
-    dimension: z.enum(["requests", "tokens"]).default("requests"),
+    dimension: z.literal("requests").default("requests"),
     max: z.number().int().min(1, "Limit must be greater than zero."),
     window: z.object({
       value: z.number().int().min(1, "Time window value must be greater than zero."),

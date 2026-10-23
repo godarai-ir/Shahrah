@@ -2,193 +2,155 @@ package billing
 
 import (
 	"context"
-	"errors"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
-	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
-	"go.uber.org/zap"
+	"github.com/stretchr/testify/require"
 )
 
-func newPolicyTestService(c *cache.MemoryCache, runtimeProfiles RuntimeProfileStore) *Service {
-	return NewServiceWithDependencies(Dependencies{
-		Cache:           c,
-		BudgetWindows:   c,
-		Wallets:         &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}},
-		RuntimeProfiles: runtimeProfiles,
-	}, 850000, "test")
+// creditRule is a blocking credit budget rule.
+func creditRule(ruleID string, unit platform.BudgetLimitUnit, appliesPer string, limitCredits int64, conditions map[string]interface{}) platform.BudgetLimitRule {
+	limitMC := limitCredits * credits.MillicreditsPerCredit
+
+	return platform.BudgetLimitRule{
+		RuleID:           ruleID,
+		Enabled:          true,
+		Unit:             unit,
+		BudgetAppliesPer: stringPtr(appliesPer),
+		LimitMC:          &limitMC,
+		OnExceed:         platform.BudgetOnExceedBlock,
+		Conditions:       conditions,
+	}
+}
+
+func modelBreakdown(model string, creditsAmount int) platform.UsageCostBreakdown {
+	breakdown := creditBreakdown(creditsAmount)
+	breakdown.Model = model
+
+	return breakdown
 }
 
 func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
-	mem, err := testcache.New(t, zap.NewNop())
-	if err != nil {
-		t.Fatalf("NewMemoryCache returned error: %v", err)
-	}
-
-	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
-		TenantID: "tenant-1",
-		BudgetRules: []platform.BudgetLimitRule{{
-			RuleID:              "team-monthly",
-			Enabled:             true,
-			LimitTo:             50,
-			Unit:                platform.BudgetLimitCostPerMonth,
-			BudgetAppliesPer:    stringPtr(string(platform.BudgetAppliesPerTeam)),
-			BlockOnBudgetExceed: true,
-		}},
-	}})
-
+	h := newCreditTestHarness(t, 1_000_000,
+		creditRule("team-monthly", platform.BudgetLimitCostPerMonth, string(platform.BudgetAppliesPerTeam), 50, nil))
 	auth := &platform.AuthContext{TenantID: "tenant-1", TeamID: "team-a", TokenHash: "hash-1"}
 
-	first, err := service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-test", TotalCostIRR: 40}, "req-1")
-	if err != nil {
-		t.Fatalf("first ReserveBudget returned error: %v", err)
+	first, err := h.service.ReserveBudget(context.Background(), auth, creditBreakdown(40), "req-1")
+	require.NoError(t, err)
+	require.Len(t, first.Targets, 2, "the credit pool plus one rule window")
+	require.Equal(t, "team-monthly", first.Targets[1].RuleID)
+	require.Equal(t, string(platform.BudgetAppliesPerTeam), first.Targets[1].Scope)
+	require.Equal(t, "team-a", first.Targets[1].ScopeValue)
+	require.NoError(t, h.service.CommitBudget(context.Background(), first, creditBreakdown(50)))
+
+	_, err = h.service.ReserveBudget(context.Background(), auth, creditBreakdown(1), "req-2")
+	require.ErrorIs(t, err, ErrBudgetExceeded)
+	require.Equal(t, string(platform.BudgetAppliesPerTeam), BudgetErrorScope(err))
+
+	otherTeam := &platform.AuthContext{TenantID: "tenant-1", TeamID: "team-b", TokenHash: "hash-2"}
+	_, err = h.service.ReserveBudget(context.Background(), otherTeam, creditBreakdown(1), "req-3")
+	require.NoError(t, err, "each team has its own window")
+}
+
+func TestBudgetPolicyWeekStartsOnSaturdayInTehran(t *testing.T) {
+	// Saturday 2026-10-17 00:00 in Tehran (UTC+03:30) is Friday 20:30 UTC.
+	for _, tc := range []struct {
+		name string
+		now  time.Time
+	}{
+		{name: "saturday midnight tehran", now: time.Date(2026, time.October, 16, 20, 30, 0, 0, time.UTC)},
+		{name: "monday", now: time.Date(2026, time.October, 19, 12, 0, 0, 0, time.UTC)},
+		{name: "friday last second tehran", now: time.Date(2026, time.October, 23, 20, 29, 59, 0, time.UTC)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			windowID, windowEnd, err := budgetPolicyWindowForTime(platform.BudgetLimitCostPerWeek, tc.now)
+			require.NoError(t, err)
+			require.Equal(t, "W20261017", windowID)
+			require.Equal(t, time.Date(2026, time.October, 23, 20, 30, 0, 0, time.UTC), windowEnd)
+		})
 	}
 
-	if len(first.Targets) != 2 {
-		t.Fatalf("expected tenant credit plus one policy target, got %+v", first.Targets)
-	}
+	before, _, err := budgetPolicyWindowForTime(platform.BudgetLimitCostPerWeek, time.Date(2026, time.October, 16, 20, 29, 59, 0, time.UTC))
+	require.NoError(t, err)
+	require.Equal(t, "W20261010", before, "Friday evening UTC before Tehran midnight is still the previous week")
 
-	if first.Targets[1].RuleID != "team-monthly" || first.Targets[1].Scope != string(platform.BudgetAppliesPerTeam) || first.Targets[1].ScopeValue != "team-a" {
-		t.Fatalf("unexpected policy target: %+v", first.Targets[1])
-	}
-
-	_, err = service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-test", TotalCostIRR: 20}, "req-2")
-	if !errors.Is(err, ErrBudgetExceeded) {
-		t.Fatalf("expected ErrBudgetExceeded for exhausted team policy, got %v", err)
-	}
+	next, _, err := budgetPolicyWindowForTime(platform.BudgetLimitCostPerWeek, time.Date(2026, time.October, 23, 20, 30, 0, 0, time.UTC))
+	require.NoError(t, err)
+	require.Equal(t, "W20261024", next, "the next week starts on the following Tehran Saturday")
 }
 
 func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
-	mem, err := testcache.New(t, zap.NewNop())
-	if err != nil {
-		t.Fatalf("NewMemoryCache returned error: %v", err)
-	}
-
-	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
-		TenantID: "tenant-1",
-		BudgetRules: []platform.BudgetLimitRule{{
-			RuleID:              "expensive-model",
-			Enabled:             true,
-			LimitTo:             10,
-			Unit:                platform.BudgetLimitCostPerDay,
-			BudgetAppliesPer:    stringPtr(string(platform.BudgetAppliesPerModel)),
-			BlockOnBudgetExceed: true,
-			Conditions: map[string]interface{}{
-				"conditions": []interface{}{
-					map[string]interface{}{"field": "model", "operator": "in", "values": []interface{}{"gpt-expensive"}},
-				},
+	h := newCreditTestHarness(t, 1_000_000, creditRule("expensive-model", platform.BudgetLimitCostPerDay, string(platform.BudgetAppliesPerModel), 10,
+		map[string]interface{}{
+			"conditions": []interface{}{
+				map[string]interface{}{"field": "model", "operator": "in", "values": []interface{}{"gpt-expensive"}},
 			},
-		}},
-	}})
+		}))
 
-	reservation, err := service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, platform.UsageCostBreakdown{Model: "gpt-cheap", TotalCostIRR: 100}, "req-1")
-	if err != nil {
-		t.Fatalf("ReserveBudget returned error: %v", err)
-	}
-
-	if len(reservation.Targets) != 1 {
-		t.Fatalf("expected only tenant credit target for nonmatching policy, got %+v", reservation.Targets)
-	}
+	reservation, err := h.service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, modelBreakdown("gpt-cheap", 100), "req-1")
+	require.NoError(t, err)
+	require.Len(t, reservation.Targets, 1, "only the credit pool for a nonmatching rule")
 }
 
 func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
-	mem, err := testcache.New(t, zap.NewNop())
-	if err != nil {
-		t.Fatalf("NewMemoryCache returned error: %v", err)
-	}
-
-	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
-		TenantID: "tenant-1",
-		BudgetRules: []platform.BudgetLimitRule{{
-			RuleID:              "project-chat",
-			Enabled:             true,
-			LimitTo:             30,
-			Unit:                platform.BudgetLimitCostPerDay,
-			BudgetAppliesPer:    stringPtr("metadata.project_id"),
-			BlockOnBudgetExceed: true,
-			Conditions: map[string]interface{}{
-				"request_type": "chat_completions",
-				"conditions": []interface{}{
-					map[string]interface{}{"field": "metadata", "operator": "equals", "metadataKey": "project_id", "value": "alpha"},
-				},
+	h := newCreditTestHarness(t, 1_000_000, creditRule("project-chat", platform.BudgetLimitCostPerDay, "metadata.project_id", 30,
+		map[string]interface{}{
+			"request_type": "chat_completions",
+			"conditions": []interface{}{
+				map[string]interface{}{"field": "metadata", "operator": "equals", "metadataKey": "project_id", "value": "alpha"},
 			},
-		}},
-	}})
+		}))
 
-	breakdown := platform.UsageCostBreakdown{
-		Model:        "gpt-test",
-		RequestType:  "chat_completions",
-		TotalCostIRR: 20,
-		Metadata:     map[string]interface{}{"project_id": "alpha"},
-	}
+	breakdown := creditBreakdown(20)
+	breakdown.RequestType = "chat_completions"
+	breakdown.Metadata = map[string]interface{}{"project_id": "alpha"}
 
-	reservation, err := service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, breakdown, "req-1")
-	if err != nil {
-		t.Fatalf("ReserveBudget returned error: %v", err)
-	}
+	reservation, err := h.service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, breakdown, "req-1")
+	require.NoError(t, err)
+	require.Len(t, reservation.Targets, 2)
+	require.Equal(t, "metadata.project_id", reservation.Targets[1].Scope)
+	require.Equal(t, "alpha", reservation.Targets[1].ScopeValue)
+	require.NoError(t, h.service.CommitBudget(context.Background(), reservation, creditBreakdown(30)))
 
-	if len(reservation.Targets) != 2 || reservation.Targets[1].Scope != "metadata.project_id" || reservation.Targets[1].ScopeValue != "alpha" {
-		t.Fatalf("unexpected metadata policy target: %+v", reservation.Targets)
-	}
-
-	_, err = service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, breakdown, "req-2")
-	if !errors.Is(err, ErrBudgetExceeded) {
-		t.Fatalf("expected metadata policy to be exhausted, got %v", err)
-	}
+	_, err = h.service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, breakdown, "req-2")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "the metadata rule is exhausted")
 }
 
 func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.T) {
-	mem, err := testcache.New(t, zap.NewNop())
-	if err != nil {
-		t.Fatalf("NewMemoryCache returned error: %v", err)
-	}
-
-	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
-		TenantID: "tenant-1",
-		BudgetRules: []platform.BudgetLimitRule{
-			{
-				RuleID:              "model-monthly",
-				Enabled:             true,
-				Priority:            1,
-				LimitTo:             100,
-				Unit:                platform.BudgetLimitCostPerMonth,
-				BudgetAppliesPer:    stringPtr(string(platform.BudgetAppliesPerModel)),
-				BlockOnBudgetExceed: true,
+	monthly := creditRule("model-monthly", platform.BudgetLimitCostPerMonth, string(platform.BudgetAppliesPerModel), 100, nil)
+	monthly.Priority = 1
+	daily := creditRule("expensive-daily", platform.BudgetLimitCostPerDay, string(platform.BudgetAppliesPerModel), 10,
+		map[string]interface{}{
+			"conditions": []interface{}{
+				map[string]interface{}{"field": "model", "operator": "in", "values": []interface{}{"gpt-expensive"}},
 			},
-			{
-				RuleID:              "expensive-daily",
-				Enabled:             true,
-				Priority:            2,
-				LimitTo:             10,
-				Unit:                platform.BudgetLimitCostPerDay,
-				BudgetAppliesPer:    stringPtr(string(platform.BudgetAppliesPerModel)),
-				BlockOnBudgetExceed: true,
-				Conditions: map[string]interface{}{
-					"conditions": []interface{}{
-						map[string]interface{}{"field": "model", "operator": "in", "values": []interface{}{"gpt-expensive"}},
-					},
-				},
-			},
-		},
-	}})
+		})
+	daily.Priority = 2
 
+	h := newCreditTestHarness(t, 1_000_000, monthly, daily)
 	auth := &platform.AuthContext{TenantID: "tenant-1"}
+	ctx := context.Background()
 
-	_, err = service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-expensive", TotalCostIRR: 20}, "req-fail")
-	if !errors.Is(err, ErrBudgetExceeded) {
-		t.Fatalf("expected ErrBudgetExceeded for second policy, got %v", err)
-	}
+	served, err := h.service.ReserveBudget(ctx, auth, modelBreakdown("gpt-expensive", 10), "req-served")
+	require.NoError(t, err)
+	require.NoError(t, h.service.CommitBudget(ctx, served, modelBreakdown("gpt-expensive", 10)))
 
-	reservation, err := service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-cheap", TotalCostIRR: 90}, "req-after-rollback")
-	if err != nil {
-		t.Fatalf("expected rollback to free first policy reservation, got %v", err)
-	}
+	refused, err := h.service.ReserveBudget(ctx, auth, modelBreakdown("gpt-expensive", 1), "req-fail")
+	require.ErrorIs(t, err, ErrBudgetExceeded, "the daily rule refuses the request")
+	require.Nil(t, refused)
 
-	if len(reservation.Targets) != 2 {
-		t.Fatalf("expected tenant credit plus monthly model policy, got %+v", reservation.Targets)
-	}
+	monthlyKey := served.Targets[1].WindowKey
+	result, err := h.cache.CommitBudget(ctx, cache.BudgetCommitRequest{
+		WindowKey:      monthlyKey,
+		ReservationKey: credits.PolicyReservationKey("tenant-1", budgetReservationID("req-fail"), shortHash(monthlyKey)),
+		ActualIRR:      1,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "released", result.State, "the refused request released its monthly reservation")
 }
 
 type staticRuntimeProfiles struct {

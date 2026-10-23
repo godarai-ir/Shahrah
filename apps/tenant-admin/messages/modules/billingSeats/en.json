@@ -1,0 +1,284 @@
+{
+  "title": "Seats",
+  "description": "Give each member a seat so their personal GodarChat credit quota is clear.",
+  "intro": "The free seat gives 500 credits once. Pro and Max give personal credits every month and, once those run out, use workspace credits up to the limit you set. API and key usage always comes from workspace credits.",
+  "seats": {
+    "free": "Free",
+    "pro": "Pro",
+    "max": "Max",
+    "unassigned": "No seat"
+  },
+  "intervals": {
+    "monthly": "Monthly",
+    "yearly": "Yearly"
+  },
+  "tabs": {
+    "requests": "Upgrade requests",
+    "orders": "Orders"
+  },
+  "summary": {
+    "free": "Free seats",
+    "ofTotal": "{used} of {total}",
+    "freeLeft": "{count, number} free seats left",
+    "pro": "Pro seats",
+    "max": "Max seats",
+    "available": "{count, number} available to assign",
+    "unassigned": "Members without a seat",
+    "unassignedHint": "They cannot send messages in GodarChat",
+    "periodEnd": "Period ends",
+    "noSubscription": "No seat subscription yet",
+    "notBought": "None bought yet",
+    "allAssigned": "Every member has a seat"
+  },
+  "buy": {
+    "open": "Buy seats",
+    "title": "Buy seats",
+    "titleForMember": "Buy a seat for {member}",
+    "description": "With a seat subscription, new seats run to its period end and you pay only for the days left. Without one, this payment starts it.",
+    "seat": "Seat type",
+    "quantity": "Quantity",
+    "quantityHint": "Bought seats stay in the organization's stock until you assign them.",
+    "forMemberHint": "Once paid, one seat goes to this member automatically.",
+    "quantityInvalid": "Enter 1 to 1000 seats.",
+    "quoting": "Calculating the price",
+    "unitPrice": "Price per seat ({interval})",
+    "prorated": "Days charged",
+    "proratedValue": "{remaining, number} of {total, number} days",
+    "periodEnd": "Valid until",
+    "price": "Price",
+    "tax": "VAT ({percent, number}%)",
+    "payable": "Amount due",
+    "pay": "Pay {amount}",
+    "payPending": "Pay",
+    "rules": "Seats activate right after payment with this month's full quota. Seat reductions apply at the end of the period and are not refunded.",
+    "noPaymentURL": "The payment gateway returned no payment link. Try again.",
+    "interval": "Billing interval",
+    "intervalHint": "Every seat bought later follows this interval.",
+    "startsSubscription": "This payment starts your seat subscription. It does not renew on its own: renew it on the Renew seats page during the 7 days before its period ends.",
+    "monthlyCredits": "{credits} personal credits a month",
+    "back": "Back to seats",
+    "formTitle": "Seat and quantity",
+    "summaryTitle": "Order summary",
+    "pageDescription": "Choose the seat type and quantity, then pay through the gateway.",
+    "monthlyPrice": "{price} per seat a month",
+    "yearlyPrice": "{price} per seat a year",
+    "creditsTotal": "Personal credits in this purchase",
+    "creditsTotalValue": "{credits} credits a month",
+    "method": "Payment method",
+    "methods": {
+      "online": "Pay online",
+      "onlineHint": "Instant payment through the gateway. Seats activate right away.",
+      "transfer": "Bank transfer",
+      "transferHint": "Transfer the amount and submit the receipt. Seats activate after finance review."
+    },
+    "payByTransfer": "Submit transfer for {amount}"
+  },
+  "requests": {
+    "columns": {
+      "member": "Member",
+      "change": "Request",
+      "reason": "Note",
+      "status": "Status",
+      "createdAt": "Created",
+      "actions": "Actions"
+    },
+    "changeValue": "{from} → {to}",
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "denied": "Denied",
+      "canceled": "Canceled"
+    },
+    "approve": "Approve",
+    "deny": "Deny",
+    "approved": "Request approved; the member has the seat.",
+    "denyTitle": "Deny the request from {member}",
+    "denyNote": "Note for the member (optional)",
+    "empty": "No upgrade requests yet. When a member runs out of credits, they can ask for a better seat in GodarChat, and the request shows up here.",
+    "denyConfirm": "Deny request"
+  },
+  "blockReasons": {
+    "seat_unassigned": "No seat",
+    "seat_credits_exhausted": "Free seat credits used up",
+    "personal_limit_reached": "Personal limit reached",
+    "budget_rule_reached": "Budget used up",
+    "pool_exhausted": "Organization credits used up"
+  },
+  "orders": {
+    "columns": {
+      "kind": "Type",
+      "seats": "Seats",
+      "payable": "Amount",
+      "status": "Status",
+      "createdAt": "Created",
+      "actions": "Actions"
+    },
+    "kinds": {
+      "purchase": "Purchase",
+      "renewal": "Renewal"
+    },
+    "seatsValue": "{count, number} × {seat}",
+    "statuses": {
+      "COMPLETED": "Paid",
+      "PENDING": "Awaiting payment",
+      "FAILED": "Failed",
+      "CANCELED": "Canceled",
+      "other": "Unknown",
+      "AWAITING_TRANSFER": "Awaiting transfer"
+    },
+    "empty": "No orders yet. Seat purchases and renewals are recorded here.",
+    "submitReceipt": "Submit receipt"
+  },
+  "renewal": {
+    "title": "Renew seats",
+    "open": "Renewal is open until {date}. If you don't renew, paid seats end when the period does.",
+    "closed": "Renewal opens on {date}. When it does, you choose there how many seats to renew.",
+    "done": "Every paid seat is paid for the next period.",
+    "action": "Renew seats",
+    "view": "View renewal",
+    "seatLabel": "{seat} seats",
+    "periodEnd": "Current period ends",
+    "held": "{held, number} seats · {assigned, number} given to members"
+  },
+  "settings": {
+    "title": "Seat settings",
+    "description": "Let members request upgrades, and cap how much organization credit Pro and Max members may use each month.",
+    "requests": "Upgrade requests",
+    "requestsDescription": "Members who run out of credits see a request-upgrade button in GodarChat.",
+    "proLimit": "Monthly Pro limit on organization credits",
+    "maxLimit": "Monthly Max limit on organization credits",
+    "limitDescription": "After their personal credits run out. Empty means no limit.",
+    "noLimit": "No limit",
+    "limitInvalid": "Enter a positive number with at most two decimals.",
+    "save": "Save settings",
+    "saving": "Saving",
+    "saved": "Seat settings saved."
+  },
+  "payment": {
+    "successTitle": "Payment complete",
+    "successDescription": "The seats were added to the organization's stock.",
+    "failedTitle": "Payment failed",
+    "failedDescription": "Nothing was charged, or it will be refunded. Try again."
+  },
+  "errors": {
+    "title": "Error",
+    "unknown": "Something went wrong.",
+    "loadSummary": "Seats could not be loaded.",
+    "invalid_seat_type": "That seat type is not valid.",
+    "invalid_seat_quantity": "Enter 1 to 1000 seats.",
+    "seat_interval_not_supported": "Seats can be bought for monthly or yearly subscriptions only.",
+    "seat_unchanged": "The member already has this seat.",
+    "seat_back_to_free": "A paid seat cannot go back to free.",
+    "free_seat_used": "This member already used their free seat.",
+    "free_seats_full": "All free seats are taken. Buy a paid seat for more members.",
+    "seat_purchase_required": "No seat of this type is available.",
+    "member_not_found": "Member not found.",
+    "no_pending_seat_change": "This member has no scheduled change.",
+    "seat_request_not_found": "Request not found.",
+    "seat_request_closed": "This request was already decided.",
+    "seat_order_not_payable": "This order cannot be paid.",
+    "seat_renewal_not_due": "No seats need renewal.",
+    "invalid_seat_renewal": "You cannot renew more seats than you hold.",
+    "invalid_seat_pool_limit": "The limit must be a positive number with at most two decimals.",
+    "payment_provider_unavailable": "The payment gateway is unavailable.",
+    "seat_interval_locked": "New seats follow the billing interval of your seat subscription."
+  },
+  "renew": {
+    "title": "Renew seats",
+    "pageDescription": "Choose which paid seats stay for the next period, see which members lose their seat, and pay for the renewal.",
+    "back": "Back to seats",
+    "noAccess": "Paying for a renewal needs the billing management permission.",
+    "status": {
+      "openTitle": "Renewal is open",
+      "open": "You have until {date}. You choose how many seats to renew right here, right now; if you don't renew, paid seats end when the period does.",
+      "closedTitle": "Renewal is not open yet",
+      "closed": "Renewal opens on {date}. When it does, you choose here how many seats to renew; until then there is nothing to do.",
+      "doneTitle": "Renewal is done",
+      "done": "Every paid seat is paid through {date}. Nothing else to do."
+    },
+    "empty": {
+      "title": "No paid seats to renew",
+      "description": "Only Pro and Max seats renew. Buying the first paid seat starts the seat subscription.",
+      "action": "Buy seats"
+    },
+    "counts": {
+      "title": "Seats to renew",
+      "description": "Say how many seats of each type stay for the next period. Seats you don't renew end when the period does."
+    },
+    "seat": {
+      "stats": "{held} seats · {assigned} given to members · {available} available",
+      "bar": "{kept} renew · {ends} end when the period does",
+      "keep": "{seat} seats to renew",
+      "keepHint": "A number from 0 to {held, number}.",
+      "keepAll": "Renew all {held, number} {seat} seats",
+      "invalid": "Enter a number from 0 to {held, number}.",
+      "renewedNote": "{count, number} seats are already paid for the next period."
+    },
+    "impact": {
+      "title": "Effect on members",
+      "loading": "Calculating the effect of renewing",
+      "none": "No member loses their seat.",
+      "noneDescription": "With these counts, every member holding a paid seat keeps it.",
+      "someTitle": "{count, number} members lose their seat",
+      "someDescription": "When the period ends, these members lose their paid seat and can send messages in GodarChat only if they get a free seat.",
+      "group": "{seat}: {count, number} members",
+      "assignedAt": "Seat since {date}",
+      "fallbackFree": "Gets a free seat",
+      "fallbackUnassigned": "Left without a seat",
+      "memberHidden": "Member (seeing names needs the permission to view users)",
+      "rule": "Members are ranked by when they got their seat: the later someone got it, the sooner they lose it.",
+      "unpaid": "If you don't pay for the renewal, all {count, number} members holding a paid seat are left without one when the period ends.",
+      "manageMembers": "Change members' seats",
+      "confirm": "I understand that these {count, number} members lose their paid seat when the period ends."
+    },
+    "summary": {
+      "title": "Renewal summary",
+      "line": "{count, number} × {seat}",
+      "currentEnd": "Current period ends",
+      "newEnd": "New period until",
+      "nothingToPay": "Nothing to pay for these counts.",
+      "noSeatsKept": "No seats renew. Every paid seat ends when the period does.",
+      "payLockedConfirm": "Tick the confirmation above to pay."
+    },
+    "actions": {
+      "pay": "Pay {amount}"
+    },
+    "payment": {
+      "successTitle": "Renewal done",
+      "successDescription": "The renewal is paid and the chosen seats stay for the next period.",
+      "failedTitle": "Renewal payment failed",
+      "failedDescription": "You were not charged, or the amount is returned. You can pay again."
+    },
+    "timeline": {
+      "label": "Where today falls in the current period",
+      "daysLeft": "{days, number} days until the period ends",
+      "lastDay": "Today is the last day of the period",
+      "start": "Period starts",
+      "opens": "Renewal opens",
+      "end": "Period ends"
+    },
+    "current": {
+      "title": "Your paid seats",
+      "description": "These seats end when the period does, unless you renew them while renewal is open."
+    },
+    "rules": {
+      "title": "Important renewal rules",
+      "description": "Read these before paying; every one of them applies.",
+      "items": {
+        "counts": "You choose how many seats to renew at the moment you renew; nothing is saved beforehand.",
+        "noAuto": "Renewal is not automatic and is open only during the last 7 days of the period.",
+        "pays": "Renewing buys one whole next period (one Jalali month or year, in Tehran time) for the seats you choose, plus VAT.",
+        "notRenewed": "Seats you don't renew keep working until the current period ends, then they end.",
+        "order": "If you renew fewer seats than are given to members, the members who got their seat later lose it sooner. This order is worked out for each seat type separately.",
+        "fallback": "A member whose paid seat ends gets a free seat only if they have never had one and free seats are left; otherwise they are left without a seat and cannot send messages in GodarChat.",
+        "unpaid": "If you don't pay for the renewal, all paid seats end when the period does and the subscription returns to the free plan.",
+        "chooseYourself": "Before the period ends, you can choose yourself who keeps a seat on the members page."
+      }
+    }
+  },
+  "transfer": {
+    "title": "Bank transfer for {count, number} × {seat}",
+    "description": "Transfer exactly {amount} and submit the receipt. Seats activate after finance approves it.",
+    "close": "Close"
+  }
+}

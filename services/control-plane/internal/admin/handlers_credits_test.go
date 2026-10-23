@@ -31,7 +31,6 @@ func (m *creditUsageStoreMock) GetCreditUsageSummary(
 
 	return &platform.CreditUsageSummary{
 		Available:    true,
-		ShadowMode:   true,
 		TotalCredits: "12.50",
 		ByModel:      []platform.CreditUsageItem{{Key: "anthropic/claude-sonnet-5", Credits: "12.50", RequestCount: 3}},
 		ByTeam:       []platform.CreditUsageItem{},
@@ -74,7 +73,7 @@ func TestGetCreditUsageSummaryUsesTenantAndPreset(t *testing.T) {
 	t.Parallel()
 
 	store := &creditUsageStoreMock{}
-	h := &Handlers{billingState: billingState{creditUsage: store, creditShadow: true}}
+	h := &Handlers{billingState: billingState{creditUsage: store}}
 
 	status, summary := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "?preset=last_3_months")
 	require.Equal(t, fiber.StatusOK, status)
@@ -85,28 +84,61 @@ func TestGetCreditUsageSummaryUsesTenantAndPreset(t *testing.T) {
 	require.True(t, summary.Available)
 }
 
-func TestGetCreditUsageSummaryShadowDisabled(t *testing.T) {
+func TestGetCreditUsageSummaryWithoutUsageStore(t *testing.T) {
 	t.Parallel()
 
-	store := &creditUsageStoreMock{}
-	h := &Handlers{billingState: billingState{creditUsage: store, creditShadow: false}}
+	h := &Handlers{}
 
 	status, summary := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "")
 	require.Equal(t, fiber.StatusOK, status)
 	require.False(t, summary.Available)
 	require.Equal(t, "current_month", summary.Preset)
 	require.Equal(t, "0.00", summary.TotalCredits)
-	require.Empty(t, store.tenantID, "store must not be queried while shadow credits are disabled")
 }
 
 func TestGetCreditUsageSummaryRejectsInvalidPresetAndMissingPermission(t *testing.T) {
 	t.Parallel()
 
-	h := &Handlers{billingState: billingState{creditUsage: &creditUsageStoreMock{}, creditShadow: true}}
+	h := &Handlers{billingState: billingState{creditUsage: &creditUsageStoreMock{}}}
 
 	status, _ := getCreditSummary(t, creditSummaryApp(h, []string{"billing:read"}), "?preset=forever")
 	require.Equal(t, fiber.StatusBadRequest, status)
 
 	status, _ = getCreditSummary(t, creditSummaryApp(h, nil), "")
 	require.Equal(t, fiber.StatusForbidden, status)
+}
+
+type creditBalanceStoreMock struct {
+	tenantID string
+}
+
+func (m *creditBalanceStoreMock) GetTenantCreditBalance(_ context.Context, tenantID string, _ time.Time) (*platform.TenantCreditBalance, error) {
+	m.tenantID = tenantID
+
+	return &platform.TenantCreditBalance{AvailableCredits: "500.00", Lots: []platform.CreditLot{}}, nil
+}
+
+func TestGetCreditBalanceUsesTenantAndNeedsBillingRead(t *testing.T) {
+	t.Parallel()
+
+	store := &creditBalanceStoreMock{}
+	h := &Handlers{billingState: billingState{creditBalance: store}}
+
+	for _, tc := range []struct {
+		permissions []string
+		status      int
+	}{
+		{nil, fiber.StatusForbidden},
+		{[]string{"billing:read"}, fiber.StatusOK},
+	} {
+		app := creditSummaryApp(h, tc.permissions)
+		app.Get("/api/v1/billing/credits/balance", h.GetCreditBalance)
+
+		resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/billing/credits/balance", http.NoBody))
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, tc.status, resp.StatusCode)
+	}
+
+	require.Equal(t, "tenant_a", store.tenantID)
 }

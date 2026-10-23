@@ -23,6 +23,18 @@ var (
 )
 
 func (s *FinancialRepository) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error) {
+	if strings.TrimSpace(req.CreditPackOrderID) != "" {
+		return s.createCreditPackBankTransfer(ctx, tenantID, req, actor)
+	}
+
+	if strings.TrimSpace(req.SeatOrderID) != "" {
+		return s.createSeatBankTransfer(ctx, tenantID, req, actor)
+	}
+
+	if err := refuseCreditTenantWalletTopUp(ctx, s.pool, tenantID); err != nil {
+		return nil, err
+	}
+
 	meta := marshalJSONBestEffort(req.Metadata)
 
 	return scanBankTransferRequest(s.pool.QueryRow(ctx, `
@@ -125,6 +137,22 @@ func (s *FinancialRepository) ApproveBankTransferRequest(ctx context.Context, te
 	idempotency := strings.TrimSpace(req.IdempotencyKey)
 	if idempotency == "" {
 		idempotency = "bank_transfer:" + item.ID
+	}
+
+	var creditPackOrderID, seatOrderID string
+	if orderErr := tx.QueryRow(ctx, `
+		SELECT COALESCE(credit_pack_order_id::text, ''), COALESCE(seat_order_id::text, '')
+		FROM bank_transfer_requests WHERE bank_transfer_request_id::text = $1
+	`, item.ID).Scan(&creditPackOrderID, &seatOrderID); orderErr != nil {
+		return nil, orderErr
+	}
+
+	if creditPackOrderID != "" {
+		return s.approveCreditPackBankTransferTx(ctx, tx, item, creditPackOrderID, idempotency, actor)
+	}
+
+	if seatOrderID != "" {
+		return s.approveSeatBankTransferTx(ctx, tx, item, seatOrderID, idempotency, actor)
 	}
 
 	walletTxn, err := appendWalletTransactionTx(ctx, tx, walletTransactionParams{
@@ -754,7 +782,7 @@ func insertFinancialAuditTx(ctx context.Context, tx pgx.Tx, tenantID, eventType 
 		INSERT INTO financial_audit_events (
 			tenant_id, event_type, actor_id, actor_role, source_type, source_id, idempotency_key, payload
 		)
-		VALUES ($1::uuid, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
+		VALUES (NULLIF($1, '')::uuid, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
 	`, tenantID, eventType, actor.ID, actor.Role, sourceType, sourceID, idempotencyKey, marshalJSONBestEffort(payload))
 
 	return err

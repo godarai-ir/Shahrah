@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
@@ -34,6 +35,7 @@ type Store struct {
 	*RuntimeProfileRepository
 	*PlatformServiceAccountRepository
 	*DatabaseHealthRepository
+	*SpendHistoryPurgeRepository
 
 	pool *pgxpool.Pool
 }
@@ -114,6 +116,7 @@ func NewStore(
 		observability.ObservabilityHealthRepository.clickHouseMetricsReady(),
 		logger,
 		dependencies.Cache,
+		dependencies.RuntimeProfileInvalidator,
 		storageConfig,
 	)
 	store.SupportRepository = newSupportRepository(pool, store.PlanRepository, store.WalletRepository)
@@ -163,6 +166,11 @@ func NewStore(
 	)
 	store.PlatformServiceAccountRepository = newPlatformServiceAccountRepository(pool)
 	store.DatabaseHealthRepository = newDatabaseHealthRepository(pool)
+	store.SpendHistoryPurgeRepository = newSpendHistoryPurgeRepository(
+		pool,
+		observability.ObservabilityHealthRepository.clickhouse,
+		strings.TrimSpace(storageConfig.ClickHouse.DSN) != "",
+	)
 
 	return store, nil
 }

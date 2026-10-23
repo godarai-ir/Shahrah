@@ -166,7 +166,7 @@ func (s *Service) Discovery(tenant Tenant) map[string]any {
 		"code_challenge_methods_supported":      []string{CodeChallengeMethodS256},
 		"claims_supported": []string{
 			"sub", "iss", "aud", "exp", "iat", "auth_time", "nonce", "azp",
-			"name", "preferred_username", "email", "email_verified",
+			"name", "given_name", "family_name", "preferred_username", "email", "email_verified",
 			"phone_number", "phone_number_verified", "roles", "tid", "tenant",
 		},
 		"request_parameter_supported":      false,

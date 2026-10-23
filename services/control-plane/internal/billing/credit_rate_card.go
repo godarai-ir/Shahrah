@@ -3,6 +3,7 @@ package billing
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -26,14 +27,22 @@ func (s *PricingEngine) CreditRateCard(card credits.RateCard) (platform.CreditRa
 		EffectiveFrom: card.EffectiveFrom,
 		Unit:          platform.CreditUnit,
 		Models:        []platform.CreditRateCardModel{},
+		SideUsage: &platform.CreditSideUsagePrices{
+			GuardrailJudgeCall:     credits.Format(credits.Millicredits(credits.GuardrailJudgeCallMC)),
+			SemanticCacheEmbedding: credits.Format(credits.Millicredits(credits.SemanticCacheEmbeddingMC)),
+		},
 	}
 
+	// Side-usage prices are part of the card, so a price change changes the ETag.
+	sideRevision := fmt.Sprintf("side=%d/%d", credits.GuardrailJudgeCallMC, credits.SemanticCacheEmbeddingMC)
+
 	if s == nil {
-		return out, creditRateCardRevision(card, nil)
+		return out, creditRateCardRevision(card, []string{sideRevision})
 	}
 
 	snapshots := s.currentPricingSnapshots(time.Now())
-	revisions := make([]string, 0, len(snapshots))
+	revisions := make([]string, 0, len(snapshots)+1)
+	revisions = append(revisions, sideRevision)
 
 	for provider, snapshot := range snapshots {
 		revisions = append(revisions, provider+"="+snapshot.Revision)

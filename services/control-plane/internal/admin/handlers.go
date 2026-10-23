@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
@@ -74,6 +75,7 @@ type walletStore interface {
 	CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error)
 	ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error)
 	BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error)
+	ListPlatformBankTransferRequests(ctx context.Context, status, query string, limit, offset int) (*platform.PlatformBankTransferListResponse, error)
 	ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error)
@@ -100,18 +102,6 @@ type providerAccountStore interface {
 	IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error)
 	DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
-}
-
-type orgUnitStore interface {
-	CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error)
-	ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error)
-	GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error)
-	UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error)
-	DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error
-	ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error)
-	AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error
 }
 
 type virtualUserStore interface {
@@ -145,6 +135,8 @@ type userStore interface {
 	InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error)
 	AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error)
 	SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error)
+	UpdateTenantAdminUserProfile(ctx context.Context, tenantSlug string, userID string, req platform.UpdateTenantAdminUserProfileRequest) (*platform.TenantAdminUser, error)
+	GetTenantSeatUsage(ctx context.Context, tenantID string) (*platform.TenantSeatUsage, error)
 }
 
 type roleStore interface {
@@ -187,6 +179,10 @@ type creditUsageStore interface {
 	GetCreditUsageSummary(ctx context.Context, tenantID string, start time.Time, end time.Time) (*platform.CreditUsageSummary, error)
 }
 
+type creditBalanceStore interface {
+	GetTenantCreditBalance(ctx context.Context, tenantID string, now time.Time) (*platform.TenantCreditBalance, error)
+}
+
 type metricsStore interface {
 	QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error)
 	ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error)
@@ -226,8 +222,6 @@ type loginDiscoveryStore interface {
 }
 
 type planStore interface {
-	GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error)
-	UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error)
 	ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error)
 	ListPublicCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)
 	ListPlatformCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error)
@@ -249,12 +243,10 @@ type planStore interface {
 	UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error)
 	UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error)
 	DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type entitlementResolverStore interface {
 	ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error)
-	CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error)
 }
 
 type supportTenantOperationsStore interface {
@@ -309,7 +301,6 @@ type platformProviderCredentialService interface {
 // IAMDependencies contains identity and access management ports.
 type IAMDependencies struct {
 	Keys         keyStore
-	OrgUnits     orgUnitStore
 	Memberships  membershipStore
 	Users        userStore
 	VirtualUsers virtualUserStore
@@ -335,10 +326,16 @@ type BillingDependencies struct {
 	Plans        planStore
 	Entitlements entitlementResolverStore
 	Payment      PaymentConfig
-	// CreditUsage reads shadow credit usage; nil disables the credit summary.
+	// CreditUsage reads credit usage; nil disables the credit summary.
 	CreditUsage creditUsageStore
-	// CreditShadowEnabled reports whether shadow credits are being computed.
-	CreditShadowEnabled bool
+	// CreditBalance reads a tenant's lots and depletion forecast.
+	CreditBalance creditBalanceStore
+	// CreditPacks sells add-on packs; nil disables the credit pack endpoints.
+	CreditPacks creditPackStore
+	// CreditAdmin backs the support-admin credit endpoints.
+	CreditAdmin creditAdminStore
+	// Seats manages member seats; nil disables the seat endpoints.
+	Seats seatStore
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -372,11 +369,12 @@ type Dependencies struct {
 	Onboarding    OnboardingDependencies
 	Observability ObservabilityDependencies
 	Support       SupportDependencies
+	// RateLimits is the shared cache that counts attempts across replicas.
+	RateLimits cache.Cache
 }
 
 type iamState struct {
 	keys         keyStore
-	orgUnits     orgUnitStore
 	memberships  membershipStore
 	users        userStore
 	virtualUsers virtualUserStore
@@ -397,12 +395,15 @@ type catalogState struct {
 }
 
 type billingState struct {
-	wallets      walletStore
-	plans        planStore
-	entitlements entitlementResolverStore
-	payment      PaymentConfig
-	creditUsage  creditUsageStore
-	creditShadow bool
+	wallets       walletStore
+	plans         planStore
+	entitlements  entitlementResolverStore
+	payment       PaymentConfig
+	creditUsage   creditUsageStore
+	creditBalance creditBalanceStore
+	creditPacks   creditPackStore
+	creditAdmin   creditAdminStore
+	seats         seatStore
 }
 
 type onboardingState struct {
@@ -440,7 +441,6 @@ func New(deps Dependencies) *Handlers {
 	return &Handlers{
 		iamState: iamState{
 			keys:         deps.IAM.Keys,
-			orgUnits:     deps.IAM.OrgUnits,
 			memberships:  deps.IAM.Memberships,
 			users:        deps.IAM.Users,
 			virtualUsers: deps.IAM.VirtualUsers,
@@ -456,15 +456,18 @@ func New(deps Dependencies) *Handlers {
 			prompts:             deps.Catalog.Prompts,
 			discovery:           deps.Catalog.Discovery,
 			semanticGuardrails:  deps.Catalog.SemanticGuardrails,
-			semanticTestLimiter: newAuthRateLimiter(),
+			semanticTestLimiter: newAuthRateLimiter(deps.RateLimits),
 		},
 		billingState: billingState{
-			wallets:      deps.Billing.Wallets,
-			plans:        deps.Billing.Plans,
-			entitlements: deps.Billing.Entitlements,
-			payment:      deps.Billing.Payment.withDefaults(),
-			creditUsage:  deps.Billing.CreditUsage,
-			creditShadow: deps.Billing.CreditShadowEnabled,
+			wallets:       deps.Billing.Wallets,
+			plans:         deps.Billing.Plans,
+			entitlements:  deps.Billing.Entitlements,
+			payment:       deps.Billing.Payment.withDefaults(),
+			creditUsage:   deps.Billing.CreditUsage,
+			creditBalance: deps.Billing.CreditBalance,
+			creditPacks:   deps.Billing.CreditPacks,
+			creditAdmin:   deps.Billing.CreditAdmin,
+			seats:         deps.Billing.Seats,
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,

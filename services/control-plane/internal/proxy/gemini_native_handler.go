@@ -91,7 +91,7 @@ func (h *GeminiNativeHandler) Handle(c *fiber.Ctx) error {
 
 		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
 		if err != nil {
-			return writeBudgetCheckError(c, err)
+			return writeGeminiBudgetError(c, err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func (h *GeminiNativeHandler) Handle(c *fiber.Ctx) error {
 		}
 
 		if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalized, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
-			return writeGeminiError(c, fiber.StatusPaymentRequired, "BILLING_ERROR", err.Error())
+			return writeGeminiError(c, fiber.StatusPaymentRequired, "BILLING_ERROR", settlementErrorMessage(err))
 		}
 	}
 

@@ -250,7 +250,7 @@ func (h *Handlers) ListSavedLogViewsV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateSavedLogViewV2(c *fiber.Ctx) error {
-	if err := requireLogsManageViews(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -281,7 +281,7 @@ func (h *Handlers) CreateSavedLogViewV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) UpdateSavedLogViewV2(c *fiber.Ctx) error {
-	if err := requireLogsManageViews(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -312,7 +312,7 @@ func (h *Handlers) UpdateSavedLogViewV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DeleteSavedLogViewV2(c *fiber.Ctx) error {
-	if err := requireLogsManageViews(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -338,7 +338,7 @@ func (h *Handlers) DeleteSavedLogViewV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) ListLogExportsV2(c *fiber.Ctx) error {
-	if err := requireLogsExport(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -365,7 +365,7 @@ func (h *Handlers) ListLogExportsV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CreateLogExportV2(c *fiber.Ctx) error {
-	if err := requireLogsExport(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -398,7 +398,7 @@ func (h *Handlers) CreateLogExportV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) GetLogExportV2(c *fiber.Ctx) error {
-	if err := requireLogsExport(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -411,7 +411,7 @@ func (h *Handlers) GetLogExportV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) CancelLogExportV2(c *fiber.Ctx) error {
-	if err := requireLogsExport(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -437,7 +437,7 @@ func (h *Handlers) CancelLogExportV2(c *fiber.Ctx) error {
 }
 
 func (h *Handlers) DownloadLogExportV2(c *fiber.Ctx) error {
-	if err := requireLogsExport(c); err != nil {
+	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
 
@@ -501,64 +501,6 @@ func (h *Handlers) DownloadLogExportV2(c *fiber.Ctx) error {
 	}
 
 	return c.Send(body)
-}
-
-func (h *Handlers) CreateRequestLogReplayDraftV2(c *fiber.Ctx) error {
-	if err := requireLogsReplay(c); err != nil {
-		return err
-	}
-
-	if err := requireLogsContentRead(c); err != nil {
-		return err
-	}
-
-	if h.logs == nil {
-		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	logID := strings.TrimSpace(c.Params("logID"))
-
-	detail, err := h.logs.GetRequestLogV2(c.Context(), currentTenant.ID, logID, true)
-	if err != nil {
-		if errors.Is(err, observability.ErrLogStoreUnavailable) {
-			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
-		}
-
-		if errors.Is(err, apperrors.ErrNotFound) {
-			return fiber.NewError(fiber.StatusNotFound, "log not found")
-		}
-
-		return err
-	}
-
-	draft := platform.LogReplayDraftV2{
-		LogID:          detail.Log.LogID,
-		Supported:      true,
-		Route:          detail.Log.Route,
-		RequestType:    detail.Log.RequestType,
-		Model:          detail.Log.Model,
-		Provider:       detail.Log.Provider,
-		RequestPayload: detail.RequestPayload,
-		SafeHeaders:    map[string]string{},
-		Warnings:       []string{"sensitive headers and credentials are intentionally omitted", "draft only; no request is executed automatically"},
-	}
-	if !isReplaySupportedRoute(detail.Log.Route) {
-		draft.Supported = false
-		draft.Reason = "unsupported_route"
-		draft.RequestPayload = nil
-	}
-
-	if !detail.ContentVisibility.RequestAvailable || len(detail.RequestPayload) == 0 {
-		draft.Supported = false
-		draft.Reason = "payload_hidden_or_unavailable"
-	}
-
-	return c.JSON(draft)
 }
 
 func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLogsV2Params, error) {
@@ -649,7 +591,6 @@ func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLo
 		PayloadMode:       strings.TrimSpace(c.Query("payload_mode")),
 		ActorType:         strings.TrimSpace(c.Query("actor_type")),
 		ActorID:           strings.TrimSpace(c.Query("actor_id")),
-		OrgUnitID:         strings.TrimSpace(c.Query("org_unit_id")),
 		TeamID:            strings.TrimSpace(c.Query("team_id")),
 		StatusCode:        statusCode,
 		From:              from,
@@ -727,15 +668,6 @@ func currentUserID(c *fiber.Ctx) string {
 	return ""
 }
 
-func isReplaySupportedRoute(route string) bool {
-	switch strings.TrimSpace(route) {
-	case "/v1/chat/completions", "/v1/completions", "/v1/embeddings", "/v1/responses":
-		return true
-	default:
-		return false
-	}
-}
-
 func buildLogExportCSV(items []platform.RequestLogV2) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	writer := csv.NewWriter(buf)
@@ -808,7 +740,6 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	out.PayloadMode = filterString(filters, "payload_mode")
 	out.ActorType = filterString(filters, "actor_type")
 	out.ActorID = filterString(filters, "actor_id")
-	out.OrgUnitID = filterString(filters, "org_unit_id")
 	out.TeamID = filterString(filters, "team_id")
 	out.SortBy = defaultString(filterString(filters, "sort_by"), out.SortBy)
 

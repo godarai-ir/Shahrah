@@ -286,9 +286,7 @@ The run fails if the exact 2xx/429 counts differ, a response is neither 2xx nor 
 
 ### Budget-limit rule concurrency test
 
-Budget enforcement is cost-based rather than request-count-based. Configure a fresh hard budget rule with `block_on_budget_exceed=true`, choose the required scope/conditions, and set `BUDGET_LIMIT_IRR` to the exact `limit_to` value. For a quick local run with the mock provider, a tenant or virtual-account rule around `400 IRR` normally allows several calls before becoming exhausted.
-
-Current runtime enforcement compares `limit_to` with `TotalCostIRR`. The tenant-admin copy currently labels this field as dollars; until that product contract is reconciled, use the numeric IRR value actually enforced by the gateway when running this test.
+Budget enforcement is credit-based rather than request-count-based. Configure a fresh budget rule with `on_exceed=block`, choose the required scope/conditions, and set `BUDGET_LIMIT_CREDITS` to the rule's credit `limit`. For a quick local run with the mock provider, a tenant or virtual-account rule of about `5` credits normally allows several calls before becoming exhausted.
 
 ```powershell
 $env:BASE_URL="http://localhost:4000"
@@ -296,16 +294,16 @@ $env:API_KEY="<dedicated PAT or virtual-account token>"
 $env:TENANT="budget-loadtest-tenant"
 $env:MODEL="gpt-4o-mini"
 $env:BUDGET_RULE_ID="loadtest-daily-budget-v1"
-$env:BUDGET_LIMIT_IRR="400"
+$env:BUDGET_LIMIT_CREDITS="5"
 
 k6 run --summary-export loadtests/results/budget-limit.json loadtests/k6/budget-limit-rule.js
 ```
 
 The burst sends 30 concurrent requests by default. Because the gateway atomically reserves estimated cost and later commits actual provider usage, the exact number of 2xx responses depends on model pricing and returned usage. The test therefore enforces stronger cost invariants instead of a fragile exact response count:
 
-- At least one request must succeed and expose a valid `X-Godarai-Cost-IRR`.
+- At least one request must succeed and expose a valid `X-Godarai-Credits-Used`.
 - At least one request must be rejected with HTTP `402` and `error.type=budget_exceeded`.
-- The sum of successful response costs must not exceed `BUDGET_LIMIT_IRR` (plus rounding tolerance).
+- The sum of successful responses' credits must not exceed `BUDGET_LIMIT_CREDITS` (plus `CREDIT_TOLERANCE`).
 - After all concurrent requests settle, teardown sends verification calls and requires all of them to remain blocked.
 - HTTP 429 is treated as interfering Rate Limit traffic and fails the run.
 
@@ -313,7 +311,7 @@ Important environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `BUDGET_LIMIT_IRR` | `400` | Must equal the configured rule's `limit_to` |
+| `BUDGET_LIMIT_CREDITS` | `5` | Must equal the configured rule's credit `limit` |
 | `BUDGET_RULE_ID` | `budget-loadtest` | Metric tag and unique prompt namespace for the tested rule |
 | `BURST_REQUESTS` | `30` | Concurrent pressure used to exhaust the budget |
 | `BURST_VUS` | up to `30` | Concurrent workers |
@@ -321,7 +319,7 @@ Important environment variables:
 | `MIN_ALLOWED` | `1` | Minimum expected successful calls in a clean budget window |
 | `MIN_REJECTED` | `1` | Minimum expected budget rejections during the burst |
 | `MAX_TOKENS` | `8` | Controls estimated output cost per request |
-| `COST_TOLERANCE_IRR` | `1` | Tolerance for summing two-decimal response cost headers |
+| `CREDIT_TOLERANCE` | `0.01` | Tolerance for summing two-decimal credit headers |
 | `METADATA_JSON` | unset | Optional JSON metadata used by metadata-scoped rules |
 
 Use a new rule ID or explicitly clear only that rule's local Redis budget window before each repeat. Budget windows are aligned to UTC day/week/month boundaries, so a generic load test should not wait for reset. Test rollover separately near the real UTC boundary, or with an integration test that controls the clock. Also use a dedicated tenant or virtual account and avoid overlapping Rate Limit rules so 429 responses do not obscure budget behavior.

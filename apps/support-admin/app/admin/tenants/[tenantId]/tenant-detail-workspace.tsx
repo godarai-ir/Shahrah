@@ -5,11 +5,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { TenantCreditsPanel } from './tenant-credits-panel';
+import { TenantSeatsPanel } from './tenant-seats-panel';
 import {
   controlPlaneRequest, formatDate, formatIRR, type SubscriptionPaymentIntent, type TenantDetail, type TenantEvent, type WalletTransaction,
 } from '@/lib/support-tenants';
 
-const tabs = ['overview', 'subscription', 'wallet', 'events', 'controls'] as const;
+const tabs = ['overview', 'subscription', 'wallet', 'credits', 'seats', 'events', 'controls'] as const;
 type Tab = typeof tabs[number];
 
 export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
@@ -123,6 +125,10 @@ export function TenantDetailWorkspace({ tenantId }: { tenantId: string }) {
         <Card><h2 className="text-lg font-semibold">Manual adjustment</h2><form className="mt-4 flex flex-col gap-3" onSubmit={submitAdjustment}><select className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={adjustment.direction} onChange={(e) => setAdjustment({ ...adjustment, direction: e.target.value })}><option value="credit">Credit</option><option value="debit">Debit</option></select><Input inputMode="numeric" placeholder="Whole IRR amount" value={adjustment.amount} onChange={(e) => setAdjustment({ ...adjustment, amount: e.target.value })} /><Input placeholder="Required reason" value={adjustment.reason} onChange={(e) => setAdjustment({ ...adjustment, reason: e.target.value })} /><Input placeholder="Ticket/reference (optional)" value={adjustment.externalReference} onChange={(e) => setAdjustment({ ...adjustment, externalReference: e.target.value })} /><Button type="submit">Review adjustment</Button></form></Card>
         <div className="flex flex-col gap-4"><Card><h2 className="text-lg font-semibold">Recent ledger</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-zinc-400"><tr><th className="py-2">Type</th><th>Amount</th><th>Status</th><th>Time</th></tr></thead><tbody className="divide-y divide-zinc-800">{transactions.map((tx) => <tr key={tx.id}><td className="py-3">{tx.type}</td><td>{formatIRR(tx.amount_irr)}</td><td>{tx.status}</td><td className="text-zinc-400">{formatDate(tx.created_at)}</td></tr>)}</tbody></table>{transactions.length === 0 ? <p className="py-6 text-sm text-zinc-400">No wallet transactions.</p> : null}</div></Card><Card><h2 className="text-lg font-semibold">Subscription payments</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-zinc-400"><tr><th className="py-2">Status</th><th>Amount</th><th>Provider</th><th>Time</th></tr></thead><tbody className="divide-y divide-zinc-800">{payments.map((payment) => <tr key={payment.id}><td className="py-3">{payment.status}</td><td>{formatIRR(payment.amount_minor)}</td><td>{payment.provider}</td><td className="text-zinc-400">{formatDate(payment.created_at)}</td></tr>)}</tbody></table>{payments.length === 0 ? <p className="py-6 text-sm text-zinc-400">No subscription payment intents.</p> : null}</div></Card></div>
       </div> : null}
+
+      {tab === 'credits' ? <TenantCreditsPanel tenantId={tenantId} tenantSlug={tenant.slug} /> : null}
+
+      {tab === 'seats' ? <TenantSeatsPanel tenantId={tenantId} /> : null}
 
       {tab === 'events' ? <Card><h2 className="text-lg font-semibold">Important events</h2><ol className="mt-4 divide-y divide-zinc-800">{events.map((item) => <li key={item.id} className="py-4"><div className="flex flex-wrap justify-between gap-2"><span className="font-medium">{item.type}</span><time className="text-sm text-zinc-400">{formatDate(item.created_at)}</time></div><p className="mt-1 text-sm text-zinc-300">{item.reason || 'No operator reason'}</p><p className="mt-1 text-xs text-zinc-500">{item.actor_role || 'system'} {item.actor_id ? `· ${item.actor_id}` : ''}</p></li>)}</ol>{events.length === 0 ? <p className="mt-4 text-sm text-zinc-400">No tenant events recorded.</p> : null}</Card> : null}
 

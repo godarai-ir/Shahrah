@@ -1,7 +1,8 @@
 {
   "units": {
     "irr": "IRR",
-    "toman": "toman"
+    "toman": "toman",
+    "credits": "credits"
   },
   "errorTitle": "Error",
   "unknownError": "An unexpected error occurred.",
@@ -22,20 +23,6 @@
     "expired": "Expired",
     "refunded": "Refunded"
   },
-  "transactionType": {
-    "consumption": "Consumption",
-    "topup": "Top-up",
-    "refund": "Refund",
-    "adjustment": "Adjustment"
-  },
-  "discountType": {
-    "fixed": "Fixed amount",
-    "percentage": "Percentage",
-    "gift_credit": "Gift credit"
-  },
-  "filters": {
-    "all": "All"
-  },
   "profileType": {
     "label": "Type",
     "individual": "Individual",
@@ -44,33 +31,6 @@
   "jalaliDate": {
     "today": "Today",
     "hint": "Enter the date in the Jalali format `YYYY-MM-DD`."
-  },
-  "pagination": {
-    "range": "Showing {from} to {to} of {total} rows",
-    "previous": "Previous",
-    "next": "Next",
-    "page": "Page {page} of {pageCount}"
-  },
-  "overview": {
-    "title": "Billing",
-    "description": "Operational view of the workspace wallet, period usage, discounts, and financial documents.",
-    "eyebrow": "Billing",
-    "topUp": "Top up wallet",
-    "bankTransfer": "Bank transfer",
-    "balance": "Balance",
-    "currentMonthUsage": "Usage this month",
-    "cacheSavings": "Cache savings",
-    "quickActions": "Quick actions",
-    "quickTopUp": "Pay online",
-    "quickBankTransfer": "Submit a bank transfer",
-    "quickReports": "Usage report",
-    "quickProfile": "Billing profile",
-    "quickDocuments": "Financial documents",
-    "topProviders": "Top providers by cost",
-    "topProvidersDescription": "Based on final cost for the current period",
-    "unknownProvider": "Unknown",
-    "requestCount": "{count} requests",
-    "noUsage": "No usage data for this period."
   },
   "bankTransfer": {
     "title": "Bank transfer",
@@ -100,7 +60,8 @@
       "pickReceipt": "Choose a receipt image",
       "receiptHint": "One image in JPG, PNG, WEBP, or GIF format, 2 MB at most.",
       "submitting": "Submitting...",
-      "submit": "Submit for review"
+      "submit": "Submit for review",
+      "packAmountHint": "The pack order's total; transfer exactly this amount."
     },
     "list": {
       "title": "Submitted transfers",
@@ -117,54 +78,6 @@
       "copy": "Copy",
       "copying": "Copying",
       "copied": "Copied"
-    }
-  },
-  "reports": {
-    "title": "Financial reports",
-    "description": "Review usage, cost, discounts, and cache savings per provider.",
-    "summaryError": "Could not load the summary report.",
-    "monthlyError": "Could not load the monthly report.",
-    "invalidMonth": "The report month must be a valid Jalali month.",
-    "columns": {
-      "provider": "Provider",
-      "requests": "Requests",
-      "inputTokens": "Input tokens",
-      "outputTokens": "Output tokens",
-      "rawCost": "Raw cost",
-      "discount": "Discount",
-      "cacheSavings": "Cache savings",
-      "finalCost": "Final cost"
-    },
-    "metrics": {
-      "periodUsage": "Period usage",
-      "discount": "Discount",
-      "cacheSavings": "Cache savings",
-      "giftCredit": "Gift credit"
-    },
-    "filter": {
-      "title": "Report filter",
-      "description": "View usage over a preset range or broken down by month.",
-      "range": "Range",
-      "monthly": "Monthly filter",
-      "refreshing": "Loading...",
-      "refresh": "Refresh"
-    },
-    "presets": {
-      "current_month": "This month",
-      "current_quarter": "This quarter",
-      "current_year": "This year",
-      "last_3_months": "Last 3 months",
-      "last_6_months": "Last 6 months",
-      "last_12_months": "Last 12 months"
-    },
-    "monthlyDetail": {
-      "title": "Monthly detail",
-      "description": "Usage, tokens, and final cost per provider for {month}",
-      "empty": "No data for this month."
-    },
-    "providerShare": {
-      "title": "Provider share",
-      "description": "Based on final cost"
     }
   },
   "profile": {
@@ -199,52 +112,169 @@
     "saving": "Saving...",
     "save": "Save profile"
   },
-  "documents": {
-    "title": "Financial documents",
-    "description": "Invoices, wallet transactions, and workspace discounts.",
-    "exportCSV": "Export CSV",
-    "tabs": {
-      "invoices": "Invoices",
-      "transactions": "Transactions",
-      "discounts": "Discounts"
+  "credits": {
+    "unit": "credits",
+    "overview": {
+      "available": "Available credits",
+      "availableDescription": "{count, plural, one {In # active lot} other {In # active lots}}",
+      "consumed": "Used this month",
+      "requestCount": "{count, plural, one {# request} other {# requests}}",
+      "cacheSaved": "Saved by cache",
+      "cacheSavedGross": "Net of the semantic cache charge; gross {amount}",
+      "unavailable": "Unavailable",
+      "debtTitle": "Credit debt",
+      "debtDescription": "You owe {amount}. It is repaid from your next credits, from a pack or the plan's next grant.",
+      "loadError": "The credit balance could not be loaded. Reload the page."
     },
-    "invoices": {
-      "number": "Number",
-      "status": "Status",
-      "periodEnd": "Period end",
-      "finalAmount": "Final amount (IRR)",
-      "netAdjustment": "Adjustment (IRR)",
-      "empty": "No invoice has been issued yet."
+    "forecast": {
+      "title": "Credits run out",
+      "days": "{days, plural, one {In about # day} other {In about # days}}",
+      "today": "Today",
+      "noUsage": "No estimate",
+      "noUsageDescription": "No usage in the last {days, number} days.",
+      "basis": "At {amount} a day over the last {days, number} days",
+      "uncertain": "Little data",
+      "expiryDescription": "Your credits expire then, before they would be spent."
     },
-    "transactions": {
-      "type": "Type",
-      "status": "Status",
-      "amount": "Amount (IRR)",
-      "balanceAfter": "Balance after (IRR)",
-      "createdAt": "Time",
-      "empty": "No transaction has been recorded yet."
+    "lots": {
+      "title": "Credit lots",
+      "description": "Credits are spent from the lot that expires first.",
+      "columns": {
+        "source": "Source",
+        "remaining": "Remaining",
+        "amount": "Granted",
+        "expires": "Expires"
+      },
+      "noExpiry": "Never",
+      "empty": "You have no spendable credit lots.",
+      "sources": {
+        "plan": "Monthly plan grant",
+        "trial": "Trial credits",
+        "promo": "Promotional credits",
+        "purchase_addon": "Purchased pack",
+        "migration": "Converted wallet",
+        "compensation": "Compensation",
+        "adjust": "Support adjustment",
+        "overage": "Overage",
+        "other": "Other"
+      }
     },
-    "discounts": {
-      "code": "Code",
-      "type": "Type",
-      "status": "Status",
-      "usedAmount": "Used (IRR)",
-      "createdAt": "Submitted",
-      "empty": "No discount has been used yet."
+    "usage": {
+      "title": "Credit usage",
+      "description": "Usage by model, team, user, and product. Each view lists the top 10.",
+      "unavailable": "The usage report is unavailable right now.",
+      "preset": "Report period",
+      "presets": {
+        "current_month": "This month",
+        "last_3_months": "Last 3 months",
+        "last_6_months": "Last 6 months",
+        "last_12_months": "Last 12 months",
+        "current_year": "This year"
+      },
+      "tabs": {
+        "model": "Model",
+        "team": "Team",
+        "user": "User",
+        "product": "Product"
+      },
+      "columns": {
+        "model": "Model",
+        "team": "Team",
+        "user": "User",
+        "product": "Product",
+        "credits": "Credits",
+        "share": "Share",
+        "requests": "Requests"
+      },
+      "noTeam": "No team",
+      "noUser": "No user",
+      "products": {
+        "gateway": "API gateway",
+        "librechat": "Chat",
+        "guardrail": "Guardrails",
+        "semantic_cache": "Semantic cache",
+        "embeddings": "Embeddings",
+        "ocr": "OCR",
+        "playground": "Playground",
+        "oidc_app": "OIDC app",
+        "other": "Other"
+      },
+      "emptyTitle": "No usage yet",
+      "emptyDescription": "Once a request is sent in this period, its credits appear here.",
+      "emptyGroup": "No data in this period.",
+      "loadError": "The usage report could not be loaded.",
+      "changelog": "Credit price and rate-card changelog"
+    },
+    "packs": {
+      "title": "Buy credits",
+      "description": "Buy credit packs so requests keep working after the plan's monthly quota.",
+      "validity": "Valid for {months, number} months",
+      "discount": "{percent}% off",
+      "price": "Price",
+      "tax": "Tax ({percent}%)",
+      "payable": "Total",
+      "payOnline": "Pay online",
+      "payByTransfer": "Bank transfer",
+      "readOnly": "Buying credits needs billing management access.",
+      "emptyTitle": "No packs on sale",
+      "emptyDescription": "No credit pack is published right now.",
+      "noPaymentURL": "The payment gateway returned no payment page. Try again.",
+      "loadError": "The pack list could not be loaded."
+    },
+    "orders": {
+      "title": "Credit orders",
+      "description": "Your last 20 orders. Bank-transfer orders complete once the receipt is reviewed.",
+      "columns": {
+        "credits": "Credits",
+        "payable": "Amount",
+        "method": "Payment",
+        "status": "Status",
+        "createdAt": "Created",
+        "actions": "Actions"
+      },
+      "methods": {
+        "online": "Online",
+        "bankTransfer": "Bank transfer"
+      },
+      "statuses": {
+        "PENDING": "Awaiting payment",
+        "AWAITING_TRANSFER": "Awaiting transfer",
+        "COMPLETED": "Completed",
+        "FAILED": "Failed",
+        "CANCELED": "Canceled",
+        "other": "Unknown"
+      },
+      "submitReceipt": "Submit receipt",
+      "empty": "You have not ordered any credits yet."
+    },
+    "transfer": {
+      "title": "Bank transfer for {credits}",
+      "description": "Transfer exactly {amount} and submit the receipt. The credits are added once it is approved.",
+      "close": "Close"
+    },
+    "payment": {
+      "successTitle": "Payment succeeded",
+      "successDescription": "The pack's credits were added to your balance.",
+      "failedTitle": "Payment did not go through",
+      "failedDescription": "Nothing was charged, or the bank refunds any charge. Try again."
+    },
+    "settings": {
+      "title": "Overage",
+      "buyPacks": "Buy credit packs",
+      "overageDescription": "When workspace credits run out, requests keep running up to the overage cap. That usage becomes debt and is repaid from your next credits.",
+      "cap": "Overage cap",
+      "enabled": "Enabled",
+      "disabled": "Off",
+      "disabledDescription": "When workspace credits run out, requests are rejected until you buy a credit pack or the next period's credits arrive.",
+      "noCap": "No cap",
+      "managedBySupport": "Only GodarAI support can turn overage on or change its cap.",
+      "contactSupport": "Contact support"
     }
   },
-  "credits": {
-    "title": "Usage in credits (preview)",
-    "description": "What this month's usage would have been if billing were in credits. These figures are for comparison only and are not deducted from the wallet.",
-    "badge": "Shadow mode",
-    "unit": "credits",
-    "total": "Credits used this month",
-    "cacheSaved": "Credits saved by cache",
-    "byModel": "Top models",
-    "byTeam": "Top teams",
-    "noTeam": "No team",
-    "emptyTitle": "No usage yet",
-    "emptyDescription": "Once a request is sent this month, its credit equivalent appears here.",
-    "requestCount": "{count} requests"
+  "overview": {
+    "title": "Billing and credits",
+    "description": "The workspace's credit balance, usage, depletion forecast, and credit lots.",
+    "buyCredits": "Buy credits",
+    "plan": "Plan and overage"
   }
 }

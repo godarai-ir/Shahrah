@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDocsBaseHref } from "./docs-href";
+import { buildApexHref, buildDocsBaseHref } from "./docs-href";
 
 describe("buildDocsBaseHref", () => {
   it("strips the tenant label from the forwarded host", () => {
@@ -16,5 +16,14 @@ describe("buildDocsBaseHref", () => {
 
   it("falls back to a relative path without a host", () => {
     expect(buildDocsBaseHref(new Headers(), "acme")).toBe("/docs");
+  });
+});
+
+describe("buildApexHref", () => {
+  it("links the public pricing changelog on the apex host", () => {
+    const headers = new Headers({ "x-forwarded-host": "acme.godarai.ir" });
+
+    expect(buildApexHref(headers, "acme", "/pricing/changelog")).toBe("https://godarai.ir/pricing/changelog");
+    expect(buildApexHref(new Headers(), "acme", "/pricing/changelog")).toBe("/pricing/changelog");
   });
 });

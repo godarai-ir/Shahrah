@@ -6,7 +6,6 @@
     "externalAuth": "External Auth",
     "personalAccessTokens": "Personal Access Tokens",
     "virtualAccounts": "Virtual Accounts",
-    "orgUnits": "Organization Units",
     "roles": "Roles",
     "auditLogs": "Audit Logs",
     "apiKeys": "API keys",
@@ -23,12 +22,12 @@
     "unlimitedTooltip": "No user-count limit is defined for your current plan.",
     "emptyDescription": "Invite the first user to start collaborating in this workspace.",
     "upgradeDialog": {
-      "title": "Your plan's user limit has been reached",
-      "description": "Your current plan supports up to {limit} users. Upgrade your commercial plan to invite another user.",
+      "title": "Every member place is taken",
+      "description": "Your organization has {limit} member places: 5 free seats plus one for every paid seat. Buy a paid seat to invite another member.",
       "cancel": "Not now",
-      "action": "Upgrade or buy a plan"
+      "action": "Buy seats"
     },
-    "headerUsage": "{used} of {limit} members"
+    "headerUsage": "{used} of {limit} seats (active members and pending invitations)"
   },
   "inviteUser": "Invite User",
   "inviteTitle": "Invite User",
@@ -36,19 +35,28 @@
   "form": {
     "email": "Email",
     "emailPlaceholder": "user@company.com",
-    "role": "Role"
+    "role": "Role",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "seat": "Seat",
+    "seatHint": "By default the free seat while one is left. A paid seat is taken from the organization's stock.",
+    "seatOptions": {
+      "auto": "Automatic (free if available)",
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "unassigned": "No seat"
+    }
   },
   "roles": {
-    "billingManager": "Billing Manager",
     "member": "Member",
-    "orgAdmin": "Organization Admin",
-    "readOnlyMember": "Read-only member",
-    "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
   },
   "button": {
     "createInvite": "Send invitation",
-    "inviting": "Sending..."
+    "inviting": "Sending...",
+    "saveName": "Save name",
+    "savingName": "Saving..."
   },
   "table": {
     "loading": "Loading users...",
@@ -61,7 +69,10 @@
     "status": "STATUS",
     "lastActivity": "LAST ACTIVITY",
     "neverActive": "Never",
-    "moreRoles": "+{count}"
+    "moreRoles": "+{count}",
+    "seat": "SEAT",
+    "personalCredits": "CREDITS",
+    "poolUsage": "ORGANIZATION POOL USAGE"
   },
   "status": {
     "deactivated": "Deactivated",
@@ -107,7 +118,10 @@
     "roleCreated": "Role created successfully.",
     "roleCreateError": "Failed to create role.",
     "roleUpdated": "Role updated successfully.",
-    "roleUpdateError": "Failed to update role."
+    "roleUpdateError": "Failed to update role.",
+    "nameUpdated": "User name updated.",
+    "nameUpdateError": "Failed to update the user name.",
+    "planUserLimitReached": "Every member place is taken. Buy a paid seat, or remove a member or pending invitation, to add someone."
   },
   "rolesPage": {
     "createTitle": "Create Custom Role",
@@ -195,7 +209,6 @@
     "roles": "Roles",
     "users": "Users",
     "teams": "Teams",
-    "organization_units": "Organization units",
     "virtual_accounts": "Virtual accounts",
     "provider_accounts": "Provider accounts",
     "settings": "Settings",
@@ -209,13 +222,11 @@
     "role": "roles",
     "user": "users",
     "team": "teams",
-    "org_unit": "organization units",
     "virtual_account": "virtual accounts",
     "provider_account": "provider accounts",
     "settings": "settings",
     "logs": "request logs",
-    "billing": "billing",
-    "support_ticket": "Support ticket"
+    "billing": "billing"
   },
   "permissionActions": {
     "list": "List",
@@ -223,11 +234,8 @@
     "create": "Create",
     "manage": "Manage",
     "delete": "Delete",
-    "export": "Export",
-    "manage_views": "Manage saved views of",
     "read_content": "View the content of",
     "read_metadata": "View the metadata of",
-    "replay": "Replay",
     "codes_redeem": "Redeem discount codes in",
     "documents_read": "View documents in",
     "profile_manage": "Manage the profile in",
@@ -244,9 +252,9 @@
     "skipped": "{count, plural, one {# user was skipped (self or no email)} other {# users were skipped (self or no email)}}."
   },
   "filters": {
-    "role": "Role",
     "status": "Status",
-    "allRoles": "All roles",
+    "seat": "Seat",
+    "allSeats": "All seats",
     "allStatuses": "All statuses"
   },
   "member": {
@@ -259,7 +267,8 @@
     "lastKeyUse": "Last key use",
     "keysUnavailable": "You do not have access to view keys.",
     "editRole": "Edit role",
-    "viewProfile": "Member profile"
+    "viewProfile": "Member profile",
+    "nameSection": "First and last name"
   },
   "perms": {
     "ops": {
@@ -299,5 +308,34 @@
       "blocked": "Blocked"
     },
     "ownDescription": "Your personal keys."
+  },
+  "seat": {
+    "pending": "From {date}: {seat}",
+    "remainingOf": "{remaining} / {granted}",
+    "poolOfLimit": "{used} of {limit}",
+    "changeSeat": "Change seat",
+    "cancelPending": "Cancel scheduled change",
+    "pendingCanceled": "The member keeps their current seat.",
+    "change": {
+      "title": "Change seat for {member}",
+      "current": "Current seat: {seat}",
+      "target": "New seat",
+      "apply": "Apply",
+      "schedule": "Schedule for period end",
+      "saved": "Seat updated.",
+      "whenNow": "Applies now",
+      "whenPeriodEnd": "Applies at the end of the period",
+      "nowHint": "The change applies right away.",
+      "paidSeatHint": "One available seat is taken from the organization's stock and the member gets this month's full quota now.",
+      "periodEndHint": "The member keeps their current seat until {date}, then the new seat applies. You can cancel the change until then.",
+      "blocked": {
+        "same": "The member already has this seat.",
+        "back_to_free": "A paid seat cannot go back to free.",
+        "free_used": "This member already used their free seat. Each member gets the free seat once."
+      },
+      "noStockTitle": "No seat of this type is available",
+      "noStockDescription": "Buy a seat and it goes to this member once paid.",
+      "buyAndAssign": "Buy and assign"
+    }
   }
 }

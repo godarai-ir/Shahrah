@@ -1,7 +1,7 @@
 {
   "eyebrow": "Billing",
-  "title": "Plan Features and Limits",
-  "subtitle": "Review the current plan features and effective limits for this workspace.",
+  "title": "Subscription",
+  "subtitle": "Your seat subscription and what happens when workspace credits run out.",
   "badges": {
     "current": "Current plan",
     "override": "Custom override"
@@ -47,12 +47,18 @@
     "authVatEnabled": "Virtual access token",
     "rbacEnabled": "Role-based access control",
     "ssoEnabled": "Single sign-on",
-    "orgUnitsEnabled": "Organization unit management",
     "adminAuditEnabled": "Administrative audit log",
     "deploymentSaasEnabled": "Cloud deployment",
     "deploymentVpcEnabled": "On-premise or private cloud deployment",
     "supportTier": "Support type",
-    "supportSla": "Service-level agreement"
+    "supportSla": "Service-level agreement",
+    "creditsMonthlyGrant": "Monthly credits",
+    "creditsTrialGrant": "Trial credits",
+    "creditsTrialDays": "Trial length",
+    "creditsOverageAllowed": "Overage",
+    "creditsRolloverAllowed": "Credit rollover",
+    "creditsBonusPercent": "Bonus credits",
+    "creditsByokFeePercent": "BYOK fee"
   },
   "values": {
     "enabled": "Available",
@@ -62,7 +68,9 @@
     "custom": "Custom agreement",
     "unlimited": "Unlimited",
     "days": "{count} days",
-    "noSla": "No SLA"
+    "noSla": "No SLA",
+    "credits": "{count} credits",
+    "percent": "{value}%"
   },
   "support": {
     "chatbot": "Chatbot",
@@ -78,5 +86,25 @@
     "loadSubscription": "Failed to load subscription.",
     "loadEntitlements": "Failed to load plan limits and access.",
     "loadPage": "Failed to load plan page data."
+  },
+  "subscription": {
+    "title": "Your subscription",
+    "free": "Free plan",
+    "seats": "Seat subscription",
+    "interval": "Billing interval",
+    "periodEnd": "Period ends",
+    "paidSeats": "Paid seats",
+    "paidSeatsValue": "{pro, number} Pro · {max, number} Max",
+    "freeSeats": "Free seats",
+    "freeSeatsValue": "{used, number} of {total, number}",
+    "noRenewal": "Nothing renews automatically. Renew paid seats on the Renew seats page during the last 7 days of the period; otherwise only the paid seats stop.",
+    "startHint": "Buying the first Pro or Max seat starts a seat subscription, and you choose monthly or yearly billing there.",
+    "renewalDue": "Seat renewal is open. Renew by {date} to keep your paid seats.",
+    "manageSeats": "Manage seats",
+    "loadError": "The subscription could not be loaded.",
+    "freeDescription": "Up to 5 members use every feature with free seats.",
+    "seatsDescription": "Every feature is included. You pay only for Pro and Max seats.",
+    "buySeats": "Buy seats",
+    "renewSeats": "Renew seats"
   }
 }

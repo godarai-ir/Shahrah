@@ -111,6 +111,8 @@ async function proxyControlPlanePlatform(
 
 function controlPlanePermission(path: string[], method: string): AdminPermission {
   const joined = path.join('/');
+  const credit = creditPermission(joined, method);
+  if (credit) return credit;
   if (joined.startsWith('support/ticket-attachments')) return 'support_ticket:read';
   if (joined.startsWith('support/tickets')) {
     if (method === 'GET') {
@@ -129,6 +131,10 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
     if (joined.includes('/disable') || joined.includes('/revoke')) return 'platform_credentials:disable';
     return 'platform_credentials:create_version';
   }
+  // Reviewing a bank transfer moves money, so approve/reject are granted like a wallet adjustment.
+  if (joined === 'bank-transfers' || joined.includes('/wallet/bank-transfer')) {
+    return method === 'GET' ? 'wallet:read' : 'wallet:adjust';
+  }
   if (joined.startsWith('tenants/')) {
     if (method === 'GET') {
       if (joined.includes('/wallet')) return 'wallet:read';
@@ -142,10 +148,29 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
   }
   if (joined === 'tenants' && method === 'GET') return 'tenant:read';
   if (joined === 'tenant-subscriptions') return 'subscription:write';
-	if (joined === 'commercial-signup-settings') return method === 'GET' ? 'catalog:read' : 'platform:admin';
   if (method === 'GET') return 'catalog:read';
   if (joined.startsWith('commercial-plans') || joined.startsWith('features') || joined.startsWith('tenant-entitlement-overrides')) return 'catalog:write';
   return 'platform:admin';
+}
+
+// Credit billing: reads need billing or wallet read, corrections need wallet
+// adjust, catalog changes need catalog write, and the list price and the fleet
+// conversion, which change what every tenant pays, need platform admin.
+function creditPermission(joined: string, method: string): AdminPermission | undefined {
+  if (joined.startsWith('tenants/') && joined.includes('/credits')) {
+    if (method === 'GET') return 'wallet:read';
+    if (joined.endsWith('/credits/adjustments')) return 'wallet:adjust';
+    // Overage lets a tenant run into debt, so it is granted like credit itself.
+    if (joined.endsWith('/credits/overage')) return 'wallet:adjust';
+    return 'platform:admin';
+  }
+  // Seat types set what members get and pay, like the pack catalog.
+  if (joined.startsWith('seat-types')) return method === 'GET' ? 'catalog:read' : 'catalog:write';
+  if (!joined.startsWith('credits/')) return undefined;
+  if (method === 'GET') return 'billing:read';
+  if (joined.startsWith('credits/conversions')) return 'platform:admin';
+  if (joined.startsWith('credits/price-revisions')) return 'platform:admin';
+  return 'catalog:write';
 }
 
 function ensureTrailingSlash(value: string): string {

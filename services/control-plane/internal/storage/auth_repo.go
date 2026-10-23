@@ -27,7 +27,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 	err := s.pool.QueryRow(ctx, `
 		SELECT vt.id::text,
 		       vt.tenant_id::text,
-		       COALESCE(vt.organization_id::text, ''),
 		       COALESCE(vt.team_id::text, ''),
 		       COALESCE(vt.user_id::text, ''),
 		       COALESCE(vt.virtual_user_id::text, ''),
@@ -51,7 +50,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 	`, hash).Scan(
 		&auth.KeyID,
 		&auth.TenantID,
-		&auth.OrganizationID,
 		&auth.TeamID,
 		&auth.UserID,
 		&auth.VirtualUserID,
@@ -73,7 +71,6 @@ func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platfo
 		auth.KeyType = deriveKeyType(auth.TeamID)
 	}
 
-	auth.OrgUnitID = auth.OrganizationID
 	auth.ExpiresAt = expiresAt
 	auth.VirtualModelSnapshots = parseVirtualModelSnapshots(rawMetadata)
 
@@ -225,43 +222,6 @@ func (s *AuthRepository) listRuntimeAllowedModelsByProviderAccount(ctx context.C
 				)
 			)
 			OR (ac.principal_type = 'user' AND ac.principal_id = NULLIF($3, ''))
-			OR (
-				ac.principal_type = 'org_unit'
-				AND ac.principal_id IS NOT NULL
-				AND (
-					(
-						NULLIF($3, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM organization_memberships om
-							WHERE om.tenant_id = $1::uuid
-							  AND om.organization_id::text = ac.principal_id::text
-							  AND om.user_id::text = NULLIF($3, '')
-						)
-					)
-					OR (
-						NULLIF($3, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM team_memberships tm
-							JOIN teams t ON t.team_id = tm.team_id
-							WHERE tm.tenant_id = $1::uuid
-							  AND tm.user_id::text = NULLIF($3, '')
-							  AND t.org_unit_id::text = ac.principal_id::text
-						)
-					)
-					OR (
-						NULLIF($2, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM teams t
-							WHERE t.tenant_id = $1::uuid
-							  AND t.team_id::text = NULLIF($2, '')
-							  AND t.org_unit_id::text = ac.principal_id::text
-						)
-					)
-				)
-			)
 		  )
 	`, tenantID, teamID, userID)
 	if err != nil {
@@ -410,14 +370,12 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 	params.Normalize()
 
 	if params.KeyType == platform.KeyTypeVAT && params.VirtualUserID != "" {
-		teamID, orgID, err := s.resolveVATVirtualUserScope(ctx, params.TenantID, params.VirtualUserID, params.TeamID, params.OrgID)
+		teamID, err := s.resolveVATVirtualUserScope(ctx, params.TenantID, params.VirtualUserID, params.TeamID)
 		if err != nil {
 			return nil, err
 		}
 
 		params.TeamID = teamID
-		params.OrgID = orgID
-		params.OrgUnitID = orgID
 	}
 
 	rawKey := "sk-" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -450,22 +408,22 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO verification_tokens (
-			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id, user_id,
+			id, tenant_id, token_hash, key_alias, key_name, models, team_id, user_id,
 			virtual_user_id, expires, spend, blocked, key_type, created_by_user_id, metadata, created_at, updated_at
 		)
 		VALUES (
-			$1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid, NULLIF($8, '')::uuid,
+			$1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid,
 			CASE
-				WHEN NULLIF($9, '') IS NULL THEN NULL
-				WHEN $9 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-					AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = $9::uuid)
-				THEN $9::uuid
+				WHEN NULLIF($8, '') IS NULL THEN NULL
+				WHEN $8 ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+					AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = $8::uuid)
+				THEN $8::uuid
 				ELSE NULL
 			END,
-			NULLIF($10, '')::uuid, $11, 0, false, $12, NULLIF($13, ''), $14, $15, $15
+			NULLIF($9, '')::uuid, $10, 0, false, $11, NULLIF($12, ''), $13, $14, $14
 		)
 	`, keyID, params.TenantID, tokenHash, params.KeyAlias, masked, params.Models,
-		params.TeamID, params.OrgID, params.UserID, params.VirtualUserID, expiresAt, params.KeyType, params.UserID, rawMetadata, now)
+		params.TeamID, params.UserID, params.VirtualUserID, expiresAt, params.KeyType, params.UserID, rawMetadata, now)
 	if err != nil {
 		return nil, err
 	}
@@ -483,8 +441,6 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 		Models:          params.Models,
 		AllowedModels:   append([]string(nil), params.Models...),
 		TeamID:          params.TeamID,
-		OrgID:           params.OrgID,
-		OrgUnitID:       params.OrgUnitID,
 		UserID:          params.UserID,
 		VirtualUserID:   params.VirtualUserID,
 		CreatedAt:       &now,
@@ -497,7 +453,7 @@ func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKe
 func (s *AuthRepository) ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(virtual_user_id::text, ''),
 		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, CASE WHEN team_id IS NULL THEN 'pat' ELSE 'vat' END),
@@ -519,7 +475,7 @@ func (s *AuthRepository) ListKeys(ctx context.Context, tenantID string) ([]platf
 			models []string
 		)
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-			&item.TeamID, &item.OrgID, &item.VirtualUserID,
+			&item.TeamID, &item.VirtualUserID,
 			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.KeyType,
 			&item.CreatedByUserID, &item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, err
@@ -533,7 +489,6 @@ func (s *AuthRepository) ListKeys(ctx context.Context, tenantID string) ([]platf
 			item.KeyType = deriveKeyType(item.TeamID)
 		}
 
-		item.OrgUnitID = item.OrgID
 		keys = append(keys, item)
 	}
 
@@ -602,7 +557,7 @@ func (s *AuthRepository) ListPATs(ctx context.Context, tenantID string, userID s
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(spend, 0), COALESCE(blocked, false), COALESCE(expires, NULL), token_hash,
 		       COALESCE(created_by_user_id, ''), COALESCE(created_at, NULL), COALESCE(last_used_at, NULL), COALESCE(revoked_at, NULL)
 		FROM verification_tokens
@@ -627,7 +582,7 @@ func (s *AuthRepository) ListPATs(ctx context.Context, tenantID string, userID s
 			models []string
 		)
 		if err := rows.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-			&item.TeamID, &item.OrgID,
+			&item.TeamID,
 			&item.Spend, &item.Blocked, &item.ExpiresAt, &item.TokenHash, &item.CreatedByUserID,
 			&item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 			return nil, 0, err
@@ -637,7 +592,6 @@ func (s *AuthRepository) ListPATs(ctx context.Context, tenantID string, userID s
 		item.AllowedModels = append([]string(nil), models...)
 		item.Role = platform.LegacyKeyRoleVirtualKey
 		item.KeyType = platform.KeyTypePAT
-		item.OrgUnitID = item.OrgID
 		items = append(items, item)
 	}
 
@@ -726,7 +680,7 @@ func (s *AuthRepository) ListVATTokens(ctx context.Context, tenantID string, vir
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
 		       COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
@@ -810,7 +764,7 @@ func (s *AuthRepository) UpdateVATToken(ctx context.Context, tenantID string, vi
 		  AND virtual_user_id = $3::uuid
 		  AND key_type = 'vat'
 		RETURNING id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
 		       COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
@@ -865,11 +819,11 @@ func (s *AuthRepository) RotateVATToken(ctx context.Context, tenantID string, vi
 	now := time.Now().UTC()
 	row := s.pool.QueryRow(ctx, `
 		INSERT INTO verification_tokens (
-			id, tenant_id, token_hash, key_alias, key_name, models, team_id, organization_id,
+			id, tenant_id, token_hash, key_alias, key_name, models, team_id,
 			virtual_user_id, expires, spend, blocked, key_type, created_by_user_id,
 			metadata, rotated_from_token_id, created_at, updated_at
 		)
-		SELECT $1, tenant_id, $2, key_alias, $3, models, team_id, organization_id,
+		SELECT $1, tenant_id, $2, key_alias, $3, models, team_id,
 		       virtual_user_id, expires, 0, false, 'vat', NULLIF($4, ''),
 		       COALESCE(metadata, '{}'::jsonb), id, $5, $5
 		FROM verification_tokens
@@ -878,7 +832,7 @@ func (s *AuthRepository) RotateVATToken(ctx context.Context, tenantID string, vi
 		  AND virtual_user_id = $8::uuid
 		  AND key_type = 'vat'
 		RETURNING id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
 		       COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
@@ -931,7 +885,7 @@ func (s *AuthRepository) RotateVATToken(ctx context.Context, tenantID string, vi
 func (s *AuthRepository) getVATToken(ctx context.Context, tenantID, virtualUserID, keyID string) (*platform.CreatedKey, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
-		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
+		       COALESCE(models, '{}'), COALESCE(team_id::text, ''),
 		       COALESCE(virtual_user_id::text, ''), COALESCE(spend, 0), COALESCE(blocked, false),
 		       COALESCE(expires, NULL), token_hash,
 		       COALESCE(key_type, 'vat'), COALESCE(created_by_user_id, ''),
@@ -956,7 +910,7 @@ func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
 		models []string
 	)
 	if err := scanner.Scan(&item.ID, &item.KeyAlias, &item.MaskedKey, &item.TenantID, &models,
-		&item.TeamID, &item.OrgID, &item.VirtualUserID, &item.Spend, &item.Blocked,
+		&item.TeamID, &item.VirtualUserID, &item.Spend, &item.Blocked,
 		&item.ExpiresAt, &item.TokenHash, &item.KeyType, &item.CreatedByUserID,
 		&item.CreatedAt, &item.LastUsedAt, &item.RevokedAt); err != nil {
 		return nil, err
@@ -970,54 +924,42 @@ func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
 		item.KeyType = deriveKeyType(item.TeamID)
 	}
 
-	item.OrgUnitID = item.OrgID
-
 	return &item, nil
 }
 
-func (s *AuthRepository) resolveVATVirtualUserScope(ctx context.Context, tenantID, virtualUserID, requestedTeamID, requestedOrgID string) (string, string, error) {
+func (s *AuthRepository) resolveVATVirtualUserScope(ctx context.Context, tenantID, virtualUserID, requestedTeamID string) (string, error) {
 	if _, err := uuid.Parse(strings.TrimSpace(virtualUserID)); err != nil {
-		return "", "", fmt.Errorf("virtual_user_id must be a UUID")
+		return "", fmt.Errorf("virtual_user_id must be a UUID")
 	}
 
 	var (
 		teamID string
-		orgID  string
 		active bool
 	)
 	if err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), COALESCE(active, true)
+		SELECT COALESCE(team_id::text, ''), COALESCE(active, true)
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid
 		  AND virtual_user_id = $2::uuid
-	`, strings.TrimSpace(tenantID), strings.TrimSpace(virtualUserID)).Scan(&teamID, &orgID, &active); err != nil {
-		return "", "", err
+	`, strings.TrimSpace(tenantID), strings.TrimSpace(virtualUserID)).Scan(&teamID, &active); err != nil {
+		return "", err
 	}
 
 	if !active {
-		return "", "", fmt.Errorf("virtual user is inactive")
+		return "", fmt.Errorf("virtual user is inactive")
 	}
 
 	requestedTeamID = strings.TrimSpace(requestedTeamID)
-	requestedOrgID = strings.TrimSpace(requestedOrgID)
 
 	if teamID != "" && requestedTeamID != "" && requestedTeamID != teamID {
-		return "", "", fmt.Errorf("team_id does not match virtual user scope")
-	}
-
-	if orgID != "" && requestedOrgID != "" && requestedOrgID != orgID {
-		return "", "", fmt.Errorf("org_unit_id does not match virtual user scope")
+		return "", fmt.Errorf("team_id does not match virtual user scope")
 	}
 
 	if requestedTeamID != "" {
 		teamID = requestedTeamID
 	}
 
-	if requestedOrgID != "" {
-		orgID = requestedOrgID
-	}
-
-	return teamID, orgID, nil
+	return teamID, nil
 }
 
 func deriveKeyRole(teamID string) string {

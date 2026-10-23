@@ -40,7 +40,7 @@ func newRerankTestApp(t *testing.T, modelName string, provider string, deploymen
 		logs = &testLogs{}
 	}
 
-	h := NewRerankHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewRerankHandler(rt, tunnel, &testBudgeter{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -51,7 +51,7 @@ func newRerankTestApp(t *testing.T, modelName string, provider string, deploymen
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 			AllowedModelTypes: map[string][]string{
 				modelName: {"rerank"},

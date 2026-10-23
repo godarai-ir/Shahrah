@@ -113,7 +113,6 @@ type BaseHandlerDependencies struct {
 	RawTunnel                 platform.TunnelRawTransport
 	Billing                   budgeter
 	BillingCapabilities       BillingCapabilities
-	Wallets                   walletStore
 	AnthropicRuntimeProfiles  anthropicModelRuntimeProfileResolver
 	ProviderResources         providerNativeResourceStore
 	AnthropicResources        anthropicNativeResourceStore
@@ -135,19 +134,12 @@ type BaseHandlerDependencies struct {
 // ProviderFeatureConfig is an immutable provider endpoint rollout snapshot.
 type ProviderFeatureConfig struct {
 	Configured                   bool
-	MistralEnabled               bool
-	MistralEndpoints             map[string]bool
 	MistralFilesEnabled          bool
 	MistralBatchEnabled          bool
 	MistralAgentsEnabled         bool
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
-	AnthropicNativeEnabled       bool
-	AnthropicFilesEnabled        bool
-	AnthropicBatchesEnabled      bool
 	AnthropicAccountIDs          []string
-	ZAIEnabled                   bool
-	ZAILayoutParsingEnabled      bool
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.
@@ -212,7 +204,6 @@ func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
 		d.RawTunnel,
 		d.Billing,
 		d.BillingCapabilities,
-		d.Wallets,
 		d.Logger,
 		d.PipelineConfig,
 	)

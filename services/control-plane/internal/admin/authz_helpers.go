@@ -47,58 +47,13 @@ func requireBillingCodesRedeem(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "billing code redemption permission required", []string{"billing:codes_redeem", "billing:manage", "settings:manage"})
 }
 
-func requireTeamAdminOrHigher(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return fiber.NewError(fiber.StatusForbidden, "team admin privileges required")
-}
-
 func delegatedUserID(c *fiber.Ctx) string {
 	return apiheaders.GetUserID(c)
 }
 
-func requireOrgUnitCreate(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit create permission required", []string{"org_unit:create", "org_unit:manage"})
-}
-
-func requireOrgUnitRead(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit read permission required", []string{"org_unit:list", "org_unit:read", "org_unit:manage"})
-}
-
-func requireOrgUnitManage(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit manage permission required", []string{"org_unit:manage"})
-}
-
-func requireOrgUnitDelete(c *fiber.Ctx) error {
-	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
-		return nil
-	}
-
-	return requirePermissionAnyOrTenantAdmin(c, "org unit delete permission required", []string{"org_unit:delete", "org_unit:manage"})
-}
-
 func requireTeamRead(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -107,7 +62,7 @@ func requireTeamRead(c *fiber.Ctx) error {
 
 func requireTeamCreate(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -116,7 +71,7 @@ func requireTeamCreate(c *fiber.Ctx) error {
 
 func requireTeamManage(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -125,7 +80,7 @@ func requireTeamManage(c *fiber.Ctx) error {
 
 func requireTeamDelete(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsOrgAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -146,18 +101,6 @@ func requireLogsMetadataRead(c *fiber.Ctx) error {
 
 func requireLogsContentRead(c *fiber.Ctx) error {
 	return requirePermissionAnyOrTenantAdmin(c, "logs content permission required", []string{"logs:read_content"})
-}
-
-func requireLogsExport(c *fiber.Ctx) error {
-	return requirePermissionAnyOrTenantAdmin(c, "logs export permission required", []string{"logs:export"})
-}
-
-func requireLogsManageViews(c *fiber.Ctx) error {
-	return requirePermissionAnyOrTenantAdmin(c, "logs saved view permission required", []string{"logs:manage_views"})
-}
-
-func requireLogsReplay(c *fiber.Ctx) error {
-	return requirePermissionAnyOrTenantAdmin(c, "logs replay permission required", []string{"logs:replay"})
 }
 
 func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions []string) error {
@@ -186,7 +129,7 @@ func requirePermissionAnyOrTenantAdmin(c *fiber.Ctx, errMsg string, permissions 
 
 func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
 	authInfo := auth.GetAuthInfo(c)
-	if auth.IsTeamAdminOrHigher(authInfo) {
+	if auth.IsTenantAdminOrHigher(authInfo) {
 		return nil
 	}
 
@@ -211,10 +154,6 @@ func requireAccessPrincipalSearchPermission(c *fiber.Ctx, kind string) error {
 		}
 	case "team":
 		if has("team:read") || has("team:manage") {
-			return nil
-		}
-	case "org_unit":
-		if has("org_unit:read") || has("org_unit:list") || has("org_unit:manage") {
 			return nil
 		}
 	}

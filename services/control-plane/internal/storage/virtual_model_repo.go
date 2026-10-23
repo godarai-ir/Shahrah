@@ -355,39 +355,6 @@ func (s *ModelRepository) ListVirtualModelsForPrincipal(ctx context.Context, ten
 						)
 					)
 				))
-				OR (vma.principal_type = 'org_unit' AND (
-					(
-						NULLIF($2, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM organization_memberships om
-							WHERE om.tenant_id = $1::uuid
-							  AND om.organization_id::text = vma.principal_id::text
-							  AND om.user_id::text = NULLIF($2, '')
-						)
-					)
-					OR (
-						NULLIF($2, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM team_memberships tm
-							JOIN teams t ON t.team_id = tm.team_id
-							WHERE tm.tenant_id = $1::uuid
-							  AND tm.user_id::text = NULLIF($2, '')
-							  AND t.org_unit_id::text = vma.principal_id::text
-						)
-					)
-					OR (
-						NULLIF($3, '') IS NOT NULL
-						AND EXISTS (
-							SELECT 1
-							FROM teams t
-							WHERE t.tenant_id = $1::uuid
-							  AND t.team_id::text = NULLIF($3, '')
-							  AND t.org_unit_id::text = vma.principal_id::text
-						)
-					)
-				))
 			  )
 		  )
 		ORDER BY vm.created_at ASC

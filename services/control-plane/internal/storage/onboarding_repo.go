@@ -12,6 +12,8 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
@@ -71,18 +73,12 @@ func (s *TenantAdminRepository) CheckTenantSlugAvailability(ctx context.Context,
 func (s *TenantAdminRepository) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPParams) (*OnboardingOTP, error) {
 	p.TenantSlug = normalizeOnboardingSlug(p.TenantSlug)
 	p.TenantDomain = strings.TrimSpace(strings.ToLower(p.TenantDomain))
-	p.PlanSlug = strings.TrimSpace(strings.ToLower(p.PlanSlug))
+	// Plans are retired: every new tenant starts on the free plan.
+	p.PlanSlug = seats.FreePlanSlug
 	p.Email = strings.TrimSpace(strings.ToLower(p.Email))
 	p.Mobile = strings.TrimSpace(p.Mobile)
 
 	p.CustomerName = strings.TrimSpace(p.CustomerName)
-	if p.PlanSlug == "" {
-		p.PlanSlug = "developer"
-	}
-
-	if p.PlanSlug == "free" {
-		p.PlanSlug = "developer"
-	}
 
 	if p.TenantDomain == "" {
 		p.TenantDomain = p.TenantSlug
@@ -361,83 +357,21 @@ func (s *TenantAdminRepository) VerifyOnboardingOTPAndProvision(ctx context.Cont
 	var created platform.Tenant
 
 	tenantCreateErr := tx.QueryRow(ctx, `
-		INSERT INTO tenants (slug, domain, status)
-		VALUES ($1, $2, 'active')
+		INSERT INTO tenants (slug, domain, status, billing_unit)
+		VALUES ($1, $2, 'active', $3)
 		RETURNING tenant_id::text, slug, domain, status, created_at
-	`, tenantSlug, tenantDomain).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt)
+	`, tenantSlug, tenantDomain, credits.BillingUnitCredit).Scan(&created.ID, &created.Slug, &created.Domain, &created.Status, &created.CreatedAt)
 	if tenantCreateErr != nil {
 		return nil, tenantCreateErr
 	}
 
-	var walletID string
-
-	walletErr := tx.QueryRow(ctx, `
-		INSERT INTO wallets (tenant_id, balance_irr, pending_irr)
-		SELECT $1::uuid, signup_credit_irr::double precision, 0
-		FROM commercial_signup_settings WHERE settings_id = true
-		RETURNING wallet_id::text
-	`, created.ID).Scan(&walletID)
-	if walletErr != nil {
-		return nil, walletErr
-	}
-
-	requestedPlanSlug := strings.TrimSpace(strings.ToLower(planSlug))
-	if requestedPlanSlug == "" || requestedPlanSlug == "free" {
-		requestedPlanSlug = "developer"
-	}
-
-	subscriptionResult, err := tx.Exec(ctx, `
-		INSERT INTO tenant_subscriptions (
-			tenant_id, plan_id, version_id, status, billing_interval,
-			current_period_start, current_period_end, trial_started_at, trial_ends_at,
-			price_snapshot_json, metadata
-		)
-		SELECT $1::uuid, p.plan_id, pv.version_id, 'trialing', 'monthly',
-		       t.created_at, t.created_at + make_interval(days => settings.trial_days),
-		       t.created_at, t.created_at + make_interval(days => settings.trial_days),
-		       jsonb_build_object(
-		           'currency', 'IRR',
-		           'amount_minor', 0,
-		           'billing_interval', 'monthly',
-		           'discount_percent', 100,
-		           'regular_amount_minor', COALESCE(pp.amount_minor, 0)
-		       ),
-		       jsonb_build_object('source', 'onboarding', 'trial_days', settings.trial_days)
-		FROM commercial_plans p
-		JOIN plan_versions pv ON pv.plan_id = p.plan_id AND pv.status = 'published'
-		LEFT JOIN plan_prices pp ON pp.version_id = pv.version_id AND pp.billing_interval = 'monthly'
-		JOIN tenants t ON t.tenant_id = $1::uuid
-		CROSS JOIN commercial_signup_settings settings
-		WHERE p.slug = $2 AND p.active = true AND settings.settings_id = true
-	`, created.ID, requestedPlanSlug)
-	if err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO wallets (tenant_id, balance_irr, pending_irr) VALUES ($1::uuid, 0, 0)`, created.ID); err != nil {
 		return nil, err
 	}
 
-	if subscriptionResult.RowsAffected() == 0 {
-		return nil, billingdomain.ErrPlanNotFound
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload)
-		SELECT tenant_id, subscription_id, 'trial_started', 'onboarding',
-		       jsonb_build_object('plan_slug', $2::text, 'trial_ends_at', trial_ends_at)
-		FROM tenant_subscriptions
-		WHERE tenant_id = $1::uuid AND status = 'trialing'
-	`, created.ID, requestedPlanSlug); err != nil {
-		return nil, err
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO wallet_transactions (
-			wallet_id, tenant_id, tx_type, amount_irr, status, description, metadata
-		)
-		SELECT $1::uuid, $2::uuid, 'SIGNUP_CREDIT', signup_credit_irr::double precision,
-		       'COMPLETED', 'Promotional signup credit',
-		       jsonb_build_object('source', 'onboarding', 'plan_slug', $3::text)
-		FROM commercial_signup_settings
-		WHERE settings_id = true AND signup_credit_irr > 0
-	`, walletID, created.ID, requestedPlanSlug); err != nil {
+	// Plans are retired: every new tenant starts on the free plan, whatever
+	// plan the sign-up form asked for.
+	if err := startFreeSubscriptionTx(ctx, tx, created.ID, created.CreatedAt, "onboarding", "onboarding"); err != nil {
 		return nil, err
 	}
 

@@ -7,7 +7,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-// SearchAccessPrincipals returns platform users/teams/org-units for tenant-admin access pickers.
+// SearchAccessPrincipals returns platform users/teams for tenant-admin access pickers.
 func (s *ProviderAccountRepository) SearchAccessPrincipals(ctx context.Context, tenantID, kind, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
 	normalizedKind := strings.TrimSpace(strings.ToLower(kind))
 	normalizedQuery := strings.TrimSpace(query)
@@ -26,8 +26,6 @@ func (s *ProviderAccountRepository) SearchAccessPrincipals(ctx context.Context, 
 		return s.searchUserPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	case "team":
 		return s.searchTeamPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
-	case "org_unit":
-		return s.searchOrgUnitPrincipals(ctx, normalizedTenantID, normalizedQuery, limit)
 	default:
 		return []platform.AccessPrincipalCandidate{}, nil
 	}
@@ -92,58 +90,11 @@ func (s *ProviderAccountRepository) searchTeamPrincipals(ctx context.Context, te
 	like := "%" + query + "%"
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT team_id::text, COALESCE(team_alias, ''), COALESCE(organization_alias, '')
+		SELECT team_id::text, COALESCE(team_alias, '')
 		FROM teams
-		LEFT JOIN organizations ON teams.organization_id = organizations.organization_id
 		WHERE teams.tenant_id = NULLIF($1, '')::uuid
-		  AND ($2 = '' OR team_alias ILIKE $3 OR organization_alias ILIKE $3)
+		  AND ($2 = '' OR team_alias ILIKE $3)
 		ORDER BY teams.updated_at DESC NULLS LAST, teams.created_at DESC NULLS LAST
-		LIMIT $4
-	`, tenantID, query, like, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.AccessPrincipalCandidate, 0)
-
-	for rows.Next() {
-		var (
-			id       string
-			alias    string
-			orgAlias string
-		)
-		if err := rows.Scan(&id, &alias, &orgAlias); err != nil {
-			return nil, err
-		}
-
-		displayName := strings.TrimSpace(alias)
-		if displayName == "" {
-			displayName = id
-		}
-
-		secondary := strings.TrimSpace(orgAlias)
-
-		items = append(items, platform.AccessPrincipalCandidate{
-			Type:        platform.PrincipalTypeTeam,
-			PrincipalID: id,
-			DisplayName: displayName,
-			Secondary:   secondary,
-		})
-	}
-
-	return items, rows.Err()
-}
-
-func (s *ProviderAccountRepository) searchOrgUnitPrincipals(ctx context.Context, tenantID, query string, limit int) ([]platform.AccessPrincipalCandidate, error) {
-	like := "%" + query + "%"
-
-	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id::text, COALESCE(organization_alias, '')
-		FROM organizations
-		WHERE tenant_id = NULLIF($1, '')::uuid
-		  AND ($2 = '' OR organization_alias ILIKE $3)
-		ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
 		LIMIT $4
 	`, tenantID, query, like, limit)
 	if err != nil {
@@ -168,7 +119,7 @@ func (s *ProviderAccountRepository) searchOrgUnitPrincipals(ctx context.Context,
 		}
 
 		items = append(items, platform.AccessPrincipalCandidate{
-			Type:        platform.PrincipalTypeOrgUnit,
+			Type:        platform.PrincipalTypeTeam,
 			PrincipalID: id,
 			DisplayName: displayName,
 		})

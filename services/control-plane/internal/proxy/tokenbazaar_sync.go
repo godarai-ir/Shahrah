@@ -81,7 +81,7 @@ func tokenBazaarHandleSync(
 		RequestID:   tunnelReq.RequestID,
 		BillingMode: tunnelReq.Deployment.BillingMode,
 	}); err != nil {
-		return cfg.writeError(c, fiber.StatusPaymentRequired, cfg.settleErrorCode, err.Error())
+		return cfg.writeError(c, fiber.StatusPaymentRequired, cfg.settleErrorCode, settlementErrorMessage(err))
 	}
 
 	responseTimeMS := int(time.Since(start).Milliseconds())
@@ -101,8 +101,8 @@ func tokenBazaarHandleSync(
 		RequestID:      tunnelReq.RequestID,
 		TokenHash:      authInfo.TokenHash,
 		TenantID:       authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID,
 		TeamID:         authInfo.TeamID,
+		UserID:         authInfo.UserID,
 		Model:          requestedModel,
 		InputTokens:    finalized.InputTokens,
 		OutputTokens:   finalized.OutputTokens,
@@ -139,7 +139,6 @@ func tokenBazaarHandleSync(
 				"endpoint":    cfg.metricEndpoint,
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
-				"org_unit_id": authInfo.OrgUnitID,
 				"tenant_slug": tenantSlug,
 			}, tunnelReq.Deployment),
 		})

@@ -11,7 +11,7 @@ import { ruleSentence, type SentenceFormat } from "../rule-sentence";
 /** The rule sentence formatter bound to the current locale. */
 export function useRuleSentence(): (rule: PolicyRule) => string {
   const t = useTranslations("gatewayPolicies");
-  const numberFormatter = useNumberFormatter({ maximumFractionDigits: 0 });
+  const numberFormatter = useNumberFormatter({ maximumFractionDigits: 2 });
   return useCallback(
     (rule: PolicyRule) => ruleSentence(rule, { t: t as SentenceFormat["t"], formatNumber: (value) => numberFormatter.format(value) }),
     [numberFormatter, t],

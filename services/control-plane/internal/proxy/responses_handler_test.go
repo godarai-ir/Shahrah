@@ -208,7 +208,7 @@ func (t *captureTunnel) Healthy(_ context.Context) error { return nil }
 func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	app, queue, _ := newResponsesTestAppWithCache(t, provider, tunnel, nil, logsOpt...)
+	app, queue := newResponsesTestAppWithCache(t, provider, tunnel, nil, logsOpt...)
 
 	return app, queue
 }
@@ -219,7 +219,7 @@ func newResponsesTestAppWithCache(
 	tunnel *captureTunnel,
 	cacheService *responsecache.Service,
 	logsOpt ...*testLogs,
-) (*fiber.App, *tracing.Queue, *testWallets) {
+) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
 	mem, err := testcache.New(t, zap.NewNop())
@@ -277,13 +277,11 @@ func newResponsesTestAppWithCache(
 		logs = logsOpt[0]
 	}
 
-	wallets := &testWallets{}
 	h := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
 		Router:              rt,
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              zap.NewNop(),
@@ -299,7 +297,7 @@ func newResponsesTestAppWithCache(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -312,7 +310,7 @@ func newResponsesTestAppWithCache(
 	})
 	app.Post("/v1/responses", h.Handle)
 
-	return app, q, wallets
+	return app, q
 }
 
 func newResponsesCacheService(t *testing.T, embedder responsecache.Embedder) *responsecache.Service {
@@ -374,7 +372,6 @@ func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testL
 		Router:            rt,
 		Tunnel:            tunnel,
 		Billing:           &testBudgeter{},
-		Wallets:           &testWallets{},
 		RequestLogger:     logs,
 		SpendLogger:       logs,
 		Logger:            zap.NewNop(),
@@ -387,7 +384,7 @@ func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testL
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -458,7 +455,6 @@ func newRuntimeProfileVirtualResponsesTestApp(
 		Router:            rt,
 		Tunnel:            tunnel,
 		Billing:           billing,
-		Wallets:           &testWallets{},
 		RequestLogger:     logs,
 		SpendLogger:       logs,
 		Logger:            zap.NewNop(),
@@ -471,7 +467,7 @@ func newRuntimeProfileVirtualResponsesTestApp(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -509,7 +505,6 @@ func newDirectDeepSeekResponsesTestApp(
 		rt,
 		tunnel,
 		billing,
-		&testWallets{},
 		&testLogs{},
 		zap.NewNop(),
 	)
@@ -519,7 +514,7 @@ func newDirectDeepSeekResponsesTestApp(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
@@ -669,7 +664,7 @@ func TestResponsesHandlerSimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
 	}}
 	logs := &testLogs{}
 	cacheService := newResponsesCacheService(t, nil)
-	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
+	app, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
 
 	makeRequest := func() (int, http.Header, []byte) {
 		req := httptest.NewRequest(
@@ -704,7 +699,6 @@ func TestResponsesHandlerSimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
 	assert.NotEmpty(t, secondHeaders.Get(apiheaders.HeaderCachedTraceID))
 	assert.JSONEq(t, string(providerBody), string(secondBody))
 	assert.Len(t, tunnel.requests, 1)
-	assert.Len(t, wallets.debits, 1)
 	require.Len(t, logs.loggedSpends, 2)
 	assert.Zero(t, logs.loggedSpends[1].CostUSD)
 	require.Len(t, logs.loggedEntries, 2)
@@ -714,7 +708,7 @@ func TestResponsesHandlerSimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
 func TestResponsesHandlerSmartCacheReturnsSemanticHit(t *testing.T) {
 	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
 	cacheService := newResponsesCacheService(t, &fixedResponsesCacheEmbedder{})
-	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+	app, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
 
 	makeRequest := func(input string) http.Header {
 		body, err := json.Marshal(map[string]interface{}{
@@ -744,13 +738,12 @@ func TestResponsesHandlerSmartCacheReturnsSemanticHit(t *testing.T) {
 	assert.Equal(t, "hit", secondHeaders.Get(apiheaders.HeaderCacheStatus))
 	assert.NotEmpty(t, secondHeaders.Get(apiheaders.HeaderCacheSimilarity))
 	assert.Len(t, tunnel.requests, 1)
-	assert.Len(t, wallets.debits, 1)
 }
 
 func TestResponsesHandlerRejectsInvalidCacheConfig(t *testing.T) {
 	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
 	cacheService := newResponsesCacheService(t, nil)
-	app, _, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+	app, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/v1/responses",
@@ -770,7 +763,7 @@ func TestResponsesHandlerRejectsInvalidCacheConfig(t *testing.T) {
 func TestResponsesHandlerBypassesCacheForBackgroundRequests(t *testing.T) {
 	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
 	cacheService := newResponsesCacheService(t, nil)
-	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+	app, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
 
 	makeRequest := func() http.Header {
 		req := httptest.NewRequest(
@@ -793,7 +786,6 @@ func TestResponsesHandlerBypassesCacheForBackgroundRequests(t *testing.T) {
 	assert.Equal(t, "bypass", makeRequest().Get(apiheaders.HeaderCacheStatus))
 	assert.Equal(t, "bypass", makeRequest().Get(apiheaders.HeaderCacheStatus))
 	assert.Len(t, tunnel.requests, 2)
-	assert.Len(t, wallets.debits, 2)
 }
 
 func TestResponsesHandlerVirtualModelBudgetDeferralDoesNotSelectTargets(t *testing.T) {
@@ -1538,7 +1530,7 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       body,
 	}}
-	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, &testLogs{}, zap.NewNop())
+	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testLogs{}, zap.NewNop())
 
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
@@ -1546,7 +1538,7 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -1586,7 +1578,7 @@ func TestResponsesHandlerStreamWithoutTerminalEventEmitsOrderedError(t *testing.
 	tunnel := &captureTunnel{stream: stream}
 	logs := &testLogs{}
 	cacheService := newResponsesCacheService(t, nil)
-	app, _, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
+	app, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -1734,7 +1726,6 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 
 	close(stream.chunks)
 
-	wallets := &testWallets{}
 	logs := &testLogs{}
 
 	mem, err := testcache.New(t, zap.NewNop())
@@ -1749,7 +1740,7 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewResponsesHandler(rt, &captureTunnel{stream: stream}, &testBudgeter{}, wallets, logs, zap.NewNop())
+	h := NewResponsesHandler(rt, &captureTunnel{stream: stream}, &testBudgeter{}, logs, zap.NewNop())
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
@@ -1757,7 +1748,7 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 			KeyID:     "key_1",
 			KeyAlias:  "test-key",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -1783,7 +1774,6 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `response.completed`)
 	assert.NotContains(t, strings.ToLower(string(body)), "panic")
-	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
 	assert.Len(t, logs.loggedEntries, 1)
 	assert.Equal(t, "success", logs.loggedEntries[0].Status)

@@ -40,7 +40,7 @@ func (e *rerankValidationError) Error() string {
 }
 
 // NewRerankHandler creates a new rerank handler.
-func NewRerankHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *RerankHandler {
+func NewRerankHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *RerankHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -51,7 +51,6 @@ func NewRerankHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -145,7 +144,7 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -336,8 +335,8 @@ func (h *RerankHandler) handleSync(
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
 		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
 		TeamID:          authInfo.TeamID,
+		UserID:          authInfo.UserID,
 		Model:           req.Model,
 		InputTokens:     finalCost.InputTokens,
 		OutputTokens:    finalCost.OutputTokens,
@@ -371,7 +370,6 @@ func (h *RerankHandler) handleSync(
 			"endpoint":       "/v1/rerank",
 			"key_type":       authInfo.KeyType,
 			"team_id":        authInfo.TeamID,
-			"org_unit_id":    authInfo.OrgUnitID,
 			"tenant_slug":    tenantSlug,
 			"document_count": len(req.Documents),
 			"top_n":          req.TopN,

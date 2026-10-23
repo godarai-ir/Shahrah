@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const CREDIT_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+
+/** The gateway's thresholds when a rule sets none (credits.DefaultAlertThresholds). */
+export const DEFAULT_ALERT_THRESHOLDS = [80, 100] as const;
+
 const operatorWithValue = new Set([
   "equals",
   "not_equals",
@@ -33,7 +38,7 @@ export const budgetLimitConditionSchema = z
     values: z.array(z.string().min(1)).optional(),
     value: z.union([z.string(), z.number(), z.boolean()]).optional(),
     metadataKey: z.string().optional(),
-    subjectKind: z.enum(["user", "team", "virtual_account", "organization_unit"]).optional(),
+    subjectKind: z.enum(["user", "team", "virtual_account"]).optional(),
     /** Display names captured when the value was picked; the gateway ignores this key. */
     valueLabels: z.record(z.string(), z.string()).optional(),
   })
@@ -67,7 +72,12 @@ export const budgetLimitRuleSchema = z.object({
     combinator: z.literal("AND").default("AND"),
     conditions: z.array(budgetLimitConditionSchema).default([]),
   }),
-  limit_to: z.number().positive("Budget must be greater than zero."),
+  /** Credits as a decimal string with at most two places. */
+  limit: z
+    .string()
+    .trim()
+    .regex(CREDIT_AMOUNT_PATTERN, "Enter credits with at most two decimals.")
+    .refine((value) => Number(value) > 0, "Budget must be greater than zero."),
   unit: z.enum(["cost_per_day", "cost_per_week", "cost_per_month"]),
   budget_applies_per: z
     .string()
@@ -78,32 +88,24 @@ export const budgetLimitRuleSchema = z.object({
         value === "tenant" ||
         value === "user" ||
         value === "team" ||
-        value === "org_unit" ||
         value === "model" ||
         value === "virtualaccount" ||
         value.startsWith("metadata."),
       "Invalid apply-per value.",
     ),
-  block_on_budget_exceed: z.boolean().default(true),
-  alerts: z
-    .object({
-      enabled: z.boolean().default(false),
-      thresholds: z.array(z.number().int()).optional(),
-      notification_target: z
-        .array(
-          z.object({
-            type: z.enum(["email", "slack-webhook", "slack-bot"]),
-            notification_channel: z.string().optional(),
-            to_emails: z.array(z.string().email()).optional(),
-            channels: z.array(z.string()).optional(),
-          }),
-        )
-        .optional(),
-    })
-    .default({ enabled: false }),
+  /** block refuses requests past the limit; alert only counts them and logs the crossing. */
+  on_exceed: z.enum(["block", "alert"]).default("block"),
+  /** Percent of the limit at which the gateway records an alert, 1–1000. */
+  alert_thresholds: z.array(z.number().int().min(1).max(1000)).max(10).default([...DEFAULT_ALERT_THRESHOLDS]),
 });
 
 export const budgetLimitRuleResponseSchema = budgetLimitRuleSchema.extend({
+  // Rules written before the credit cutover may still lack a credit limit.
+  limit: z.string().optional(),
+  limit_to: z.number().optional(),
+  on_exceed: z.enum(["block", "alert"]).optional(),
+  alert_thresholds: z.array(z.number().int()).optional(),
+  block_on_budget_exceed: z.boolean().optional(),
   id: z.string(),
   created_at: z.string(),
   updated_at: z.string(),

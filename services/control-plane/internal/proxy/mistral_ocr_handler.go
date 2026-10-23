@@ -21,26 +21,21 @@ const mistralOCRReservationPages = 100
 // MistralOCRHandler implements the native Mistral OCR contract without
 // exposing an arbitrary provider path.
 type MistralOCRHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logger           *zap.Logger
-	resources        providerNativeResourceStore
-	logs             usageLogger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logger     *zap.Logger
+	resources  providerNativeResourceStore
+	logs       usageLogger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 func NewMistralOCRHandlerWithDependencies(deps BaseHandlerDependencies) *MistralOCRHandler {
-	return &MistralOCRHandler{llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter(), providerFeatures: deps.ProviderFeatures}
+	return &MistralOCRHandler{llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter()}
 }
 
 func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	startedAt := time.Now()
-
-	if !mistralEndpointEnabled(h.providerFeatures, "ocr") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI OCR is disabled", "provider_disabled")
-	}
 
 	authInfo := auth.GetAuthInfo(c)
 
@@ -131,7 +126,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, 0)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -235,7 +230,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: requestedModel,
+		TeamID: authInfo.TeamID, UserID: authInfo.UserID, Model: requestedModel,
 		CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR, ResponseTimeMS: responseTimeMS,
 		Status: "success", RequestMetadata: enrichPricingMetadata(tunnelRequest.RequestMetadata, authInfo, requestedModel),
 		CompletionStart: startedAt, CompletionEnd: time.Now(),

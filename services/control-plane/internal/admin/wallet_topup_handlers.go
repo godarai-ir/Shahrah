@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -68,7 +69,10 @@ type unsupportedProvider struct{ name string }
 
 // PaymentConfig contains immutable wallet and subscription gateway settings.
 type PaymentConfig struct {
-	FallbackUSDtoIRR            float64
+	FallbackUSDtoIRR float64
+	// Production refuses the mock gateway, which approves every payment, and
+	// stops it from being the default provider.
+	Production                  bool
 	DefaultSubscriptionProvider string
 	ZarinpalMerchantID          string
 	ZarinpalBaseURL             string
@@ -82,7 +86,7 @@ func (c PaymentConfig) withDefaults() PaymentConfig {
 		c.FallbackUSDtoIRR = 1850000
 	}
 
-	if strings.TrimSpace(c.DefaultSubscriptionProvider) == "" {
+	if strings.TrimSpace(c.DefaultSubscriptionProvider) == "" && !c.Production {
 		c.DefaultSubscriptionProvider = "mock"
 	}
 
@@ -142,6 +146,10 @@ func (u *unsupportedProvider) VerifyPayment(c *fiber.Ctx, authority string) (*pa
 func (h *Handlers) selectPaymentProvider(name string) paymentProvider {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "", "mock":
+		if h.payment.Production {
+			return &unsupportedProvider{name: "mock"}
+		}
+
 		return &mockProvider{}
 	case "zarinpal":
 		return &zarinpalProvider{
@@ -394,13 +402,13 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 	}, nil
 }
 
-func postJSON(url string, payload interface{}, headers map[string]string) ([]byte, int, error) {
+func postJSON(endpoint string, payload interface{}, headers map[string]string) ([]byte, int, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -446,6 +454,12 @@ func randomToken(n int) string {
 
 func calculateIRR(amountUSD, exchangeRate, taxPercent, feePercent float64) (amountIRR, taxIRR, feeIRR, payable float64) {
 	amountIRR = amountUSD * exchangeRate
+	taxIRR, feeIRR, payable = calculatePayableIRR(amountIRR, taxPercent, feePercent)
+
+	return
+}
+
+func calculatePayableIRR(amountIRR float64, taxPercent, feePercent float64) (taxIRR, feeIRR, payable float64) {
 	taxIRR = amountIRR * (taxPercent / 100)
 	feeIRR = amountIRR * (feePercent / 100)
 	payable = amountIRR + taxIRR + feeIRR
@@ -453,13 +467,29 @@ func calculateIRR(amountUSD, exchangeRate, taxPercent, feePercent float64) (amou
 	return
 }
 
-func calculatePayableIRR(amountIRR int64, taxPercent, feePercent float64) (taxIRR, feeIRR, payable float64) {
-	base := float64(amountIRR)
-	taxIRR = base * (taxPercent / 100)
-	feeIRR = base * (feePercent / 100)
-	payable = base + taxIRR + feeIRR
+// validatedReturnURL keeps a requested return URL only when it is on this site, so a
+// payment cannot send the buyer to another website. An empty value gets the fallback.
+func validatedReturnURL(c *fiber.Ctx, requested, fallback string) (string, error) {
+	requested = strings.TrimSpace(requested)
+	if requested == "" {
+		return fallback, nil
+	}
 
-	return
+	target, err := url.Parse(requested)
+	if err != nil {
+		return "", fiber.NewError(fiber.StatusBadRequest, "return_url is invalid")
+	}
+
+	origin, err := url.Parse(resolveExternalBaseURL(c))
+	if err != nil {
+		return "", err
+	}
+
+	if target.Scheme != origin.Scheme || !strings.EqualFold(target.Host, origin.Host) {
+		return "", fiber.NewError(fiber.StatusBadRequest, "return_url must be on this site")
+	}
+
+	return requested, nil
 }
 
 func resolveExternalBaseURL(c *fiber.Ctx) string {
@@ -538,7 +568,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 
 	if req.AmountIRR > 0 {
 		amountUSD = float64(req.AmountIRR) / rate.USDtoIRR
-		taxIRR, feeIRR, payable = calculatePayableIRR(req.AmountIRR, settings.TaxPercent, settings.FeePercent)
+		taxIRR, feeIRR, payable = calculatePayableIRR(float64(req.AmountIRR), settings.TaxPercent, settings.FeePercent)
 	} else {
 		amountIRR, taxIRR, feeIRR, payable = calculateIRR(req.AmountUSD, rate.USDtoIRR, settings.TaxPercent, settings.FeePercent)
 	}
@@ -547,14 +577,19 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("top-up amount must be between %.2f and %.2f USD equivalent", settings.MinAmountUSD, settings.MaxAmountUSD))
 	}
 
-	returnURL := strings.TrimSpace(req.ReturnURL)
-	if returnURL == "" {
-		returnURL = fmt.Sprintf("https://%s.app.sharah.ir/billing/topup/result", currentTenant.Slug)
+	returnURL, err := validatedReturnURL(c, req.ReturnURL, fmt.Sprintf("https://%s.app.sharah.ir/billing/topup/result", currentTenant.Slug))
+	if err != nil {
+		return err
 	}
 
 	providerName := strings.TrimSpace(req.Provider)
 	if providerName == "" {
-		providerName = "mock"
+		providerName = h.payment.DefaultSubscriptionProvider
+	}
+
+	// Refuse an unavailable provider before a pending intent is written.
+	if _, refused := h.selectPaymentProvider(providerName).(*unsupportedProvider); refused {
+		return creditPackError(c, billingdomain.ErrCreditPaymentProviderUnavailable)
 	}
 
 	intent, err := h.wallets.CreateWalletTopUpIntent(c.Context(), billingdomain.CreateTopUpIntentParams{
@@ -573,7 +608,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		Metadata:     req.Metadata,
 	})
 	if err != nil {
-		return err
+		return creditPackError(c, err)
 	}
 
 	provider := h.selectPaymentProvider(providerName)
@@ -628,6 +663,10 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 			reason = "payment failed"
 		}
 
+		if topup := topUpIntentFromContext(c); topup != nil && string(topup.Status) == string(platform.WalletTopUpStatusCompleted) {
+			return redirectTopUpSuccess(c, topup)
+		}
+
 		if markErr := h.wallets.MarkWalletTopUpFailedByAuthority(c.Context(), authority, reason, verifyRes.Raw); markErr != nil {
 			return markErr
 		}
@@ -635,7 +674,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 		return h.redirectTopUpResult(c, authority, "failed", "payment_failed")
 	}
 
-	intent, alreadyProcessed, err := h.wallets.CompleteWalletTopUpByAuthority(c.Context(), authority, verifyRes.Raw, verifyRes.RefID, verifyRes.GatewayTxnID, verifyRes.CardMask, verifyRes.PayerPhone)
+	intent, _, err = h.wallets.CompleteWalletTopUpByAuthority(c.Context(), authority, verifyRes.Raw, verifyRes.RefID, verifyRes.GatewayTxnID, verifyRes.CardMask, verifyRes.PayerPhone)
 	if err != nil {
 		if errors.Is(err, billingdomain.ErrTopUpIntentNotFound) {
 			return h.redirectTopUpResult(c, authority, "failed", "intent_not_found")
@@ -644,12 +683,11 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 		return h.redirectTopUpResult(c, authority, "failed", "commit_failed")
 	}
 
-	status := "success"
-	if alreadyProcessed {
-		status = "success"
-	}
+	return redirectTopUpSuccess(c, intent)
+}
 
-	return c.Redirect(fmt.Sprintf("%s?status=%s&intent_id=%s&authority=%s&ref_id=%s", intent.ReturnURL, status, intent.PublicID, authority, intent.RefID), fiber.StatusFound)
+func redirectTopUpSuccess(c *fiber.Ctx, intent *platform.WalletTopUpIntent) error {
+	return c.Redirect(fmt.Sprintf("%s?status=success&intent_id=%s&authority=%s&ref_id=%s", intent.ReturnURL, intent.PublicID, intent.Authority, intent.RefID), fiber.StatusFound)
 }
 
 func (h *Handlers) redirectTopUpResult(c *fiber.Ctx, authority, status, reason string) error {

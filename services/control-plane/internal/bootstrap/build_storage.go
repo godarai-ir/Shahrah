@@ -9,6 +9,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
@@ -218,23 +219,29 @@ func (b *builder) buildStorage() error {
 		RuntimeProfiles: b.runtimeProfiles,
 	})
 
+	// Credit enforcement prices reservations with the published rate card.
+	b.buildCreditRateCards()
+
 	b.billing = billing.NewServiceWithDependencies(
 		billing.Dependencies{
 			Cache:           sharedCache,
 			BudgetWindows:   sharedCache,
-			Wallets:         store.WalletRepository,
+			ExchangeRates:   store.WalletRepository,
 			Entitlements:    store.PlanRepository,
 			RuntimeProfiles: b.runtimeProfiles,
+			CreditPools:     store.CreditLedgerRepository,
+			CreditRateCards: b.creditRateCards,
+			SeatCredits:     store.SeatRepository,
+			Logger:          b.logger,
 			Config: &billing.ServiceConfig{
 				ExchangeRateCache: billing.ExchangeRateCacheConfig{
 					FreshTTL: b.cfg.Runtime.BillingExchangeRateTTL,
 					MaxStale: b.cfg.Runtime.BillingExchangeRateStale,
 				},
 				PricingCache: billing.PricingCacheConfig{
-					Enabled: b.cfg.Runtime.BillingPricingCacheEnabled,
+					Enabled: true,
 					TTL:     b.cfg.Runtime.BillingPricingCacheTTL,
 				},
-				WalletCacheTTL:    b.cfg.Runtime.BillingWalletCacheTTL,
 				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
 				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
 			},
@@ -309,7 +316,7 @@ func storageConfig(settings config.StorageSettings) *storage.Config {
 			RetryDelay: settings.ClickHouseRetryDelay,
 		},
 		TokenUsage: storage.TokenUsageConfig{
-			Enabled:          settings.TokenUsageEnabled,
+			Enabled:          true,
 			FailOpen:         settings.TokenUsageFailOpen,
 			KeyPrefix:        settings.TokenUsageKeyPrefix,
 			FlushInterval:    settings.TokenUsageFlushInterval,
@@ -331,7 +338,8 @@ func storageConfig(settings config.StorageSettings) *storage.Config {
 			EntitlementCacheTTL: settings.EntitlementCacheTTL,
 		},
 		Wallets: storage.WalletRepositoryConfig{
-			BudgetWindowTTLGrace: settings.BudgetWindowTTLGrace,
+			BudgetWindowTTLGrace:   settings.BudgetWindowTTLGrace,
+			CreditOverageCeilingMC: settings.CreditOverageCeilingCredits * credits.MillicreditsPerCredit,
 		},
 		ProviderAccount: storage.ProviderAccountRepositoryConfig{
 			CredentialCacheTTL: settings.TenantCredentialCacheTTL,

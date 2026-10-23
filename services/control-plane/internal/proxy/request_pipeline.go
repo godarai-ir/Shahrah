@@ -48,7 +48,6 @@ type RequestPipeline struct {
 	rawTunnel           platform.TunnelRawTransport
 	billing             budgeter
 	billingCapabilities BillingCapabilities
-	wallets             walletStore
 	logger              *zap.Logger
 	detachedWorkTimeout time.Duration
 }
@@ -59,7 +58,6 @@ func NewRequestPipeline(
 	rawTunnel platform.TunnelRawTransport,
 	billing budgeter,
 	billingCapabilities BillingCapabilities,
-	wallets walletStore,
 	logger *zap.Logger,
 ) *RequestPipeline {
 	return NewRequestPipelineWithConfig(
@@ -67,7 +65,6 @@ func NewRequestPipeline(
 		rawTunnel,
 		billing,
 		billingCapabilities,
-		wallets,
 		logger,
 		RequestPipelineConfig{},
 	)
@@ -79,7 +76,6 @@ func NewRequestPipelineWithConfig(
 	rawTunnel platform.TunnelRawTransport,
 	billing budgeter,
 	billingCapabilities BillingCapabilities,
-	wallets walletStore,
 	logger *zap.Logger,
 	config RequestPipelineConfig,
 ) *RequestPipeline {
@@ -92,7 +88,6 @@ func NewRequestPipelineWithConfig(
 		rawTunnel:           rawTunnel,
 		billing:             billing,
 		billingCapabilities: billingCapabilities,
-		wallets:             wallets,
 		logger:              logger,
 		detachedWorkTimeout: config.DetachedWorkTimeout,
 	}
@@ -118,11 +113,19 @@ func (p *RequestPipeline) ReleaseDetached(reservation *platform.BudgetReservatio
 
 // Reserve executes the budget admission stage without depending on HTTP.
 func (p *RequestPipeline) Reserve(ctx context.Context, input BudgetRequest) (*platform.BudgetReservation, error) {
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+
 	if firstBillingMode(input.BillingMode) == platform.BillingModeExternalBilled {
-		return nil, nil
+		// Only credit tenants reserve externally billed requests: their
+		// budgets count the full equivalent and their balance pays the fee.
+		reserver, ok := p.billingCapabilities.BudgetReservations.(externalBilledBudgetReserver)
+		if !ok || reservationPolicy == CapabilityDisabled {
+			return nil, nil
+		}
+
+		return reserver.ReserveExternalBilledBudget(ctx, input.Auth, input.Estimated, input.RequestID)
 	}
 
-	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
 	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil {
 		return p.billingCapabilities.BudgetReservations.ReserveBudget(ctx, input.Auth, input.Estimated, input.RequestID)
 	}
@@ -138,15 +141,20 @@ func (p *RequestPipeline) Reserve(ctx context.Context, input BudgetRequest) (*pl
 	return nil, nil
 }
 
-// Settle executes the final budget commit or wallet debit stage.
+// Settle commits the request's budget reservation.
 func (p *RequestPipeline) Settle(ctx context.Context, input SettlementRequest) error {
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+
 	if firstBillingMode(input.BillingMode) == platform.BillingModeExternalBilled {
+		if input.Reservation != nil && reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil {
+			return p.billingCapabilities.BudgetReservations.CommitBudget(ctx, input.Reservation, input.Actual)
+		}
+
 		p.Release(ctx, input.Reservation, "external_billed")
 
 		return nil
 	}
 
-	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
 	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil && input.Reservation != nil {
 		return p.billingCapabilities.BudgetReservations.CommitBudget(ctx, input.Reservation, input.Actual)
 	}
@@ -155,16 +163,9 @@ func (p *RequestPipeline) Settle(ctx context.Context, input SettlementRequest) e
 		return errBudgetReservationUnavailable
 	}
 
-	if p.wallets == nil {
-		return nil
-	}
-
-	_, err := p.wallets.DebitWallet(ctx, input.TenantID, input.Actual, input.RequestID)
-	if err != nil && p.logger != nil {
-		p.logger.Warn("failed to debit wallet", zap.Error(err), zap.String("request_id", input.RequestID))
-	}
-
-	return err
+	// Without a reservation the request is still charged: the credit ledger
+	// settles its spend log.
+	return nil
 }
 
 // Release releases a reservation on every non-settled terminal path.

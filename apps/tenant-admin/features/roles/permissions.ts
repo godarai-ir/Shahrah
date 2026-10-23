@@ -9,13 +9,11 @@ const PERMISSION_RESOURCES = new Set([
   "role",
   "user",
   "team",
-  "org_unit",
   "virtual_account",
   "provider_account",
   "settings",
   "logs",
   "billing",
-  "support_ticket",
 ]);
 
 const PERMISSION_ACTIONS = new Set([
@@ -24,11 +22,8 @@ const PERMISSION_ACTIONS = new Set([
   "create",
   "manage",
   "delete",
-  "export",
-  "manage_views",
   "read_content",
   "read_metadata",
-  "replay",
   "codes_redeem",
   "documents_read",
   "profile_manage",

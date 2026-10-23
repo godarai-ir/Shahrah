@@ -28,7 +28,6 @@ type Handler interface {
 	GetLogExportV2(*fiber.Ctx) error
 	DownloadLogExportV2(*fiber.Ctx) error
 	CancelLogExportV2(*fiber.Ctx) error
-	CreateRequestLogReplayDraftV2(*fiber.Ctx) error
 	GetRequestLogV2(*fiber.Ctx) error
 	ListRequestTracesV2(*fiber.Ctx) error
 	GetTraceFacetsV2(*fiber.Ctx) error
@@ -72,7 +71,6 @@ func (r *Routes) RegisterTenant(v1 fiber.Router, v2 fiber.Router) {
 	v2.Get("/logs/exports/:exportID", r.handler.GetLogExportV2)
 	v2.Get("/logs/exports/:exportID/download", r.handler.DownloadLogExportV2)
 	v2.Post("/logs/exports/:exportID/cancel", r.handler.CancelLogExportV2)
-	v2.Post("/logs/:logID/replay-draft", r.handler.CreateRequestLogReplayDraftV2)
 	v2.Get("/logs/:logID", r.handler.GetRequestLogV2)
 	v2.Get("/traces", r.handler.ListRequestTracesV2)
 	v2.Get("/traces/facets", r.handler.GetTraceFacetsV2)

@@ -32,64 +32,27 @@ var systemRolePermissions = map[string][]string{
 		"role:list", "role:manage",
 		"user:list", "user:manage",
 		"team:create", "team:read", "team:manage", "team:delete",
-		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
 		"role:list", "role:manage",
 		"user:list", "user:manage",
 		"team:create", "team:read", "team:manage", "team:delete",
-		"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
-	},
-	"billing_manager": {
-		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"settings:list",
-	},
-	"org_admin": {
-		"policy:list",
-		"role:list",
-		"user:list", "user:manage",
-		"org_unit:read", "org_unit:manage", "org_unit:list",
-		"team:create", "team:read", "team:manage",
-		"virtual_account:create", "virtual_account:read", "virtual_account:manage",
-		"provider_account:read",
-		"settings:list",
-		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
-	},
-	"team_admin": {
-		"policy:list",
-		"role:list",
-		"user:list",
-		"team:read", "team:manage",
-		"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
-		"provider_account:read",
-		"settings:list",
-		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"member": {
 		"user:list",
 		"settings:list",
 		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
-	},
-	"readonly_member": {
-		"settings:list",
-		"logs:read_metadata",
-		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 }
 
@@ -411,20 +374,32 @@ func (s *AuthRepository) UpdateUserRoles(ctx context.Context, tenantID string, r
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
-	var userID string
+	var (
+		userID     string
+		userActive bool
+	)
+
 	if err := tx.QueryRow(ctx, `
-		SELECT user_id::text
+		SELECT user_id::text, COALESCE(active, true)
 		FROM users
 		WHERE tenant_id = $1::uuid
 		  AND LOWER(COALESCE(email, '')) = $2
 		LIMIT 1
 		FOR UPDATE
-	`, tenantID, email).Scan(&userID); err != nil {
+	`, tenantID, email).Scan(&userID, &userActive); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 
 		return nil, err
+	}
+
+	// Assigning roles also activates the member, which takes a seat when the
+	// member was deactivated.
+	if !userActive {
+		if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+			return nil, capErr
+		}
 	}
 
 	type roleRow struct {
@@ -781,7 +756,7 @@ func normalizeResourceType(resourceType string) string {
 	switch strings.TrimSpace(strings.ToLower(resourceType)) {
 	case "", "tenant":
 		return "tenant"
-	case "org_unit", "team", "workspace":
+	case "team", "workspace":
 		return strings.TrimSpace(strings.ToLower(resourceType))
 	default:
 		return ""
@@ -794,12 +769,9 @@ func derivePrimaryRole(roles []string) string {
 	}
 
 	priority := map[string]int{
-		"proxy_admin":     100,
-		"tenant_admin":    90,
-		"org_admin":       80,
-		"team_admin":      70,
-		"member":          60,
-		"readonly_member": 50,
+		"proxy_admin":  100,
+		"tenant_admin": 90,
+		"member":       60,
 	}
 	best := roles[0]
 	bestRank := -1

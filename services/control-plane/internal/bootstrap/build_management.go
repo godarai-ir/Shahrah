@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"go.uber.org/zap"
 )
@@ -24,9 +25,9 @@ func (b *builder) buildManagement() error {
 	}
 
 	dependencies := admin.Dependencies{
+		RateLimits: b.cache,
 		IAM: admin.IAMDependencies{
 			Keys:         b.iamApplication,
-			OrgUnits:     b.iamApplication,
 			Memberships:  b.iamApplication,
 			Users:        b.tenantAdminApplication,
 			VirtualUsers: b.iamApplication,
@@ -48,13 +49,22 @@ func (b *builder) buildManagement() error {
 			},
 		},
 		Billing: admin.BillingDependencies{
-			Wallets:             b.store.WalletRepository,
-			Plans:               b.store.PlanRepository,
-			Entitlements:        b.store.PlanRepository,
-			CreditUsage:         b.store.MetricsRepository,
-			CreditShadowEnabled: b.cfg.Runtime.BillingCreditsShadowEnabled,
+			Wallets:       b.store.WalletRepository,
+			Plans:         b.store.PlanRepository,
+			Entitlements:  b.store.PlanRepository,
+			CreditUsage:   b.store.MetricsRepository,
+			CreditBalance: b.store.CreditLedgerRepository,
+			CreditPacks:   b.store.CreditPackRepository,
+			Seats:         b.store.SeatRepository,
+			CreditAdmin: creditAdminStore{
+				CreditLedgerRepository:   b.store.CreditLedgerRepository,
+				CreditPackRepository:     b.store.CreditPackRepository,
+				CreditPriceRepository:    b.store.CreditPriceRepository,
+				CreditRateCardRepository: b.store.CreditRateCardRepository,
+			},
 			Payment: admin.PaymentConfig{
 				FallbackUSDtoIRR:            b.cfg.BillingSettings.DefaultUSDtoIRR,
+				Production:                  b.cfg.Admin.Payment.Production,
 				DefaultSubscriptionProvider: b.cfg.Admin.Payment.DefaultSubscriptionProvider,
 				ZarinpalMerchantID:          b.cfg.Admin.Payment.ZarinpalMerchantID,
 				ZarinpalBaseURL:             b.cfg.Admin.Payment.ZarinpalBaseURL,
@@ -110,7 +120,7 @@ func (b *builder) buildManagement() error {
 			APIAccessKey: b.cfg.Admin.OTPMobile.APIAccessKey,
 			BotID:        b.cfg.Admin.OTPMobile.BotID,
 		},
-	), admin.AuthHandlersConfig{ExposeDebugOTP: b.cfg.Admin.ExposeDebugOTP})
+	), admin.AuthHandlersConfig{ExposeDebugOTP: b.cfg.Admin.ExposeDebugOTP, RateLimits: b.cache})
 
 	oidcRoutes, err := b.oidcRoutes()
 	if err != nil {
@@ -134,4 +144,12 @@ func (b *builder) buildManagement() error {
 	b.managementRoutes = managementRoutes
 
 	return nil
+}
+
+// creditAdminStore joins the repositories behind the support-admin credit endpoints.
+type creditAdminStore struct {
+	*storage.CreditLedgerRepository
+	*storage.CreditPackRepository
+	*storage.CreditPriceRepository
+	*storage.CreditRateCardRepository
 }

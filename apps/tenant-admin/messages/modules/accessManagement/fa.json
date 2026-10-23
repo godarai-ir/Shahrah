@@ -6,7 +6,6 @@
     "externalAuth": "احراز هویت خارجی",
     "personalAccessTokens": "توکن‌های دسترسی شخصی",
     "virtualAccounts": "کاربران مجازی",
-    "orgUnits": "واحدهای سازمانی",
     "roles": "نقش‌ها",
     "auditLogs": "گزارش‌های ممیزی",
     "apiKeys": "کلیدهای API",
@@ -23,12 +22,12 @@
     "unlimitedTooltip": "در پلن فعلی محدودیتی برای تعداد کاربران تعریف نشده است.",
     "emptyDescription": "با دعوت نخستین کاربر، همکاری در فضای کاری را آغاز کنید.",
     "upgradeDialog": {
-      "title": "سقف کاربران پلن شما تکمیل شده است",
-      "description": "پلن فعلی حداکثر {limit} کاربر را پشتیبانی می‌کند. برای دعوت کاربر جدید، پلن تجاری خود را ارتقا دهید.",
+      "title": "همه‌ی جایگاه‌های عضو پر شده‌اند",
+      "description": "سازمان شما {limit} جایگاه عضو دارد: ۵ صندلی رایگان و یک جایگاه به ازای هر صندلی پولی. برای دعوت عضو جدید، یک صندلی پولی بخرید.",
       "cancel": "فعلاً نه",
-      "action": "ارتقا یا خرید پلن"
+      "action": "خرید صندلی"
     },
-    "headerUsage": "{used} از {limit} عضو"
+    "headerUsage": "{used} از {limit} صندلی (اعضای فعال و دعوت‌های در انتظار)"
   },
   "inviteUser": "دعوت کاربر",
   "inviteTitle": "دعوت کاربر",
@@ -36,19 +35,28 @@
   "form": {
     "email": "ایمیل",
     "emailPlaceholder": "user@company.com",
-    "role": "نقش"
+    "role": "نقش",
+    "firstName": "نام",
+    "lastName": "نام خانوادگی",
+    "seat": "صندلی",
+    "seatHint": "پیش‌فرض: صندلی رایگان اگر جایگاه خالی باشد. صندلی پولی از انبار سازمان برداشته می‌شود.",
+    "seatOptions": {
+      "auto": "خودکار (رایگان در صورت وجود)",
+      "free": "رایگان",
+      "pro": "Pro",
+      "max": "Max",
+      "unassigned": "بدون صندلی"
+    }
   },
   "roles": {
-    "billingManager": "مدیر مالی",
     "member": "عضو",
-    "orgAdmin": "مدیر واحد سازمانی",
-    "readOnlyMember": "عضو فقط‌خواندنی",
-    "teamAdmin": "مدیر تیم",
     "tenantAdmin": "مدیر فضای کاری"
   },
   "button": {
     "createInvite": "ارسال دعوت‌نامه",
-    "inviting": "در حال ارسال..."
+    "inviting": "در حال ارسال...",
+    "saveName": "ذخیره نام",
+    "savingName": "در حال ذخیره..."
   },
   "table": {
     "loading": "در حال بارگذاری کاربران...",
@@ -61,7 +69,10 @@
     "status": "وضعیت",
     "lastActivity": "آخرین فعالیت",
     "neverActive": "هرگز",
-    "moreRoles": "+{count}"
+    "moreRoles": "+{count}",
+    "seat": "صندلی",
+    "personalCredits": "اعتبار",
+    "poolUsage": "مصرف از منبع سازمان"
   },
   "status": {
     "deactivated": "غیرفعال",
@@ -107,7 +118,10 @@
     "roleCreated": "نقش با موفقیت ایجاد شد.",
     "roleCreateError": "ایجاد نقش ناموفق بود.",
     "roleUpdated": "نقش با موفقیت به‌روزرسانی شد.",
-    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود."
+    "roleUpdateError": "به‌روزرسانی نقش ناموفق بود.",
+    "nameUpdated": "نام کاربر به‌روزرسانی شد.",
+    "nameUpdateError": "به‌روزرسانی نام کاربر ناموفق بود.",
+    "planUserLimitReached": "همه‌ی جایگاه‌های عضو پر شده‌اند. برای افزودن عضو، یک صندلی پولی بخرید یا یک عضو یا دعوت در انتظار را حذف کنید."
   },
   "rolesPage": {
     "createTitle": "ایجاد نقش سفارشی",
@@ -195,7 +209,6 @@
     "roles": "نقش‌ها",
     "users": "کاربران",
     "teams": "تیم‌ها",
-    "organization_units": "واحدهای سازمانی",
     "virtual_accounts": "حساب‌های مجازی",
     "provider_accounts": "حساب‌های ارائه‌دهنده",
     "settings": "تنظیمات",
@@ -209,13 +222,11 @@
     "role": "نقش",
     "user": "کاربر",
     "team": "تیم",
-    "org_unit": "واحد سازمانی",
     "virtual_account": "حساب مجازی",
     "provider_account": "حساب ارائه‌دهنده",
     "settings": "تنظیمات",
     "logs": "گزارش درخواست",
-    "billing": "صورتحساب",
-    "support_ticket": "تیکت پشتیبانی"
+    "billing": "صورتحساب"
   },
   "permissionActions": {
     "list": "مشاهده فهرست",
@@ -223,11 +234,8 @@
     "create": "ایجاد",
     "manage": "مدیریت",
     "delete": "حذف",
-    "export": "خروجی گرفتن از",
-    "manage_views": "مدیریت نماهای ذخیره‌شده‌ی",
     "read_content": "مشاهده محتوای",
     "read_metadata": "مشاهده فراداده‌ی",
-    "replay": "بازپخش",
     "codes_redeem": "استفاده از کدهای تخفیف در",
     "documents_read": "مشاهده اسناد",
     "profile_manage": "مدیریت پروفایل",
@@ -244,9 +252,9 @@
     "skipped": "{count, plural, other {# کاربر رد شد (خودتان یا بدون ایمیل)}}."
   },
   "filters": {
-    "role": "نقش",
     "status": "وضعیت",
-    "allRoles": "همه نقش‌ها",
+    "seat": "صندلی",
+    "allSeats": "همه صندلی‌ها",
     "allStatuses": "همه وضعیت‌ها"
   },
   "member": {
@@ -259,7 +267,8 @@
     "lastKeyUse": "آخرین استفاده از کلید",
     "keysUnavailable": "برای دیدن کلیدها دسترسی کافی ندارید.",
     "editRole": "ویرایش نقش",
-    "viewProfile": "پرونده عضو"
+    "viewProfile": "پرونده عضو",
+    "nameSection": "نام و نام خانوادگی"
   },
   "perms": {
     "ops": {
@@ -299,5 +308,34 @@
       "blocked": "مسدود"
     },
     "ownDescription": "کلیدهای شخصی شما."
+  },
+  "seat": {
+    "pending": "از {date}: {seat}",
+    "remainingOf": "{remaining} / {granted}",
+    "poolOfLimit": "{used} از {limit}",
+    "changeSeat": "تغییر صندلی",
+    "cancelPending": "لغو تغییر زمان‌بندی‌شده",
+    "pendingCanceled": "صندلی فعلی عضو حفظ شد.",
+    "change": {
+      "title": "تغییر صندلی {member}",
+      "current": "صندلی فعلی: {seat}",
+      "target": "صندلی جدید",
+      "apply": "اعمال",
+      "schedule": "زمان‌بندی برای پایان دوره",
+      "saved": "صندلی عضو به‌روز شد.",
+      "whenNow": "فوری اعمال می‌شود",
+      "whenPeriodEnd": "در پایان دوره اعمال می‌شود",
+      "nowHint": "تغییر همین حالا اعمال می‌شود.",
+      "paidSeatHint": "یک صندلی آزاد از انبار سازمان برداشته می‌شود و سهمیه‌ی کامل این ماه همین حالا به عضو داده می‌شود.",
+      "periodEndHint": "عضو تا {date} صندلی فعلی‌اش را نگه می‌دارد و بعد صندلی جدید اعمال می‌شود. تا آن زمان می‌توانید تغییر را لغو کنید.",
+      "blocked": {
+        "same": "عضو همین صندلی را دارد.",
+        "back_to_free": "صندلی پولی نمی‌تواند به رایگان برگردد.",
+        "free_used": "این عضو صندلی رایگانش را قبلاً استفاده کرده است. صندلی رایگان فقط یک‌بار به هر عضو داده می‌شود."
+      },
+      "noStockTitle": "صندلی آزادی از این نوع ندارید",
+      "noStockDescription": "یک صندلی بخرید تا پس از پرداخت خودکار به این عضو داده شود.",
+      "buyAndAssign": "خرید و تخصیص"
+    }
   }
 }

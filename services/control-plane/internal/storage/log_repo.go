@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/google/uuid"
 )
 
 // LogSpend writes the spend log entry.
@@ -29,8 +30,8 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 			log.RequestID,
 			emptyToNil(log.TokenHash),
 			nullUUID(log.TenantID),
-			log.OrganizationID,
 			log.TeamID,
+			attributionUUID(log.UserID),
 			log.Model,
 			log.InputTokens,
 			log.OutputTokens,
@@ -55,7 +56,7 @@ func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLo
 
 	if _, err := s.pool.Exec(ctx, `
 		INSERT INTO spend_logs (
-			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
+			request_id, token_hash, tenant_id, team_id, user_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
 			usage_breakdown_json, pricing_snapshot_json,
 			completion_start_time, completion_end_time,
@@ -84,6 +85,17 @@ func spendLogCreditArgs(credits *platform.SpendLogCredits) []interface{} {
 		emptyToNil(credits.BillingMode),
 		emptyToNil(credits.Source),
 	}
+}
+
+// attributionUUID keeps an attribution id only when it is a UUID. The ids are
+// optional context, and a malformed one must not fail the whole spend-log batch.
+func attributionUUID(value string) interface{} {
+	parsed, err := uuid.Parse(strings.TrimSpace(value))
+	if err != nil {
+		return nil
+	}
+
+	return parsed.String()
 }
 
 func spendLogInsertPlaceholders(rowIndex, columns int) string {

@@ -2,14 +2,11 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-export type TableDensity = "compact" | "relaxed";
-
-function Table({ className, density = "compact", ...props }: React.ComponentProps<"table"> & { density?: TableDensity }) {
+function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div className="relative w-full overflow-auto">
       <table
         data-slot="table"
-        data-density={density}
         className={cn("group/table w-full caption-bottom text-sm", className)}
         {...props}
       />
@@ -69,8 +66,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "px-3 align-middle",
-        "group-data-[density=compact]/table:py-1.5 group-data-[density=relaxed]/table:py-3",
+        "px-3 py-1.5 align-middle",
         className,
       )}
       {...props}

@@ -367,8 +367,6 @@ func buildRequestLogEntry(
 	if authInfo != nil {
 		entry.TokenHash = strings.TrimSpace(authInfo.TokenHash)
 		entry.TenantID = strings.TrimSpace(authInfo.TenantID)
-		entry.OrganizationID = strings.TrimSpace(authInfo.OrganizationID)
-		entry.OrgUnitID = strings.TrimSpace(authInfo.OrgUnitID)
 		entry.TeamID = strings.TrimSpace(authInfo.TeamID)
 		entry.ActorID = strings.TrimSpace(authInfo.UserID)
 

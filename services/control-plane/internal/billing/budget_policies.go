@@ -21,130 +21,27 @@ const (
 	budgetTargetPolicy       = "policy"
 )
 
+// tehranTime is Iran Standard Time. Iran has observed no daylight saving
+// since 2022, so a fixed offset is exact and needs no tzdata on the host.
+var tehranTime = time.FixedZone("IRST", 3*60*60+30*60)
+
 type budgetReservationTarget struct {
 	platform.BudgetReservationTarget
-	tenantID       string
-	allowanceIRR   float64
-	expiresAt      time.Time
-	ttl            time.Duration
-	seedFromWallet bool
-}
-
-func (s *BudgetService) budgetReservationTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
-	tenantTarget := s.tenantCreditTarget(auth.TenantID, reservationID, breakdown.TotalCostIRR, now)
-
-	policyTargets, err := s.budgetPolicyTargets(ctx, auth, breakdown, reservationID, now)
-	if err != nil {
-		return nil, err
-	}
-
-	targets := make([]budgetReservationTarget, 1, 1+len(policyTargets))
-	targets[0] = tenantTarget
-	targets = append(targets, policyTargets...)
-
-	return targets, nil
-}
-
-func (s *BudgetService) tenantCreditTarget(tenantID string, reservationID string, estimatedIRR float64, now time.Time) budgetReservationTarget {
-	windowID, windowEnd := budgetWindowForTime(now)
-
-	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
-	if ttl <= 0 {
-		ttl = s.budgetWindowTTLGrace
-	}
-
-	windowKey := budgetWindowKey(tenantID, windowID)
-
-	return budgetReservationTarget{
-		tenantID: strings.TrimSpace(tenantID),
-		BudgetReservationTarget: platform.BudgetReservationTarget{
-			Kind:           budgetTargetTenantCredit,
-			Scope:          string(platform.BudgetAppliesPerTenant),
-			ScopeValue:     strings.TrimSpace(tenantID),
-			WindowID:       windowID,
-			WindowKey:      windowKey,
-			ReservationKey: budgetReservationKey(tenantID, reservationID),
-			EstimatedIRR:   estimatedIRR,
-			CreatedAt:      now,
-		},
-		expiresAt:      windowEnd,
-		ttl:            ttl,
-		seedFromWallet: true,
-	}
-}
-
-func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
-	if s.runtimeProfiles == nil || auth == nil || strings.TrimSpace(auth.TenantID) == "" {
-		return nil, nil
-	}
-
-	profile, err := s.runtimeProfiles.GetSnapshot(ctx, auth.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("%w: profile budget rules unavailable: %v", ErrBudgetUnavailable, err)
-	}
-
-	if profile == nil || len(profile.BudgetRules) == 0 {
-		return nil, nil
-	}
-
-	targets := make([]budgetReservationTarget, 0, len(profile.BudgetRules))
-	for _, rule := range profile.BudgetRules {
-		if !rule.Enabled || !rule.BlockOnBudgetExceed || rule.LimitTo <= 0 {
-			continue
-		}
-
-		matches, err := budgetRuleMatches(rule, auth, breakdown)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		if !matches {
-			continue
-		}
-
-		scope, scopeValue, err := budgetRuleScope(rule, auth, breakdown)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s scope: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		windowID, windowEnd, err := budgetPolicyWindowForTime(rule.Unit, now)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid budget rule %s unit: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
-		}
-
-		ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
-		if ttl <= 0 {
-			ttl = s.budgetWindowTTLGrace
-		}
-
-		scopeHash := shortHash(scope + ":" + scopeValue)
-		ruleID := ruleIdentifier(rule)
-		windowKey := budgetPolicyWindowKey(auth.TenantID, ruleID, scopeHash, windowID)
-		targetHash := shortHash(windowKey)
-		targets = append(targets, budgetReservationTarget{
-			tenantID: auth.TenantID,
-			BudgetReservationTarget: platform.BudgetReservationTarget{
-				Kind:           budgetTargetPolicy,
-				RuleID:         ruleID,
-				Scope:          scope,
-				ScopeValue:     scopeValue,
-				WindowID:       windowID,
-				WindowKey:      windowKey,
-				ReservationKey: budgetPolicyReservationKey(auth.TenantID, reservationID, targetHash),
-				EstimatedIRR:   breakdown.TotalCostIRR,
-				CreatedAt:      now,
-			},
-			allowanceIRR: rule.LimitTo,
-			expiresAt:    windowEnd,
-			ttl:          ttl,
-		})
-	}
-
-	return targets, nil
+	tenantID     string
+	allowanceIRR float64
+	expiresAt    time.Time
+	ttl          time.Duration
+	// seedCreditPool seeds the window from the tenant's credit balance.
+	seedCreditPool bool
+	// seedSeatUser seeds the window from this member's seat credits.
+	seedSeatUser string
 }
 
 func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
-	if !target.seedFromWallet {
+	// Rule windows are re-seeded on every reservation so a changed limit
+	// applies at once; the pool window is seeded on first use and refreshed
+	// when the balance changes.
+	if !target.seedCreditPool && target.seedSeatUser == "" {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
 		}
@@ -186,8 +83,12 @@ func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache Bud
 }
 
 func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget) error {
-	if target.seedFromWallet {
-		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
+	if target.seedCreditPool {
+		return s.seedCreditPoolWindow(ctx, budgetCache, target)
+	}
+
+	if target.seedSeatUser != "" {
+		return s.seedSeatWindow(ctx, budgetCache, target)
 	}
 
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
@@ -304,8 +205,6 @@ func budgetStructuredConditionMatches(condition map[string]interface{}, auth *pl
 			key = "team_id"
 		case "virtual_account":
 			key = "virtual_account_id"
-		case "organization_unit":
-			key = "org_unit_id"
 		}
 
 		actual, _ := budgetContextValue(key, auth, breakdown)
@@ -417,10 +316,6 @@ func budgetContextValue(key string, auth *platform.AuthContext, breakdown platfo
 		return strings.TrimSpace(auth.UserID), true
 	case string(platform.BudgetAppliesPerTeam), "team_id":
 		return strings.TrimSpace(auth.TeamID), true
-	case string(platform.BudgetAppliesPerOrgUnit), "org_unit_id":
-		return strings.TrimSpace(auth.OrgUnitID), true
-	case "organization_id":
-		return strings.TrimSpace(auth.OrganizationID), true
 	case string(platform.BudgetAppliesPerVirtualAccount), "virtual_account", "virtual_account_id", "key_id":
 		return strings.TrimSpace(auth.KeyID), true
 	case "key_alias":
@@ -490,29 +385,21 @@ func budgetPolicyWindowForTime(unit platform.BudgetLimitUnit, now time.Time) (st
 		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
 		return start.Format("20060102"), start.AddDate(0, 0, 1), nil
 	case platform.BudgetLimitCostPerWeek:
-		weekday := int(utc.Weekday())
-		if weekday == 0 {
-			weekday = 7
-		}
+		// Weeks start on Saturday midnight in Tehran, the first day of the
+		// Iranian week. The id names the Tehran start date, so it never
+		// collides with the former ISO-week ids ("2026W42") of windows that
+		// may still be live.
+		local := utc.In(tehranTime)
+		daysSinceSaturday := (int(local.Weekday()) - int(time.Saturday) + 7) % 7
+		start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, tehranTime).AddDate(0, 0, -daysSinceSaturday)
 
-		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, 1-weekday)
-		year, week := start.ISOWeek()
-
-		return fmt.Sprintf("%04dW%02d", year, week), start.AddDate(0, 0, 7), nil
+		return "W" + start.Format("20060102"), start.AddDate(0, 0, 7).UTC(), nil
 	case platform.BudgetLimitCostPerMonth:
 		windowID, windowEnd := budgetWindowForTime(utc)
 		return windowID, windowEnd, nil
 	default:
 		return "", time.Time{}, fmt.Errorf("unsupported budget unit %q", unit)
 	}
-}
-
-func budgetPolicyWindowKey(tenantID string, ruleID string, scopeHash string, windowID string) string {
-	return fmt.Sprintf("budget_policy:%s:rule:%s:scope:%s:window:%s", strings.TrimSpace(tenantID), strings.TrimSpace(ruleID), strings.TrimSpace(scopeHash), strings.TrimSpace(windowID))
-}
-
-func budgetPolicyReservationKey(tenantID string, reservationID string, targetHash string) string {
-	return fmt.Sprintf("budget_reservation:%s:%s:%s", strings.TrimSpace(tenantID), strings.TrimSpace(reservationID), strings.TrimSpace(targetHash))
 }
 
 func ruleIdentifier(rule platform.BudgetLimitRule) string {

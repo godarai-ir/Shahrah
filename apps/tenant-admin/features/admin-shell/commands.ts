@@ -1,4 +1,4 @@
-import { CreditCard, Gauge, LifeBuoy, Plug, Wallet } from "lucide-react";
+import { Coins, Gauge, LifeBuoy, Plug, Wallet } from "lucide-react";
 
 import { canAnyPermission } from "../../lib/authz";
 import type { Permission } from "../../lib/permissions";
@@ -62,14 +62,14 @@ const ACTION_DEFINITIONS: ActionDefinition[] = [
     titleKey: "palette.actions.createSupportTicket",
     icon: LifeBuoy,
     href: "/support/tickets/new",
-    requiredPermissions: ["support_ticket:create"],
+    requiredPermissions: [],
   },
   {
     id: "action:topup",
     titleKey: "palette.actions.topup",
-    icon: CreditCard,
-    href: "/billing/topup",
-    requiredPermissions: ["billing:manage", "settings:manage", "settings:list"],
+    icon: Coins,
+    href: "/billing/credits",
+    requiredPermissions: ["billing:read", "billing:manage", "settings:list"],
   },
 ];
 

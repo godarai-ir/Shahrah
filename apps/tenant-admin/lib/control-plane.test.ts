@@ -14,6 +14,7 @@ import {
   proxyToControlPlaneBinary,
   proxyToControlPlaneBodyStream,
   proxyToControlPlaneStream,
+  readUpstreamErrorCode,
 } from "@/lib/control-plane";
 
 function tenantRequest(path: string) {
@@ -445,5 +446,14 @@ describe("authenticated control-plane proxy", () => {
     expect(init?.method).toBe("POST");
     expect(init?.body).toBe(JSON.stringify({ token: "invite-token" }));
     expect(new Headers(init?.headers).has("x-godarai-user-id")).toBe(false);
+  });
+});
+
+describe("readUpstreamErrorCode", () => {
+  it("forwards stable string codes and ignores numeric status codes", () => {
+    expect(readUpstreamErrorCode({ error: { code: "plan_user_limit_reached", message: "full" } })).toBe("plan_user_limit_reached");
+    expect(readUpstreamErrorCode({ error: { code: 403, message: "forbidden" } })).toBeUndefined();
+    expect(readUpstreamErrorCode({ message: "plain" })).toBeUndefined();
+    expect(readUpstreamErrorCode("text")).toBeUndefined();
   });
 });

@@ -4,10 +4,12 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
@@ -197,6 +199,8 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "one or more roles not found")
 		case errors.Is(err, iam.ErrUserNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		case errors.Is(err, billingdomain.ErrPlanUserLimitReached):
+			return planUserLimitReached(c)
 		default:
 			return err
 		}
@@ -239,26 +243,14 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 			"proxy_admin": append([]string{
 				"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage",
 				"team:create", "team:read", "team:manage", "team:delete",
-				"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 				"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage", "billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem"),
 			"tenant_admin": append([]string{
 				"policy:list", "policy:manage", "role:list", "role:manage", "user:list", "user:manage",
 				"team:create", "team:read", "team:manage", "team:delete",
-				"org_unit:create", "org_unit:read", "org_unit:manage", "org_unit:delete", "org_unit:list",
 				"virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete",
 			}, "provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete", "settings:list", "settings:manage", "billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem"),
-			"billing_manager": {"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem", "settings:list"},
-			"org_admin": {
-				"policy:list", "role:list", "user:list", "user:manage",
-				"org_unit:read", "org_unit:manage", "org_unit:list",
-				"team:create", "team:read", "team:manage",
-				"virtual_account:create", "virtual_account:read", "virtual_account:manage",
-				"provider_account:read", "settings:list",
-			},
-			"team_admin":      {"policy:list", "role:list", "user:list", "team:read", "team:manage", "virtual_account:create", "virtual_account:read", "virtual_account:manage", "virtual_account:delete", "provider_account:read", "settings:list"},
-			"member":          {"user:list", "settings:list"},
-			"readonly_member": {"settings:list"},
+			"member": {"user:list", "settings:list"},
 		}
 		permissions = append(permissions, fallbackPerms[role]...)
 	}
@@ -317,15 +309,9 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	if h.entitlements != nil {
-		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
-		if err != nil {
-			return err
-		}
-
-		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
-			return err
-		}
+	// The seat cap itself is enforced atomically by the store.
+	if err := h.requireActiveSubscription(c, currentTenant.ID); err != nil {
+		return err
 	}
 
 	var req platform.InviteTenantAdminUserRequest
@@ -336,6 +322,8 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Mobile = strings.TrimSpace(req.Mobile)
 	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
 	req.AcceptInviteClientURL = strings.TrimSpace(req.AcceptInviteClientURL)
 
 	if req.Email == "" && req.Mobile == "" {
@@ -361,6 +349,8 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusConflict, "This user is deactivated and cannot receive an invitation.")
 		case errors.Is(err, tenantadmin.ErrInvitationAlreadyPending):
 			return fiber.NewError(fiber.StatusConflict, "An invitation has already been sent to this email.")
+		case errors.Is(err, billingdomain.ErrPlanUserLimitReached):
+			return planUserLimitReached(c)
 		default:
 			return err
 		}
@@ -383,15 +373,9 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
 	}
 
-	if h.entitlements != nil {
-		currentUsers, err := h.entitlements.CountActiveTenantUsers(c.Context(), currentTenant.ID)
-		if err != nil {
-			return err
-		}
-
-		if err := h.requireEntitlementLimitAvailable(c, currentTenant.ID, platform.FeatureUsersMax, currentUsers, 1); err != nil {
-			return err
-		}
+	// The seat cap itself is enforced atomically by the store.
+	if err := h.requireActiveSubscription(c, currentTenant.ID); err != nil {
+		return err
 	}
 
 	var req platform.AcceptTenantAdminInvitationRequest
@@ -426,6 +410,52 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 		Invitation: *invitation,
 		User:       *user,
 	})
+}
+
+const maxUserNameLength = 100
+
+// UpdateTenantUserProfile sets the first and last name of one tenant user.
+func (h *Handlers) UpdateTenantUserProfile(c *fiber.Ctx) error {
+	if err := requireUserManage(c); err != nil {
+		return err
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	userID := strings.TrimSpace(c.Params("userID"))
+	if userID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "userID is required")
+	}
+
+	var req platform.UpdateTenantAdminUserProfileRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+
+	if utf8.RuneCountInString(req.FirstName) > maxUserNameLength || utf8.RuneCountInString(req.LastName) > maxUserNameLength {
+		return fiber.NewError(fiber.StatusBadRequest, "first and last name must be at most 100 characters")
+	}
+
+	user, err := h.users.UpdateTenantAdminUserProfile(c.Context(), currentTenant.Slug, userID, req)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "user not found")
+		}
+
+		return err
+	}
+
+	return c.JSON(user)
 }
 
 // ActivateTenantUser marks one tenant-admin user as active.
@@ -481,8 +511,51 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
+		if errors.Is(err, billingdomain.ErrPlanUserLimitReached) {
+			return planUserLimitReached(c)
+		}
+
 		return err
 	}
 
 	return c.JSON(user)
 }
+
+// GetTenantUserSeats reports the tenant's user seats against its plan cap.
+func (h *Handlers) GetTenantUserSeats(c *fiber.Ctx) error {
+	if err := requireUserListOrManage(c); err != nil {
+		return err
+	}
+
+	currentTenant := tenant.FromContext(c)
+	if currentTenant == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	}
+
+	if h.users == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "user store not configured")
+	}
+
+	seats, err := h.users.GetTenantSeatUsage(c.Context(), currentTenant.ID)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "tenant not found")
+		}
+
+		return err
+	}
+
+	return c.JSON(seats)
+}
+
+// planUserLimitReached is the client-safe error for a full user cap. It names
+// no counts or limits; the seats endpoint reports those to authorized readers.
+func planUserLimitReached(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": fiber.Map{
+		"code":    planUserLimitReachedCode,
+		"type":    "plan_limit",
+		"message": "The plan's user limit is reached. Upgrade the plan or remove a member or pending invitation first.",
+	}})
+}
+
+const planUserLimitReachedCode = "plan_user_limit_reached"

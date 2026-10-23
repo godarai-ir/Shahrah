@@ -325,7 +325,7 @@ export function GatewayPolicyRulesPage() {
             ) : null}
             {item.type === "rate" && item.rule.soft_limit ? <StatusBadge status="warning">{t("status.countOnly")}</StatusBadge> : null}
             {item.type === "rate" && item.rule.conflict_behavior === "first_match" ? <StatusBadge status="neutral">{t("status.stopsEvaluation")}</StatusBadge> : null}
-            {item.type === "budget" && !item.rule.block_on_budget_exceed ? <StatusBadge status="neutral">{t("status.noEffect")}</StatusBadge> : null}
+            {item.type === "budget" && item.rule.on_exceed === "alert" ? <StatusBadge status="warning">{t("status.alertOnly")}</StatusBadge> : null}
           </div>
           <p className="text-sm leading-6 text-foreground">{sentences.get(key)}</p>
           {targets.legacySubject ? <p className="text-xs leading-5 text-destructive">{t("legacySubjectRow")}</p> : null}

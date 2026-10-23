@@ -49,7 +49,7 @@ function limitPhrase(item: PolicyRule, format: SentenceFormat): string {
     : t("sentence.appliesPer", {
         scope: scope.startsWith("metadata.") ? t("sentence.scopes.metadata", { key: scope.slice("metadata.".length) }) : t(`sentence.scopes.${scope}`),
       });
-  return t("sentence.budgetLimit", { amount: formatNumber(item.rule.limit_to), period }) + perScope;
+  return t("sentence.budgetLimit", { amount: formatNumber(Number(item.rule.limit ?? 0)), period }) + perScope;
 }
 
 /**

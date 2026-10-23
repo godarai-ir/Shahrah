@@ -30,13 +30,6 @@
   "docs": {
     "open": "مشاهده مستندات"
   },
-  "plan": {
-    "label": "طرح فعال: {name}",
-    "daysRemaining": "{days} روز",
-    "unknown": "پلن نامشخص",
-    "noEndDate": "بدون تاریخ پایان",
-    "expired": "پایان یافته"
-  },
   "appVersion": {
     "label": "نسخه"
   },
@@ -51,12 +44,10 @@
     "quickStart": "راهنمای شروع سریع",
     "supportTickets": "پشتیبانی",
     "billing": "داشبورد مالی",
-    "topup": "کیف پول",
-    "bankTransfer": "واریز بانکی",
-    "billingReports": "گزارش‌های مالی",
+    "topup": "خرید اعتبار",
+    "seats": "صندلی‌ها",
     "billingProfile": "هویت مالی",
-    "billingDocuments": "تراکنش‌ها و فاکتورها",
-    "plan": "پلن",
+    "plan": "اشتراک",
     "settings": "تنظیمات حساب",
     "accountSettings": "حساب کاربری",
     "requestLoggingSettings": "تنظیمات لاگ درخواست",
@@ -72,9 +63,7 @@
     "oidcClients": "برنامه‌های متصل",
     "users": "اعضا",
     "logs": "لاگ درخواست‌ها",
-    "orgUnits": "واحدهای سازمانی",
     "teams": "تیم‌ها",
-    "orgStructure": "ساختار سازمانی",
     "traces": "ردیابی درخواست‌ها",
     "metrics": "سنجه‌های عملکرد",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
@@ -103,7 +92,7 @@
       "createRateLimitRule": "ساخت قانون کنترل نرخ",
       "createBudgetLimitRule": "ساخت قانون سقف هزینه",
       "createSupportTicket": "ثبت تیکت پشتیبانی",
-      "topup": "افزایش اعتبار"
+      "topup": "خرید اعتبار"
     }
   }
 }

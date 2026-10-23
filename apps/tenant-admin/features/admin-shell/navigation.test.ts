@@ -18,7 +18,7 @@ function t(key: string) {
     "nav.roles": "نقش‌ها",
     "nav.users": "کاربران",
     "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
-    "nav.orgStructure": "ساختار سازمانی",
+    "nav.teams": "تیم‌ها",
     "nav.virtualUsers": "کاربران مجازی",
     "nav.supportTickets": "پشتیبانی",
   };
@@ -39,11 +39,11 @@ describe("admin access navigation items", () => {
   it("orders access items by common administrative workflow", () => {
     expect(ACCESS_NAV_ITEM_KEYS).toEqual([
       "users",
+      "teams",
       "personalAccessTokens",
-      "oidcClients",
-      "accessManagement",
-      "orgStructure",
       "virtualUsers",
+      "accessManagement",
+      "oidcClients",
     ]);
   });
 
@@ -58,11 +58,7 @@ describe("admin access navigation items", () => {
   });
 
   it("shows the org structure item for team:read only", () => {
-    expect(getVisibleTitles(["team:read"])).toContain("ساختار سازمانی");
-  });
-
-  it("shows the org structure item for org_unit:read only", () => {
-    expect(getVisibleTitles(["org_unit:read"])).toContain("ساختار سازمانی");
+    expect(getVisibleTitles(["team:read"])).toContain("تیم‌ها");
   });
 
   it("shows the users item for user:list only", () => {
@@ -78,17 +74,25 @@ describe("admin access navigation items", () => {
     expect(getVisibleTitles(["team:read"])).not.toContain("نقش‌ها");
   });
 
-  it("shows support only for users who can read tickets", () => {
-    expect(getVisibleTitles(["support_ticket:read_own"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:read_all"])).toContain("پشتیبانی");
-    expect(getVisibleTitles(["support_ticket:create"])).not.toContain("پشتیبانی");
+  it("keeps support visible without permissions", () => {
+    expect(getVisibleTitles([])).toContain("پشتیبانی");
   });
 });
 
 describe("admin sidebar sections", () => {
-  it("keeps the sidebar at ten first-level entries", () => {
+  it("keeps the sidebar at eleven first-level entries", () => {
     const itemCount = ADMIN_NAV_SECTIONS.reduce((sum, section) => sum + section.itemKeys.length, 0);
-    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(10);
+    expect(ROOT_NAV_ITEM_KEYS.length + itemCount).toBe(11);
+  });
+
+  it("lists seats as a top-level entry right after the dashboard, not a billing tab", () => {
+    expect(ROOT_NAV_ITEM_KEYS).toEqual(["dashboard", "seats"]);
+    expect(BILLING_TAB_KEYS).not.toContain("seats");
+    const active = buildAdminNavItems("/billing/seats", t).filter((item) => item.isActive).map((item) => item.key);
+    expect(active).toContain("seats");
+    expect(active).not.toContain("billing");
+    const visible = filterVisibleNavItems(buildAdminNavItems("/billing/seats", t), ["billing:read", "settings:list"]);
+    expect(resolveNavTabs("/billing/seats", visible)).toBeNull();
   });
 
   it("only references keys that buildAdminNavItems produces", () => {
@@ -112,14 +116,13 @@ describe("admin sidebar sections", () => {
     expect(activeKeys("/gateway-policies/budget-limiting-rules")).toContain("gatewayPolicies");
     expect(activeKeys("/gateway-policies")).toContain("gatewayRules");
     expect(activeKeys("/teams")).toContain("accessAndUsers");
-    expect(activeKeys("/teams")).toContain("orgStructure");
-    expect(activeKeys("/org-units")).toContain("orgStructure");
+    expect(activeKeys("/teams")).toContain("teams");
     expect(activeKeys("/billing/topup")).toContain("billing");
   });
 
   it("keeps every retired key reachable as a tab key", () => {
     const tabKeys = [...ACCESS_NAV_ITEM_KEYS, ...OBSERVE_TAB_KEYS, ...BILLING_TAB_KEYS];
-    for (const key of ["users", "orgStructure", "logs", "metrics", "topup", "plan"] as const) {
+    for (const key of ["users", "teams", "logs", "metrics", "topup", "plan"] as const) {
       expect(tabKeys).toContain(key);
     }
   });
@@ -177,8 +180,9 @@ describe("admin sidebar sections", () => {
     const all = buildAdminNavItems("/", t);
     const visible = filterVisibleNavItems(all, ["team:read"]);
     const entry = all.find((item) => item.key === "accessAndUsers")!;
-    // The keys tab needs no permission, so it is the first fallback for anyone.
-    expect(resolveSectionEntryHref(entry, all, visible)).toBe("/personal-access-tokens");
+    expect(resolveSectionEntryHref(entry, all, visible)).toBe("/teams");
+    // The keys tab needs no permission, so it is the first fallback for anyone without team access.
+    expect(resolveSectionEntryHref(entry, all, filterVisibleNavItems(all, []))).toBe("/personal-access-tokens");
     expect(resolveSectionEntryHref(entry, all, filterVisibleNavItems(all, ["user:list"]))).toBe("/users");
   });
 });

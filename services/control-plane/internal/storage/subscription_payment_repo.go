@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -12,112 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *SubscriptionRepository) PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error) {
-	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
-	if req.PlanSlug == "free" || req.PlanSlug == "" {
-		req.PlanSlug = "developer"
-	}
-
-	req.BillingInterval = normalizeBillingInterval(req.BillingInterval)
-
-	target, err := s.catalog.publishedPlanBySlug(ctx, req.PlanSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
-	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
-		return nil, currentErr
-	}
-
-	if current != nil && subscriptionStatusIsCurrent(current.Status) {
-		var currentOrder int
-
-		orderErr := s.pool.QueryRow(ctx, `SELECT sort_order FROM commercial_plans WHERE plan_id = $1::uuid`, current.PlanID).Scan(&currentOrder)
-		if orderErr != nil {
-			return nil, orderErr
-		}
-
-		if current.Status != "trialing" && target.SortOrder < currentOrder {
-			subscription, subErr := s.ChangeTenantSubscription(ctx, tenantID, req)
-			if subErr != nil {
-				return nil, subErr
-			}
-
-			return &platform.SubscriptionChangeResult{Mode: "downgrade_scheduled", Subscription: subscription}, nil
-		}
-	}
-
-	provider := strings.TrimSpace(strings.ToLower(req.Provider))
-	if provider == "" {
-		provider = "mock"
-	}
-
-	price, err := s.planPriceForVersion(ctx, target.Versions[0].ID, req.BillingInterval)
-	if err != nil {
-		return nil, err
-	}
-
-	if price.AmountMinor == nil {
-		return nil, billingdomain.ErrPlanPriceUnavailable
-	}
-
-	if *price.AmountMinor == 0 {
-		subscription, subErr := s.upsertTenantSubscription(ctx, platform.UpsertTenantSubscriptionRequest{
-			TenantID: tenantID, PlanSlug: req.PlanSlug, BillingInterval: req.BillingInterval, Status: "active", Metadata: req.Metadata,
-		}, "tenant_zero_price")
-		if subErr != nil {
-			return nil, subErr
-		}
-
-		return &platform.SubscriptionChangeResult{Mode: "applied", Subscription: subscription}, nil
-	}
-
-	priceSnapshot := map[string]interface{}{
-		"billing_interval": price.BillingInterval,
-		"currency":         price.Currency,
-		"amount_minor":     *price.AmountMinor,
-		"discount_percent": price.DiscountPercent,
-	}
-
-	intent, err := s.createSubscriptionPaymentIntent(ctx, tenantID, target, req.BillingInterval, provider, callbackURL, returnURL, priceSnapshot, req.Metadata)
-	if err != nil {
-		return nil, err
-	}
-
-	return &platform.SubscriptionChangeResult{Mode: "payment_required", PaymentIntent: intent}, nil
-}
-
-func (s *SubscriptionRepository) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
-	if metadata == nil {
-		metadata = map[string]interface{}{}
-	}
-
-	amount, _ := numericFeatureLimit(priceSnapshot["amount_minor"])
-	discount, _ := numericFeatureLimit(priceSnapshot["discount_percent"])
-
-	currency := ""
-	if value, ok := priceSnapshot["currency"].(string); ok {
-		currency = value
-	}
-
-	if currency == "" {
-		currency = "IRR"
-	}
-
-	var publicID string
-	if err := s.pool.QueryRow(ctx, `
-		INSERT INTO subscription_payment_intents (
-			tenant_id, plan_id, version_id, billing_interval, provider, status,
-			currency, amount_minor, discount_percent, price_snapshot_json,
-			callback_url, return_url, metadata
-		) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, 'PENDING', $6, $7, $8, $9, $10, $11, $12)
-		RETURNING public_id::text
-	`, tenantID, target.ID, target.Versions[0].ID, interval, provider, currency, amount, discount, mustJSON(priceSnapshot), callbackURL, returnURL, mustJSON(metadata)).Scan(&publicID); err != nil {
-		return nil, err
-	}
-
-	return s.GetSubscriptionPaymentIntentByPublicID(ctx, publicID)
+// PrepareTenantSubscriptionChange is retired: plans can no longer be bought.
+// The seat subscription starts with the first paid seat purchase.
+func (s *SubscriptionRepository) PrepareTenantSubscriptionChange(_ context.Context, _ string, _ platform.ChangeTenantSubscriptionRequest, _ string, _ string) (*platform.SubscriptionChangeResult, error) {
+	return nil, billingdomain.ErrPlansRetired
 }
 
 func (s *SubscriptionRepository) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
@@ -302,30 +199,6 @@ func (s *SubscriptionRepository) MarkSubscriptionPaymentFailedByAuthority(ctx co
 	}
 
 	return nil
-}
-
-func (s *SubscriptionRepository) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
-	row := s.pool.QueryRow(ctx, `
-		SELECT price_id::text, version_id::text, billing_interval, currency,
-		       amount_minor::double precision, discount_percent::double precision, created_at, updated_at
-		FROM plan_prices WHERE version_id = $1::uuid AND billing_interval = $2
-	`, versionID, normalizeBillingInterval(interval))
-
-	var (
-		item   platform.PlanPrice
-		amount *float64
-	)
-	if err := row.Scan(&item.ID, &item.VersionID, &item.BillingInterval, &item.Currency, &amount, &item.DiscountPercent, &item.CreatedAt, &item.UpdatedAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, billingdomain.ErrPlanPriceUnavailable
-		}
-
-		return nil, err
-	}
-
-	item.AmountMinor = amount
-
-	return &item, nil
 }
 
 const subscriptionPaymentIntentSelect = `

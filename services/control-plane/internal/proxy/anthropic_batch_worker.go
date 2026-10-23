@@ -12,7 +12,7 @@ import (
 )
 
 func (h *AnthropicNativeHandler) RunBatchWorker(ctx context.Context, interval time.Duration) {
-	if h == nil || h.resources == nil || !h.pipeline.HasTransport() || !h.batchesEnabled {
+	if h == nil || h.resources == nil || !h.pipeline.HasTransport() {
 		return
 	}
 

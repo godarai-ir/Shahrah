@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var ErrSpendLogQueueFull = errors.New("spend log queue is full")
+// spendLogDirectWriteTimeout bounds the synchronous write used when the queue cannot take a log.
+const spendLogDirectWriteTimeout = 5 * time.Second
 
 type SpendLogBatchWriter interface {
 	LogSpends(ctx context.Context, logs []platform.SpendLog) error
@@ -30,7 +30,6 @@ type AsyncSpendLogConfig struct {
 	BatchSize      int
 	FlushInterval  time.Duration
 	EnqueueTimeout time.Duration
-	DropOnFull     bool
 }
 
 type AsyncSpendLogWriter struct {
@@ -121,7 +120,7 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 	}
 
 	if w.closed.Load() {
-		return w.handleQueueFull()
+		return w.writeOverflow(log)
 	}
 
 	if w.cfg.EnqueueTimeout > 0 {
@@ -133,9 +132,9 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 			w.recordQueued()
 			return nil
 		case <-timer.C:
-			return w.handleQueueFull()
+			return w.writeOverflow(log)
 		case <-ctx.Done():
-			return ctx.Err()
+			return w.writeOverflow(log)
 		}
 	}
 
@@ -144,7 +143,7 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 		w.recordQueued()
 		return nil
 	default:
-		return w.handleQueueFull()
+		return w.writeOverflow(log)
 	}
 }
 
@@ -178,15 +177,23 @@ func (w *AsyncSpendLogWriter) Stop(ctx context.Context) error {
 	}
 }
 
-func (w *AsyncSpendLogWriter) handleQueueFull() error {
+// writeOverflow writes a log that the queue could not take, so usage is still billed.
+// The write uses its own timeout, so a client disconnect cannot cancel it.
+func (w *AsyncSpendLogWriter) writeOverflow(log platform.SpendLog) error {
 	w.recordDropped()
-	w.logger.Warn("spend log queue full; dropping log")
 
-	if w.cfg.DropOnFull {
-		return nil
+	ctx, cancel := context.WithTimeout(context.Background(), spendLogDirectWriteTimeout)
+	defer cancel()
+
+	if err := w.underlying.LogSpend(ctx, log); err != nil {
+		w.logger.Error("spend log queue full and direct write failed", zap.Error(err), zap.String("request_id", log.RequestID))
+
+		return err
 	}
 
-	return ErrSpendLogQueueFull
+	w.logger.Warn("spend log queue full; wrote log directly", zap.String("request_id", log.RequestID))
+
+	return nil
 }
 
 func (w *AsyncSpendLogWriter) recordQueued() {

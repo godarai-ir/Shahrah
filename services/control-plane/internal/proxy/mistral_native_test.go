@@ -13,7 +13,7 @@ import (
 )
 
 func TestMistralNativeFeatureFlagsDefaultOff(t *testing.T) {
-	features := ProviderFeatureConfig{Configured: true, MistralEnabled: true}
+	features := ProviderFeatureConfig{Configured: true}
 
 	if mistralNativeFeatureEnabled(features, "FILES") {
 		t.Fatal("native Files API must default off")

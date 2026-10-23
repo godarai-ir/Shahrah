@@ -30,13 +30,6 @@
   "docs": {
     "open": "View docs"
   },
-  "plan": {
-    "label": "Plan: {name}",
-    "daysRemaining": "{days} days left",
-    "unknown": "Unknown plan",
-    "noEndDate": "No end date",
-    "expired": "Ended"
-  },
   "appVersion": {
     "label": "Version"
   },
@@ -51,12 +44,10 @@
     "quickStart": "Quick Start Guide",
     "supportTickets": "Support",
     "billing": "Billing",
-    "topup": "Wallet",
-    "bankTransfer": "Bank Transfer",
-    "billingReports": "Reports",
+    "topup": "Buy credits",
+    "seats": "Seats",
     "billingProfile": "Financial Identity",
-    "billingDocuments": "Transactions & Invoices",
-    "plan": "Plan",
+    "plan": "Subscription",
     "settings": "Account Settings",
     "accountSettings": "Account",
     "requestLoggingSettings": "Request Logging",
@@ -77,9 +68,7 @@
     "gatewayPolicies": "Gateway Policies",
     "gatewayRules": "Limit rules",
     "guardrails": "Guardrails",
-    "orgUnits": "Org Units",
     "teams": "Teams",
-    "orgStructure": "Org structure",
     "observe": "Observe",
     "accessAndUsers": "Users & access",
     "sectionTabs": "Subsections"
@@ -103,7 +92,7 @@
       "createRateLimitRule": "Create rate limit rule",
       "createBudgetLimitRule": "Create budget limit rule",
       "createSupportTicket": "Open support ticket",
-      "topup": "Top up credit"
+      "topup": "Buy credits"
     }
   }
 }

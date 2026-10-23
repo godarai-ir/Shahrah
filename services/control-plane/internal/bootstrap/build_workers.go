@@ -7,16 +7,14 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/logretention"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 )
 
 func (b *builder) buildWorkers() error {
-	b.buildCreditRateCards()
-
 	if err := b.buildBillingWorkers(); err != nil {
 		return err
 	}
@@ -104,35 +102,51 @@ func (b *builder) buildBillingWorkers() error {
 		return err
 	}
 
-	settlementCfg := billing.WalletSettlementConfig{
-		Enabled:   b.cfg.Runtime.WalletSettlementEnabled,
-		Interval:  b.cfg.Runtime.WalletSettlementInterval,
-		Timeout:   b.cfg.Runtime.WalletSettlementTimeout,
-		BatchSize: b.cfg.Runtime.WalletSettlementBatchSize,
+	if err := b.buildCreditLedgerWorker(); err != nil {
+		return err
 	}
 
-	liveBudgetCache, ok := b.cache.(cache.BudgetWindowInspector)
-	if !ok {
-		if settlementCfg.Enabled {
-			b.logger.Warn("Wallet settlement worker is disabled because the cache cannot inspect budget windows")
-		}
+	spendPurge := billing.NewSpendPurgeProcessor(b.store.SpendHistoryPurgeRepository, b.logger, 5*time.Minute)
 
-		return nil
-	}
-
-	settlement := billing.NewWalletSettlementProcessor(
-		settlementCfg,
-		liveBudgetCache,
-		b.store.WalletLedgerRepository,
-		b.logger,
-	)
-
-	return b.lifecycle.AddWorker("wallet settlement processor", func(context.Context) error {
-		settlement.Start()
+	return b.lifecycle.AddWorker("clickhouse spend purge", func(context.Context) error {
+		spendPurge.Start()
 
 		return nil
 	}, func(context.Context) error {
-		settlement.Stop()
+		spendPurge.Stop()
+
+		return nil
+	})
+}
+
+func (b *builder) buildCreditLedgerWorker() error {
+	settings := b.cfg.Runtime.BillingCreditLedger
+	if b.store == nil || b.store.WalletRepository == nil {
+		return nil
+	}
+
+	processor := billing.NewCreditLedgerProcessor(billing.CreditLedgerConfig{
+		SettlementInterval: settings.SettlementInterval,
+		SettleDelay:        settings.SettleDelay,
+		BatchSize:          settings.BatchSize,
+		ExpiryInterval:     settings.ExpiryInterval,
+		ReconcileInterval:  settings.ReconcileInterval,
+		PriceInterval:      settings.PriceInterval,
+		PriceAutoApply:     settings.PriceAutoApply,
+		Timeout:            settings.Timeout,
+	}, creditLedgerWorkerStore{
+		CreditLedgerRepository:   b.store.CreditLedgerRepository,
+		CreditPriceRepository:    b.store.CreditPriceRepository,
+		CreditRateCardRepository: b.store.CreditRateCardRepository,
+		SeatRepository:           b.store.SeatRepository,
+	}, b.logger)
+
+	return b.lifecycle.AddWorker("credit ledger processor", func(context.Context) error {
+		processor.Start()
+
+		return nil
+	}, func(context.Context) error {
+		processor.Stop()
 
 		return nil
 	})
@@ -174,12 +188,9 @@ func (b *builder) buildMetricsWorkers() error {
 		return err
 	}
 
-	shadowCredits := b.cfg.Runtime.BillingCreditsShadowEnabled
 	b.emitMetric = func(input metricsobs.BuildInput) {
 		event := processor.BuildEvent(input)
-		if shadowCredits {
-			metricsobs.ApplyShadowCredits(&event, b.creditRateCards.CurrentRateCard())
-		}
+		metricsobs.ApplyShadowCredits(&event, b.creditRateCards.CurrentRateCard())
 
 		_ = queue.Enqueue(event)
 	}
@@ -236,7 +247,6 @@ func (b *builder) buildAsyncLoggers() error {
 		BatchSize:      b.cfg.SpendLogs.BatchSize,
 		FlushInterval:  time.Duration(b.cfg.SpendLogs.FlushIntervalMS) * time.Millisecond,
 		EnqueueTimeout: time.Duration(b.cfg.SpendLogs.EnqueueTimeoutMS) * time.Millisecond,
-		DropOnFull:     b.cfg.SpendLogs.DropOnFull,
 	}, b.logger, b.httpMetrics)
 	b.spendLogger = b.withCreditShadow(writer)
 
@@ -300,4 +310,12 @@ func stopWithConfiguredTimeout(
 	defer cancel()
 
 	return stop(ctx)
+}
+
+// creditLedgerWorkerStore joins the repositories the credit ledger worker drives.
+type creditLedgerWorkerStore struct {
+	*storage.CreditLedgerRepository
+	*storage.CreditPriceRepository
+	*storage.CreditRateCardRepository
+	*storage.SeatRepository
 }

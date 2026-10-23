@@ -12,6 +12,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -55,14 +56,15 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id
 		WHERE t.slug = $1
-		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3)
+		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3 OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE $3)
 	`, tenantSlug, query, like).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
-		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
+		       COALESCE(u.active, true), u.created_at, u.updated_at, u.last_login_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
 		         '{}'
@@ -72,8 +74,8 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 		LEFT JOIN user_role_bindings urb ON urb.tenant_id = u.tenant_id AND urb.user_id = u.user_id
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
-		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3)
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
+		  AND ($2 = '' OR LOWER(COALESCE(u.email, '')) LIKE $3 OR LOWER(COALESCE(u.mobile, '')) LIKE $3 OR LOWER(COALESCE(u.user_alias, '')) LIKE $3 OR LOWER(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) LIKE $3)
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at, u.last_login_at
 		ORDER BY u.updated_at DESC, u.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, tenantSlug, query, like, limit, offset)
@@ -91,7 +93,7 @@ func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenant
 			active              bool
 			roles               []string
 		)
-		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &active, &item.CreatedAt, &item.UpdatedAt, &roles); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &active, &item.CreatedAt, &item.UpdatedAt, &item.LastLoginAt, &roles); err != nil {
 			return nil, 0, err
 		}
 
@@ -136,7 +138,8 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 	)
 	if err := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''), COALESCE(u.role, 'member'),
-		       COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
+		       COALESCE(u.active, true), u.created_at, u.updated_at, u.last_login_at,
 		       COALESCE(
 		         ARRAY_AGG(r.name ORDER BY r.name) FILTER (WHERE urb.is_active = true AND r.name IS NOT NULL),
 		         '{}'
@@ -147,10 +150,10 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 		LEFT JOIN roles r ON r.tenant_id = u.tenant_id AND r.role_id = urb.role_id
 		WHERE t.slug = $1
 		  AND u.user_id::text = $2
-		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.active, u.created_at, u.updated_at
+		GROUP BY u.user_id, t.slug, u.email, u.mobile, u.role, u.first_name, u.last_name, u.active, u.created_at, u.updated_at, u.last_login_at
 		LIMIT 1
 	`, tenantSlug, userID).Scan(
-		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.Active, &item.CreatedAt, &item.UpdatedAt, &roles,
+		&item.ID, &item.TenantSlug, &email, &mobile, &role, &item.FirstName, &item.LastName, &item.Active, &item.CreatedAt, &item.UpdatedAt, &item.LastLoginAt, &roles,
 	); err != nil {
 		return nil, err
 	}
@@ -178,6 +181,8 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	mobile := strings.TrimSpace(req.Mobile)
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
 
 	role := strings.TrimSpace(strings.ToLower(req.Role))
 	if role == "" {
@@ -186,6 +191,17 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 
 	if email != "" && !IsValidEmailAddress(email) {
 		return nil, "", ErrInvalidInvitationEmail
+	}
+
+	seatType := ""
+
+	if strings.TrimSpace(req.SeatType) != "" {
+		parsed, seatErr := seats.ParseType(req.SeatType)
+		if seatErr != nil {
+			return nil, "", seatErr
+		}
+
+		seatType = string(parsed)
 	}
 
 	now := time.Now().UTC()
@@ -259,6 +275,11 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 		return nil, "", err
 	}
 
+	// A pending invitation holds a seat until it is accepted or expires.
+	if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+		return nil, "", capErr
+	}
+
 	expiresAt := now.Add(invitationTTL)
 	invitationID := uuid.NewString()
 
@@ -271,13 +292,13 @@ func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenan
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO "tenant_admin_invitations" (
 			"invitation_id", "tenant_id", "tenantSlug", "email", "mobile", "role", "status",
-			"token_hash", "expires_at", "created_at", "updated_at"
+			"token_hash", "expires_at", "created_at", "updated_at", "first_name", "last_name", "seat_type"
 		) VALUES (
 			$1, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), $6, 'pending',
-			$7, $8, $9, $9
+			$7, $8, $9, $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, '')
 		)
 		RETURNING "accepted_at"
-	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now).Scan(&acceptedAt); err != nil {
+	`, invitationID, tenantID, tenantSlug, email, mobile, role, tokenHash, expiresAt, now, firstName, lastName, seatType).Scan(&acceptedAt); err != nil {
 		return nil, "", err
 	}
 
@@ -324,12 +345,16 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		status     string
 		acceptedAt *time.Time
 		updatedAt  time.Time
+		firstName  string
+		lastName   string
+		seatType   string
 	)
 
 	queryErr := tx.QueryRow(ctx, `
 		SELECT "invitation_id"::text, "tenant_id"::text, "tenantSlug",
 		       COALESCE("email", ''), COALESCE("mobile", ''), COALESCE("role", 'member'),
-		       "status", "expires_at", "accepted_at", "created_at", "updated_at"
+		       "status", "expires_at", "accepted_at", "created_at", "updated_at",
+		       COALESCE("first_name", ''), COALESCE("last_name", ''), COALESCE("seat_type", '')
 		FROM "tenant_admin_invitations"
 		WHERE "token_hash" = $1
 		FOR UPDATE
@@ -345,6 +370,9 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		&acceptedAt,
 		&invitation.CreatedAt,
 		&updatedAt,
+		&firstName,
+		&lastName,
+		&seatType,
 	)
 	if queryErr != nil {
 		return nil, nil, queryErr
@@ -371,8 +399,17 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 		return nil, nil, ErrInvitationExpired
 	}
 
-	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role)
+	// The pending invitation already holds a seat, so accepting it adds none.
+	if capErr := enforceTenantUserCapTx(ctx, tx, invitation.TenantID, 0); capErr != nil {
+		return nil, nil, capErr
+	}
+
+	user, err := upsertTenantAdminUserFromInvitation(ctx, tx, invitation.TenantID, invitation.TenantSlug, invitation.Email, invitation.Mobile, invitation.Role, firstName, lastName)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := assignInvitedSeatTx(ctx, tx, invitation.TenantID, user.ID, seatType, now); err != nil {
 		return nil, nil, err
 	}
 
@@ -399,12 +436,46 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 	return &invitation, user, nil
 }
 
+// UpdateTenantAdminUserProfile sets the first and last name of one tenant member.
+func (s *TenantAdminRepository) UpdateTenantAdminUserProfile(ctx context.Context, tenantSlug string, userID string, req platform.UpdateTenantAdminUserProfileRequest) (*platform.TenantAdminUser, error) {
+	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
+
+	userID = strings.TrimSpace(userID)
+	if tenantSlug == "" || userID == "" {
+		return nil, apperrors.ErrNotFound
+	}
+
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE users u
+		SET first_name = NULLIF($3, ''), last_name = NULLIF($4, ''), updated_at = NOW()
+		FROM tenants t
+		WHERE t.tenant_id = u.tenant_id
+		  AND t.slug = $1
+		  AND u.user_id::text = $2
+	`, tenantSlug, userID, strings.TrimSpace(req.FirstName), strings.TrimSpace(req.LastName))
+	if err != nil {
+		return nil, err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return nil, apperrors.ErrNotFound
+	}
+
+	return s.GetTenantAdminUserRecord(ctx, tenantSlug, userID)
+}
+
 func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
 		return nil, apperrors.ErrNotFound
+	}
+
+	if active {
+		if err := s.reactivateWithinUserCap(ctx, tenantSlug, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -451,6 +522,13 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 		`, tenantSlug, userID); revokeErr != nil {
 			return nil, revokeErr
 		}
+
+		// A departing member's paid seat goes back to the tenant's stock.
+		if _, releaseErr := s.pool.Exec(ctx, `
+			DELETE FROM tenant_seat_assignments WHERE tenant_id = $1::uuid AND user_id::text = $2
+		`, tenantID, userID); releaseErr != nil {
+			return nil, releaseErr
+		}
 	}
 
 	if strings.TrimSpace(tenantID) != "" {
@@ -461,7 +539,7 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 	return &user, nil
 }
 
-func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantID string, tenantSlug string, email string, mobile string, role string) (*platform.TenantAdminUser, error) {
+func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantID string, tenantSlug string, email string, mobile string, role string, firstName string, lastName string) (*platform.TenantAdminUser, error) {
 	var (
 		user          platform.TenantAdminUser
 		currentRole   string
@@ -490,10 +568,12 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 
 		updateErr := tx.QueryRow(ctx, `
 			UPDATE users
-			SET role = $2, active = true, updated_at = NOW()
+			SET role = $2, active = true, updated_at = NOW(),
+			    first_name = COALESCE(NULLIF($3, ''), first_name),
+			    last_name = COALESCE(NULLIF($4, ''), last_name)
 			WHERE user_id::text = $1
-			RETURNING updated_at
-		`, user.ID, nextRole).Scan(&user.UpdatedAt)
+			RETURNING updated_at, COALESCE(first_name, ''), COALESCE(last_name, '')
+		`, user.ID, nextRole, firstName, lastName).Scan(&user.UpdatedAt, &user.FirstName, &user.LastName)
 		if updateErr != nil {
 			return nil, updateErr
 		}
@@ -506,10 +586,10 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 		newUserID := uuid.NewString()
 
 		insertErr := tx.QueryRow(ctx, `
-			INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, active, created_at, updated_at)
-			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, true, NOW(), NOW())
+			INSERT INTO users (user_id, tenant_id, user_alias, email, mobile, role, first_name, last_name, active, created_at, updated_at)
+			VALUES ($1::uuid, $2::uuid, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, NULLIF($7, ''), NULLIF($8, ''), true, NOW(), NOW())
 			RETURNING created_at, updated_at
-		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role).Scan(&user.CreatedAt, &user.UpdatedAt)
+		`, newUserID, tenantID, strings.TrimSpace(email), strings.TrimSpace(email), strings.TrimSpace(mobile), role, firstName, lastName).Scan(&user.CreatedAt, &user.UpdatedAt)
 		if insertErr != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(insertErr, &pgErr) && pgErr.Code == "23505" {
@@ -524,6 +604,8 @@ func upsertTenantAdminUserFromInvitation(ctx context.Context, tx pgx.Tx, tenantI
 		user.Email = strings.TrimSpace(email)
 		user.Mobile = strings.TrimSpace(mobile)
 		user.Role = role
+		user.FirstName = firstName
+		user.LastName = lastName
 		user.Active = true
 
 		return &user, nil
@@ -572,4 +654,73 @@ func tokenHashFromInviteToken(token string) (string, error) {
 	sum := sha256.Sum256(decoded)
 
 	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+// reactivateWithinUserCap activates a deactivated member only when the tenant
+// has a free seat. Activating an already active member is a no-op.
+func (s *TenantAdminRepository) reactivateWithinUserCap(ctx context.Context, tenantSlug, userID string) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer rollbackTxBestEffort(ctx, tx)
+
+	var (
+		tenantID      string
+		alreadyActive bool
+	)
+
+	err = tx.QueryRow(ctx, `
+		SELECT u.tenant_id::text, COALESCE(u.active, true)
+		FROM users u
+		JOIN tenants t ON t.tenant_id = u.tenant_id
+		WHERE t.slug = $1 AND u.user_id::text = $2
+		FOR UPDATE OF u
+	`, tenantSlug, userID).Scan(&tenantID, &alreadyActive)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.ErrNotFound
+	}
+
+	if err != nil || alreadyActive {
+		return err
+	}
+
+	if capErr := enforceTenantUserCapTx(ctx, tx, tenantID, 1); capErr != nil {
+		return capErr
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE users SET active = true, updated_at = NOW() WHERE user_id::text = $1`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// assignInvitedSeatTx gives a new member the seat their invitation named, or
+// the free seat when it named none. A seat that is no longer available leaves
+// the member without one; the seat worker gives them the free seat later if
+// one frees up. The savepoint keeps a refused seat from failing the acceptance.
+func assignInvitedSeatTx(ctx context.Context, tx pgx.Tx, tenantID, userID, seatType string, now time.Time) error {
+	target := seats.Free
+	if seatType != "" {
+		target = seats.Type(seatType)
+	}
+
+	if target == seats.Unassigned {
+		return nil
+	}
+
+	if _, err := tx.Exec(ctx, `SAVEPOINT invited_seat`); err != nil {
+		return err
+	}
+
+	if _, err := setMemberSeatTx(ctx, tx, tenantID, userID, target, "invitation", now); err != nil {
+		_, rollbackErr := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT invited_seat`)
+
+		return rollbackErr
+	}
+
+	_, err := tx.Exec(ctx, `RELEASE SAVEPOINT invited_seat`)
+
+	return err
 }

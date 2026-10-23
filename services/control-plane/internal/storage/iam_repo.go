@@ -11,148 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *IAMRepository) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
-	metadata, err := mergeDisplayNameMetadata(req.Metadata, req.DisplayName)
-	if err != nil {
-		return nil, err
-	}
-
-	rawMetadata, err := marshalJSONObject(metadata)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		item          platform.OrgUnit
-		metadataBytes []byte
-	)
-
-	err = s.pool.QueryRow(ctx, `
-		INSERT INTO organizations (organization_id, tenant_id, organization_alias, metadata, created_at, updated_at)
-		VALUES ($1, $2::uuid, $3, $4, NOW(), NOW())
-		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), rawMetadata).Scan(
-		&item.ID,
-		&item.TenantID,
-		&item.Alias,
-		&metadataBytes,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	item.Metadata = parseJSONObject(metadataBytes)
-	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
-
-	return &item, nil
-}
-
-func (s *IAMRepository) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
-	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
-
-	return listSearchResults(ctx, s.pool, `
-		SELECT COUNT(1)
-		FROM organizations
-		WHERE tenant_id = $1::uuid
-		  AND ($2 = '' OR LOWER(COALESCE(organization_alias, '')) LIKE $3)
-	`, []any{tenantID, q, like}, `
-		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-		FROM organizations
-		WHERE tenant_id = $1::uuid
-		  AND ($2 = '' OR LOWER(COALESCE(organization_alias, '')) LIKE $3)
-		ORDER BY updated_at DESC, created_at DESC
-		LIMIT $4 OFFSET $5
-	`, []any{tenantID, q, like, limit, offset}, limit, scanOrgUnit)
-}
-
-func (s *IAMRepository) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-		FROM organizations
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
-		LIMIT 1
-	`, tenantID, orgUnitID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, apperrors.ErrNotFound
-	}
-
-	return scanOrgUnit(rows)
-}
-
-func (s *IAMRepository) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
-	current, err := s.GetOrgUnit(ctx, tenantID, orgUnitID)
-	if err != nil {
-		return nil, err
-	}
-
-	alias := current.Alias
-	if trimmed := strings.TrimSpace(req.Alias); trimmed != "" {
-		alias = trimmed
-	}
-
-	displayName := current.DisplayName
-	if strings.TrimSpace(req.DisplayName) != "" {
-		displayName = strings.TrimSpace(req.DisplayName)
-	}
-
-	metadata := current.Metadata
-	if req.Metadata != nil {
-		metadata = req.Metadata
-	}
-
-	mergedMetadata, err := mergeDisplayNameMetadata(metadata, displayName)
-	if err != nil {
-		return nil, err
-	}
-
-	rawMetadata, err := marshalJSONObject(mergedMetadata)
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
-		UPDATE organizations
-		SET organization_alias = $3,
-		    metadata = $4,
-		    updated_at = NOW()
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
-		RETURNING organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, tenantID, orgUnitID, alias, rawMetadata)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, apperrors.ErrNotFound
-	}
-
-	return scanOrgUnit(rows)
-}
-
-func (s *IAMRepository) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
-	command, err := s.pool.Exec(ctx, `
-		DELETE FROM organizations
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
-	`, tenantID, orgUnitID)
-	if err != nil {
-		return err
-	}
-
-	if command.RowsAffected() == 0 {
-		return apperrors.ErrNotFound
-	}
-
-	return nil
-}
-
 func (s *IAMRepository) CreateTeam(ctx context.Context, tenantID string, req platform.CreateTeamRequest) (*platform.Team, error) {
 	metadata, err := mergeDisplayNameMetadata(req.Metadata, req.DisplayName)
 	if err != nil {
@@ -170,12 +28,12 @@ func (s *IAMRepository) CreateTeam(ctx context.Context, tenantID string, req pla
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		INSERT INTO teams (team_id, tenant_id, team_alias, org_unit_id, workspace_type, metadata, models, team_member_permissions, created_at, updated_at)
-		VALUES ($1, $2::uuid, $3, NULLIF($4, '')::uuid, $5, $6, $7, $8, NOW(), NOW())
-		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		INSERT INTO teams (team_id, tenant_id, team_alias, workspace_type, metadata, models, team_member_permissions, created_at, updated_at)
+		VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, NOW(), NOW())
+		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), workspace_type,
 		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
 		          COALESCE(spend::text, ''), created_at, updated_at
-	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), strings.TrimSpace(req.OrgUnitID), workspaceType, rawMetadata, req.AllowedModels, []string{})
+	`, uuid.NewString(), tenantID, strings.TrimSpace(req.Alias), workspaceType, rawMetadata, req.AllowedModels, []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +55,7 @@ func (s *IAMRepository) ListTeams(ctx context.Context, tenantID string, query st
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(team_alias, '')) LIKE $3 OR LOWER(COALESCE(metadata->>'display_name', '')) LIKE $3)
 	`, []any{tenantID, q, like}, `
-		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
 		       COALESCE(spend::text, ''), created_at, updated_at
 		FROM teams
@@ -210,7 +68,7 @@ func (s *IAMRepository) ListTeams(ctx context.Context, tenantID string, query st
 
 func (s *IAMRepository) GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
 		       COALESCE(spend::text, ''), created_at, updated_at
 		FROM teams
@@ -250,11 +108,6 @@ func (s *IAMRepository) UpdateTeam(ctx context.Context, tenantID string, teamID 
 		workspaceType = trimmed
 	}
 
-	orgUnitID := current.OrgUnitID
-	if req.OrgUnitID != "" {
-		orgUnitID = strings.TrimSpace(req.OrgUnitID)
-	}
-
 	allowedModels := current.AllowedModels
 	if req.AllowedModels != nil {
 		allowedModels = req.AllowedModels
@@ -278,16 +131,15 @@ func (s *IAMRepository) UpdateTeam(ctx context.Context, tenantID string, teamID 
 	rows, err := s.pool.Query(ctx, `
 		UPDATE teams
 		SET team_alias = $3,
-		    org_unit_id = NULLIF($4, '')::uuid,
-		    workspace_type = $5,
-		    metadata = $6,
-		    models = $7,
+		    workspace_type = $4,
+		    metadata = $5,
+		    models = $6,
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
-		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
+		RETURNING team_id::text, tenant_id::text, COALESCE(team_alias, ''), workspace_type,
 		          COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
 		          COALESCE(spend::text, ''), created_at, updated_at
-	`, tenantID, teamID, alias, orgUnitID, workspaceType, rawMetadata, allowedModels)
+	`, tenantID, teamID, alias, workspaceType, rawMetadata, allowedModels)
 	if err != nil {
 		return nil, err
 	}
@@ -358,10 +210,10 @@ func (s *IAMRepository) CreateVirtualUser(ctx context.Context, tenantID string, 
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		INSERT INTO virtual_users (virtual_user_id, tenant_id, team_id, org_unit_id, alias, display_name, metadata, active, created_at, updated_at)
-		VALUES ($1, $2::uuid, NULLIF($3, '')::uuid, NULLIF($4, '')::uuid, $5, NULLIF($6, ''), $7, true, NOW(), NOW())
-		RETURNING virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, uuid.NewString(), tenantID, strings.TrimSpace(req.TeamID), strings.TrimSpace(req.OrgUnitID), strings.TrimSpace(req.Alias), strings.TrimSpace(req.DisplayName), rawMetadata)
+		INSERT INTO virtual_users (virtual_user_id, tenant_id, team_id, alias, display_name, metadata, active, created_at, updated_at)
+		VALUES ($1, $2::uuid, NULLIF($3, '')::uuid, $4, NULLIF($5, ''), $6, true, NOW(), NOW())
+		RETURNING virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+	`, uuid.NewString(), tenantID, strings.TrimSpace(req.TeamID), strings.TrimSpace(req.Alias), strings.TrimSpace(req.DisplayName), rawMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +240,7 @@ func (s *IAMRepository) ListVirtualUsers(ctx context.Context, tenantID string, q
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(alias, '')) LIKE $3 OR LOWER(COALESCE(display_name, '')) LIKE $3)
 	`, []any{tenantID, q, like}, `
-		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid
 		  AND ($2 = '' OR LOWER(COALESCE(alias, '')) LIKE $3 OR LOWER(COALESCE(display_name, '')) LIKE $3)
@@ -399,7 +251,7 @@ func (s *IAMRepository) ListVirtualUsers(ctx context.Context, tenantID string, q
 
 func (s *IAMRepository) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM virtual_users
 		WHERE tenant_id = $1::uuid AND virtual_user_id = $2::uuid
 		LIMIT 1
@@ -442,11 +294,6 @@ func (s *IAMRepository) UpdateVirtualUser(ctx context.Context, tenantID string, 
 		teamID = strings.TrimSpace(req.TeamID)
 	}
 
-	orgUnitID := current.OrgUnitID
-	if req.OrgUnitID != "" {
-		orgUnitID = strings.TrimSpace(req.OrgUnitID)
-	}
-
 	active := current.Active
 	if req.Active != nil {
 		active = *req.Active
@@ -467,13 +314,12 @@ func (s *IAMRepository) UpdateVirtualUser(ctx context.Context, tenantID string, 
 		SET alias = $3,
 		    display_name = NULLIF($4, ''),
 		    team_id = NULLIF($5, '')::uuid,
-		    org_unit_id = NULLIF($6, '')::uuid,
-		    active = $7,
-		    metadata = $8,
+		    active = $6,
+		    metadata = $7,
 		    updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND virtual_user_id = $2::uuid
-		RETURNING virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
-	`, tenantID, virtualUserID, alias, displayName, teamID, orgUnitID, active, rawMetadata)
+		RETURNING virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
+	`, tenantID, virtualUserID, alias, displayName, teamID, active, rawMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -500,125 +346,6 @@ func (s *IAMRepository) DeleteVirtualUser(ctx context.Context, tenantID string, 
 	}
 
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.deleted")
-
-	return nil
-}
-
-func (s *IAMRepository) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT id::text, tenant_id::text, organization_id::text, user_id::text, COALESCE(role, 'member'), created_at, updated_at
-		FROM organization_memberships
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
-		ORDER BY updated_at DESC, created_at DESC
-	`, tenantID, orgUnitID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items := make([]platform.OrgUnitMembership, 0)
-
-	for rows.Next() {
-		var item platform.OrgUnitMembership
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			return nil, err
-		}
-
-		items = append(items, item)
-	}
-
-	return items, rows.Err()
-}
-
-func (s *IAMRepository) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	if err := s.ensurePlatformUserForMembership(ctx, tenantID, req.UserID); err != nil {
-		return nil, err
-	}
-
-	rows, err := s.pool.Query(ctx, `
-		INSERT INTO organization_memberships (id, tenant_id, organization_id, user_id, role, created_at, updated_at)
-		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, NOW(), NOW())
-		ON CONFLICT (organization_id, user_id)
-		DO UPDATE SET role = EXCLUDED.role, tenant_id = EXCLUDED.tenant_id, updated_at = NOW()
-		RETURNING id::text, tenant_id::text, organization_id::text, user_id::text, COALESCE(role, 'member'), created_at, updated_at
-	`, uuid.NewString(), tenantID, orgUnitID, req.UserID, req.Role)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, apperrors.ErrNotFound
-	}
-
-	var item platform.OrgUnitMembership
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
-		return nil, err
-	}
-
-	return &item, nil
-}
-
-func (s *IAMRepository) ensurePlatformUserForMembership(ctx context.Context, tenantID, userID string) error {
-	if _, err := uuid.Parse(strings.TrimSpace(userID)); err != nil {
-		return err
-	}
-
-	var exists bool
-	if err := s.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM users
-			WHERE user_id = $2::uuid
-			  AND tenant_id = $1::uuid
-		)
-	`, tenantID, userID).Scan(&exists); err != nil {
-		return err
-	}
-
-	if !exists {
-		return apperrors.ErrNotFound
-	}
-
-	return nil
-}
-
-func (s *IAMRepository) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	rows, err := s.pool.Query(ctx, `
-		UPDATE organization_memberships
-		SET role = $4, updated_at = NOW()
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid AND user_id = $3::uuid
-		RETURNING id::text, tenant_id::text, organization_id::text, user_id::text, COALESCE(role, 'member'), created_at, updated_at
-	`, tenantID, orgUnitID, userID, req.Role)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, apperrors.ErrNotFound
-	}
-
-	var item platform.OrgUnitMembership
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.OrgUnitID, &item.UserID, &item.Role, &item.CreatedAt, &item.UpdatedAt); err != nil {
-		return nil, err
-	}
-
-	return &item, nil
-}
-
-func (s *IAMRepository) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
-	command, err := s.pool.Exec(ctx, `
-		DELETE FROM organization_memberships
-		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid AND user_id = $3::uuid
-	`, tenantID, orgUnitID, userID)
-	if err != nil {
-		return err
-	}
-
-	if command.RowsAffected() == 0 {
-		return apperrors.ErrNotFound
-	}
 
 	return nil
 }
@@ -753,28 +480,13 @@ func (s *IAMRepository) DeleteTeamMembership(ctx context.Context, tenantID strin
 	return nil
 }
 
-func scanOrgUnit(rows pgx.Rows) (*platform.OrgUnit, error) {
-	var (
-		item          platform.OrgUnit
-		metadataBytes []byte
-	)
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.Alias, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
-		return nil, err
-	}
-
-	item.Metadata = parseJSONObject(metadataBytes)
-	item.DisplayName = extractDisplayName(item.Metadata, item.Alias)
-
-	return &item, nil
-}
-
 func scanVirtualUser(rows pgx.Rows) (*platform.VirtualUser, error) {
 	var (
 		item          platform.VirtualUser
 		displayName   string
 		metadataBytes []byte
 	)
-	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.OrgUnitID, &item.Alias, &displayName, &item.Active, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
+	if err := rows.Scan(&item.ID, &item.TenantID, &item.TeamID, &item.Alias, &displayName, &item.Active, &metadataBytes, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 
@@ -795,7 +507,6 @@ func scanTeam(rows pgx.Rows) (*platform.Team, error) {
 		&item.ID,
 		&item.TenantID,
 		&item.Alias,
-		&item.OrgUnitID,
 		&item.WorkspaceType,
 		&metadataBytes,
 		&item.AllowedModels,

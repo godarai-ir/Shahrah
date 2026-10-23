@@ -20,18 +20,18 @@ const (
 
 // Tenant represents the root tenant boundary for Shahrah.
 type Tenant struct {
-	ID        string    `json:"id"`
-	Slug      string    `json:"slug"`
-	Domain    string    `json:"domain"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID     string `json:"id"`
+	Slug   string `json:"slug"`
+	Domain string `json:"domain"`
+	Status string `json:"status"`
+	// BillingUnit is irr or credit; empty means irr.
+	BillingUnit string    `json:"billing_unit,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // AuthContext is the effective request auth context.
 type AuthContext struct {
 	TenantID                    string                          `json:"tenant_id"`
-	OrganizationID              string                          `json:"organization_id,omitempty"`
-	OrgUnitID                   string                          `json:"org_unit_id,omitempty"`
 	TeamID                      string                          `json:"team_id,omitempty"`
 	UserID                      string                          `json:"user_id,omitempty"`
 	VirtualUserID               string                          `json:"virtual_user_id,omitempty"`
@@ -170,8 +170,8 @@ type SpendLog struct {
 	RequestID       string                 `json:"request_id"`
 	TokenHash       string                 `json:"token_hash"`
 	TenantID        string                 `json:"tenant_id"`
-	OrganizationID  string                 `json:"organization_id,omitempty"`
 	TeamID          string                 `json:"team_id,omitempty"`
+	UserID          string                 `json:"user_id,omitempty"`
 	Model           string                 `json:"model"`
 	InputTokens     int                    `json:"input_tokens"`
 	OutputTokens    int                    `json:"output_tokens"`
@@ -258,27 +258,43 @@ type UsageCostBreakdown struct {
 
 // BudgetReservationTarget is one window reserved for a request.
 type BudgetReservationTarget struct {
-	Kind           string    `json:"kind"`
-	RuleID         string    `json:"rule_id,omitempty"`
-	Scope          string    `json:"scope,omitempty"`
-	ScopeValue     string    `json:"scope_value,omitempty"`
-	WindowID       string    `json:"window_id"`
-	WindowKey      string    `json:"window_key"`
-	ReservationKey string    `json:"reservation_key"`
-	EstimatedIRR   float64   `json:"estimated_irr"`
-	CreatedAt      time.Time `json:"created_at"`
+	Kind           string  `json:"kind"`
+	RuleID         string  `json:"rule_id,omitempty"`
+	Scope          string  `json:"scope,omitempty"`
+	ScopeValue     string  `json:"scope_value,omitempty"`
+	WindowID       string  `json:"window_id"`
+	WindowKey      string  `json:"window_key"`
+	ReservationKey string  `json:"reservation_key"`
+	EstimatedIRR   float64 `json:"estimated_irr"`
+	// EstimatedMC is the reserved amount of a credit-unit target, in millicredits.
+	EstimatedMC int64 `json:"estimated_mc,omitempty"`
+	// OnExceed is the rule's exceed behavior for credit-unit policy targets.
+	OnExceed  string    `json:"on_exceed,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // BudgetReservation tracks request-time spend reservations in active budget windows.
 type BudgetReservation struct {
-	ID             string                    `json:"id"`
-	TenantID       string                    `json:"tenant_id"`
-	WindowID       string                    `json:"window_id"`
-	WindowKey      string                    `json:"window_key"`
-	ReservationKey string                    `json:"reservation_key"`
-	EstimatedIRR   float64                   `json:"estimated_irr"`
+	ID             string  `json:"id"`
+	TenantID       string  `json:"tenant_id"`
+	WindowID       string  `json:"window_id"`
+	WindowKey      string  `json:"window_key"`
+	ReservationKey string  `json:"reservation_key"`
+	EstimatedIRR   float64 `json:"estimated_irr"`
+	// Unit is the window unit of every target: irr (empty) or credit.
+	Unit string `json:"unit,omitempty"`
+	// BillingMode is the deployment billing mode the reservation was made for.
+	BillingMode string `json:"billing_mode,omitempty"`
+	// BYOKFeePercent is the platform fee charged to the tenant pool for
+	// externally billed credit requests, as a decimal string.
+	BYOKFeePercent string                    `json:"byok_fee_percent,omitempty"`
 	CreatedAt      time.Time                 `json:"created_at"`
 	Targets        []BudgetReservationTarget `json:"targets,omitempty"`
+	// SeatUserID is set when the request spends a member's seat credits first;
+	// only what overflows the seat reaches the pool and the seat pool limit.
+	SeatUserID string `json:"seat_user_id,omitempty"`
+	// SeatPoolLimitMC is the member's monthly pool limit, if any.
+	SeatPoolLimitMC *int64 `json:"seat_pool_limit_mc,omitempty"`
 }
 
 // Deployment represents a configured provider target.
@@ -382,8 +398,6 @@ type CreateKeyParams struct {
 	Models        []string               `json:"models,omitempty"`
 	AllowedModels []string               `json:"allowed_models,omitempty"`
 	TeamID        string                 `json:"team_id,omitempty"`
-	OrgID         string                 `json:"organization_id,omitempty"`
-	OrgUnitID     string                 `json:"org_unit_id,omitempty"`
 	UserID        string                 `json:"user_id,omitempty"`
 	VirtualUserID string                 `json:"virtual_user_id,omitempty"`
 	ExpiresIn     string                 `json:"expires_in,omitempty"`
@@ -402,8 +416,6 @@ type CreatedKey struct {
 	Models          []string   `json:"models"`
 	AllowedModels   []string   `json:"allowed_models,omitempty"`
 	TeamID          string     `json:"team_id,omitempty"`
-	OrgID           string     `json:"organization_id,omitempty"`
-	OrgUnitID       string     `json:"org_unit_id,omitempty"`
 	UserID          string     `json:"user_id,omitempty"`
 	VirtualUserID   string     `json:"virtual_user_id,omitempty"`
 	Spend           float64    `json:"spend"`
@@ -474,19 +486,9 @@ func (p *CreateKeyParams) Normalize() {
 	p.Role = strings.TrimSpace(strings.ToLower(p.Role))
 	p.KeyType = strings.TrimSpace(strings.ToLower(p.KeyType))
 	p.TeamID = strings.TrimSpace(p.TeamID)
-	p.OrgID = strings.TrimSpace(p.OrgID)
-	p.OrgUnitID = strings.TrimSpace(p.OrgUnitID)
 	p.UserID = strings.TrimSpace(p.UserID)
 	p.VirtualUserID = strings.TrimSpace(p.VirtualUserID)
 	p.ExpiresIn = strings.TrimSpace(p.ExpiresIn)
-
-	if p.OrgUnitID == "" {
-		p.OrgUnitID = p.OrgID
-	}
-
-	if p.OrgID == "" {
-		p.OrgID = p.OrgUnitID
-	}
 
 	if len(p.AllowedModels) == 0 && len(p.Models) > 0 {
 		p.AllowedModels = append([]string(nil), p.Models...)
@@ -803,8 +805,6 @@ type RequestLogEntry struct {
 	TraceID                  string                 `json:"trace_id,omitempty"`
 	TokenHash                string                 `json:"token_hash,omitempty"`
 	TenantID                 string                 `json:"tenant_id"`
-	OrganizationID           string                 `json:"organization_id,omitempty"`
-	OrgUnitID                string                 `json:"org_unit_id,omitempty"`
 	TeamID                   string                 `json:"team_id,omitempty"`
 	ActorType                string                 `json:"actor_type,omitempty"`
 	ActorID                  string                 `json:"actor_id,omitempty"`
@@ -905,4 +905,14 @@ type UpdateVirtualModelRequest struct {
 	ExposedModes    *[]string                           `json:"exposed_modes,omitempty"`
 	Targets         []VirtualModelTarget                `json:"targets,omitempty"`
 	Access          *TenantProviderAccountAccessControl `json:"access,omitempty"`
+}
+
+// TenantSeatUsage reports how many of the plan's user seats a tenant uses.
+// Seats are active members plus pending, unexpired invitations. Limit is nil
+// when the plan has no user cap.
+type TenantSeatUsage struct {
+	Used               int  `json:"used"`
+	ActiveMembers      int  `json:"active_members"`
+	PendingInvitations int  `json:"pending_invitations"`
+	Limit              *int `json:"limit"`
 }

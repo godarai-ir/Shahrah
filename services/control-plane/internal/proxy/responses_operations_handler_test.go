@@ -203,7 +203,6 @@ func newResponseOperationsTestAppWithDeployments(
 		Tunnel:               tunnel,
 		RawTunnel:            rawTunnel,
 		Billing:              &testBudgeter{},
-		Wallets:              &testWallets{},
 		ProviderResources:    resources,
 		Deployments:          deployments,
 		ResponseProviderAuth: deployments,
@@ -220,7 +219,7 @@ func newResponseOperationsTestAppWithDeployments(
 			TenantID:  "tenant_a",
 			KeyID:     "key_1",
 			KeyType:   "pat",
-			Role:      "team_admin",
+			Role:      "member",
 			TokenHash: "hash_1",
 		})
 		c.Locals(tenant.ContextKey{}, &platform.Tenant{
@@ -365,7 +364,6 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 		Tunnel:               tunnel,
 		RawTunnel:            tunnel,
 		Billing:              &testBudgeter{},
-		Wallets:              &testWallets{},
 		ProviderResources:    resources,
 		Deployments:          deployments,
 		ResponseProviderAuth: deployments,

@@ -78,7 +78,6 @@ curl --location 'http://localhost:4000/organization/new' \
 --data-raw '{
   "organization_alias": "engineering_dept",
   "max_budget": 5000,
-  "tpm_limit": 1000000,
   "rpm_limit": 5000,
   "models": ["gpt-4", "gpt-3.5-turbo", "claude-3-opus"]
 }'
@@ -93,7 +92,6 @@ curl --location 'http://localhost:4000/organization/new' \
   "budget_id": "98754244-3a9c-4b31-b2e9-c63edc8fd7eb",
   "models": ["gpt-4", "gpt-3.5-turbo", "claude-3-opus"],
   "max_budget": 5000,
-  "tpm_limit": 1000000,
   "rpm_limit": 5000,
   "spend": 0.0,
   "budget_duration": null,
@@ -133,7 +131,6 @@ curl --location 'http://localhost:4000/team/new' \
   "organization_id": "ad15e8ca-12ae-46f4-8659-d02debef1b23",
   "members_with_roles": [{"role": "admin", "user_id": "5c4a0aa3-a1e1-43dc-bd87-3c2da8382a3a"}],
   "max_budget": 2000,
-  "tpm_limit": 200000,
   "rpm_limit": 1000,
   "models": ["gpt-4", "gpt-3.5-turbo"]
 }'
@@ -155,7 +152,6 @@ curl --location 'http://localhost:4000/team/new' \
     }
   ],
   "metadata": {},
-  "tpm_limit": 200000,
   "rpm_limit": 1000,
   "max_budget": 2000,
   "models": ["gpt-4", "gpt-3.5-turbo"],
@@ -181,7 +177,7 @@ curl 'http://0.0.0.0:4000/team/new' \
 
 #### **Set rate limits per model for a team**
 
-Use `model_rpm_limit` and `model_tpm_limit` to set rate limits per model for all keys belonging to a team. These limits apply across all keys in the team and are inherited by keys unless overridden at the key level.
+Use `model_rpm_limit` to set rate limits per model for all keys belonging to a team. These limits apply across all keys in the team and are inherited by keys unless overridden at the key level.
 
 ```bash
 curl --location 'http://0.0.0.0:4000/team/new' \
@@ -189,8 +185,7 @@ curl --location 'http://0.0.0.0:4000/team/new' \
 --header 'Content-Type: application/json' \
 --data '{
   "team_id": "my-prod-team",
-  "model_rpm_limit": {"gpt-4": 100, "gpt-3.5-turbo": 200},
-  "model_tpm_limit": {"gpt-4": 10000, "gpt-3.5-turbo": 20000}
+  "model_rpm_limit": {"gpt-4": 100, "gpt-3.5-turbo": 200}
 }'
 ```
 
@@ -202,14 +197,13 @@ curl --location 'http://0.0.0.0:4000/team/update' \
 --header 'Content-Type: application/json' \
 --data '{
   "team_id": "my-prod-team",
-  "model_rpm_limit": {"gpt-4": 100, "gpt-3.5-turbo": 200},
-  "model_tpm_limit": {"gpt-4": 10000, "gpt-3.5-turbo": 20000}
+  "model_rpm_limit": {"gpt-4": 100, "gpt-3.5-turbo": 200}
 }'
 ```
 
-**Resolution order:** When a key belongs to a team, rate limits are resolved as: **Key metadata > Key model_max_budget > Team metadata**. Keys can override team-level per-model limits with their own `model_rpm_limit` or `model_tpm_limit`.
+**Resolution order:** When a key belongs to a team, rate limits are resolved as: **Key metadata > Key model_max_budget > Team metadata**. Keys can override team-level per-model limits with their own `model_rpm_limit`.
 
-**Verify:** Make a `/chat/completions` request and check response headers `x-shahrah-key-remaining-requests-{model}` and `x-shahrah-key-remaining-tokens-{model}` for the model-specific limits.
+**Verify:** Make a `/chat/completions` request and check response header `x-shahrah-key-remaining-requests-{model}` for the model-specific limits.
 
 ---
 
@@ -267,7 +261,6 @@ Response from `/key/generate`:
   "team_id": "e8d1460f-846c-45d7-9b43-55f3cc52ac32",
   "max_parallel_requests": null,
   "metadata": {},
-  "tpm_limit": null,
   "rpm_limit": null,
   "budget_duration": null,
   "soft_budget": null,
@@ -696,30 +689,10 @@ general_settings:
 ## Set Rate Limits
 
 You can set:
-- TPM limits (tokens per minute)
 - RPM limits (requests per minute)
 - Max parallel requests
-- Per-model RPM/TPM limits for a given key or team
+- Per-model RPM limits for a given key or team
 
-### TPM Rate Limit Type (Input/Output/Total)
-
-By default, TPM (tokens per minute) rate limits count **total tokens** (input + output). You can configure this to count only input tokens or only output tokens instead.
-
-Set `token_rate_limit_type` in your `config.yaml`:
-
-```yaml
-general_settings:
-  master_key: sk-1234
-  token_rate_limit_type: "output"  # Options: "input", "output", "total" (default)
-```
-
-| Value | Description |
-|-------|-------------|
-| `total` | Count total tokens (prompt + completion). **Default behavior.** |
-| `input` | Count only prompt/input tokens |
-| `output` | Count only completion/output tokens |
-
-This setting applies globally to all TPM rate limit checks (keys, users, teams, organizations).
 
 ---
 
@@ -732,7 +705,7 @@ Use `/team/new` or `/team/update` to persist rate limits across multiple keys fo
 curl --location 'http://0.0.0.0:4000/team/new' \
 --header 'Authorization: Bearer sk-1234' \
 --header 'Content-Type: application/json' \
---data '{"team_id": "my-prod-team", "max_parallel_requests": 10, "tpm_limit": 20, "rpm_limit": 4}'
+--data '{"team_id": "my-prod-team", "max_parallel_requests": 10, "rpm_limit": 4}'
 ```
 
 **Expected Response**
@@ -754,7 +727,7 @@ Use `/user/new` or `/user/update` to persist rate limits across multiple keys fo
 curl --location 'http://0.0.0.0:4000/user/new' \
 --header 'Authorization: Bearer sk-1234' \
 --header 'Content-Type: application/json' \
---data '{"user_id": "user@company.com", "max_parallel_requests": 10, "tpm_limit": 20, "rpm_limit": 4}'
+--data '{"user_id": "user@company.com", "max_parallel_requests": 10, "rpm_limit": 4}'
 ```
 
 **Expected Response**
@@ -776,7 +749,7 @@ Use `/key/generate` if you want limits for just that key.
 curl --location 'http://0.0.0.0:4000/key/generate' \
 --header 'Authorization: Bearer sk-1234' \
 --header 'Content-Type: application/json' \
---data '{"max_parallel_requests": 10, "tpm_limit": 20, "rpm_limit": 4}'
+--data '{"max_parallel_requests": 10, "rpm_limit": 4}'
 ```
 
 **Expected Response**
@@ -792,13 +765,13 @@ curl --location 'http://0.0.0.0:4000/key/generate' \
 </TabItem>
 <TabItem value="per-key-model" label="Per API Key Per Model">
 
-Set `model_rpm_limit` and `model_tpm_limit` to set rate limits per model per API key.
+Set `model_rpm_limit` to set rate limits per model per API key.
 
 ```bash
 curl --location 'http://0.0.0.0:4000/key/generate' \
 --header 'Authorization: Bearer sk-1234' \
 --header 'Content-Type: application/json' \
---data '{"model_rpm_limit": {"gpt-4": 2}, "model_tpm_limit": {"gpt-4": 1000}}'
+--data '{"model_rpm_limit": {"gpt-4": 2}}'
 ```
 
 **Expected Response**
@@ -830,12 +803,10 @@ curl -i http://localhost:4000/v1/chat/completions \
 
 ```
 x-shahrah-key-remaining-requests-gpt-4: 1
-x-shahrah-key-remaining-tokens-gpt-4: 179
 ```
 
 These indicate:
 - 1 request remaining for GPT-4 for key `sk-ulGNRXWtv7M0lFnnsQk0wQ`
-- 179 tokens remaining for GPT-4 for key `sk-ulGNRXWtv7M0lFnnsQk0wQ`
 
 </TabItem>
 </Tabs>
@@ -915,7 +886,7 @@ Expected Response (when over budget):
 - When testing rate limits, use internal user roles (non-admin) to ensure limits are enforced as expected.
 
 **Implementation details:**
-- Uses async increment instead of async set-cache when updating current requests/tokens.
+- Uses async increment instead of async set-cache when updating current requests.
 - The in-memory cache is synced with Redis every 0.01s to avoid calling Redis for every request.
 - In testing, this was found to be 2x faster than the previous implementation, and reduced drift between expected and actual failures to at most 10 requests at high-traffic (100 RPS across 3 instances).
 

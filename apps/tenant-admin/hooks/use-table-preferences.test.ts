@@ -18,24 +18,24 @@ describe("table preferences storage", () => {
 
   it("writes and reads preferences under the table key", () => {
     const store = stubLocalStorage();
-    writeTablePreferences("users", { density: "relaxed", hiddenColumns: ["usage"] });
+    writeTablePreferences("users", { hiddenColumns: ["usage"] });
 
     expect(store.has(tablePreferencesKey("users"))).toBe(true);
-    expect(readTablePreferences("users")).toEqual({ density: "relaxed", hiddenColumns: ["usage"] });
+    expect(readTablePreferences("users")).toEqual({ hiddenColumns: ["usage"] });
   });
 
   it("falls back to defaults for missing or corrupt values", () => {
     const store = stubLocalStorage();
-    expect(readTablePreferences("users", { hiddenColumns: ["usage"] })).toEqual({ density: "compact", hiddenColumns: ["usage"] });
+    expect(readTablePreferences("users", { hiddenColumns: ["usage"] })).toEqual({ hiddenColumns: ["usage"] });
 
     store.set(tablePreferencesKey("users"), "{not json");
-    expect(readTablePreferences("users")).toEqual({ density: "compact", hiddenColumns: [] });
+    expect(readTablePreferences("users")).toEqual({ hiddenColumns: [] });
   });
 
   it("does not throw when localStorage is unavailable (SSR)", () => {
     expect(typeof window).toBe("undefined");
-    expect(() => writeTablePreferences("users", { density: "compact", hiddenColumns: [] })).not.toThrow();
-    expect(readTablePreferences("users")).toEqual({ density: "compact", hiddenColumns: [] });
+    expect(() => writeTablePreferences("users", { hiddenColumns: [] })).not.toThrow();
+    expect(readTablePreferences("users")).toEqual({ hiddenColumns: [] });
   });
 
   it("does not throw when localStorage access is blocked", () => {
@@ -44,7 +44,7 @@ describe("table preferences storage", () => {
         throw new Error("SecurityError");
       },
     });
-    expect(() => writeTablePreferences("users", { density: "compact", hiddenColumns: [] })).not.toThrow();
-    expect(readTablePreferences("users").density).toBe("compact");
+    expect(() => writeTablePreferences("users", { hiddenColumns: [] })).not.toThrow();
+    expect(readTablePreferences("users").hiddenColumns).toEqual([]);
   });
 });

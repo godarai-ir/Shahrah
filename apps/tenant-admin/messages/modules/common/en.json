@@ -39,9 +39,6 @@
   "table": {
     "columns": "Columns",
     "optionalColumns": "Optional columns",
-    "density": "Density",
-    "densityCompact": "Compact",
-    "densityRelaxed": "Relaxed",
     "selectAll": "Select all",
     "selectRow": "Select row",
     "selectedCount": "{count, plural, one {# item selected} other {# items selected}}",

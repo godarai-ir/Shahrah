@@ -19,7 +19,6 @@ type StorageSettings struct {
 	ClickHouseAttempts           int
 	ClickHouseRetryDelay         time.Duration
 	RequestLoggingModeTTL        time.Duration
-	TokenUsageEnabled            bool
 	TokenUsageFailOpen           bool
 	TokenUsageKeyPrefix          string
 	TokenUsageFlushInterval      time.Duration
@@ -36,6 +35,9 @@ type StorageSettings struct {
 	GatewayDatabaseTimeout       time.Duration
 	SubscriptionDatabaseTimeout  time.Duration
 	BudgetWindowTTLGrace         time.Duration
+	// CreditOverageCeilingCredits bounds overage for credit tenants that
+	// enabled it without a cap.
+	CreditOverageCeilingCredits int64
 }
 
 // RuntimeSettings is the process-level non-storage runtime configuration snapshot.
@@ -53,11 +55,9 @@ type RuntimeSettings struct {
 	VirtualModelNegativeTTL       time.Duration
 	BillingExchangeRateTTL        time.Duration
 	BillingExchangeRateStale      time.Duration
-	BillingPricingCacheEnabled    bool
 	BillingPricingCacheTTL        time.Duration
-	BillingWalletCacheTTL         time.Duration
-	BillingCreditsShadowEnabled   bool
 	BillingCreditRateCardTTL      time.Duration
+	BillingCreditLedger           CreditLedgerSettings
 	RateLimitPolicyFailOpen       bool
 	NobitexExchangeRateEnabled    bool
 	NobitexExchangeRateConfigured bool
@@ -67,10 +67,6 @@ type RuntimeSettings struct {
 	NobitexExchangeRateInterval   time.Duration
 	NobitexExchangeRateTimeout    time.Duration
 	NobitexExchangeRateMinTrades  int
-	WalletSettlementEnabled       bool
-	WalletSettlementInterval      time.Duration
-	WalletSettlementTimeout       time.Duration
-	WalletSettlementBatchSize     int
 	GatewayMaxInFlight            int
 }
 
@@ -94,7 +90,6 @@ func LoadStorageSettings() StorageSettings {
 		ClickHouseAttempts:           positiveIntEnv("CLICKHOUSE_INIT_ATTEMPTS", 10),
 		ClickHouseRetryDelay:         secondsEnv("CLICKHOUSE_INIT_RETRY_SECONDS", time.Second),
 		RequestLoggingModeTTL:        secondsEnv("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", time.Minute),
-		TokenUsageEnabled:            booleanEnv("TOKEN_USAGE_AGGREGATION_ENABLED", true),
 		TokenUsageFailOpen:           booleanEnv("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
 		TokenUsageKeyPrefix:          stringEnv("TOKEN_USAGE_REDIS_KEY_PREFIX", "usage"),
 		TokenUsageFlushInterval:      secondsEnv("TOKEN_USAGE_FLUSH_INTERVAL_SECONDS", 5*time.Second),
@@ -111,6 +106,7 @@ func LoadStorageSettings() StorageSettings {
 		GatewayDatabaseTimeout:       secondsEnv("GATEWAY_DB_TIMEOUT_SECONDS", 3*time.Second),
 		SubscriptionDatabaseTimeout:  secondsEnv("SUBSCRIPTION_LIFECYCLE_DB_TIMEOUT_SECONDS", 5*time.Second),
 		BudgetWindowTTLGrace:         secondsEnv("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 24*time.Hour),
+		CreditOverageCeilingCredits:  positiveInt64Env("BILLING_CREDIT_OVERAGE_DEFAULT_CEILING_CREDITS", 100_000),
 	}
 }
 
@@ -132,11 +128,9 @@ func LoadRuntimeSettings() RuntimeSettings {
 		VirtualModelNegativeTTL:       secondsEnv("VIRTUAL_MODEL_ALIAS_NEGATIVE_CACHE_TTL_SECONDS", 10*time.Second),
 		BillingExchangeRateTTL:        secondsEnv("BILLING_EXCHANGE_RATE_CACHE_TTL_SECONDS", time.Minute),
 		BillingExchangeRateStale:      secondsEnv("BILLING_EXCHANGE_RATE_CACHE_MAX_STALE_SECONDS", 10*time.Minute),
-		BillingPricingCacheEnabled:    booleanEnv("BILLING_PRICING_CACHE_ENABLED", true),
 		BillingPricingCacheTTL:        secondsEnv("BILLING_PRICING_CACHE_TTL_SECONDS", 5*time.Minute),
-		BillingWalletCacheTTL:         secondsEnv("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
-		BillingCreditsShadowEnabled:   booleanEnv("BILLING_CREDITS_SHADOW_ENABLED", false),
 		BillingCreditRateCardTTL:      secondsEnv("BILLING_CREDIT_RATE_CARD_TTL_SECONDS", 5*time.Minute),
+		BillingCreditLedger:           loadCreditLedgerSettings(),
 		RateLimitPolicyFailOpen:       booleanEnv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		NobitexExchangeRateEnabled:    nobitexEnabled,
 		NobitexExchangeRateConfigured: nobitexConfigured,
@@ -146,10 +140,6 @@ func LoadRuntimeSettings() RuntimeSettings {
 		NobitexExchangeRateInterval:   secondsEnv("NOBITEX_EXCHANGE_RATE_INTERVAL_SECONDS", 5*time.Minute),
 		NobitexExchangeRateTimeout:    secondsEnv("NOBITEX_EXCHANGE_RATE_TIMEOUT_SECONDS", 10*time.Second),
 		NobitexExchangeRateMinTrades:  positiveIntEnv("NOBITEX_EXCHANGE_RATE_MIN_TRADES", 1),
-		WalletSettlementEnabled:       booleanEnv("WALLET_BUDGET_SETTLEMENT_ENABLED", true),
-		WalletSettlementInterval:      secondsEnv("WALLET_BUDGET_SETTLEMENT_INTERVAL_SECONDS", 5*time.Minute),
-		WalletSettlementTimeout:       secondsEnv("WALLET_BUDGET_SETTLEMENT_TIMEOUT_SECONDS", 30*time.Second),
-		WalletSettlementBatchSize:     positiveIntEnv("WALLET_BUDGET_SETTLEMENT_BATCH_SIZE", 200),
 		GatewayMaxInFlight:            nonNegativeIntEnv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", 512),
 	}
 }
@@ -250,4 +240,29 @@ func csvEnv(key string) []string {
 	}
 
 	return values
+}
+
+// CreditLedgerSettings configures the credit ledger workers (pricing PRD, Phase 2).
+type CreditLedgerSettings struct {
+	SettlementInterval time.Duration
+	SettleDelay        time.Duration
+	BatchSize          int
+	ExpiryInterval     time.Duration
+	ReconcileInterval  time.Duration
+	PriceInterval      time.Duration
+	PriceAutoApply     bool
+	Timeout            time.Duration
+}
+
+func loadCreditLedgerSettings() CreditLedgerSettings {
+	return CreditLedgerSettings{
+		SettlementInterval: secondsEnv("BILLING_CREDIT_SETTLEMENT_INTERVAL_SECONDS", 30*time.Second),
+		SettleDelay:        secondsEnv("BILLING_CREDIT_SETTLE_DELAY_SECONDS", 30*time.Second),
+		BatchSize:          positiveIntEnv("BILLING_CREDIT_SETTLEMENT_BATCH_SIZE", 500),
+		ExpiryInterval:     secondsEnv("BILLING_CREDIT_EXPIRY_INTERVAL_SECONDS", 5*time.Minute),
+		ReconcileInterval:  secondsEnv("BILLING_CREDIT_RECONCILE_INTERVAL_SECONDS", 24*time.Hour),
+		PriceInterval:      secondsEnv("BILLING_CREDIT_PRICE_INTERVAL_SECONDS", time.Hour),
+		PriceAutoApply:     booleanEnv("BILLING_CREDIT_PRICE_AUTO_APPLY", false),
+		Timeout:            secondsEnv("BILLING_CREDIT_JOB_TIMEOUT_SECONDS", 2*time.Minute),
+	}
 }

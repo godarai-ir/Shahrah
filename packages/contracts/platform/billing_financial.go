@@ -28,6 +28,12 @@ type CreateBankTransferRequest struct {
 	BankTransactionAt         time.Time              `json:"-"`
 	ReceiptFileURL            string                 `json:"receipt_file_url,omitempty"`
 	Metadata                  map[string]interface{} `json:"metadata,omitempty"`
+	// CreditPackOrderID pays a credit pack order awaiting transfer; AmountIRR must
+	// equal the order's payable amount.
+	CreditPackOrderID string `json:"credit_pack_order_id,omitempty"`
+	// SeatOrderID pays a seat order awaiting transfer; AmountIRR must equal the
+	// order's payable amount.
+	SeatOrderID string `json:"seat_order_id,omitempty"`
 }
 
 type ReviewBankTransferRequest struct {
@@ -158,6 +164,20 @@ type MonthlyUsageDetail struct {
 
 type BankTransferListResponse struct {
 	Data []BankTransferRequest `json:"data"`
+}
+
+// PlatformBankTransferItem is a bank transfer in the support review queue.
+// Kind is "wallet_topup", "credit_pack" or "seat".
+type PlatformBankTransferItem struct {
+	BankTransferRequest
+	TenantSlug string `json:"tenant_slug"`
+	Kind       string `json:"kind"`
+}
+
+// PlatformBankTransferListResponse is one page of the support review queue.
+type PlatformBankTransferListResponse struct {
+	Data  []PlatformBankTransferItem `json:"data"`
+	Total int                        `json:"total"`
 }
 
 type InvoiceListResponse struct {

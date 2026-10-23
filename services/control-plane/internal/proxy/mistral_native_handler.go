@@ -71,7 +71,7 @@ func NewMistralNativeHandler(deps BaseHandlerDependencies, deployments responseD
 }
 
 func mistralNativeFeatureEnabled(config ProviderFeatureConfig, surface string) bool {
-	if !config.Configured || !config.MistralEnabled {
+	if !config.Configured {
 		return false
 	}
 

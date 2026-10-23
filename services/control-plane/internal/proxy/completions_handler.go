@@ -23,30 +23,28 @@ import (
 
 // CompletionsHandler handles legacy text completion requests.
 type CompletionsHandler struct {
-	llmRouter        *router.Router
-	pipeline         *RequestPipeline
-	billing          budgeter
-	logs             usageLogger
-	logger           *zap.Logger
-	emitMetric       func(input metricsobs.BuildInput)
-	providerFeatures ProviderFeatureConfig
+	llmRouter  *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
 }
 
 // NewCompletionsHandlerWithDependencies creates a completions handler from explicit dependencies.
 func NewCompletionsHandlerWithDependencies(deps BaseHandlerDependencies) *CompletionsHandler {
 	return &CompletionsHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:  deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
 	}
 }
 
 // NewCompletionsHandler creates a new legacy completions handler.
-func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, wallets walletStore, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
+func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTransport, billing budgeter, logs usageLogger, logger *zap.Logger, emitMetric ...func(input metricsobs.BuildInput)) *CompletionsHandler {
 	var metricEmitter func(input metricsobs.BuildInput)
 	if len(emitMetric) > 0 {
 		metricEmitter = emitMetric[0]
@@ -57,7 +55,6 @@ func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 		Tunnel:              tunnel,
 		Billing:             billing,
 		BillingCapabilities: compatibilityBillingCapabilities(),
-		Wallets:             wallets,
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              logger,
@@ -185,7 +182,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 	quotaStart := time.Now()
 	// Check rate limit
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel)
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
@@ -245,10 +242,6 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
-	}
-
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "fim_completions") {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI FIM completions are disabled", "provider_disabled")
 	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
@@ -446,8 +439,8 @@ func (h *CompletionsHandler) handleSync(
 			RequestID:       tunnelReq.RequestID,
 			TokenHash:       authInfo.TokenHash,
 			TenantID:        authInfo.TenantID,
-			OrganizationID:  authInfo.OrganizationID,
 			TeamID:          authInfo.TeamID,
+			UserID:          authInfo.UserID,
 			Model:           req.Model,
 			InputTokens:     finalCost.InputTokens,
 			OutputTokens:    finalCost.OutputTokens,
@@ -481,7 +474,6 @@ func (h *CompletionsHandler) handleSync(
 				"endpoint":    "/v1/completions",
 				"key_type":    authInfo.KeyType,
 				"team_id":     authInfo.TeamID,
-				"org_unit_id": authInfo.OrgUnitID,
 				"tenant_slug": tenantSlug,
 			}, tunnelReq.Deployment),
 		})
@@ -618,6 +610,8 @@ func (h *CompletionsHandler) handleStream(
 				RequestID:       tunnelReq.RequestID,
 				TokenHash:       authInfo.TokenHash,
 				TenantID:        authInfo.TenantID,
+				TeamID:          authInfo.TeamID,
+				UserID:          authInfo.UserID,
 				Model:           req.Model,
 				InputTokens:     finalCost.InputTokens,
 				OutputTokens:    finalCost.OutputTokens,
@@ -650,7 +644,6 @@ func (h *CompletionsHandler) handleStream(
 					"endpoint":    "/v1/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
-					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})
@@ -812,7 +805,6 @@ func (h *CompletionsHandler) emitModelMetric(input metricsobs.BuildInput) {
 // setCostHeaders sets cost-related response headers.
 func setCostHeaders(c *fiber.Ctx, cost platform.UsageCostBreakdown) {
 	c.Set(apiheaders.HeaderCostUSD, fmt.Sprintf("%.8f", cost.TotalCostUSD))
-	c.Set(apiheaders.HeaderCostIRR, fmt.Sprintf("%.2f", cost.TotalCostIRR))
 
 	if used := creditsUsed(creditSurface(c), cost); used != "" {
 		c.Set(apiheaders.HeaderCreditsUsed, used)

@@ -14,18 +14,6 @@ var (
 	errAccessRepositoryRequired    = errors.New("iam: access repository is required")
 )
 
-type orgUnitRepository interface {
-	CreateOrgUnit(context.Context, string, platform.CreateOrgUnitRequest) (*platform.OrgUnit, error)
-	ListOrgUnits(context.Context, string, string, int, int) ([]platform.OrgUnit, int, error)
-	GetOrgUnit(context.Context, string, string) (*platform.OrgUnit, error)
-	UpdateOrgUnit(context.Context, string, string, platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error)
-	DeleteOrgUnit(context.Context, string, string) error
-	ListOrgUnitMemberships(context.Context, string, string) ([]platform.OrgUnitMembership, error)
-	AddOrgUnitMembership(context.Context, string, string, platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	UpdateOrgUnitMembership(context.Context, string, string, string, platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error)
-	DeleteOrgUnitMembership(context.Context, string, string, string) error
-}
-
 type teamRepository interface {
 	CreateTeam(context.Context, string, platform.CreateTeamRequest) (*platform.Team, error)
 	ListTeams(context.Context, string, string, int, int) ([]platform.Team, int, error)
@@ -52,7 +40,6 @@ type virtualUserRepository interface {
 }
 
 type directoryRepository interface {
-	orgUnitRepository
 	teamRepository
 	teamMembershipRepository
 	virtualUserRepository
@@ -102,7 +89,6 @@ type accessRepository interface {
 
 // Service is the IAM application boundary used by transport adapters.
 type Service struct {
-	orgUnits       orgUnitRepository
 	teams          teamRepository
 	teamMembers    teamMembershipRepository
 	virtualUsers   virtualUserRepository
@@ -124,7 +110,6 @@ func NewService(directory directoryRepository, access accessRepository) (*Servic
 	}
 
 	return &Service{
-		orgUnits:       directory,
 		teams:          directory,
 		teamMembers:    directory,
 		virtualUsers:   directory,
@@ -134,51 +119,6 @@ func NewService(directory directoryRepository, access accessRepository) (*Servic
 		virtualTokens:  access,
 		roles:          access,
 	}, nil
-}
-
-// CreateOrgUnit creates an organizational unit.
-func (s *Service) CreateOrgUnit(ctx context.Context, tenantID string, request platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
-	return s.orgUnits.CreateOrgUnit(ctx, tenantID, request)
-}
-
-// ListOrgUnits lists organizational units.
-func (s *Service) ListOrgUnits(ctx context.Context, tenantID, query string, limit, offset int) ([]platform.OrgUnit, int, error) {
-	return s.orgUnits.ListOrgUnits(ctx, tenantID, query, limit, offset)
-}
-
-// GetOrgUnit gets an organizational unit.
-func (s *Service) GetOrgUnit(ctx context.Context, tenantID, orgUnitID string) (*platform.OrgUnit, error) {
-	return s.orgUnits.GetOrgUnit(ctx, tenantID, orgUnitID)
-}
-
-// UpdateOrgUnit updates an organizational unit.
-func (s *Service) UpdateOrgUnit(ctx context.Context, tenantID, orgUnitID string, request platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
-	return s.orgUnits.UpdateOrgUnit(ctx, tenantID, orgUnitID, request)
-}
-
-// DeleteOrgUnit deletes an organizational unit.
-func (s *Service) DeleteOrgUnit(ctx context.Context, tenantID, orgUnitID string) error {
-	return s.orgUnits.DeleteOrgUnit(ctx, tenantID, orgUnitID)
-}
-
-// ListOrgUnitMemberships lists organizational-unit memberships.
-func (s *Service) ListOrgUnitMemberships(ctx context.Context, tenantID, orgUnitID string) ([]platform.OrgUnitMembership, error) {
-	return s.orgUnits.ListOrgUnitMemberships(ctx, tenantID, orgUnitID)
-}
-
-// AddOrgUnitMembership adds an organizational-unit membership.
-func (s *Service) AddOrgUnitMembership(ctx context.Context, tenantID, orgUnitID string, request platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	return s.orgUnits.AddOrgUnitMembership(ctx, tenantID, orgUnitID, request)
-}
-
-// UpdateOrgUnitMembership updates an organizational-unit membership.
-func (s *Service) UpdateOrgUnitMembership(ctx context.Context, tenantID, orgUnitID, userID string, request platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
-	return s.orgUnits.UpdateOrgUnitMembership(ctx, tenantID, orgUnitID, userID, request)
-}
-
-// DeleteOrgUnitMembership deletes an organizational-unit membership.
-func (s *Service) DeleteOrgUnitMembership(ctx context.Context, tenantID, orgUnitID, userID string) error {
-	return s.orgUnits.DeleteOrgUnitMembership(ctx, tenantID, orgUnitID, userID)
 }
 
 // CreateTeam creates a team.

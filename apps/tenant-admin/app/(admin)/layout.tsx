@@ -32,8 +32,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         tenantSlug={auth.tenantSlug}
         currentUser={currentUser}
         permissions={shellData.permissions}
-        walletSummary={shellData.walletSummary}
-        subscriptionSummary={shellData.subscriptionSummary}
         docsHref={buildDocsHref(requestHeaders, auth.tenantSlug)}
         appVersion={getAppVersion()}
       >

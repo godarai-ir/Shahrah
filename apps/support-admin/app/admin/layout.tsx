@@ -10,7 +10,8 @@ const links = [
   ['/admin/provider-connections', 'Provider Credentials'],
   ['/admin/models', 'Models'],
   ['/admin/pricing', 'Pricing'],
-	['/admin/settings/commercial', 'Signup Settings'],
+  ['/admin/credits', 'Credits'],
+  ['/admin/bank-transfers', 'Bank Transfers'],
   ['/admin/audit-log', 'Audit Log'],
 ];
 

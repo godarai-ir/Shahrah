@@ -66,9 +66,9 @@ func TestCheckRouteAuthorization_TenantUserDeniedOnManagement(t *testing.T) {
 	assert.Contains(t, err.Error(), "user manage permission required")
 }
 
-func TestCheckRouteAuthorization_TeamAdminAllowedOnKeyManagement(t *testing.T) {
+func TestCheckRouteAuthorization_TenantAdminAllowedOnKeyManagement(t *testing.T) {
 	err := auth.CheckRouteAuthorization("POST", "/api/v1/keys/vat", &platform.AuthContext{
-		Role: "team_admin",
+		Role: "tenant_admin",
 	})
 	require.NoError(t, err)
 }
@@ -96,9 +96,10 @@ func TestCheckRouteAuthorization_LLMRouteAllowedForAuthenticatedKey(t *testing.T
 	require.NoError(t, err)
 }
 
-func TestCheckRouteAuthorization_TeamAdminAllowedOnTeamMembershipRoutes(t *testing.T) {
+func TestCheckRouteAuthorization_TeamManagerAllowedOnTeamMembershipRoutes(t *testing.T) {
 	err := auth.CheckRouteAuthorization("POST", "/api/v1/teams/team-1/members", &platform.AuthContext{
-		Role: "team_admin",
+		Role:        "member",
+		Permissions: []string{"team:manage"},
 	})
 	require.NoError(t, err)
 }
@@ -108,7 +109,7 @@ func TestCheckRouteAuthorization_TeamMemberDeniedOnTeamMembershipRoutes(t *testi
 		Role: "team_member",
 	})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "team admin")
+	assert.Contains(t, err.Error(), "team manage permission required")
 }
 
 func TestCheckRouteAuthorization_TenantAdminAllowedOnRoleRoutes(t *testing.T) {
@@ -123,15 +124,15 @@ func TestCheckRouteAuthorization_TenantAdminAllowedOnRoleRoutes(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCheckRouteAuthorization_TeamAdminDeniedOnRoleRoutes(t *testing.T) {
+func TestCheckRouteAuthorization_MemberDeniedOnRoleRoutes(t *testing.T) {
 	err := auth.CheckRouteAuthorization("POST", "/api/v1/roles", &platform.AuthContext{
-		Role: "team_admin",
+		Role: "member",
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "insufficient permissions for roles route")
 
 	err = auth.CheckRouteAuthorization("PATCH", "/api/v1/users/roles", &platform.AuthContext{
-		Role: "team_admin",
+		Role: "member",
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user manage permission required")
