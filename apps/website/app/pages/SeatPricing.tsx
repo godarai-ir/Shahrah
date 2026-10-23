@@ -2,13 +2,12 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowDown, BadgeCheck, CalendarClock, Check, CreditCard, Minus, PowerOff, Search } from 'lucide-react';
-import { ClosingBand, ComparisonTable, FAQ, Section, TileGrid } from '@/app/components/patterns';
+import { ArrowDown, Check, Minus, Search } from 'lucide-react';
+import { ClosingBand, ComparisonTable, FAQ, Section } from '@/app/components/patterns';
 import { buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
 
-// Public seat pricing: the layout of the owner's pricing reference on the live seat model. Seat prices are not
-// hard-coded; they follow the active credit list price, which the page receives from the public pricing changelog.
-// Task counts are estimates from the same credit formulas the reference uses.
+// Public seat pricing, following the owner's pricing reference: free seats, then Pro and Max at fixed monthly
+// prices. Task counts are estimates from the same credit formulas the reference uses.
 
 const fa = (value: number) => value.toLocaleString('fa-IR');
 
@@ -47,34 +46,36 @@ const paidSeats = [
     id: 'pro' as const,
     name: 'Pro',
     tagline: 'برای اعضایی که هر روز با هوش مصنوعی کار می‌کنند',
-    credits: 2000,
+    credits: 4000,
+    price: 2250000,
     popular: true,
     roles: ['مدیر پروژه', 'کارشناس فروش و بازاریابی', 'پشتیبانی', 'منابع انسانی'],
-    sign: 'بیشتر کارهای روزانه‌اش را با کمک گدار انجام می‌دهد، ولی کارش پر از فایل حجیم یا مدل‌های سنگین نیست.',
+    sign: 'بیشتر کارهای روزانه‌اش را با گدار انجام می‌دهد، ولی با فایل‌های حجیم و مدل‌های سنگین زیاد سروکار ندارد.',
   },
   {
     id: 'max' as const,
     name: 'Max',
     tagline: 'برای تحلیل‌گران، تولید محتوا و مصرف سنگین',
-    credits: 8000,
+    credits: 20000,
+    price: 11250000,
     popular: false,
     roles: ['تحلیل‌گر', 'تولیدکننده‌ی محتوا', 'توسعه‌دهنده', 'پژوهشگر', 'مدیر محصول'],
-    sign: 'کارش را عملاً با گدار پیش می‌برد: ساعت‌ها در روز، فایل‌های حجیم یا عامل‌های هوش مصنوعی.',
+    sign: 'کارش را عملاً با گدار پیش می‌برد: ساعت‌ها در روز، با فایل‌های حجیم یا عامل‌های هوش مصنوعی.',
   },
 ];
 
 const cardTasks: { task: Task; label: string }[] = [
-  { task: 'msg', label: 'پیام گفتگو' },
+  { task: 'msg', label: 'پیام گفت‌وگو' },
   { task: 'text', label: 'خلاصه‌ی گزارش ۲۰ صفحه‌ای' },
   { task: 'office', label: 'تحلیل اکسل و ساخت گزارش Word' },
   { task: 'image', label: 'استخراج اطلاعات از عکس و فاکتور' },
 ];
 
 const quiz: { id: string; label: string; seat: SeatId; text: string }[] = [
-  { id: 'try', label: 'فقط می‌خواهد گدار را امتحان کند', seat: 'free', text: 'صندلی رایگان کافی است؛ ۵۰۰ اعتبار برای شروع. بعد از آن به Pro یا Max می‌رود.' },
+  { id: 'try', label: 'فقط می‌خواهد گدار را امتحان کند', seat: 'free', text: 'صندلی رایگان کافی است: ۵۰۰ اعتبار برای شروع. بعد از آن Pro یا Max می‌گیرد.' },
   { id: 'chat', label: 'چت، ترجمه و خلاصه‌سازی', seat: 'pro', text: 'Pro مناسب است؛ مصرف روزمره و سبک تا متوسط.' },
   { id: 'daily', label: 'تحلیل فایل و گزارش، هر روز', seat: 'max', text: 'Max مناسب است؛ تحلیل روزانه‌ی فایل و گزارش.' },
-  { id: 'heavy', label: 'فایل‌های سنگین یا عامل هوش مصنوعی', seat: 'max', text: 'Max شروع خوبی است. اگر مصرفش بیشتر شد، تا سقفی که مدیر تعیین می‌کند از استخر سازمان هم برمی‌دارد.' },
+  { id: 'heavy', label: 'فایل‌های سنگین یا عامل هوش مصنوعی', seat: 'max', text: 'Max شروع خوبی است. اگر مصرفش از این هم بیشتر شد، تا سقفی که مدیر تعیین می‌کند از اعتبار مشترک سازمان برمی‌دارد.' },
 ];
 
 const exampleTasks: { task: Task; category: string; label: string }[] = [
@@ -82,13 +83,6 @@ const exampleTasks: { task: Task; category: string; label: string }[] = [
   { task: 'image', category: 'عکس', label: 'استخراج اطلاعات از ۱۰ عکس یا فاکتور اسکن‌شده' },
   { task: 'office', category: 'Word و Excel', label: 'تحلیل یک فایل اکسل و ساخت گزارش Word از آن' },
   { task: 'kb', category: 'منابع دانشی سازمان', label: 'پرسش از اسناد سازمان و گرفتن پاسخ همراه با منبع' },
-];
-
-const principles = [
-  { key: 'all', icon: BadgeCheck, title: 'همه‌ی امکانات برای همه', text: 'پلن و قابلیت قفل‌شده وجود ندارد؛ هر سازمان از روز اول به همه‌ی امکانات دسترسی دارد.' },
-  { key: 'prepaid', icon: CreditCard, title: 'پرداخت پیش از استفاده', text: 'صندلی‌ها و بسته‌های اعتبار از درگاه و پیش از استفاده پرداخت می‌شوند؛ کارت شما ذخیره نمی‌شود.' },
-  { key: 'renew', icon: CalendarClock, title: 'بدون تمدید خودکار', text: 'از ۷ روز مانده به پایان دوره تا روز آخر، خودتان تمدید می‌کنید.' },
-  { key: 'end', icon: PowerOff, title: 'پایان اشتراک، فقط صندلی‌های پولی', text: 'اگر تمدید نکنید فقط صندلی‌های پولی غیرفعال می‌شوند؛ صندلی‌های رایگان، بسته‌ها و API کار می‌کنند.' },
 ];
 
 type Cell = 'yes' | 'no' | string;
@@ -119,65 +113,65 @@ const comparison: { title: string; rows: { label: string; note?: string; cloud: 
     rows: [
       { label: 'نوع پشتیبانی', cloud: 'تیکت', dedicated: 'مدیر مشتری اختصاصی' },
       { label: 'توافق‌نامه‌ی سطح خدمات', note: 'SLA', cloud: 'no', dedicated: 'yes' },
-      { label: 'دسترسی به API مدل‌ها', note: 'از استخر سازمان', cloud: 'yes', dedicated: 'yes' },
+      { label: 'دسترسی به API مدل‌ها', note: 'از اعتبار مشترک سازمان', cloud: 'yes', dedicated: 'yes' },
     ],
   },
 ];
 
 const faqs = [
   {
-    question: 'پلن‌های قبلی (توسعه‌دهنده، تیم، رشد و سازمانی) چه شدند؟',
-    answer: 'پلن‌ها حذف شده‌اند و همه‌ی امکانات برای همه‌ی سازمان‌ها در دسترس است. هزینه فقط از دو جا می‌آید: صندلی‌های پولی اعضا و بسته‌های اعتبار برای استخر سازمان. اشتراک‌های پولی فعلی به مدل جدید منتقل شده‌اند.',
-  },
-  {
     question: 'اعتبار چیست؟',
-    answer: 'اعتبار واحد مصرف در گدار است. هر عضو با صندلی خودش اعتبار شخصی می‌گیرد و هر پیام، فایل یا اجرای عامل هوش مصنوعی مقداری از آن را مصرف می‌کند. مدل قوی‌تر یا متن طولانی‌تر اعتبار بیشتری می‌برد.',
+    answer: 'اعتبار واحد مصرف در گدار است. هر عضو با صندلی خودش اعتبار شخصی می‌گیرد و هر پیام، فایل یا اجرای عامل هوش مصنوعی مقداری از آن را مصرف می‌کند. مدل قوی‌تر یا متن طولانی‌تر اعتبار بیشتری مصرف می‌کند.',
   },
   {
     question: 'مصرف اعتبار چطور حساب می‌شود؟',
-    answer: 'اعتبار هر پاسخ از دو بخش می‌آید: پردازش مدل، و ابزارهایی که گدار برای جواب دادن اجرا می‌کند، مثل جستجوی وب. یک پیام معمولی با مدل سبک حدود ۰٫۷۵ اعتبار، با مدل میان‌رده حدود ۴٫۵ و با مدل سنگین حدود ۹ اعتبار می‌برد. اعتبار هر پاسخ زیر همان پاسخ نشان داده می‌شود.',
+    answer: 'اعتبار هر پاسخ از دو بخش می‌آید: پردازش مدل، و ابزارهایی که گدار برای جواب دادن اجرا می‌کند، مثل جست‌وجوی وب. یک پیام معمولی با مدل سبک حدود ۰٫۷۵ اعتبار، با مدل میان‌رده حدود ۴٫۵ و با مدل سنگین حدود ۹ اعتبار مصرف می‌کند. اعتبار هر پاسخ زیر همان پاسخ نشان داده می‌شود.',
   },
   {
-    question: 'تعداد کارها روی کارت‌ها دقیق است؟',
-    answer: 'نه، تقریبی است و فرض می‌کند بخشی از اعتبار صرف ابزارها می‌شود. با مدل سبک تعداد چند برابر می‌شود و با گفتگوی طولانی یا عامل هوش مصنوعی سنگین کمتر.',
+    question: 'عددهای روی کارت‌ها دقیق است؟',
+    answer: 'نه، تقریبی است و فرض می‌کند بخشی از اعتبار صرف ابزارها می‌شود. با مدل سبک تعداد بیشتر می‌شود و با گفت‌وگوی طولانی یا عامل هوش مصنوعی سنگین کمتر.',
   },
   {
     question: 'دوره‌ی آزمایشی دارید؟',
-    answer: 'دوره‌ی آزمایشی جداگانه لازم نیست: تا ۵ عضو هر سازمان صندلی رایگان با ۵۰۰ اعتبار می‌گیرند و بدون پرداخت با همه‌ی امکانات کار می‌کنند.',
+    answer: 'لازم نیست: تا ۵ عضو هر سازمان صندلی رایگان با ۵۰۰ اعتبار می‌گیرند و بدون پرداخت با همه‌ی امکانات کار می‌کنند.',
   },
   {
-    question: 'قیمت صندلی Pro و Max چطور حساب می‌شود؟',
-    answer: 'قیمت هر صندلی برابر است با اعتبار ماهانه‌ی آن × قیمت فهرست فعال هر اعتبار، منهای تخفیف همان صندلی. صورتحساب سالانه تخفیف بیشتری دارد، ولی اعتبار همچنان ماه‌به‌ماه داده می‌شود. مالیات بر ارزش افزوده جداگانه اضافه می‌شود.',
-    link: { href: '/pricing/changelog', label: 'تغییرات قیمت' },
+    question: 'Pro و Max چقدر هزینه دارند؟',
+    answer: 'Pro ماهی ۲٬۲۵۰٬۰۰۰ تومان با ۴٬۰۰۰ اعتبار و Max ماهی ۱۱٬۲۵۰٬۰۰۰ تومان با ۲۰٬۰۰۰ اعتبار است. قیمت‌ها بدون مالیات بر ارزش افزوده است و صورتحساب سالانه تخفیف دارد؛ اعتبار در هر حال ماه‌به‌ماه داده می‌شود.',
   },
   {
     question: 'اعتبار مصرف‌نشده به ماه بعد می‌رسد؟',
-    answer: 'نه. اعتبار شخصی Pro و Max هر ماه از نو داده می‌شود و مانده‌ی ماه قبل منتقل نمی‌شود.',
+    answer: 'نه. اعتبار Pro و Max هر ماه از نو داده می‌شود و مانده‌ی ماه قبل منتقل نمی‌شود.',
   },
   {
-    question: 'اگر اعتبار شخصی تمام شود چه می‌شود؟',
-    answer: 'پاسخی که در حال تولید است کامل می‌شود. بعد از آن، اعضای Pro و Max تا سقفی که مدیر تعیین می‌کند از استخر سازمان برمی‌دارند. اگر آن هم نباشد، استفاده تا خرید بسته یا شروع ماه بعد متوقف می‌شود. هیچ هزینه‌ای بیش از آنچه خریده‌اید ثبت نمی‌شود.',
+    question: 'اگر اعتبار یک عضو تمام شود چه می‌شود؟',
+    answer: 'پاسخی که در حال نوشته شدن است کامل می‌شود. بعد از آن، اعضای Pro و Max تا سقفی که مدیر تعیین می‌کند از اعتبار مشترک سازمان برمی‌دارند. اگر آن هم تمام شده باشد، کار تا خرید بسته‌ی اعتبار یا شروع ماه بعد متوقف می‌شود. هیچ‌وقت بیش از آنچه خریده‌اید هزینه ثبت نمی‌شود.',
   },
   {
-    question: 'استخر سازمان و بسته‌های اعتبار برای چیست؟',
-    answer: 'استخر، اعتبار مشترک سازمان است و فقط با خرید بسته پر می‌شود. مصرف API، کلیدهای دسترسی، triggerها و گاردریل‌ها از همین استخر کم می‌شود و اعتبار شخصی اعضا را مصرف نمی‌کند. بسته‌های بزرگ‌تر قیمت کمتری برای هر اعتبار دارند و با پایان اشتراک صندلی‌ها از بین نمی‌روند.',
+    question: 'اعتبار مشترک سازمان و بسته‌های اعتبار برای چیست؟',
+    answer: 'اعتبار مشترک سازمان فقط با خرید بسته پر می‌شود. مصرف API، کلیدهای دسترسی، اجراهای خودکار و گاردریل‌ها از همین اعتبار کم می‌شود، نه از اعتبار شخصی اعضا. بسته‌های بزرگ‌تر برای هر اعتبار ارزان‌ترند و با پایان اشتراک صندلی‌ها از بین نمی‌روند.',
   },
   {
     question: 'اگر عضوی را حذف کنیم، صندلی پولی او چه می‌شود؟',
-    answer: 'صندلی به انبار صندلی‌های سازمان برمی‌گردد و تا پایان دوره‌ی پرداخت‌شده به عضو دیگری قابل تخصیص است. صندلی‌ها بازپرداخت ندارند.',
+    answer: 'صندلی به سازمان برمی‌گردد و تا پایان دوره‌ی پرداخت‌شده می‌توانید آن را به عضو دیگری بدهید. هزینه‌ی صندلی برگردانده نمی‌شود.',
   },
   {
     question: 'یادم برود تمدید کنم چه می‌شود؟',
-    answer: 'از ۷ روز مانده به پایان دوره در پنل یادآوری می‌بینید. اگر تمدید نکنید فقط صندلی‌های پولی غیرفعال می‌شوند؛ هر وقت دوباره صندلی بخرید، اشتراک تازه‌ای شروع می‌شود.',
+    answer: 'از ۷ روز مانده به پایان دوره، در پنل یادآوری می‌بینید. اگر تمدید نکنید فقط صندلی‌های پولی غیرفعال می‌شوند و هر وقت دوباره صندلی بخرید، اشتراک تازه‌ای شروع می‌شود.',
   },
   {
     question: 'اگر قیمت‌ها تغییر کند چه می‌شود؟',
-    answer: 'قیمت هر اعتبار در صفحه‌ی تغییرات قیمت منتشر می‌شود. افزایش قیمت صندلی‌ها دست‌کم ۳۰ روز پیش از اعمال اعلام می‌شود و کاهش‌ها فوراً اعمال می‌شوند. اعتباری که خریده‌اید ارزش مصرفش را از دست نمی‌دهد.',
+    answer: 'هر افزایش قیمت دست‌کم ۳۰ روز پیش از اعمال اعلام می‌شود و کاهش‌ها فوراً اعمال می‌شوند. اعتباری که خریده‌اید ارزشش را از دست نمی‌دهد.',
+    link: { href: '/pricing/changelog', label: 'تغییرات قیمت' },
   },
   {
     question: 'کی به استقرار اختصاصی نیاز داریم؟',
-    answer: 'وقتی داده نباید از شبکه‌ی سازمان بیرون برود، یا به ورود یکپارچه (SSO)، پشتیبانی با SLA و مدیر مشتری اختصاصی نیاز دارید. بررسی نیازها و قیمت به‌صورت اختصاصی انجام می‌شود.',
+    answer: 'وقتی داده نباید از شبکه‌ی سازمان بیرون برود، یا به ورود یکپارچه (SSO)، پشتیبانی با SLA و مدیر مشتری اختصاصی نیاز دارید. نیازها و قیمت را با هم بررسی می‌کنیم.',
     link: { href: '/on-premise', label: 'درخواست استقرار اختصاصی' },
+  },
+  {
+    question: 'پلن‌های قبلی (توسعه‌دهنده، تیم، رشد و سازمانی) چه شدند؟',
+    answer: 'دیگر پلنی در کار نیست و همه‌ی امکانات برای همه است. هزینه فقط از دو جا می‌آید: صندلی‌های پولی اعضا و بسته‌های اعتبار. اشتراک‌های فعلی به همین مدل منتقل شده‌اند.',
   },
 ];
 
@@ -195,20 +189,14 @@ function Bullet({ children }: { children: ReactNode }) {
   );
 }
 
-function seatPrice(credits: number, creditPriceToman: number | null) {
-  return creditPriceToman === null ? null : credits * creditPriceToman;
-}
-
-function Plans({ creditPriceToman }: { creditPriceToman: number | null }) {
-  const proPrice = seatPrice(paidSeats[0].credits, creditPriceToman);
-
+function Plans() {
   return (
     <section className="bg-site-ground px-4 pb-10 pt-12 sm:px-6 lg:pb-20 lg:pt-20">
       <div className="mx-auto flex w-full max-w-content flex-col gap-10">
         <header className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
           <h1 className="m-0 text-balance text-h1 font-extrabold text-site-ink lg:text-display">برای هر عضو یک صندلی. به اندازه‌ی کارش.</h1>
           <p className={`m-0 max-w-2xl ${sectionCopy}`}>
-            پلنی برای انتخاب نیست؛ همه‌ی امکانات برای همه است. شما فقط صندلی هر عضو را انتخاب می‌کنید، و مصرف API از استخر مشترک سازمان می‌آید.
+            پلنی برای انتخاب نیست و همه‌ی امکانات برای همه است. فقط صندلی هر عضو را انتخاب می‌کنید؛ مصرف API هم از اعتبار مشترک سازمان کم می‌شود.
           </p>
         </header>
 
@@ -216,21 +204,12 @@ function Plans({ creditPriceToman }: { creditPriceToman: number | null }) {
           <article className="flex flex-col gap-6 rounded-card border border-site-line-strong bg-site-surface p-6 lg:p-8">
             <div className="flex flex-col gap-2">
               <h2 className="m-0 text-h3 font-semibold text-site-ink">روی ابر گدارAI</h2>
-              <p className="m-0 text-body text-site-ink-soft">برای شرکت‌ها و تیم‌ها؛ با چند عضو شروع کنید و هر وقت لازم شد صندلی اضافه کنید.</p>
+              <p className="m-0 text-body text-site-ink-soft">برای شرکت‌ها و تیم‌ها. با چند عضو شروع کنید و هر وقت لازم شد صندلی اضافه کنید.</p>
             </div>
             <div className="flex flex-col gap-1 border-y border-site-line py-5">
-              {proPrice === null ? (
-                <>
-                  <span className="text-h2 font-extrabold text-site-ink">رایگان تا ۵ عضو</span>
-                  <span className="text-label text-site-ink-soft">صندلی‌های Pro و Max بر اساس قیمت روز هر اعتبار</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-caption text-site-ink-soft">صندلی Pro از</span>
-                  <span className="text-h2 font-extrabold text-site-ink">{fa(proPrice)} تومان</span>
-                  <span className="text-label text-site-ink-soft">برای هر عضو در ماه، پیش از تخفیف صندلی</span>
-                </>
-              )}
+              <span className="text-caption text-site-ink-soft">صندلی Pro</span>
+              <span className="text-h2 font-extrabold text-site-ink">{fa(paidSeats[0].price)} تومان</span>
+              <span className="text-label text-site-ink-soft">برای هر عضو در ماه</span>
             </div>
             <p className="m-0 text-label text-site-ink">
               تا ۵ عضو هر سازمان صندلی رایگان با {fa(freeCredits)} اعتبار می‌گیرند.{' '}
@@ -248,7 +227,7 @@ function Plans({ creditPriceToman }: { creditPriceToman: number | null }) {
             </ul>
             <div className="mt-auto flex flex-col gap-3">
               <Link href="/onboarding" className={buttonPrimary}>
-                ساخت سازمان رایگان
+                رایگان شروع کنید
               </Link>
               <p className="m-0 text-caption text-site-ink-soft">قیمت‌ها بدون مالیات بر ارزش افزوده است.</p>
             </div>
@@ -284,7 +263,7 @@ function Plans({ creditPriceToman }: { creditPriceToman: number | null }) {
   );
 }
 
-function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
+function Seats() {
   const [picked, setPicked] = useState<(typeof quiz)[number] | undefined>();
   const highlight = (id: SeatId) => (picked?.seat === id ? 'border-site-ink ring-2 ring-site-ink' : 'border-site-line');
 
@@ -293,12 +272,12 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
       <div className="flex flex-col gap-4">
         <h2 className={`max-w-3xl ${sectionHeading}`}>هر عضو، صندلی خودش.</h2>
         <p className={`m-0 max-w-2xl ${sectionCopy}`}>
-          قابلیت‌ها برای همه یکی است و فقط اعتبار ماهانه فرق می‌کند. مدیر سازمان هر وقت لازم شد صندلی هر عضو را عوض می‌کند.
+          امکانات برای همه یکی است؛ فقط اعتبار ماهانه فرق می‌کند. مدیر سازمان هر وقت لازم شد صندلی هر عضو را عوض می‌کند.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="m-0 text-label font-medium text-site-ink">این همکار بیشتر چه کار می‌کند؟</p>
+        <p className="m-0 text-label font-medium text-site-ink">این همکار بیشتر با گدار چه کار می‌کند؟</p>
         <div className="flex flex-wrap gap-2">
           {quiz.map((option) => (
             <button key={option.id} type="button" aria-pressed={picked?.id === option.id} onClick={() => setPicked(option)} className={segmentButton(picked?.id === option.id)}>
@@ -307,7 +286,7 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
           ))}
         </div>
         <p aria-live="polite" className="m-0 min-h-7 text-body text-site-ink">
-          {picked ? picked.text : 'یکی از گزینه‌ها را بزنید تا صندلی مناسب را نشان بدهیم.'}
+          {picked ? picked.text : 'یکی را انتخاب کنید تا صندلی مناسبش را نشان بدهیم.'}
         </p>
       </div>
 
@@ -318,7 +297,7 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
             <p className="m-0 text-label text-site-ink-soft">برای شروع و آشنایی اعضای تیم</p>
           </div>
           <div className="flex flex-col gap-1 border-y border-site-line py-4">
-            <span className="text-h3 font-extrabold text-site-ink">بدون پرداخت</span>
+            <span className="text-h3 font-extrabold text-site-ink">۰ تومان</span>
             <span className="text-label text-site-ink-soft">{fa(freeCredits)} اعتبار، یک بار برای هر عضو</span>
           </div>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -332,8 +311,6 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
         </article>
 
         {paidSeats.map((seat) => {
-          const price = seatPrice(seat.credits, creditPriceToman);
-
           return (
             <article key={seat.id} className={`flex flex-col gap-5 rounded-card border bg-site-surface p-6 lg:p-8 ${highlight(seat.id)}`}>
               <div className="flex items-start justify-between gap-3">
@@ -346,10 +323,8 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
                 ) : null}
               </div>
               <div className="flex flex-col gap-1 border-y border-site-line py-4">
-                <span className="text-h3 font-extrabold text-site-ink">{price === null ? `${fa(seat.credits)} اعتبار در ماه` : `${fa(price)} تومان در ماه`}</span>
-                <span className="text-label text-site-ink-soft">
-                  {price === null ? 'قیمت = اعتبار ماهانه × قیمت روز هر اعتبار، منهای تخفیف صندلی' : `${fa(seat.credits)} اعتبار هر ماه، پیش از تخفیف صندلی`}
-                </span>
+                <span className="text-h3 font-extrabold text-site-ink">{fa(seat.price)} تومان در ماه</span>
+                <span className="text-label text-site-ink-soft">{fa(seat.credits)} اعتبار در ماه</span>
               </div>
               <div className="flex flex-col gap-2">
                 <p className="m-0 text-label text-site-ink-soft">در یک ماه، با مدل سبک، حدود:</p>
@@ -371,17 +346,13 @@ function Seats({ creditPriceToman }: { creditPriceToman: number | null }) {
                   ))}
                 </ul>
               </div>
-              <p className="m-0 mt-auto text-label text-site-ink-soft">نشانه: {seat.sign}</p>
+              <p className="m-0 mt-auto text-label text-site-ink-soft">برای کسی که {seat.sign}</p>
             </article>
           );
         })}
       </div>
 
-      <p className="m-0 text-label text-site-ink-soft">
-        {creditPriceToman === null
-          ? 'قیمت روز هر اعتبار الان در دسترس نیست؛ قیمت دقیق هر صندلی هنگام خرید در پنل مدیریت سازمان نمایش داده می‌شود.'
-          : `قیمت فعلی هر اعتبار ${fa(creditPriceToman)} تومان است. قیمت نهایی هر صندلی با تخفیف همان صندلی و مالیات، هنگام خرید در پنل نمایش داده می‌شود.`}
-      </p>
+      <p className="m-0 text-label text-site-ink-soft">قیمت‌ها بدون مالیات بر ارزش افزوده است. صورتحساب سالانه تخفیف دارد.</p>
     </Section>
   );
 }
@@ -394,7 +365,7 @@ function Examples() {
       <div className="flex flex-col gap-4">
         <h2 className={`max-w-3xl ${sectionHeading}`}>هر کار را چند بار در ماه می‌شود انجام داد؟</h2>
         <p className={`m-0 max-w-2xl ${sectionCopy}`}>
-          تعداد تقریبی تکرار هر کار در ماه، با اعتبار شخصی هر صندلی. عددها برای همان یک کار است؛ اگر چند کار را ترکیب کنید، تقسیم می‌شود.
+          تعداد تقریبی هر کار در یک ماه، با اعتبار هر صندلی. عددها برای انجام فقط همان یک کار است؛ اگر چند کار انجام دهید، اعتبار بینشان تقسیم می‌شود.
         </p>
       </div>
 
@@ -460,13 +431,13 @@ function Compare() {
       <div className="flex flex-col gap-4">
         <h2 className={`max-w-3xl ${sectionHeading}`}>ابر گدارAI یا استقرار اختصاصی؟ ردیف به ردیف.</h2>
         <label className="relative flex max-w-md items-center">
-          <span className="sr-only">جستجوی قابلیت</span>
+          <span className="sr-only">جست‌وجوی قابلیت</span>
           <Search aria-hidden="true" className="pointer-events-none absolute start-4 size-4 text-site-ink-soft" />
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="جستجوی قابلیت، مثلاً SSO"
+            placeholder="جست‌وجوی قابلیت، مثلاً SSO"
             className="w-full rounded-field border border-site-line-strong bg-site-surface py-3 pe-4 ps-11 text-body text-site-ink placeholder:text-site-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus"
           />
         </label>
@@ -525,23 +496,19 @@ function Compare() {
   );
 }
 
-export function SeatPricing({ creditPriceToman }: { creditPriceToman: number | null }) {
+export function SeatPricing() {
   return (
     <main className="bg-site-ground">
-      <Plans creditPriceToman={creditPriceToman} />
-      <Seats creditPriceToman={creditPriceToman} />
-      <Section id="principles" layout="flex flex-col gap-8">
-        <h2 className={`max-w-3xl ${sectionHeading}`}>قواعد پرداخت. کوتاه و روشن.</h2>
-        <TileGrid size="compact" items={principles} />
-      </Section>
+      <Plans />
+      <Seats />
       <Examples />
       <Compare />
       <FAQ id="pricing-faq" title="پیش از خرید صندلی بدانید." items={faqs} />
       <ClosingBand
         title="با صندلی‌های رایگان شروع کنید."
         titleMuted="بعد تصمیم بگیرید."
-        copy="سازمان را بسازید، تا ۵ عضو را رایگان دعوت کنید و هر وقت لازم شد صندلی Pro یا Max یا بسته‌ی اعتبار بخرید."
-        primary={{ href: '/onboarding', label: 'ساخت سازمان رایگان' }}
+        copy="فضای کاری سازمان را بسازید، تا ۵ عضو را رایگان دعوت کنید و هر وقت لازم شد Pro، Max یا بسته‌ی اعتبار بخرید."
+        primary={{ href: '/onboarding', label: 'رایگان شروع کنید' }}
         secondary={{ href: '/pricing/changelog', label: 'تغییرات قیمت' }}
       />
     </main>
