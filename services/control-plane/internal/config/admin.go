@@ -44,7 +44,8 @@ type AdminOTPMobileSettings struct {
 
 // AdminPaymentSettings configures management payment gateway adapters.
 type AdminPaymentSettings struct {
-	// Production is true when NODE_ENV is production; the mock gateway is refused there.
+	// Production is true unless NODE_ENV is development or test, so the mock gateway
+	// is refused by default and only local runs can use it.
 	Production                  bool
 	DefaultSubscriptionProvider string
 	ZarinpalMerchantID          string
@@ -108,8 +109,8 @@ func LoadAdminSettings() AdminSettings {
 			BotID:        botID,
 		},
 		Payment: AdminPaymentSettings{
-			Production:                  strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production"),
-			DefaultSubscriptionProvider: strings.ToLower(stringEnv("SUBSCRIPTION_PAYMENT_PROVIDER", "mock")),
+			Production:                  !isLocalNodeEnvironment(),
+			DefaultSubscriptionProvider: strings.ToLower(stringEnv("SUBSCRIPTION_PAYMENT_PROVIDER", "")),
 			ZarinpalMerchantID:          strings.TrimSpace(os.Getenv("ZARINPAL_MERCHANT_ID")),
 			ZarinpalBaseURL:             stringEnv("ZARINPAL_BASE_URL", "https://api.zarinpal.com"),
 			IDPayAPIKey:                 strings.TrimSpace(os.Getenv("IDPAY_API_KEY")),
@@ -147,4 +148,15 @@ func int64Env(key string, fallback int64) int64 {
 	}
 
 	return value
+}
+
+// isLocalNodeEnvironment reports whether NODE_ENV marks a local or test run. Any
+// other value, including an unset one, is treated as production.
+func isLocalNodeEnvironment() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("NODE_ENV"))) {
+	case "development", "test":
+		return true
+	default:
+		return false
+	}
 }

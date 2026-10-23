@@ -63,7 +63,6 @@ type SpendLogSettings struct {
 	BatchSize                   int  `mapstructure:"batch_size"`
 	FlushIntervalMS             int  `mapstructure:"flush_interval_ms"`
 	EnqueueTimeoutMS            int  `mapstructure:"enqueue_timeout_ms"`
-	DropOnFull                  bool `mapstructure:"drop_on_full"`
 	ShutdownDrainTimeoutSeconds int  `mapstructure:"shutdown_drain_timeout_seconds"`
 }
 
@@ -215,7 +214,6 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("spend_logs.batch_size", 500)
 	v.SetDefault("spend_logs.flush_interval_ms", 500)
 	v.SetDefault("spend_logs.enqueue_timeout_ms", 0)
-	v.SetDefault("spend_logs.drop_on_full", true)
 	v.SetDefault("spend_logs.shutdown_drain_timeout_seconds", 5)
 	v.SetDefault("router_settings.routing_strategy", "simple-shuffle")
 	v.SetDefault("router_settings.cooldown_time", 60.0)

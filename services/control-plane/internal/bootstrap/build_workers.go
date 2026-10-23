@@ -247,7 +247,6 @@ func (b *builder) buildAsyncLoggers() error {
 		BatchSize:      b.cfg.SpendLogs.BatchSize,
 		FlushInterval:  time.Duration(b.cfg.SpendLogs.FlushIntervalMS) * time.Millisecond,
 		EnqueueTimeout: time.Duration(b.cfg.SpendLogs.EnqueueTimeoutMS) * time.Millisecond,
-		DropOnFull:     b.cfg.SpendLogs.DropOnFull,
 	}, b.logger, b.httpMetrics)
 	b.spendLogger = b.withCreditShadow(writer)
 

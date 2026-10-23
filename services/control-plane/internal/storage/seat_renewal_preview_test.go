@@ -67,8 +67,8 @@ func TestRenewalPreviewLineFollowsScheduledChanges(t *testing.T) {
 	require.Equal(t, 3, pro.Assigned, "a member already leaving does not take a seat; a move from Max does")
 	require.Equal(t, []string{"downgrade"}, losingIDs(pro), "a moved member is assigned at the period end, so ranks last")
 
-	max, _ := renewalPreviewLine(seats.Max, holders, periodEnd, 0)
-	require.Zero(t, max.Assigned, "the Max holder moves to Pro at the period end")
+	maxLine, _ := renewalPreviewLine(seats.Max, holders, periodEnd, 0)
+	require.Zero(t, maxLine.Assigned, "the Max holder moves to Pro at the period end")
 }
 
 func TestAttachSeatFallbacks(t *testing.T) {

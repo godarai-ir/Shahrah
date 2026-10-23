@@ -59,6 +59,13 @@ describe("seat payment callback relay", () => {
     expect((await callback("mock")).status).toBe(502);
   });
 
+  it("never relays the mock gateway unless NODE_ENV marks a local run", async () => {
+    vi.stubEnv("NODE_ENV", "");
+
+    expect((await callback("mock")).status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("never relays the mock gateway in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 

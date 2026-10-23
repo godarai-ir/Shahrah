@@ -25,6 +25,7 @@ func (b *builder) buildManagement() error {
 	}
 
 	dependencies := admin.Dependencies{
+		RateLimits: b.cache,
 		IAM: admin.IAMDependencies{
 			Keys:         b.iamApplication,
 			Memberships:  b.iamApplication,
@@ -119,7 +120,7 @@ func (b *builder) buildManagement() error {
 			APIAccessKey: b.cfg.Admin.OTPMobile.APIAccessKey,
 			BotID:        b.cfg.Admin.OTPMobile.BotID,
 		},
-	), admin.AuthHandlersConfig{ExposeDebugOTP: b.cfg.Admin.ExposeDebugOTP})
+	), admin.AuthHandlersConfig{ExposeDebugOTP: b.cfg.Admin.ExposeDebugOTP, RateLimits: b.cache})
 
 	oidcRoutes, err := b.oidcRoutes()
 	if err != nil {

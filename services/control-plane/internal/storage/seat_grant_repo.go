@@ -10,8 +10,12 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	"github.com/Delpak/shahrah/services/control-plane/internal/domain/seats"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
+
+// seatLifecycleLockKey names the advisory lock that keeps one seat lifecycle pass running at a time.
+const seatLifecycleLockKey = "seat_lifecycle"
 
 // seatGrantCandidate is a member whose seat may be due credits.
 type seatGrantCandidate struct {
@@ -107,6 +111,19 @@ func (s *SeatRepository) RunSeatLifecycle(ctx context.Context, now time.Time) (s
 
 	var result seats.LifecycleResult
 
+	// Every replica runs this pass, so only the one holding the lock does the work.
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return result, err
+	}
+	defer conn.Release()
+
+	locked, err := tryCreditSessionLock(ctx, conn, seatLifecycleLockKey)
+	if err != nil || !locked {
+		return result, err
+	}
+	defer s.unlockSeatLifecycle(conn)
+
 	changed := map[string]struct{}{}
 	defer s.invalidateSeatTenants(ctx, changed)
 
@@ -189,6 +206,26 @@ func (s *SeatRepository) RunSeatLifecycle(ctx context.Context, now time.Time) (s
 	}
 
 	return result, nil
+}
+
+// unlockSeatLifecycle releases the seat lifecycle lock. If the release fails, the
+// connection is closed, since closing a session releases its advisory locks.
+func (s *SeatRepository) unlockSeatLifecycle(conn *pgxpool.Conn) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	logger := s.logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_unlock(hashtext($1))`, seatLifecycleLockKey); err != nil {
+		logger.Warn("seat lifecycle lock release failed; closing the connection", zap.Error(err))
+
+		if closeErr := conn.Conn().Close(ctx); closeErr != nil {
+			logger.Warn("seat lifecycle connection close failed", zap.Error(closeErr))
+		}
+	}
 }
 
 // grantMemberSeatCredits grants whatever seat credits one member is due now.
