@@ -23,7 +23,7 @@ export function AIGateway() {
         tone="night"
         title="یک نشانی برای همه‌ی مدل‌ها. یک کلید برای همه‌ی دردسرها."
         lead="API سازگار با OpenAI برای بیش از ۱۲۰۰ مدل از ۲۱ ارائه‌دهنده. کلید، مسیریابی، هزینه و گزارش در همان مسیر."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/docs', label: 'مستندات' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -171,8 +171,8 @@ export function AIGateway() {
       <ClosingBand
         title="اولین درخواست را امروز بفرستید."
         titleMuted="بقیه‌اش تکرار است."
-        copy="پانزده روز رایگان، با اعتبار اولیه؛ نشانی و کلید را عوض کنید و تمام."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه شروع کنید؛ نشانی و کلید را عوض کنید و تمام."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/docs', label: 'مستندات' }}
       />
     </main>

@@ -63,7 +63,7 @@ export function ComparisonPage({ content }: { content: ComparisonContent }) {
       <PageHero
         title={`${hero.titleLead} ${hero.titleHighlight} ${hero.titleTail}`}
         lead={hero.intro}
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'رزرو دمو' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">

@@ -21,7 +21,7 @@ export function Hero() {
       tone="night"
       title="بی‌گدار به آب و AI نزنید!"
       lead="به هر تیم دستیاری بدهید که با دانش و ابزارهای خودش کار می‌کند. دسترسی، داده و هزینه دست شما می‌ماند."
-      primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+      primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
       secondary={{ href: '/demo', label: 'درخواست دمو' }}
       visual={
         <MediaSlot

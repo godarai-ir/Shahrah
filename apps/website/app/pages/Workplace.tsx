@@ -58,7 +58,7 @@ export function Workplace() {
         tone="night"
         title="فضای کاری هوش مصنوعی. برای همه، نه فقط تیم فنی."
         lead="همه‌ی همکاران با هر مدلی که لازم دارند گفتگو می‌کنند و هر تیم دستیار خودش را دارد. مدیر فناوری می‌بیند و تنظیم می‌کند."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -168,8 +168,8 @@ export function Workplace() {
       <ClosingBand
         title="فضای کاری را بسازید."
         titleMuted="بقیه‌اش با ماست."
-        copy="پانزده روز رایگان، با اعتبار اولیه. اول امتحان کنید، بعد تصمیم بگیرید."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد. اول امتحان کنید، بعد تصمیم بگیرید."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
       />
     </main>

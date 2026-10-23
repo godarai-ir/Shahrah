@@ -221,7 +221,7 @@ Pills in Label type, about 10px by 16px, at least 44px tall.
 - **Secondary:** transparent, 1px Strong Hairline border, Ink text; hover fills Linen.
 - **On navy:** transparent with a Paper-on-Navy outline; hover fills Deep Navy.
 - **Focus:** 2px solid Ember ring, 2px offset (Paper on Navy on the navy fields).
-- **Labels** are verbs of two or three words: «شروع ۱۵ روز رایگان», «درخواست دمو».
+- **Labels** are verbs of two or three words: «شروع با اعتبار هدیه», «درخواست دمو».
 
 ### Tiles
 - **Surface:** White Card with a Hairline outline, 12px corners, 24px padding (32px on desktop for large tiles).

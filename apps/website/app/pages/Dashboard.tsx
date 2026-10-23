@@ -8,7 +8,7 @@ export function Dashboard() {
       <PageHero
         title="سنجه‌های هر مدل، یک‌جا. نه در پنج داشبورد."
         lead="تأخیر، خطا و مصرف توکن هر مدل و هر کلید را ببینید."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/features/observability', label: 'مشاهده‌پذیری' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -81,8 +81,8 @@ export function Dashboard() {
       <ClosingBand
         title="داشبورد را روشن کنید."
         titleMuted="حدس را خاموش."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/features/ai-gateway', label: 'درگاه مدل‌های زبانی' }}
       />
     </main>

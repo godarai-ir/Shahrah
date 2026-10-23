@@ -53,7 +53,7 @@ export function About() {
         titleMuted="در یک جلسه‌ی کوتاه."
         copy="جلسه‌ای برای دیدن محصول روی سناریوهای سازمان شما."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
       />
     </main>
   );

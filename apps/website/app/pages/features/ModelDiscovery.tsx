@@ -11,7 +11,7 @@ export function ModelDiscovery() {
         title="مدل مناسب را پیدا کنید. پیش از اینکه هزینه‌اش را بدهید."
         lead="بیش از ۱۲۰۰ مدل از ۲۱ ارائه‌دهنده را بر اساس کار، قابلیت و قیمت جست‌وجو و مقایسه کنید."
         primary={{ href: '/catalog', label: 'باز کردن کاتالوگ' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
             <ProductWindow title="کاتالوگ مدل‌ها" meta="نمونه" label="نمونه‌ای از جست‌وجو در کاتالوگ مدل‌ها با فیلتر قابلیت.">
@@ -88,7 +88,7 @@ export function ModelDiscovery() {
         title="انتخاب در کاتالوگ."
         titleMuted="مصرف از درگاه."
         copy="مدل را در کاتالوگ پیدا کنید و از درگاه یا یک مدل مجازی به کار ببرید."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/features/ai-gateway', label: 'درگاه مدل‌های زبانی' }}
       />
     </main>

@@ -20,7 +20,7 @@ export function Integrations() {
       <PageHero
         title="دستیار، همان‌جا که تیم کار می‌کند. نه یک پنجره‌ی دیگر."
         lead="دستیارها به ابزارهای تیم و سرورهای MCP سازمان وصل می‌شوند. شما تعیین می‌کنید کدام تیم به کدام ابزار برسد."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -102,8 +102,8 @@ export function Integrations() {
       <ClosingBand
         title="ابزارهای تیمتان را وصل کنید."
         titleMuted="دستیار بقیه را می‌داند."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
       />
     </main>

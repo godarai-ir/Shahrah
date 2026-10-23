@@ -159,7 +159,7 @@ export function SolutionPage({ slug }: { slug: string }) {
       <PageHero
         title={solution.title}
         lead={solution.highlight}
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'رزرو دمو' }}
         visual={
           <ProductStage layout="flex size-full items-center justify-center p-6 sm:p-10">
@@ -223,8 +223,8 @@ export function SolutionPage({ slug }: { slug: string }) {
 
       <ClosingBand
         title={solution.finalCta}
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'رزرو دمو' }}
       />
 

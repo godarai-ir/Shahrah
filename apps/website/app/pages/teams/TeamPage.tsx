@@ -15,7 +15,7 @@ export function TeamPage({ team }: { team: Team }) {
       <PageHero
         title={team.title}
         lead={team.lead}
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -69,8 +69,8 @@ export function TeamPage({ team }: { team: Team }) {
       <ClosingBand
         title={`دستیار تیم ${team.label} را امروز بسازید.`}
         titleMuted="فردا کار سبک‌تر است."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
       />
     </main>

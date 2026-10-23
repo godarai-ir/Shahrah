@@ -19,7 +19,7 @@ export function Observability() {
         title="مصرف هر تیم را ببینید. و پشت هر عدد را."
         lead="داشبورد نشان می‌دهد کدام تیم با کدام مدل چقدر خرج کرده. از هر عدد می‌شود تا تک‌تک درخواست‌ها رفت."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
             <ProductWindow title="مصرف این ماه" meta="نمونه" label="نمونه‌ای از داشبورد مصرف به تفکیک تیم: پشتیبانی، فروش، فنی و حقوقی، هر کدام نسبت به سقف خودش.">
@@ -134,7 +134,7 @@ export function Observability() {
         titleMuted="نه بعدش."
         copy="در دمو، داشبورد مصرف و گزارش رخداد را روی محیط واقعی می‌بینید."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
       />
     </main>
   );

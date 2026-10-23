@@ -7,7 +7,7 @@ export function PromptEngineering() {
       <PageHero
         title="پرامپت‌ها را مثل کد نگه دارید. نه در یادداشت‌های پراکنده."
         lead="پرامپت را بسازید، نسخه بزنید و با یک شناسه‌ی پایدار از درگاه اجرا کنید."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/docs', label: 'مستندات' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -95,8 +95,8 @@ export function PromptEngineering() {
       <ClosingBand
         title="پرامپت را از کد بیرون بکشید."
         titleMuted="و نسخه بزنید."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/docs', label: 'مستندات' }}
       />
     </main>

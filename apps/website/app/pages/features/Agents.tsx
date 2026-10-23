@@ -21,7 +21,7 @@ export function Agents() {
       <PageHero
         title="برای هر تیم، دستیار خودش. بدون یک خط کد."
         lead="دستورالعمل، مدل، دانش و ابزارها را انتخاب کنید. دستیار برای همه‌ی تیم آماده است."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -161,8 +161,8 @@ export function Agents() {
       <ClosingBand
         title="اولین دستیار تیمتان را بسازید."
         titleMuted="امروز، نه فصل بعد."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/demo', label: 'درخواست دمو' }}
       />
     </main>

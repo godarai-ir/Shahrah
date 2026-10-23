@@ -22,7 +22,7 @@ export function Governance() {
         title="حاکمیت از روز اول. نه وصله‌ی بعدی."
         lead="برای هر تیم مشخص کنید به کدام مدل، دستیار و ابزار برسد. هر درخواست و هر تغییر تنظیمات ثبت می‌شود."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
             <ProductWindow title="دسترسی تیم‌ها" meta="نمونه" label="نمونه‌ای از دسترسی تیم‌ها: تیم فروش به CRM و دستیار فروش، تیم حقوقی به اسناد حقوقی، تیم فنی به درگاه API.">
@@ -168,7 +168,7 @@ export function Governance() {
         titleMuted="اجرایش با ما."
         copy="در دمو، دسترسی تیم‌ها و گزارش‌ها را روی محیط واقعی می‌بینید."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
       />
     </main>
   );

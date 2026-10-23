@@ -218,7 +218,7 @@ export function Navbar() {
             href="/onboarding"
             className={`ms-2 whitespace-nowrap ${buttonPrimary}`}
           >
-            شروع ۱۵ روز رایگان
+            شروع با اعتبار هدیه
           </Link>
         </div>
 
@@ -287,7 +287,7 @@ export function Navbar() {
             onClick={closeSheet}
             className={buttonPrimary}
           >
-            شروع ۱۵ روز رایگان
+            شروع با اعتبار هدیه
           </Link>
         </div>
       </div>

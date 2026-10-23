@@ -28,7 +28,7 @@ export function Guardrails() {
         title="داده‌ی محرمانه را از معنایش می‌شناسد. نه از کلمه‌هایش."
         lead="گاردریل معنایی پیش از رسیدن درخواست به مدل، و پیش از رسیدن پاسخ به کاربر، محتوا را بررسی می‌کند. هر تیم سیاست خودش را دارد."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
             <ProductWindow title="گزارش رخداد" meta="نمونه" label="نمونه‌ای از گزارش رخداد: یک درخواست به‌دلیل اطلاعات محرمانه‌ی مالی رد شده و دو درخواست عبور کرده‌اند.">
@@ -133,7 +133,7 @@ export function Guardrails() {
         titleMuted="روی داده‌ی خودتان."
         copy="در دمو، گاردریل معنایی را روی نمونه‌ی داده‌ی سازمانتان می‌بینید."
         primary={{ href: '/demo', label: 'درخواست دمو' }}
-        secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
       />
     </main>
   );

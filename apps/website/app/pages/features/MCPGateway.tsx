@@ -9,7 +9,7 @@ export function MCPGateway() {
       <PageHero
         title="یک مسیر برای همه‌ی سرورهای MCP. نه ده کلید پراکنده."
         lead="سرورها و ابزارها را یک‌جا ثبت کنید، دسترسی را تا سطح ابزار بدهید و هر فراخوانی را ببینید."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/integrations', label: 'اتصال‌ها' }}
         visual={
           <ProductStage layout="size-full p-6 sm:p-10">
@@ -99,8 +99,8 @@ export function MCPGateway() {
       <ClosingBand
         title="سرورهای MCP را یک‌جا کنید."
         titleMuted="و آرام بخوابید."
-        copy="پانزده روز رایگان، با اعتبار اولیه."
-        primary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        copy="با اعتبار هدیه وارد پنل شوید؛ تاریخ انقضا ندارد."
+        primary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         secondary={{ href: '/integrations', label: 'اتصال‌ها' }}
       />
     </main>

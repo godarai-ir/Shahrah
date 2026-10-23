@@ -186,7 +186,7 @@ const pricingFaqs = [
   },
   {
     question: 'آیا می‌توانیم قبل از خرید، گدارAI را آزمایش کنیم؟',
-    answer: 'بله. پلن‌های غیرسازمانی با دوره آزمایشی ۱۵روزه ارائه می‌شوند تا اتصال API، مدل‌ها و جریان کاری خود را پیش از تصمیم نهایی ارزیابی کنید.',
+    answer: 'بله. با ثبت‌نام، اعتبار هدیه‌ی اولیه می‌گیرید تا اتصال API، مدل‌ها و جریان کاری خود را پیش از تصمیم نهایی ارزیابی کنید. این اعتبار تاریخ انقضا ندارد.',
   },
   {
     question: 'پرداخت ماهانه، سه‌ماهه و سالانه چه تفاوتی دارند؟',
@@ -236,14 +236,14 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
             <header className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
               <h1 className="text-balance text-h1 font-extrabold text-site-ink lg:text-display">قیمت روشن. به تومان.</h1>
               <p className="max-w-2xl text-lead font-light text-site-ink-soft">
-                اول پانزده روز رایگان امتحان کنید. بعد پلن ماهانه را انتخاب کنید، یا گدارAI را روی سرورهای خودتان نصب کنید.
+                اول با اعتبار هدیه امتحان کنید. بعد پلن ماهانه را انتخاب کنید، یا گدارAI را روی سرورهای خودتان نصب کنید.
               </p>
             </header>
 
             <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-card border border-site-line bg-site-sand px-6 py-5 sm:flex-row">
-              <p className="m-0 text-body font-medium text-site-ink">۱۵ روز کاملاً رایگان، با اعتبار اولیه.</p>
+              <p className="m-0 text-body font-medium text-site-ink">اعتبار هدیه برای شروع؛ بدون تاریخ انقضا.</p>
               <Link href="/onboarding" className={buttonPrimary}>
-                شروع ۱۵ روز رایگان
+                شروع با اعتبار هدیه
               </Link>
             </div>
 
@@ -344,7 +344,7 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
           titleMuted="با هم انتخاب می‌کنیم."
           copy="نیازهای تیم، حجم درخواست و الزامات استقرار را بگویید تا پلن درست را پیدا کنیم."
           primary={{ href: '/demo', label: 'درخواست دمو' }}
-          secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+          secondary={{ href: '/onboarding', label: 'شروع با اعتبار هدیه' }}
         />
       </main>
     </FeatureTooltipProvider>
@@ -406,7 +406,7 @@ function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; 
         href={isEnterprise ? '/demo' : `/onboarding?plan=${encodeURIComponent(definition.slug)}`}
         className={`mt-6 ${isGrowth ? buttonPrimary : buttonSecondary}`}
       >
-        {isEnterprise ? 'تماس با فروش' : 'شروع ۱۵ روز رایگان'}
+        {isEnterprise ? 'تماس با فروش' : 'شروع با اعتبار هدیه'}
         <ArrowLeft aria-hidden="true" className="size-4" />
       </Link>
     </article>

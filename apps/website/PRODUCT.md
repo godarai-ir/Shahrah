@@ -10,7 +10,7 @@ web
 
 ## Users
 
-Primary: the technology or digital-transformation lead (IT manager, CDO) at an Iranian company who decides whether to bring AI into the daily work of every team. They need it to be safe, governable and affordable, and they read the site to judge fit, risk and cost before booking a demo or starting the trial.
+Primary: the technology or digital-transformation lead (IT manager, CDO) at an Iranian company who decides whether to bring AI into the daily work of every team. They need it to be safe, governable and affordable, and they read the site to judge fit, risk and cost before booking a demo or signing up with the gift credit.
 
 Target organizations: private SMBs (roughly 10 to 200 people) and large private enterprises. Banks, government and semi-government bodies are not the primary target of the site, though On-Premise serves their needs when they arrive.
 
@@ -25,7 +25,7 @@ GodarAI (گدارAI) is two products of equal weight:
 1. **AI Workplace:** an organization gives every team AI assistants that work with the team's own knowledge and tools for everyday work, while IT and finance keep control of access, data and spend.
 2. **LLM Gateway:** one OpenAI-compatible API in front of 1200+ models from 21 providers, with keys, budgets, routing and logs.
 
-The website exists to get an organization to start the 15-day trial or book a private demo.
+The website exists to get an organization to sign up with the initial gift credit or book a private demo.
 
 Success for a customer, three months in:
 
@@ -59,8 +59,8 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 - Data policy: GodarAI does not train models on customer data (no claim is made about upstream providers); log retention is configurable.
 - Deployment and pricing: GodarAI cloud on a monthly subscription; On-Premise on an annual contract, requiring Kubernetes infrastructure, through questionnaire, technical session and installation. Official invoices are issued; a mid-period plan change is prorated.
 - OpenAI models are stably available inside GodarAI; chat history from ChatGPT can be imported.
-- Trial: 15 days, completely free, with initial credit.
-- Entry points on the site: trial (`/onboarding`), demo booking (`/demo`), pricing, docs, catalog, blog, On-Premise request (`/on-premise`).
+- Getting started: there is no time-limited trial. Every new workspace gets an initial gift credit to enter the panel and test the product; the credit never expires. Never say «۱۵ روز», «آزمایش ۱۵ روزه» or any trial length.
+- Entry points on the site: sign-up with gift credit (`/onboarding`), demo booking (`/demo`), pricing, docs, catalog, blog, On-Premise request (`/on-premise`).
 - Persian terminology follows `docs/content-glossary.md` (for example «درگاه»، «فضای کاری»، «گزارش رخداد»).
 
 ## Capabilities and Constraints
@@ -69,7 +69,7 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 - All existing routes are kept when pages are added or redesigned.
 - Do not state a credit-to-dollar ratio in public copy.
 - Not shipped today, never claim: PII masking as a guardrail feature; human approval of tool actions before execution; live intervention from the dashboard (pausing a key or switching a model without a deploy) as a marketed capability; automatic sync of sources such as Drive or Confluence; local open-weight models inside On-Premise; a usage-only cloud plan without subscription.
-- Also not to claim: a trial without a bank card; filling customers' security questionnaires; security certifications; GodarAI-managed updates in On-Premise.
+- Also not to claim: a sign-up without a bank card; filling customers' security questionnaires; security certifications; GodarAI-managed updates in On-Premise.
 - Open: the publishable guardrail latency figure and its measurement conditions; whether user sync is available in the cloud or only On-Premise; whether Eitaa is among the supported messengers; plan prices and per-seat details come only from the live pricing API.
 
 ## Brand Commitments
@@ -82,7 +82,7 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 
 ## Evidence on Hand
 
-- Real: 1200+ models from 21 providers; 15-day free trial; On-Premise request page; solutions pages; gateway comparison pages (LiteLLM, Portkey); feature pages for agents, MCP gateway, guardrails, observability, security, model discovery, prompt engineering; real product screenshots of GodarChat and the admin panel (to be supplied by the owner).
+- Real: 1200+ models from 21 providers; initial gift credit with no expiry; On-Premise request page; solutions pages; gateway comparison pages (LiteLLM, Portkey); feature pages for agents, MCP gateway, guardrails, observability, security, model discovery, prompt engineering; real product screenshots of GodarChat and the admin panel (to be supplied by the owner).
 - Not available, never fabricate: customer logos, testimonials, case studies, certifications, press, usage statistics, savings percentages.
 - The product mock UIs in `components/workplace/mocks.tsx` and the dashboards on feature pages are drawn in code with invented demo numbers; they are illustrative, to be replaced by real screenshots, and never presented as claims.
 

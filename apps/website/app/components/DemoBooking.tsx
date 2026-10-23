@@ -80,7 +80,7 @@ export function DemoBooking() {
         <p className="mt-6 text-center text-label text-site-ink-soft">
           ترجیح می‌دهید خودتان امتحان کنید؟{' '}
           <Link href="/onboarding" className={textLink}>
-            شروع ۱۵ روز رایگان، با اعتبار اولیه
+            شروع با اعتبار هدیه
           </Link>
         </p>
       </div>
