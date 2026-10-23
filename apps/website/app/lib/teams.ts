@@ -1,16 +1,14 @@
-import { Banknote, BookOpen, Briefcase, Code2, Database, FileText, GitBranch, Headphones, KanbanSquare, Landmark, MessageCircle, NotebookText, Scale, ScrollText, UserRound, Users } from 'lucide-react';
+import { Banknote, BookOpen, Briefcase, Database, FileText, Headphones, Landmark, Megaphone, MessageCircle, Scale, ScrollText, UserRound, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { HomeMediaId } from './home-media';
 import type { PillarId } from './pillars';
 
 export type TeamTask = { title: string; text: string };
 export type TeamTool = { icon: LucideIcon; title: string; text: string };
 
 export type Team = {
-  id: 'sales' | 'support' | 'finance' | 'legal' | 'hr' | 'engineering';
+  id: 'sales' | 'support' | 'finance' | 'legal' | 'hr' | 'marketing';
   label: string;
   icon: LucideIcon;
-  media: HomeMediaId;
   tasks: TeamTask[];
   /** Team page hero: a two-clause headline with a turn, and a two-sentence lead. */
   title: string;
@@ -30,7 +28,6 @@ export const teams: Team[] = [
     id: 'sales',
     label: 'فروش',
     icon: Briefcase,
-    media: 'teamSales',
     tasks: [
       { title: 'آماده‌سازی جلسه', text: 'خلاصه‌ی مذاکره‌های قبلی و قول‌های داده‌شده را از CRM بیرون می‌کشد.' },
       { title: 'ثبت بعد از تماس', text: 'یادداشت‌ها را مرتب می‌کند و کار بعدی را در CRM ثبت می‌کند.' },
@@ -55,7 +52,6 @@ export const teams: Team[] = [
     id: 'support',
     label: 'پشتیبانی',
     icon: Headphones,
-    media: 'teamSupport',
     tasks: [
       { title: 'پیش‌نویس پاسخ', text: 'از روی مستندات و سابقه‌ی خود مشتری جواب تیکت را می‌نویسد.' },
       { title: 'دسته‌بندی پیام‌ها', text: 'پیام‌های رسیده در پیام‌رسان‌ها مانند تلگرام، واتساپ، بله و … را دسته‌بندی می‌کند و فوری‌ها را جلو می‌اندازد.' },
@@ -81,7 +77,6 @@ export const teams: Team[] = [
     id: 'finance',
     label: 'مالی',
     icon: Banknote,
-    media: 'teamFinance',
     tasks: [
       { title: 'تطبیق فاکتور', text: 'فاکتورها را با سفارش‌ها مقایسه می‌کند و هر جا نخواند علامت می‌زند.' },
       { title: 'گزارش آخر ماه', text: 'از روی جدول‌های خودتان پیش‌نویس گزارش را آماده می‌کند.' },
@@ -106,7 +101,6 @@ export const teams: Team[] = [
     id: 'legal',
     label: 'حقوقی',
     icon: Landmark,
-    media: 'teamLegal',
     tasks: [
       { title: 'مرور اولیه', text: 'بندهایی را که با سیاست شرکت نمی‌خواند علامت می‌زند و دلیلش را می‌نویسد.' },
       { title: 'مقایسه نسخه‌ها', text: 'تفاوت نسخه‌های مختلف یک قرارداد را فهرست می‌کند.' },
@@ -131,7 +125,6 @@ export const teams: Team[] = [
     id: 'hr',
     label: 'منابع انسانی',
     icon: UserRound,
-    media: 'teamHr',
     tasks: [
       { title: 'سؤال‌های تکراری', text: 'درباره‌ی مرخصی، بیمه و ماموریت از روی آیین‌نامه‌ی خودتان جواب می‌دهد.' },
       { title: 'ورود کارمند جدید', text: 'فهرست کارهای هفته‌ی اول را برای هر کارمند آماده می‌کند.' },
@@ -150,30 +143,30 @@ export const teams: Team[] = [
     seo: 'دستیار هوش مصنوعی منابع انسانی: پاسخ پرسش‌های تکراری از آیین‌نامه و آماده‌سازی ورود کارمند جدید.',
   },
   {
-    id: 'engineering',
-    label: 'فنی',
-    icon: Code2,
-    media: 'teamEngineering',
+    id: 'marketing',
+    label: 'بازاریابی',
+    icon: Megaphone,
     tasks: [
-      { title: 'تسک تا کد', text: 'تسک‌های Jira را با تغییرهای Git و سندهای Notion کنار هم می‌گذارد.' },
-      { title: 'ریشه‌یابی خطا', text: 'گزارش رخدادها و مستندات داخلی را می‌گردد و علت احتمالی را پیشنهاد می‌دهد.' },
-      { title: 'API سازگار با OpenAI', text: 'اگر خودتان محصول می‌سازید، همان درگاه را مستقیم هم می‌توانید بردارید.' },
+      { title: 'پیش‌نویس محتوا', text: 'پست‌ها و متن کمپین را با لحن و قاعده‌های راهنمای برند خودتان می‌نویسد.' },
+      { title: 'گزارش کمپین', text: 'از جدول‌های کمپین گزارش هفتگی و نکته‌های مهم را بیرون می‌کشد.' },
+      { title: 'صدای مشتری', text: 'پیام‌ها و نظرهای مشتری در CRM و پیام‌رسان‌ها را دسته‌بندی می‌کند تا ببینید چه می‌خواهند.' },
     ],
-    title: 'دستیار تیم فنی. Jira، Git و Notion کنار هم.',
-    lead: 'تسک‌ها را با تغییرهای کد و سندهای تیم کنار هم می‌گذارد و برای ریشه‌یابی خطا، گزارش رخدادها را می‌گردد.',
+    title: 'دستیار تیم بازاریابی. با راهنمای برند خودتان.',
+    lead: 'پیش‌نویس پست‌ها و متن کمپین را با لحن برند شما آماده می‌کند و از جدول‌های کمپین گزارش هفتگی می‌سازد.',
     steps: [
-      { icon: KanbanSquare, title: 'Jira', text: 'تسک باز این هفته' },
-      { icon: GitBranch, title: 'Git', text: 'تغییرهای مرتبط' },
-      { icon: NotebookText, title: 'Notion', text: 'سند طراحی' },
+      { icon: BookOpen, title: 'راهنمای برند', text: 'از پایگاه دانش تیم' },
+      { icon: FileText, title: 'نتیجه‌ی کمپین قبلی', text: 'از فایل‌های تیم' },
+      { icon: Database, title: 'بخش مشتری', text: 'CRM از راه MCP' },
     ],
-    result: { title: 'خلاصه‌ی وضعیت تسک آماده است', text: 'با پیوند به تغییرها و سند' },
+    result: { title: 'پیش‌نویس پست‌های هفته آماده است', text: 'برای بازبینی سرپرست بازاریابی' },
     tools: [
-      { icon: KanbanSquare, title: 'Jira', text: 'تسک‌ها و پروژه‌ها' },
-      { icon: GitBranch, title: 'Git', text: 'تغییرهای کد' },
-      { icon: NotebookText, title: 'Notion', text: 'سندهای تیم' },
+      { icon: BookOpen, title: 'پایگاه دانش', text: 'راهنمای برند و نمونه‌محتواها' },
+      { icon: FileText, title: 'فایل‌ها', text: 'جدول‌ها و گزارش‌های کمپین' },
+      { icon: Database, title: 'CRM از راه MCP', text: 'بخش‌بندی و نظر مشتری‌ها' },
+      { icon: MessageCircle, title: 'پیام‌رسان‌ها', text: 'مانند تلگرام، واتساپ، بله و …' },
     ],
-    pillars: ['observe', 'cost'],
-    seo: 'دستیار هوش مصنوعی تیم فنی: کنار هم گذاشتن Jira، Git و Notion، ریشه‌یابی خطا و درگاه API سازگار با OpenAI.',
+    pillars: ['guard', 'cost'],
+    seo: 'دستیار هوش مصنوعی تیم بازاریابی: پیش‌نویس محتوا با راهنمای برند، گزارش کمپین و دسته‌بندی نظر مشتری‌ها.',
   },
 ];
 

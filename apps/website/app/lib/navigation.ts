@@ -1,7 +1,7 @@
 import {
   BookOpen,
   Briefcase,
-  Code2,
+  Megaphone,
   FileStack,
   Headphones,
   Landmark,
@@ -74,7 +74,7 @@ export const teamLinks: NavLink[] = [
   { label: 'مالی', href: '/teams/finance', icon: Wallet },
   { label: 'حقوقی', href: '/teams/legal', icon: Landmark },
   { label: 'منابع انسانی', href: '/teams/hr', icon: UserRound },
-  { label: 'فنی', href: '/teams/engineering', icon: Code2 },
+  { label: 'بازاریابی', href: '/teams/marketing', icon: Megaphone },
 ].map(link);
 
 const pillarLinks: NavLink[] = pillars.map((pillar) =>

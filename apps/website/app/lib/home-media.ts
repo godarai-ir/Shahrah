@@ -20,8 +20,6 @@ export type MediaSpec = {
   poster?: string;
 };
 
-const gifSpec = 'گیف یا ویدیوی کوتاه حلقه‌ای، ۴ تا ۶ ثانیه';
-
 export const homeMedia = {
   heroDemo: {
     kind: 'video',
@@ -43,48 +41,6 @@ export const homeMedia = {
     title: 'عکس نقل‌قول‌کننده',
     spec: 'عکس عمودی ۵:۶ از مشتری یا تیمش، همراه نام، سمت و شرکت',
     alt: 'تصویر یکی از مشتریان گدارAI',
-  },
-  teamSales: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'تیم فروش',
-    spec: `${gifSpec}. خلاصه‌ی سابقه‌ی مشتری قبل از جلسه`,
-    alt: 'دستیار فروش سابقه‌ی مشتری را خلاصه می‌کند',
-  },
-  teamSupport: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'تیم پشتیبانی',
-    spec: `${gifSpec}. پیش‌نویس پاسخ یک تیکت`,
-    alt: 'دستیار پشتیبانی پیش‌نویس پاسخ تیکت را می‌نویسد',
-  },
-  teamFinance: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'تیم مالی',
-    spec: `${gifSpec}. تطبیق فاکتور و سفارش`,
-    alt: 'دستیار مالی فاکتورها را با سفارش‌ها تطبیق می‌دهد',
-  },
-  teamLegal: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'تیم حقوقی',
-    spec: `${gifSpec}. علامت‌زدن بندهای یک قرارداد`,
-    alt: 'دستیار حقوقی بندهای قرارداد را علامت می‌زند',
-  },
-  teamHr: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'منابع انسانی',
-    spec: `${gifSpec}. جواب یک سؤال درباره‌ی مرخصی`,
-    alt: 'دستیار منابع انسانی به سؤال درباره‌ی مرخصی جواب می‌دهد',
-  },
-  teamEngineering: {
-    kind: 'gif',
-    aspect: '4/3',
-    title: 'تیم فنی',
-    spec: `${gifSpec}. ربط دادن تسک Jira با تغییر Git`,
-    alt: 'دستیار فنی تسک Jira را با تغییر Git مرتبط می‌کند',
   },
 } satisfies Record<string, MediaSpec>;
 
