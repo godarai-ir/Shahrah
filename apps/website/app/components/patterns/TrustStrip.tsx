@@ -1,11 +1,11 @@
-import { Languages, Server, Wallet } from 'lucide-react';
+import { Globe, Puzzle, Server } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { iconWell } from '../sectionType';
 
 const items: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: Wallet, title: 'پرداخت تومانی', text: 'بدون کارت بین‌المللی' },
-  { icon: Server, title: 'ابر یا سرور خودتان', text: 'روی ابر گدارAI یا داخل سازمان' },
-  { icon: Languages, title: 'فارسی', text: 'از رابط تا پشتیبانی' },
+  { icon: Globe, title: 'مدل‌های روز دنیا، بدون تحریم', text: 'دسترسی پایدار، پرداخت تومانی' },
+  { icon: Server, title: 'روی سرورهای خودتان', text: 'یا ابر گدارAI، به انتخاب شما' },
+  { icon: Puzzle, title: 'سازگار با نرم‌افزارهای ایرانی', text: 'حسابداری‌ و فروش، مسیریاب‌، پیام‌رسان‌ و ...' },
 ];
 
 // The three local advantages a foreign product cannot claim (PRODUCT.md, Positioning).

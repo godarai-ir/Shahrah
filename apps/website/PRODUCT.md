@@ -47,6 +47,9 @@ Local advantages a foreign product cannot truthfully claim:
 - payment in tomans, stable access to foreign models, no international card or sanctions friction;
 - deployment on the organization's own servers (On-Premise) in addition to the GodarAI cloud;
 - sending and reading messages in messengers such as Telegram, WhatsApp and Bale, alongside common tools.
+- compatibility with Iranian software: accounting and sales, routing/navigation apps, messengers and more («سازگار با نرم‌افزارهای ایرانی»).
+
+Persian language support is not marketed as a feature or differentiator.
 
 The real competitor named on the site is unmanaged, shadow use of ChatGPT by employees. Foreign workplace products (Dust, Langdock, Claude Enterprise) are design and product references only and are not named or compared on the site. Existing gateway comparisons (`/vs/litellm`, `/vs/portkey`) stay.
 
