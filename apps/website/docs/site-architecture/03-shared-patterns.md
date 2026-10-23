@@ -8,7 +8,7 @@
 
 | موضوع | وضعیت | اقدام |
 | --- | --- | --- |
-| توکن‌های رنگ | ✅ پرامپت ۰۰: `--ford-*` به `--site-*` تغییر نام داد؛ چهار تیند `--tone-*` و `--site-night-strong` اضافه شد. `/workplace` هنوز توکن‌های جدای `--wp-*` دارد (۹ فایل در `components/workplace/` و `pages/Workplace.tsx`). | `wp-*` در پرامپت ۰۳ حذف می‌شود. |
+| توکن‌های رنگ | ✅ پرامپت ۰۰: `--ford-*` به `--site-*` تغییر نام داد؛ چهار تیند `--tone-*` و `--site-night-strong` اضافه شد. توکن‌های جدای `--wp-*` و ۹ فایل `components/workplace/` حذف شدند. | — |
 | پوستهٔ سایت | ✅ `SiteShell` روی `bg-site-ground text-site-ink`. `Navbar` و فوتر (`Trust.tsx`) هنوز رنگ خام دارند. | ناوبری و فوتر در پرامپت ۰۱. |
 | کلاس‌های مشترک بخش | `components/sectionType.ts`: `sectionHeading`، `sectionCopy`، `sectionSpace`، `buttonPrimary`، `buttonQuiet` | مبنای همهٔ صفحه‌ها؛ گسترش با `sectionPanel` و تیندها. |
 | حرکت | ✅ `step-row` / `step-pending` / `step-complete`: ردیف‌های `ToolSteps` یکی‌یکی می‌آیند و نتیجه یک بار کامل می‌شود؛ `PlayOnView` آن را تا ورود به دید نگه می‌دارد و بدون اسکریپت یا با reduced-motion حالت نهایی دیده می‌شود. ✅ پرامپت ۰۲: `FordArt` و `water-ripple` حذف شدند. | — |
