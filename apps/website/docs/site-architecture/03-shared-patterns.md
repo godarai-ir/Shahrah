@@ -1,5 +1,7 @@
 # الگوهای مشترک و کامپوننت‌ها
 
+> **۱ آبان ۱۴۰۵:** سیستم بصری به دیزاین سیستم GodarAI («The Marked Crossing»: سرمه‌ای، کاغذ گرم، یک نارنجی سیگنال، Estedad، کاشی‌های تخت) تغییر کرد. تیندهای `tone-*`، سایه‌ها و نام‌های رنگ «Lit Workshop» در جدول‌های زیر بازنشسته‌اند؛ مقادیر و قاعده‌های فعلی در `apps/website/DESIGN.md` است. API الگوها همان است، جز اینکه `SectionTone` اکنون `ground` / `panel` / `surface` / `sand` است، `PageHero` گزینهٔ `tone="night"` دارد و `TrustStrip` گزینهٔ `tone="night"`. الگوهای افزوده در اجرای صفحه‌ها: `TileGrid` (کاشی‌های آزاد، پیوند فقط وقتی صفحه آماده است)، `MockRows` / `MockBars` (محتوای پنجره‌های نمونه)، `CodeWindow` (نمونهٔ کد با توضیح فارسی) و `ActionLink` (پیوند کامل برای `/docs`، `/catalog`، `/blog`).
+
 این الگوها پیش از هر صفحه ساخته یا بازسازی می‌شوند (پرامپت‌های `00` و `01`). مبنا: `apps/website/DESIGN.md` («The Lit Workshop»). همهٔ کامپوننت‌ها RTL، با توکن‌های معنایی، در حالت روشن و تاریک، و با `prefers-reduced-motion`.
 
 ## وضعیت فعلی پایه
@@ -31,12 +33,12 @@
 
 ✅ همه در `app/components/patterns/` با خروجی واحد `index.ts` ساخته شدند. `PageHero`، `ProductStage`/`ProductWindow`، `ToolSteps`، `FeatureRow`، `ControlChecklist`، `StepList`، `FAQ`، `ClosingBand` و `Section` اکنون در Home استفاده می‌شوند؛ `PillarGrid`، `PillarCrossLinks`، `ComparisonTable` و `TrustStrip` فقط در `/_patterns`. `TeamTabs` پیمایش کیبوردی (فلش در جهت RTL، Home/End) گرفت؛ داده‌اش در پرامپت ۱۰ به `lib/teams.ts` می‌رود.
 
-افزوده‌های پرامپت ۰۲: `ProductStage` گزینهٔ `overhang` دارد تا پنجره از لبهٔ پنل بیرون بزند؛ `FAQItem` پیوند اختیاری `link` دارد؛ `PillarGrid` و هر محتوایی که به صفحه‌ای ساخته‌نشده اشاره می‌کند از `isReady()` در `lib/navigation.ts` استفاده می‌کند تا پیوند ۴۰۴ ساخته نشود.
+افزوده‌های پرامپت ۰۲: `FAQItem` پیوند اختیاری `link` دارد؛ `PillarGrid` و هر محتوایی که به صفحه‌ای ساخته‌نشده اشاره می‌کند از `isReady()` در `lib/navigation.ts` استفاده می‌کند تا پیوند ۴۰۴ ساخته نشود.
 
 | الگو | کامپوننت فعلی | ساخت یا بازسازی | Props و حالت‌ها |
 | --- | --- | --- | --- |
 | **HeroProduct**: تیتر Display، یک جمله، دو CTA، ProductWindow کنار یا زیر | `Hero` (فقط صفحهٔ اصلی) | عمومی‌سازی به `PageHero` | `title`، `emphasis?` (یک واژهٔ تأکیدی)، `lead`، `primary`، `secondary?`، `visual?: ReactNode`، `tone?`؛ چیدمان دوستونه در دسکتاپ، تک‌ستونه با تصویر بعد از متن در موبایل. |
-| **ProductWindow**: قاب پنجره با عنوان، سایهٔ Window lift، روی پنل | `HeroWindow` (محتوای ثابت) | عمومی‌سازی | `title`، `meta?` (مثلاً «نمونه»)، `children` یا `media` (شناسهٔ `MediaSlot` برای اسکرین‌شات)، `tone?` برای پنل زیر، `overhang?`؛ اسکرین‌شات با `next/image`، `alt` فارسی، نسخهٔ تاریک اختیاری. |
+| **ProductWindow**: قاب پنجره با عنوان، سایهٔ Window lift، روی پنل | `HeroWindow` (محتوای ثابت) | عمومی‌سازی | `title`، `meta?` (مثلاً «نمونه»)، `children` یا `media` (شناسهٔ `MediaSlot` برای اسکرین‌شات)، `tone?` برای پنل زیر؛ اسکرین‌شات با `next/image`، `alt` فارسی، نسخهٔ تاریک اختیاری. |
 | **ToolSteps** (درون پنجره): ردیف ابزار که از «در حال انجام» به «تکمیل» می‌رود | منطق داخل `HeroWindow` | استخراج | `steps: {icon, name, text}[]`، `result`؛ اجرا یک‌باره با ورود به دید؛ در reduced-motion حالت نهایی مستقیم. |
 | **FeatureRow**: متن + تصویر، طرف‌ها متناوب | ندارد (تکرار دستی در صفحه‌ها) | جدید | `title`، `copy`، `bullets?`، `visual`، `reverse?`، `tone?`، `link?`. |
 | **PillarGrid**: کارت‌های تمایز روی تیند خودشان | `Pillars` (محتوای ثابت، شماره‌دار) | بازسازی داده‌محور | `items` از `pillars.ts` یا سفارشی، `columns: 2 \| 3 \| 4`، `numbered?`؛ کارت قابل کلیک با سایهٔ Card rest. |

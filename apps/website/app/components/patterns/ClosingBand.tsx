@@ -1,11 +1,12 @@
 import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { buttonOnNavy, buttonPrimary } from '../sectionType';
+import { ActionLink } from './PageHero';
 import type { Action } from './PageHero';
 
 type ClosingBandProps = {
   title: string;
-  /** Second half of the heading, set lighter in Dusk Grey. */
+  /** Second clause of the heading, the turn, set lighter. */
   titleMuted?: string;
   copy: string;
   primary: Action;
@@ -14,41 +15,31 @@ type ClosingBandProps = {
   backdrop?: ReactNode;
 };
 
-// The one dark band per page, holding the final call to action.
+// The page's closing call to action: one inverted navy card on the ground, kept apart from the navy footer below it.
 export function ClosingBand({ title, titleMuted, copy, primary, secondary, backdrop }: ClosingBandProps) {
   return (
-    <section className="relative w-full overflow-hidden bg-site-night py-28 text-site-night-ink lg:py-40">
-      {backdrop}
-      <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center gap-10 px-6 text-center">
-        <div>
-          <h2 className="m-0 max-w-3xl text-balance text-center text-4xl font-semibold leading-snug md:text-5xl xl:text-6xl xl:leading-snug">
-            {title}
-            {titleMuted ? (
-              <>
-                {' '}
-                <span className="font-normal text-site-night-soft">{titleMuted}</span>
-              </>
-            ) : null}
-          </h2>
-        </div>
-        <div>
-          <p className="m-0 max-w-2xl text-lg leading-9 text-site-night-soft">{copy}</p>
-        </div>
-        <div className="flex flex-col items-center gap-5">
-          <Link
-            href={primary.href}
-            className="inline-flex h-12 items-center justify-center rounded-full bg-site-night-ink px-7 text-base font-medium text-site-night transition-colors hover:bg-site-night-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-night-ink"
-          >
+    <section className="w-full bg-site-ground px-4 py-10 sm:px-6 lg:py-20">
+      <div className="relative mx-auto flex w-full max-w-content flex-col items-center gap-6 overflow-hidden rounded-card bg-site-night px-6 py-16 text-center text-site-night-ink lg:py-24">
+        {backdrop}
+        <h2 className="relative m-0 max-w-3xl text-balance text-h2 font-extrabold lg:text-h1">
+          {title}
+          {titleMuted ? (
+            <>
+              {' '}
+              <span className="font-light text-site-night-soft">{titleMuted}</span>
+            </>
+          ) : null}
+        </h2>
+        <p className="relative m-0 max-w-2xl text-lead font-light text-site-night-soft">{copy}</p>
+        <div className="relative flex flex-wrap items-center justify-center gap-2 pt-2">
+          <ActionLink href={primary.href} className={buttonPrimary}>
             {primary.label}
-          </Link>
+          </ActionLink>
           {secondary ? (
-            <Link
-              href={secondary.href}
-              className="inline-flex items-center gap-2 rounded-full text-sm text-site-night-soft transition-colors hover:text-site-night-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-night-ink"
-            >
+            <ActionLink href={secondary.href} className={buttonOnNavy}>
               {secondary.label}
-              <ArrowLeft className="size-4" />
-            </Link>
+              <ArrowLeft aria-hidden="true" className="size-4" />
+            </ActionLink>
           ) : null}
         </div>
       </div>

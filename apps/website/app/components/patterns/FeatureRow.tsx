@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { sectionCopy, sectionHeading } from '../sectionType';
+import { sectionCopy, sectionHeading, textLink } from '../sectionType';
 import { Section } from './Section';
 import type { SectionTone } from './Section';
 import type { Action } from './PageHero';
@@ -24,9 +24,9 @@ export function FeatureRow({ title, copy, visual, id, bullets, link, reverse = f
     <Section
       id={id}
       tone={tone}
-      layout={`flex flex-col items-stretch gap-14 lg:items-center lg:gap-24 ${reverse ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}
+      layout={`flex flex-col items-stretch gap-8 lg:items-center lg:gap-16 ${reverse ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}
     >
-      <div className="flex w-full flex-col gap-6 lg:w-1/2">
+      <div className="flex w-full flex-col gap-4 lg:w-1/2">
         <div>
           <h2 className={sectionHeading}>{title}</h2>
         </div>
@@ -37,8 +37,8 @@ export function FeatureRow({ title, copy, visual, id, bullets, link, reverse = f
           <ul className="m-0 flex max-w-md list-none flex-col gap-3 p-0">
             {bullets.map((bullet) => (
               <li key={bullet} className="flex items-start gap-3">
-                <span className="mt-3 block size-1.5 shrink-0 rounded-full bg-site-accent" />
-                <span className="text-base leading-8 text-site-ink">{bullet}</span>
+                <span className="mt-3 block size-1.5 shrink-0 rounded-full bg-site-ink-soft" />
+                <span className="text-body text-site-ink">{bullet}</span>
               </li>
             ))}
           </ul>
@@ -47,10 +47,10 @@ export function FeatureRow({ title, copy, visual, id, bullets, link, reverse = f
           <div>
             <Link
               href={link.href}
-              className="group inline-flex items-center gap-2 rounded-full text-sm font-medium text-site-ink transition-colors hover:text-site-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-site-accent"
+              className={textLink}
             >
               {link.label}
-              <ArrowLeft className="size-4 transition-transform duration-500 group-hover:-translate-x-0.5" />
+              <ArrowLeft aria-hidden="true" className="size-4 transition-transform duration-150 group-hover/link:-translate-x-0.5" />
             </Link>
           </div>
         ) : null}

@@ -17,17 +17,17 @@ type ProductWindowProps = {
   size?: string;
 };
 
-// The system's signature: real product UI framed as a window resting on a panel (DESIGN.md, Product Window).
+// Real product UI framed as a window on a tinted tile: flat, a hairline instead of a shadow (DESIGN.md, Product Window).
 export function ProductWindow({ title, meta, media, children, label, size = 'max-w-sm' }: ProductWindowProps) {
   return (
     <div
       role={label ? 'img' : undefined}
       aria-label={label}
-      className={`w-full ${size} overflow-hidden rounded-3xl bg-site-ground shadow-window`}
+      className={`w-full ${size} overflow-hidden rounded-card border border-site-line bg-site-surface`}
     >
       <div className="flex items-center justify-between border-b border-site-line px-5 py-4">
-        <span className="text-sm font-semibold text-site-ink">{title}</span>
-        {typeof meta === 'string' ? <span className="text-xs text-site-ink-soft">{meta}</span> : meta}
+        <span className="text-label font-semibold text-site-ink">{title}</span>
+        {typeof meta === 'string' ? <span className="text-caption text-site-ink-soft">{meta}</span> : meta}
       </div>
       {media ? <MediaSlot id={media} className="rounded-none" /> : children}
     </div>
@@ -41,14 +41,12 @@ type ProductStageProps = {
   backdrop?: ReactNode;
   /** Size and padding utilities. */
   layout?: string;
-  /** Lets the window cross the panel's edge, so it reads as an object resting on the bench. */
-  overhang?: boolean;
 };
 
-// The bench a Product Window rests on: a 24px-cornered panel, tinted when the section belongs to a differentiator.
-export function ProductStage({ children, tone = 'panel', backdrop, layout = 'w-full p-6 sm:p-10', overhang = false }: ProductStageProps) {
+// The tile a Product Window sits on: sand by default, the brand's warm feature field.
+export function ProductStage({ children, tone = 'sand', backdrop, layout = 'w-full p-6 sm:p-10' }: ProductStageProps) {
   return (
-    <div className={`relative flex items-center justify-center rounded-3xl ${overhang ? '' : 'overflow-hidden'} ${surfaceClass[tone]} ${layout}`}>
+    <div className={`relative flex items-center justify-center overflow-hidden rounded-card ${surfaceClass[tone]} ${layout}`}>
       {backdrop}
       {children}
     </div>

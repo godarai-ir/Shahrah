@@ -1,10 +1,13 @@
 import { Database, KanbanSquare, NotebookText } from 'lucide-react';
 import {
   ClosingBand,
+  CodeWindow,
   ComparisonTable,
   ControlChecklist,
   FAQ,
   FeatureRow,
+  MockBars,
+  MockRows,
   PageHero,
   PillarCrossLinks,
   PillarGrid,
@@ -12,6 +15,7 @@ import {
   ProductWindow,
   Section,
   StepList,
+  TileGrid,
   ToolSteps,
   TrustStrip,
 } from '@/app/components/patterns';
@@ -35,14 +39,14 @@ function SampleWindow() {
 function PatternLabel({ name }: { name: string }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pt-16">
-      <p dir="ltr" className="m-0 w-fit rounded-full bg-site-panel-deep px-3 py-1 font-mono text-xs text-site-ink-soft">
+      <p dir="ltr" className="m-0 w-fit rounded-full bg-site-sand px-3 py-1 font-mono text-caption text-site-ink-soft">
         {name}
       </p>
     </div>
   );
 }
 
-// Every shared pattern on one page, with each differentiator tone. See docs/site-architecture/03-shared-patterns.md.
+// Every shared pattern on one page, on each surface it may sit on. See docs/site-architecture/03-shared-patterns.md.
 export function Patterns() {
   return (
     <main className="bg-site-ground">
@@ -59,25 +63,25 @@ export function Patterns() {
         }
       />
 
-      <PatternLabel name="ProductStage tones" />
+      <PatternLabel name="ProductStage on sand, panel, surface and ground" />
       <Section layout="grid grid-cols-1 gap-6 md:grid-cols-2">
         {pillars.map((pillar) => (
-          <ProductStage key={pillar.id} tone={pillar.id}>
+          <ProductStage key={pillar.id} tone={(['sand', 'panel', 'surface', 'ground'] as const)[pillars.indexOf(pillar)]}>
             <ProductWindow title={pillar.title} meta="نمونه" media="teamSupport" />
           </ProductStage>
         ))}
       </Section>
 
-      <PatternLabel name="FeatureRow (tone=guard, reverse)" />
+      <PatternLabel name="FeatureRow (tone=panel, reverse)" />
       <FeatureRow
-        tone="guard"
+        tone="panel"
         reverse
         title="عنوان یک ایده"
         copy="متن کوتاه که همان یک ایده را توضیح می‌دهد."
         bullets={['نکته‌ی اول', 'نکته‌ی دوم']}
         link={{ href: '/features/guardrails', label: 'پیوند به صفحه‌ی مرتبط' }}
         visual={
-          <ProductStage tone="ground" layout="w-full max-w-lg p-8">
+          <ProductStage layout="w-full max-w-lg p-8">
             <SampleWindow />
           </ProductStage>
         }
@@ -93,9 +97,9 @@ export function Patterns() {
       <Section>
         <ControlChecklist
           groups={[
-            { title: 'امنیت', surface: 'guard', items: [{ label: 'گاردریل معنایی', href: '/features/guardrails' }, { label: 'بررسی فایل‌ها' }] },
-            { title: 'حاکمیت', surface: 'govern', items: [{ label: 'نقش و دسترسی تیمی', href: '/features/governance' }, { label: 'ثبت تغییر تنظیمات' }] },
-            { title: 'هزینه', surface: 'cost', items: [{ label: 'سقف برای هر تیم', href: '/features/cost-control' }, { label: 'پرداخت تومانی' }] },
+            { title: 'امنیت', surface: 'surface', items: [{ label: 'گاردریل معنایی', href: '/features/guardrails' }, { label: 'بررسی فایل‌ها' }] },
+            { title: 'حاکمیت', surface: 'sand', items: [{ label: 'نقش و دسترسی تیمی', href: '/features/governance' }, { label: 'ثبت تغییر تنظیمات' }] },
+            { title: 'هزینه', surface: 'surface', items: [{ label: 'سقف برای هر تیم', href: '/features/cost-control' }, { label: 'پرداخت تومانی' }] },
           ]}
         />
       </Section>
@@ -124,6 +128,38 @@ export function Patterns() {
             { label: 'دسترسی تیمی', values: ['ندارد', 'دارد'], note: 'یادداشت کوتاه برای این ردیف' },
           ]}
         />
+      </Section>
+
+      <PatternLabel name="TileGrid · MockRows · MockBars · CodeWindow" />
+      <Section tone="panel" layout="flex flex-col gap-8">
+        <TileGrid
+          columns={3}
+          size="compact"
+          items={[
+            { key: 'a', icon: Database, title: 'کاشی نمونه', text: 'یک خط توضیح.' },
+            { key: 'b', icon: NotebookText, title: 'کاشی با پیوند', text: 'فقط وقتی صفحه آماده است پیوند دارد.', href: '/features/guardrails' },
+            { key: 'c', icon: KanbanSquare, title: 'کاشی سوم', text: 'یک خط توضیح.' },
+          ]}
+        />
+        <div className="grid gap-6 md:grid-cols-3">
+          <ProductWindow title="MockRows" meta="نمونه" size="w-full">
+            <MockRows
+              rows={[
+                { icon: Database, title: 'ردیف نمونه', text: 'توضیح', badge: { label: 'فعال', tone: 'success' } },
+                { icon: Database, title: 'ردیف دوم', badge: { label: 'بسته', tone: 'danger' } },
+              ]}
+            />
+          </ProductWindow>
+          <ProductWindow title="MockBars" meta="نمونه" size="w-full">
+            <MockBars
+              bars={[
+                { label: 'تیم الف', percent: 40, caption: 'زیر سقف' },
+                { label: 'تیم ب', percent: 100, caption: 'به سقف رسید', over: true },
+              ]}
+            />
+          </ProductWindow>
+          <CodeWindow title="CodeWindow" meta="Python" code={'# توضیح فارسی\nclient = OpenAI(base_url="https://example.godarai.ir/v1")'} />
+        </div>
       </Section>
 
       <PatternLabel name="FAQ (groups)" />

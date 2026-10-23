@@ -9,7 +9,7 @@ type PillarCrossLinksProps = {
   title?: string;
 };
 
-// Closes a differentiator page by pointing to the other three, each on its own tone.
+// Closes a differentiator page by pointing to the other three.
 export function PillarCrossLinks({ current, title = 'کنترل‌های دیگر' }: PillarCrossLinksProps) {
   return (
     <Section layout="flex flex-col gap-10">

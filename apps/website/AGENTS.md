@@ -17,10 +17,10 @@ This app owns:
 ## Working Rules
 
 1. This is a Next.js App Router app.
-2. The site is RTL and uses Vazirmatn for Persian-facing UI.
+2. The site is RTL and uses Estedad (Vazirmatn as fallback) for Persian-facing UI; follow `DESIGN.md`.
 3. Keep browser-visible content free of server secrets.
 4. Keep Persian copy UTF-8 and avoid mojibake or corrupted strings.
-5. Run commands from the repository root with `pnpm --filter sharah-website ...`.
+5. Run commands from the repository root with `pnpm --filter @shahrah/website ...`.
 
 ## Runtime Notes
 
@@ -31,7 +31,7 @@ This app owns:
 ## Commands
 
 ```bash
-pnpm --filter sharah-website dev
-pnpm --filter sharah-website build
-pnpm --filter sharah-website lint
+pnpm --filter @shahrah/website dev
+pnpm --filter @shahrah/website build
+pnpm --filter @shahrah/website lint
 ```

@@ -1,242 +1,265 @@
 ---
 name: GodarAI Website
-description: A bright, orderly, Persian-first workshop where every team's AI work is visible, governed and paid for.
+description: Bold and witty, on a confident navy ground with warm paper surfaces and one loud signal orange.
 colors:
-  accent: "oklch(0.5 0.1 232)"
-  accent-hover: "oklch(0.43 0.09 235)"
-  on-accent: "oklch(0.99 0 0)"
-  ground: "oklch(0.985 0.005 220)"
-  panel: "oklch(0.962 0.013 220)"
-  panel-deep: "oklch(0.93 0.025 222)"
-  line: "oklch(0.9 0.015 225)"
-  ink: "oklch(0.21 0.025 245)"
-  ink-soft: "oklch(0.46 0.025 240)"
-  night: "oklch(0.2 0.03 245)"
-  night-ink: "oklch(0.96 0.01 220)"
-  night-soft: "oklch(0.78 0.02 225)"
-  night-strong: "oklch(0.995 0 0)"
-  tone-guard: "oklch(0.955 0.03 160)"
-  tone-govern: "oklch(0.955 0.025 295)"
-  tone-observe: "oklch(0.955 0.03 230)"
-  tone-cost: "oklch(0.96 0.035 80)"
+  surface: "#ffffff"
+  ground: "#f6f4ef"
+  panel: "#ebe7dd"
+  sand: "#d9cdb4"
+  ink: "#0f1b33"
+  ink-soft: "#4b5569"
+  line: "#d6d2c7"
+  line-strong: "#7b8396"
+  accent: "#ff6a13"
+  accent-hover: "#ff7f36"
+  on-accent: "#0f1b33"
+  accent-text: "#ad3c08"
+  focus: "#ad3c08"
+  success: "#1f6f8b"
+  danger: "#b3261e"
+  night: "#0f1b33"
+  night-raised: "#1d2d50"
+  night-ink: "#f6f4ef"
+  night-soft: "#a9b2c4"
 typography:
   display:
-    fontFamily: "Vazirmatn, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "3.75rem"
-    fontWeight: 600
-    lineHeight: 1.375
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "3.5rem"
+    fontWeight: 800
+    lineHeight: 1.15
     letterSpacing: "0em"
-  headline:
-    fontFamily: "Vazirmatn, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "3rem"
-    fontWeight: 600
-    lineHeight: 1.375
+  h1:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "2.5rem"
+    fontWeight: 700
+    lineHeight: 1.2
     letterSpacing: "0em"
-  title:
-    fontFamily: "Vazirmatn, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.25rem"
+  h2:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "2rem"
     fontWeight: 600
-    lineHeight: 1.6
-  body:
-    fontFamily: "Vazirmatn, ui-sans-serif, system-ui, sans-serif"
+    lineHeight: 1.3
+    letterSpacing: "0em"
+  h3:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: 1.4
+  lead:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
     fontSize: "1.125rem"
+    fontWeight: 300
+    lineHeight: 1.8
+  body:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "1rem"
     fontWeight: 400
-    lineHeight: 2
+    lineHeight: 1.8
   label:
-    fontFamily: "Vazirmatn, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 500
+    lineHeight: 1.5
+  caption:
+    fontFamily: "Estedad, Vazirmatn, Tahoma, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 400
     lineHeight: 1.6
 rounded:
-  md: "8px"
-  lg: "10px"
-  xl: "14px"
-  2xl: "16px"
-  3xl: "24px"
+  field: "4px"
+  card: "12px"
   full: "9999px"
 spacing:
-  section: "80px"
-  section-lg: "128px"
-  container: "72rem"
-  container-hero: "80rem"
-  gutter: "24px"
+  space-1: "4px"
+  space-2: "8px"
+  space-3: "12px"
+  space-4: "16px"
+  space-6: "24px"
+  space-8: "32px"
+  space-10: "40px"
+  space-20: "80px"
+  content: "75rem"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.on-accent}"
+    typography: "{typography.label}"
     rounded: "{rounded.full}"
-    padding: "0 28px"
-    height: "48px"
+    padding: "10px 16px"
   button-primary-hover:
     backgroundColor: "{colors.accent-hover}"
-  button-quiet:
-    textColor: "{colors.ink-soft}"
-    rounded: "{rounded.full}"
-    padding: "0 20px"
-    height: "48px"
-  button-quiet-hover:
+  button-secondary:
     textColor: "{colors.ink}"
-  panel:
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "10px 16px"
+  button-secondary-hover:
     backgroundColor: "{colors.panel}"
-    rounded: "{rounded.3xl}"
-    padding: "40px"
-  product-window:
+  button-on-night:
+    textColor: "{colors.night-ink}"
+    rounded: "{rounded.full}"
+    padding: "10px 16px"
+  tile:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.card}"
+    padding: "24px"
+  tile-hover:
     backgroundColor: "{colors.ground}"
-    rounded: "{rounded.3xl}"
-  closing-band:
+  product-window:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.card}"
+  night-band:
     backgroundColor: "{colors.night}"
     textColor: "{colors.night-ink}"
 ---
 
 # Design System: GodarAI Website
 
+Source: the «GodarAI» design-system artifact (Cowork, October 2026), applied to the website on 2026-10-23. From this point this file is the website's standalone reference: change it here, not in the artifact.
+
 ## Overview
 
-**Creative North Star: "The Lit Workshop"**
+**Creative North Star: "The Marked Crossing"**
 
-A good workshop in daylight: wide benches, every tool on its hook, each team's work laid out where the manager can see it. Nothing is hidden and nothing is shouting. The visitor is a technology lead deciding whether AI can join the daily work of every team, and the page should feel like walking through that workshop: real work in progress, clearly arranged, with the controls in plain sight.
+A ford is safe only where someone has marked it. GodarAI is that marker: a confident navy ground, warm paper to stand on, and one signal orange that says "cross here". The visitor is a technology lead deciding whether AI can join the daily work of every team. The page should feel like an expert who knows the water and has a sense of humour about it: sure-footed, direct, a pun when it earns its place, never at the reader's expense.
 
-The structure follows dust.tt, the reference the owner pinned: a bright open canvas, large confident headings, short copy, one idea per section, soft colored panels, real product UI resting on those panels, tabs by team, numbered pillars and one dark closing band. The product is the picture. Real screenshots of GodarChat and the admin panel, framed as windows on calm tinted panels, carry the argument; decorative illustration does not.
+Structure stays the Dust-like rhythm the site was built on: one idea per section, a large heading, short copy, a visual. The character is bolder: the hero sits on the navy field, the closing call to action is one inverted navy card, and orange marks exactly one thing per section.
 
-The system is product-centered and alive: motion shows an assistant doing work (a message arriving, a tool call completing, a cost meter settling) rather than decorating the page. Persian and right-to-left are the home language of every decision, and light and dark themes are equal citizens.
+Persian and right-to-left are the home language of every decision. Light and dark themes are equal citizens.
 
 **Key Characteristics:**
-- Dust's structure and clarity, in Persian, right to left.
-- Real product screenshots in window frames on soft colored panels; the product is the hero image.
-- A small family of calm pastel panels, one per differentiator, all at the same lightness.
-- One steady blue accent for actions; neutrals tinted cool.
-- Cards lift slightly off the bench with soft shadows.
-- Motion that demonstrates work, never ambient decoration.
+- Navy for the big fields: the hero band, the closing card, the footer.
+- Warm paper surfaces; sections alternate ground and panel.
+- One signal orange per section, almost always the primary button.
+- Flat tiles with hairlines; no shadows, no glass.
+- Estedad, heavy for display, light for leads, with generous line height.
+- Headlines in two short clauses, the second a turn.
 
 ## Colors
 
-Calm daylight neutrals tinted cool, one steady blue accent, and a set of soft pastel panels that differ by hue at matched lightness.
+Warm neutrals on navy, with one loud orange that is rationed.
 
-All values are OKLCH and live in `app/styles/theme.css` as `--site-*` and `--tone-*` custom properties, exposed to Tailwind as `site-*` and `tone-*` utilities. The frontmatter gives light-theme values; `.dark` redefines each one, except the night tokens, which are the same in both themes.
+All values live in `app/styles/theme.css` as `--site-*` custom properties, exposed to Tailwind as `site-*` utilities. The frontmatter gives light-theme values; `.dark` redefines each one.
 
 ### Primary
-- **Steady Blue** (accent): primary buttons, links, active tab indicator, focus outlines, and the single emphasized word in a heading. In dark mode it lifts to a lighter cyan-blue (`oklch(0.74 0.09 215)`) with dark text on it.
-- **Steady Blue Deep** (accent-hover): hover and pressed state of primary actions.
+- **Signal Orange** (accent): the primary button fill and nothing else that competes with it in the same section. On it, always **Signal Navy** text (on-accent), never white.
+- **Ember** (accent-text): orange for words and links on light surfaces, where Signal Orange would fail contrast (2.6:1). Also the focus ring (focus).
 
 ### Neutral
-- **Daylight Paper** (ground): the page canvas and the surface of product windows. Not pure white, not cream.
-- **Workbench Grey** (panel): the default section panel and quiet inner containers.
-- **Tool-Steel Mist** (panel-deep): icon wells, selected rows, the active tab background.
-- **Pencil Line** (line): borders and dividers inside windows and cards.
-- **Workshop Ink** (ink): headings and primary text.
-- **Graphite** (ink-soft): body copy, captions, quiet buttons.
-- **Evening Ink** (night) with **Lamp White** (night-ink), **Dusk Grey** (night-soft) and **Lamp Glow** (night-strong, the hover of the light button): the closing band, once per page.
+- **Paper** (ground): the page background.
+- **Linen** (panel): alternating section bands and hover fills on ground.
+- **White Card** (surface): tiles, product windows, inputs.
+- **Sand** (sand): warm feature fields: the tile under a product window, icon wells, alternate checklist columns.
+- **Ink** (ink) and **Slate** (ink-soft): text and secondary text on every light surface.
+- **Hairline** (line) and **Strong Hairline** (line-strong): decorative dividers and tile outlines; input and secondary-button borders.
 
-### Differentiator tones
-Four pastel tints, one per differentiator, so a visitor learns the color of each promise across pages. The mapping lives in `app/lib/pillars.ts` (`toneSurface`); pages never pick a tone by hand. Workshop Ink, Graphite and Steady Blue all hold WCAG AA on every tone in both themes (ink above 13:1, Graphite above 6:1, accent above 5:1).
+### Night
+- **Signal Navy** (night): the hero band, the closing card and the footer.
+- **Deep Navy** (night-raised): layers and hover fills on navy.
+- **Paper on Navy** (night-ink) and **Mist** (night-soft): text and secondary text on navy.
 
-- **Sage** (tone-guard, semantic guardrails): dark `oklch(0.26 0.03 160)`.
-- **Lilac** (tone-govern, governance): dark `oklch(0.26 0.03 295)`.
-- **Sky** (tone-observe, observability): dark `oklch(0.26 0.03 230)`.
-- **Sand** (tone-cost, cost control): dark `oklch(0.27 0.03 80)`.
+### Status
+- **Success** is blue and **Danger** red, so they differ by more than hue; always pair each with a word or icon.
 
 ### Named Rules
-**The Matched Lightness Rule.** Differentiator panels change hue, never lightness or chroma. Side by side they read as one family; none may outshout another.
+**The One Signal Rule.** At most one Signal Orange element per section, usually the primary button. A check mark, a bullet or an icon is never orange.
 
-**The One Accent Rule.** Steady Blue is the only saturated color on the page. Panels are tinted, never saturated, and are never used for text or buttons.
+**The Ember Rule.** Orange text on a light surface is always Ember, never Signal Orange. Ember holds 4.9:1 on Paper, Linen and White Card but only 3.9:1 on Sand, so it never sets small text on Sand.
 
-**The Color Means a Promise Rule.** Each differentiator keeps its panel color on every page it appears. A panel color is not chosen for variety.
+Measured pairs (WCAG): Signal Navy on Signal Orange 6.0:1 (on the hover orange 6.8:1); Mist on Signal Navy 8.0:1 and on Deep Navy 6.4:1; Slate on Sand 4.8:1; white on Success 5.7:1.
+
+**The Navy Field Rule.** Navy is for the big fields only: the hero band, one inverted card per page, the footer.
 
 ## Typography
 
-**Display and body:** Vazirmatn (self-hosted from `/public/fonts/vazirmatn`, weights 400 to 700).
+**Family:** Estedad (`public/fonts/estedad/Estedad-Variable.woff2`, weights 100 to 900, SIL Open Font License), with Vazirmatn and Tahoma as fallbacks.
 
-**Character:** Large, even, confident Persian headings with generous leading; body text that reads like a calm advisor, not like UI chrome.
+**Character:** Heavy, confident display lines; light, airy leads; body text with room to breathe.
 
 ### Hierarchy
-- **Display** (600, 2.25rem to 3.75rem responsive, line-height 1.375): the hero heading only, `text-balance`.
-- **Headline** (600, 1.875rem to 3rem responsive, line-height 1.375): section headings, `text-balance`.
-- **Title** (600, 1.25rem, line-height 1.6): card and panel titles.
-- **Body** (400, 1.125rem, line-height 2): section copy in Graphite, measure 60 to 70 characters.
-- **Label** (500, 0.875rem): buttons, tabs, window titles, captions; 0.75rem for window metadata.
+Each step is a Tailwind utility (`text-display`, `text-h1` … `text-caption`) carrying its own line height.
+- **Display** (800, 3.5rem, 1.15): the single hero line. On mobile it steps down to H1.
+- **H1** (700, 2.5rem, 1.2): page titles, the closing card heading on desktop.
+- **H2** (600, 2rem, 1.3): section headings on desktop.
+- **H3** (600, 1.5rem, 1.4): tile and card titles; section headings on mobile.
+- **Lead** (300, 1.125rem, 1.8): hero subhead and section intros.
+- **Body** (400, 1rem, 1.8): running text.
+- **Label** (500, 0.875rem, 1.5): buttons, navigation, form labels.
+- **Caption** (400, 0.75rem, 1.6): metadata, window titles, footnotes.
 
 ### Named Rules
-**The No Tracking Rule.** Never apply negative or positive letter-spacing to Persian text; it breaks Arabic-script joining.
+**The No Tracking Rule.** Never add letter-spacing to Persian; it breaks the joins.
 
-**The Quiet Heading Rule.** One weight step above body is enough; size carries the hierarchy, not stacked bold, color and caps. No eyebrows above headings; numbering only where the sequence carries meaning.
+**The Two Clause Rule.** Section headlines are two short clauses, the second a turn: «کنترل را جدی بگیرید. نه دست‌وپاگیر.»
 
-Persian digits in running copy; Latin product and model names stay LTR inside the line.
+Persian digits in running copy; Latin product and model names stay LTR inside the line. Always write the half-space (ZWNJ) in compounds.
 
 ## Layout
 
-Content sections sit inside a 72rem container (narrow text sections such as the FAQ use 48rem; the hero uses 80rem) with a 24px gutter, and stack with 80px vertical rhythm, rising to 128px on large screens. The `Section` pattern applies this rhythm. Each section holds one idea: a headline, one or two sentences, one visual. Two-column pairs alternate sides; in RTL the first column is the right one and reading order follows it. Product windows may overhang their panel's edge to show they are real objects resting on the bench.
+Content never runs wider than 1200px (`max-w-content`). Sections have 40px vertical padding on mobile and 80px on desktop, with a 16px mobile gutter (24px from `sm`). The `Section` pattern applies this rhythm. Inside a section: 16px between stacked items, 32px between the heading block and its content, 24px between tiles and inside them.
 
-Mobile is a single column with the visual after the copy; tabs become a horizontal scroller; nothing depends on hover.
+Sections alternate ground and panel. Feature grids are 2×2 or a row of tiles, each a bold H3 label and one line of body. In two-column rows the first column is the right one in RTL. Mobile is a single column with the visual after the copy; nothing depends on hover.
+
+The navbar shows its full menu from 1280px; below that it collapses into the sheet, because Estedad sets wider than the previous face.
 
 ## Elevation & Depth
 
-A light hybrid: surfaces step by tone, and objects that represent product (windows, cards that can be opened) lift off them with soft, ink-tinted shadows.
-
-### Shadow Vocabulary
-Each is a Tailwind utility defined in `theme.css`; no page writes a shadow value by hand.
-- **Window lift** (`shadow-window`: `0 20px 25px -5px` and `0 8px 10px -6px`, tinted `oklch(0.21 0.025 245 / 0.1)`; in dark mode the tint is Workshop Ink's light value at the same alpha): product windows and screenshots resting on a panel.
-- **Card rest** (`shadow-card`: `0 10px 40px -10px rgba(0,0,0,0.1)`, `0.5` alpha in dark mode): white cards on the ground, and tinted cards on hover and focus.
-- **Hairline** (`shadow-hairline`: `0 1px 2px rgba(0,0,0,0.05)`): small controls and chips.
+Flat. Depth comes from surface steps (ground, panel, surface, sand, navy) and 1px hairlines, never from shadows.
 
 ### Named Rules
-**The Tinted Shadow Rule.** Shadows are tinted with Workshop Ink and offset downward. No zero-offset glows, no hard offset shadows, no glass or backdrop blur.
+**The Flat Tile Rule.** No box shadows, glows, glass or backdrop blur. A tile is a White Card with a Hairline outline; hover steps its fill one surface (surface to ground, ground to panel).
 
 ## Shapes
 
-Friendly and precise. Panels and product windows use 24px corners; cards and inner containers 16px; icon wells 14px; buttons, chips and tab pills are fully round. Screenshots inside windows are clipped to the window's corner. No decorative blobs, waves or masks.
+Buttons and badges are pills. Tiles, cards, product windows and media are 12px (`rounded-card`). Inputs and tags are 4px (`rounded-field`). No decorative blobs, waves or masks.
 
 ## Components
 
 ### Buttons
-Round, calm and unmistakable.
-- **Shape:** fully round pill, 48px tall.
-- **Primary:** Steady Blue background, white text, 28px inline padding, label weight 500.
-- **Hover / Focus:** background deepens to Steady Blue Deep; focus is a 2px Steady Blue outline offset by 2px.
-- **Quiet:** no background; Graphite text that darkens to Workshop Ink on hover. Used for the secondary action beside a primary.
+Pills in Label type, about 10px by 16px, at least 44px tall.
+- **Primary:** Signal Orange fill, Signal Navy text; hover lightens to the hover orange.
+- **Secondary:** transparent, 1px Strong Hairline border, Ink text; hover fills Linen.
+- **On navy:** transparent with a Paper-on-Navy outline; hover fills Deep Navy.
+- **Focus:** 2px solid Ember ring, 2px offset (Paper on Navy on the navy fields).
+- **Labels** are verbs of two or three words: «شروع ۱۵ روز رایگان», «درخواست دمو».
 
-### Panels
-- **Corner Style:** 24px.
-- **Background:** Workbench Grey by default; a differentiator tint when the section belongs to one of the four promises.
-- **Shadow Strategy:** none; panels are the bench, not objects.
-- **Internal Padding:** 40px on desktop, 24px on mobile.
-
-### Pillar Cards
-- **Surface:** the differentiator's own tone, 24px corners, flat at rest.
-- **Content:** an icon in a 40px well (Daylight Paper at 70%), the title in Title size, a one-line summary in Graphite, and a trailing arrow.
-- **Hover / Focus:** Card rest shadow appears and the arrow nudges toward reading direction; focus also draws the 2px Steady Blue outline.
+### Tiles
+- **Surface:** White Card with a Hairline outline, 12px corners, 24px padding (32px on desktop for large tiles).
+- **Content:** an icon well (Sand, Ink icon), a bold H3 label, one line of Body in Slate, and a trailing arrow when it links.
+- **Hover:** the fill steps to Paper; the arrow nudges toward reading direction.
 
 ### Product Window (signature)
-The hero image of the system: a real screenshot, or an illustrative coded window until screenshots arrive, framed as an app window.
-- **Frame:** Daylight Paper surface, 24px corners, Window lift shadow, a title bar with the window name in label size and a Pencil Line divider below it.
-- **Content:** real GodarChat or admin screenshots; coded mocks are labelled «نمونه» and never carry invented numbers presented as fact.
-- **Motion:** one demonstration per window: tool rows arrive one by one (350ms apart), then the result resolves from a spinner to a Steady Blue check. It waits until the window scrolls into view, plays once, and shows the finished state under reduced motion or without script.
-- **Overhang:** in a hero, the window may cross its panel's reading-start edge (about 40px) so it reads as an object resting on the bench.
+Real product UI, or a drawn window labelled «نمونه» until screenshots arrive.
+- **Frame:** White Card, Hairline outline, 12px corners, a title bar in Label type over a Hairline divider. No shadow.
+- **Tile:** it sits centred on a Sand tile and stays inside it.
+- **Motion:** tool rows arrive one by one (350ms apart), then the result resolves from a spinner to a Success check. It waits until the window scrolls into view, plays once, and shows the finished state under reduced motion or without script.
+
+### Hero Band
+The page's lead story on Signal Navy: the Display line (on Home, the tagline), a Lead in Mist, a primary and an on-navy button, and the product window on a Sand tile.
+
+### Closing Card
+One inverted navy card on the ground, 12px corners: an H1 headline whose second clause is set light in Mist, a Lead, a primary and an on-navy button. It stays a card so it does not merge into the navy footer.
 
 ### Team Tabs
-- **Style:** equal-width tabs over a Pencil Line rule; the active tab is semibold Workshop Ink with a 2px Workshop Ink underline, inactive tabs are Graphite. On mobile the row scrolls horizontally.
-- **Behavior:** switching a tab swaps the media and task list beside it. Arrow keys move in reading direction (left is forward in RTL), Home and End jump to the ends, and only the selected tab is in the tab order.
+Equal-width tabs over a Hairline rule; the active tab is semibold Ink with a 2px Ink underline. Arrow keys move in reading direction (left is forward in RTL), Home and End jump to the ends, and only the selected tab is in the tab order.
 
-### Navigation
-- **Style:** Daylight Paper bar with a Pencil Line bottom border; label-size links in Graphite, Workshop Ink on hover; a mega menu of icon-and-description rows on Workbench Grey hover.
-- **Actions:** a quiet «ورود» and a primary pill for the trial; the demo link sits beside them.
-- **Mobile:** a full-height sheet with 48px rows and the two actions pinned at the bottom.
-
-### Closing Band
-- Evening Ink full-width band, used once per page, holding one large headline in Lamp White, one sentence in Dusk Grey and the primary action.
+### Navigation and Footer
+- **Navbar:** Paper bar with a Hairline bottom border; Label links in Slate, Ink on hover; mega menus are White Card panels with Hairline outlines and Sand icon wells. The primary button carries the only orange.
+- **Footer:** Signal Navy with Paper-on-Navy headings and Mist links; the trust strip sits on top with Deep Navy icon wells; the dark logo variant.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** show the real product: real screenshots in Product Windows on tinted panels.
-- **Do** keep each differentiator on its own panel color everywhere it appears.
-- **Do** use motion to demonstrate an assistant's work, once, on entry, and honor `prefers-reduced-motion`.
+- **Do** build pages from the shared patterns in `app/components/patterns` (live samples at `/_patterns`) and the `site-*` utilities and type scale; never raw palette colors.
+- **Do** keep orange to one element per section, and use Ember for orange words and links.
+- **Do** quote the tagline exactly, «بی‌گدار به آب و AI نزنید!», with its half-space and exclamation mark, at most once per page.
+- **Do** write headlines as two short clauses with a turn, and buttons as two- or three-word verbs.
 - **Do** build and check every section in light and dark themes.
-- **Do** build pages from the shared patterns in `app/components/patterns` (live samples at `/_patterns`) and the `site-*` / `tone-*` utilities; never raw palette colors.
 
 ### Don't:
-- **Don't** use water, ford or river illustration, ripples or wave motifs; that world is retired.
-- **Don't** introduce a second saturated color or use a panel tint for text or buttons.
-- **Don't** use indigo, slate or other raw Tailwind palette colors; feature pages that still do are debt to migrate.
-- **Don't** apply letter-spacing to Persian text.
+- **Don't** use shadows, glows, glass or gradients.
+- **Don't** put orange text on light surfaces, or white text on orange.
+- **Don't** use navy for anything smaller than a field or a card.
+- **Don't** add letter-spacing to Persian.
+- **Don't** use emoji, blue-purple gradients, emoji cards or left-border accent cards.
 - **Don't** present invented numbers, logos or quotes inside mocks as real.
-- **Don't** use glass, glows, gradients on text, or decorative blobs.

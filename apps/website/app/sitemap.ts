@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/app/lib/seo";
 import { solutionHref, solutions } from "@/app/lib/solutions";
+import { teams } from "@/app/lib/teams";
 
 const staticRoutes = [
   "/",
@@ -12,12 +13,15 @@ const staticRoutes = [
   "/docs",
   "/features/agents",
   "/features/ai-gateway",
+  "/features/cost-control",
+  "/features/governance",
   "/features/guardrails",
   "/features/mcp-gateway",
   "/features/model-discovery",
   "/features/observability",
   "/features/prompt-engineering",
   "/features/security",
+  "/integrations",
   "/on-premise",
   "/pricing",
   "/privacy",
@@ -25,7 +29,9 @@ const staticRoutes = [
   "/terms",
   "/vs/litellm",
   "/vs/portkey",
+  "/vs/chatgpt",
   ...solutions.map((solution) => solutionHref(solution.slug)),
+  ...teams.map((team) => `/teams/${team.id}`),
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

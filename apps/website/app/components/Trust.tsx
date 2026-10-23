@@ -4,25 +4,26 @@ import { SOCIAL_LINKS } from '@/app/lib/social-links';
 import { GodarAILogo } from './GodarAILogo';
 import { TrustStrip } from './patterns';
 
-const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-accent';
-const linkClass = `rounded text-sm leading-7 text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`;
-const socialClass = `flex size-11 items-center justify-center rounded-full text-site-ink-soft transition-colors hover:bg-site-panel-deep hover:text-site-ink ${focusRing}`;
+// The footer sits on the brand navy (DESIGN.md), so its text and focus ring use the on-navy colours.
+const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-night-ink';
+const linkClass = `rounded-field text-label text-site-night-soft transition-colors duration-150 hover:text-site-night-ink ${focusRing}`;
+const socialClass = `flex size-11 items-center justify-center rounded-full text-site-night-soft transition-colors duration-150 hover:bg-site-night-raised hover:text-site-night-ink ${focusRing}`;
 
 export function Footer() {
   return (
-    <footer className="border-t border-site-line bg-site-panel">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="border-b border-site-line py-10">
-          <TrustStrip />
+    <footer className="bg-site-night text-site-night-ink">
+      <div className="mx-auto max-w-content px-4 sm:px-6">
+        <div className="border-b border-site-night-raised py-10">
+          <TrustStrip tone="night" />
         </div>
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:grid-cols-3 lg:grid-cols-6">
           <div className="col-span-2 flex flex-col gap-4 sm:col-span-3 lg:col-span-1">
             <div className="flex items-center gap-2">
-              <GodarAILogo decorative className="h-9 w-auto max-w-12 shrink-0 object-contain" sizes="3rem" />
-              <span className="text-xl font-bold text-site-ink">گدارAI</span>
+              <GodarAILogo decorative variant="dark" className="h-9 w-auto max-w-12 shrink-0 object-contain" sizes="3rem" />
+              <span className="text-h3 font-extrabold text-site-night-ink">گدارAI</span>
             </div>
-            <p className="m-0 max-w-xs text-sm leading-7 text-site-ink-soft">
+            <p className="m-0 max-w-xs text-label text-site-night-soft">
               فضای کاری هوش مصنوعی و درگاه مدل‌های زبانی برای سازمان‌های ایرانی.
             </p>
             <div className="-ms-3 flex items-center">
@@ -46,7 +47,7 @@ export function Footer() {
 
           {visibleColumns(footerColumns).map((column) => (
             <div key={column.title} className="min-w-0">
-              <h2 className="mb-3 text-sm font-semibold text-site-ink">{column.title}</h2>
+              <h2 className="mb-3 text-label font-semibold text-site-night-ink">{column.title}</h2>
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {column.links.map((item) => (
                   <li key={item.href}>
@@ -66,15 +67,15 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-site-line py-6">
-          <p className="m-0 min-w-0 text-sm leading-6 text-site-ink-soft">© ۱۴۰۵ گدارAI. تمامی حقوق محفوظ است.</p>
+        <div className="flex items-center justify-between gap-3 border-t border-site-night-raised py-6">
+          <p className="m-0 min-w-0 text-caption text-site-night-soft">© ۱۴۰۵ گدارAI. تمامی حقوق محفوظ است.</p>
           {/* The trust seal keeps a light surface in both themes so the issuer's image stays legible. */}
           <a
             referrerPolicy="origin"
             target="_blank"
             rel="noopener noreferrer"
             href="https://trustseal.enamad.ir/?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
-            className={`inline-flex h-14 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-site-line bg-site-night-ink p-1 text-xs text-site-night ${focusRing}`}
+            className={`inline-flex h-14 w-16 shrink-0 items-center justify-center overflow-hidden rounded-card border border-site-night-raised bg-site-night-ink p-1 text-caption text-site-night ${focusRing}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

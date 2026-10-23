@@ -15,7 +15,7 @@ export function Scenario() {
     <FeatureRow
       id="scenario"
       reverse
-      title="از سابقه‌ی مشتری تا پیش‌نویس پاسخ"
+      title="پیام مشتری رسید. پیش‌نویس پاسخ هم."
       copy="دستیار پشتیبانی سابقه‌ی مشتری را می‌خواند و پیش‌نویس پاسخ را آماده می‌کند. همکارتان می‌خواند، اصلاح می‌کند و می‌فرستد؛ از همان ابزارهایی که تیم هر روز باز می‌کند."
       visual={
         <ProductStage layout="w-full max-w-lg p-8 sm:p-12">
@@ -26,8 +26,8 @@ export function Scenario() {
             label="نمونه‌ای از کار یک دستیار پشتیبانی: سفارش مشتری را در CRM پیدا می‌کند، تیکت‌های قبلی و پایگاه دانش را می‌خواند و پیش‌نویس پاسخ را آماده می‌کند."
           >
             <div className="border-b border-site-line p-5">
-              <p className="mb-1 text-xs text-site-ink-soft">پیام مشتری</p>
-              <p className="m-0 text-sm leading-7 text-site-ink">سلام، مبلغ فاکتور سفارش ۱۴۸۲ اشتباه است. لطفاً بررسی کنید.</p>
+              <p className="mb-1 text-caption text-site-ink-soft">پیام مشتری</p>
+              <p className="m-0 text-label text-site-ink">سلام، مبلغ فاکتور سفارش ۱۴۸۲ اشتباه است. لطفاً بررسی کنید.</p>
             </div>
             <ToolSteps steps={steps} result={{ title: 'پیش‌نویس پاسخ آماده است', text: 'برای همکار پشتیبانی، در صف تیکت‌ها' }} />
           </ProductWindow>

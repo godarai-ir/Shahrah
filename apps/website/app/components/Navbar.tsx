@@ -6,11 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { navMenus, pricingLink, visibleColumns, visibleLinks } from '@/app/lib/navigation';
 import type { NavLink, NavMenu } from '@/app/lib/navigation';
-import { toneSurface } from '@/app/lib/pillars';
 import { GodarAILogo } from './GodarAILogo';
+import { buttonPrimary, buttonSecondary, iconWell } from './sectionType';
 import { useTheme } from './ThemeProvider';
 
-const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-accent';
+const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus';
 
 const panelWidth = ['', 'w-80 grid-cols-1', 'w-160 grid-cols-2', 'w-200 grid-cols-3'];
 
@@ -31,22 +31,21 @@ function NavAnchor({ item, className, onNavigate, children }: { item: NavLink; c
 }
 
 function MenuRow({ item, onNavigate }: { item: NavLink; onNavigate?: () => void }) {
-  const well = item.pillar ? toneSurface[item.pillar] : 'bg-site-panel-deep';
 
   return (
     <NavAnchor
       item={item}
       onNavigate={onNavigate}
-      className={`flex min-h-12 items-start gap-3 rounded-2xl p-3 transition-colors hover:bg-site-panel ${focusRing}`}
+      className={`flex min-h-12 items-start gap-3 rounded-card p-3 transition-colors duration-150 hover:bg-site-panel ${focusRing}`}
     >
       {item.icon ? (
-        <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl text-site-accent ${well}`}>
+        <span className={`size-9 ${iconWell}`}>
           <item.icon className="size-4" />
         </span>
       ) : null}
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-sm font-semibold text-site-ink">{item.label}</span>
-        {item.description ? <span className="text-xs leading-6 text-site-ink-soft">{item.description}</span> : null}
+        <span className="text-label font-semibold text-site-ink">{item.label}</span>
+        {item.description ? <span className="text-caption text-site-ink-soft">{item.description}</span> : null}
       </span>
     </NavAnchor>
   );
@@ -56,10 +55,10 @@ function MegaPanel({ menu, onNavigate }: { menu: NavMenu; onNavigate: () => void
   const columns = visibleColumns(menu.columns);
 
   return (
-    <div className={`grid gap-4 rounded-3xl border border-site-line bg-site-ground p-4 shadow-card ${panelWidth[Math.min(columns.length, 3)]}`}>
+    <div className={`grid gap-4 rounded-card border border-site-line bg-site-surface p-4 ${panelWidth[Math.min(columns.length, 3)]}`}>
       {columns.map((column, index) => (
         <div key={column.title ?? index} className={`flex flex-col gap-1 ${index > 0 ? 'border-s border-site-line ps-4' : ''}`}>
-          {column.title ? <p className="m-0 px-3 pb-1 pt-2 text-xs font-medium text-site-ink-soft">{column.title}</p> : null}
+          {column.title ? <p className="m-0 px-3 pb-1 pt-2 text-caption font-medium text-site-ink-soft">{column.title}</p> : null}
           {column.links.map((item) => (
             <MenuRow key={item.href} item={item} onNavigate={onNavigate} />
           ))}
@@ -141,7 +140,7 @@ export function Navbar() {
     }
 
     const previous = document.body.style.overflow;
-    const desktop = window.matchMedia('(min-width: 1024px)');
+    const desktop = window.matchMedia('(min-width: 1280px)');
     const onChange = () => desktop.matches && setSheetOpen(false);
 
     document.body.style.overflow = 'hidden';
@@ -157,15 +156,16 @@ export function Navbar() {
 
   return (
     <nav ref={navRef} aria-label="ناوبری اصلی" className="sticky top-0 z-50 w-full border-b border-site-line bg-site-ground">
-      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 max-w-content items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6 xl:gap-10">
-          <Link href="/" className={`flex min-w-0 items-center gap-2 rounded-xl ${focusRing}`}>
+          <Link href="/" className={`flex min-w-0 items-center gap-2 rounded-field ${focusRing}`}>
             <GodarAILogo decorative priority className="h-9 w-auto max-w-12 shrink-0 object-contain" sizes="3rem" />
-            <span className="truncate text-lg font-bold text-site-ink sm:text-xl">گدارAI</span>
+            <span className="truncate text-lead font-extrabold text-site-ink sm:text-h3">گدارAI</span>
           </Link>
 
-          {/* Panels anchor to the list, not their button, so even the widest one stays inside a 1024px viewport. */}
-          <ul className="relative m-0 hidden list-none items-center gap-1 p-0 lg:flex">
+          {/* Desktop menu from 1280px: Estedad sets wider than the old face, so narrower screens use the sheet.
+              Panels anchor to the list, not their button, so even the widest one stays on screen. */}
+          <ul className="relative m-0 hidden list-none items-center gap-1 p-0 xl:flex">
             {navMenus.map((menu) => {
               const open = openMenu === menu.id;
 
@@ -182,7 +182,7 @@ export function Navbar() {
                     aria-controls={`nav-panel-${menu.id}`}
                     // Hover already opened the menu, so a mouse click (detail > 0) keeps it open; Enter or Space (detail 0) toggles.
                     onClick={(event) => setOpenMenu(open && event.detail === 0 ? null : menu.id)}
-                    className={`flex h-10 items-center gap-1 rounded-full px-3 text-sm font-medium transition-colors hover:text-site-ink ${
+                    className={`flex h-10 items-center gap-1 whitespace-nowrap rounded-full px-3 text-label font-medium transition-colors hover:text-site-ink ${
                       open ? 'text-site-ink' : 'text-site-ink-soft'
                     } ${focusRing}`}
                   >
@@ -198,7 +198,7 @@ export function Navbar() {
             <li>
               <Link
                 href={pricingLink.href}
-                className={`flex h-10 items-center rounded-full px-3 text-sm font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}
+                className={`flex h-10 items-center whitespace-nowrap rounded-full px-3 text-label font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}
               >
                 {pricingLink.label}
               </Link>
@@ -206,23 +206,23 @@ export function Navbar() {
           </ul>
         </div>
 
-        <div className="hidden items-center gap-1 lg:flex">
+        <div className="hidden items-center gap-1 xl:flex">
           <ThemeToggle />
-          <Link href="/login" className={`flex h-10 items-center rounded-full px-3 text-sm font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}>
+          <Link href="/login" className={`flex h-10 items-center whitespace-nowrap rounded-full px-3 text-label font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}>
             ورود
           </Link>
-          <Link href="/demo" className={`flex h-10 items-center rounded-full px-3 text-sm font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}>
+          <Link href="/demo" className={`flex h-10 items-center whitespace-nowrap rounded-full px-3 text-label font-medium text-site-ink-soft transition-colors hover:text-site-ink ${focusRing}`}>
             درخواست دمو
           </Link>
           <Link
             href="/onboarding"
-            className={`ms-2 flex h-10 items-center rounded-full bg-site-accent px-5 text-sm font-medium text-site-on-accent transition-colors hover:bg-site-accent-hover ${focusRing}`}
+            className={`ms-2 whitespace-nowrap ${buttonPrimary}`}
           >
-            ۱۵ روز رایگان<span className="hidden xl:inline">&nbsp;شروع کنید</span>
+            شروع ۱۵ روز رایگان
           </Link>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 lg:hidden">
+        <div className="flex shrink-0 items-center gap-1 xl:hidden">
           <ThemeToggle />
           <button
             type="button"
@@ -238,18 +238,18 @@ export function Navbar() {
         </div>
       </div>
 
-      <div id="nav-sheet" hidden={!sheetOpen} className="fixed inset-x-0 bottom-0 top-16 flex flex-col bg-site-ground lg:hidden">
+      <div id="nav-sheet" hidden={!sheetOpen} className="fixed inset-x-0 bottom-0 top-16 flex flex-col bg-site-ground xl:hidden">
         <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2">
           {navMenus.map((menu) => (
             <details key={menu.id} className="group border-b border-site-line">
-              <summary className={`flex min-h-14 cursor-pointer list-none items-center justify-between rounded-xl px-2 text-base font-semibold text-site-ink ${focusRing} [&::-webkit-details-marker]:hidden`}>
+              <summary className={`flex min-h-14 cursor-pointer list-none items-center justify-between rounded-field px-2 text-body font-semibold text-site-ink ${focusRing} [&::-webkit-details-marker]:hidden`}>
                 {menu.label}
                 <ChevronDown aria-hidden="true" className="size-5 text-site-ink-soft transition-transform duration-300 group-open:rotate-180" />
               </summary>
               <div className="flex flex-col gap-1 pb-4">
                 {visibleColumns(menu.columns).map((column, index) => (
                   <div key={column.title ?? index} className="flex flex-col gap-1">
-                    {column.title ? <p className="m-0 px-3 pb-1 pt-3 text-xs font-medium text-site-ink-soft">{column.title}</p> : null}
+                    {column.title ? <p className="m-0 px-3 pb-1 pt-3 text-caption font-medium text-site-ink-soft">{column.title}</p> : null}
                     {visibleLinks(column.links).map((item) => (
                       <MenuRow key={item.href} item={item} onNavigate={closeSheet} />
                     ))}
@@ -261,14 +261,14 @@ export function Navbar() {
           <Link
             href={pricingLink.href}
             onClick={closeSheet}
-            className={`flex min-h-14 items-center border-b border-site-line px-2 text-base font-semibold text-site-ink ${focusRing}`}
+            className={`flex min-h-14 items-center border-b border-site-line px-2 text-body font-semibold text-site-ink ${focusRing}`}
           >
             {pricingLink.label}
           </Link>
           <Link
             href="/login"
             onClick={closeSheet}
-            className={`flex min-h-14 items-center px-2 text-base font-semibold text-site-ink ${focusRing}`}
+            className={`flex min-h-14 items-center px-2 text-body font-semibold text-site-ink ${focusRing}`}
           >
             ورود
           </Link>
@@ -278,16 +278,16 @@ export function Navbar() {
           <Link
             href="/demo"
             onClick={closeSheet}
-            className={`flex min-h-12 items-center justify-center rounded-full border border-site-line px-4 text-sm font-medium text-site-ink ${focusRing}`}
+            className={buttonSecondary}
           >
             درخواست دمو
           </Link>
           <Link
             href="/onboarding"
             onClick={closeSheet}
-            className={`flex min-h-12 items-center justify-center rounded-full bg-site-accent px-4 text-center text-sm font-medium text-site-on-accent ${focusRing}`}
+            className={buttonPrimary}
           >
-            ۱۵ روز رایگان شروع کنید
+            شروع ۱۵ روز رایگان
           </Link>
         </div>
       </div>

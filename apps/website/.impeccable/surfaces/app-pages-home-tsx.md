@@ -1,5 +1,5 @@
 ---
-version: 2
+version: 3
 slug: "app-pages-home-tsx"
 primary_target: "app/pages/Home.tsx"
 related_targets: ["app/(site)/page.tsx"]
@@ -11,19 +11,19 @@ Scope: the marketing home (`app/pages/Home.tsx` and its section components). Mod
 
 Audience and job: the technology or digital-transformation lead at an Iranian company decides whether to start the 15-day trial or book a demo. A developer finds their own path through the gateway card. Proof available today is only product truth (see PRODUCT.md); customer proof is absent and stays out of the page until it exists.
 
-Constraints: Persian and RTL; Vazirmatn; copy follows docs/content-glossary.md; only claims confirmed in docs/site-architecture/04-open-questions.md; no invented customers, numbers or certifications; «بی‌گدار به آب نزنید» only in the hero and the closing band.
+Constraints: Persian and RTL; Estedad; copy follows docs/content-glossary.md in a bold, witty voice; only claims confirmed in docs/site-architecture/04-open-questions.md; no invented customers, numbers or certifications; the tagline «بی‌گدار به آب و AI نزنید!» once, as the hero line.
 
-Memorable moment: the first product window, resting on its panel and crossing its edge, where an assistant's tool rows arrive one by one and the result resolves to a check, once, when it comes into view.
+Memorable moment: the tagline in heavy Estedad on the navy field, beside a product window on a sand tile whose tool rows arrive one by one and resolve to a check.
 
 ## Direction contract
 
-THESIS: The Lit Workshop. The page shows real team work laid out in daylight, with the controls in plain sight, and refuses gradient heroes, decorative illustration and a wall of saturated panels.
+THESIS: The Marked Crossing. GodarAI marks where it is safe to cross: navy fields, warm paper, one signal orange per section, and headlines with a turn.
 
-OWN-WORLD: Cool daylight neutrals, one steady blue accent, four pastel tones at matched lightness that each mean one differentiator, 24px forms, soft ink-tinted shadows on product windows and interactive cards, Vazirmatn at large confident sizes.
+OWN-WORLD: Navy for the hero, the closing card and the footer; paper and linen sections alternating; flat white tiles with hairlines; sand under product windows; Estedad heavy for display and light for leads; no shadows.
 
-STORY: The visitor sees an assistant finishing a real support task, understands there are two ways in (workplace for everyone, gateway for the technical team), meets the four controls on their tones, finds their own team's work, checks the enterprise controls, and starts the trial or books a demo.
+STORY: The visitor sees an assistant finishing a real support task, understands there are two ways in (workplace for everyone, gateway for the technical team), meets the four controls as flat tiles, finds their own team's work, checks the enterprise controls, and starts the trial or books a demo.
 
-FIRST VIEWPORT: Heading at display size with one accented phrase («هر روز») and the tagline, two calm sentences, the primary action at the reading start and the demo link beside it; the visual column holds the product tour slot, falling back to a drawn window that crosses the panel's edge.
+FIRST VIEWPORT: On navy: the tagline at display size, a light lead, the orange primary and an on-navy outline button; the visual column holds the product tour slot, falling back to a drawn window centred on a sand tile.
 
 FORM: Hero, one task end to end, two ways, four pillars, team tabs, enterprise checklist, three steps, grouped FAQ, dark closing band (DESIGN.md, docs/site-architecture/prompts/02-home.md).
 

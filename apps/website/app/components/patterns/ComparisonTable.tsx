@@ -15,7 +15,7 @@ type ComparisonTableProps = {
 export function ComparisonTable({ columns, rows, caption, highlight }: ComparisonTableProps) {
   return (
     <>
-      <div className="hidden overflow-hidden rounded-3xl border border-site-line md:block">
+      <div className="hidden overflow-hidden rounded-card border border-site-line bg-site-surface md:block">
         <table className="w-full border-collapse text-start">
           <caption className="sr-only">{caption}</caption>
           <thead>
@@ -27,7 +27,7 @@ export function ComparisonTable({ columns, rows, caption, highlight }: Compariso
                 <th
                   key={column}
                   scope="col"
-                  className={`px-6 py-4 text-start text-base font-semibold text-site-ink ${index === highlight ? 'bg-site-panel-deep' : ''}`}
+                  className={`px-6 py-4 text-start text-base font-semibold text-site-ink ${index === highlight ? 'bg-site-sand' : ''}`}
                 >
                   {column}
                 </th>
@@ -57,7 +57,7 @@ export function ComparisonTable({ columns, rows, caption, highlight }: Compariso
 
       <ul className="m-0 flex list-none flex-col gap-4 p-0 md:hidden" aria-label={caption}>
         {rows.map((row) => (
-          <li key={row.label} className="rounded-3xl bg-site-panel p-6">
+          <li key={row.label} className="rounded-card border border-site-line bg-site-surface p-6">
             <p className="mb-4 text-base font-semibold text-site-ink">{row.label}</p>
             <dl className="m-0 flex flex-col gap-3">
               {columns.map((column, index) => (

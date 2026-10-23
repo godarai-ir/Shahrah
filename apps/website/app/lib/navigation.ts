@@ -49,18 +49,7 @@ export type NavMenu = {
 };
 
 // Pages that do not exist yet. Each page prompt removes its route from this list.
-const pendingRoutes = new Set<string>([
-  '/features/governance',
-  '/features/cost-control',
-  '/integrations',
-  '/vs/chatgpt',
-  '/teams/sales',
-  '/teams/support',
-  '/teams/finance',
-  '/teams/legal',
-  '/teams/hr',
-  '/teams/engineering',
-]);
+const pendingRoutes = new Set<string>([]);
 
 const link = (item: NavLink): NavLink => ({ ...item, ready: !pendingRoutes.has(item.href) });
 

@@ -3,7 +3,9 @@
 import { createContext, useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronDown, Info, Minus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Info, Minus } from 'lucide-react';
+import { ClosingBand, FAQ } from '@/app/components/patterns';
+import { buttonOnNavy, buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
 
 export type PublicPlanPrice = {
   billing_interval: 'monthly' | 'quarterly' | 'yearly';
@@ -176,7 +178,7 @@ const comparisonSections: Array<{
 const pricingFaqs = [
   {
     question: 'گدارAI چیست و هزینه آن شامل چه چیزی می‌شود؟',
-    answer: 'گدارAI یک درگاه یکپارچه برای اتصال، مدیریت و پایش مدل‌های هوش مصنوعی است. هزینه پلن، امکانات پلتفرم و سقف استفاده درج‌شده در جدول مقایسه را پوشش می‌دهد؛ هزینه مصرف مدل‌ها بر اساس سرویس‌دهنده و میزان استفاده شما جداگانه محاسبه می‌شود.',
+    answer: 'گدارAI فضای کاری هوش مصنوعی برای همه‌ی تیم‌ها و درگاه مدل‌های زبانی برای تیم فنی است. هزینه‌ی پلن، امکانات و سقف استفاده‌ی جدول مقایسه را پوشش می‌دهد؛ مصرف مدل‌ها جداگانه و با کردیت از کیف پول تومانی کم می‌شود.',
   },
   {
     question: 'کدام پلن برای تیم ما مناسب‌تر است؟',
@@ -204,7 +206,15 @@ const pricingFaqs = [
   },
   {
     question: 'آیا بعداً می‌توانیم پلن را تغییر دهیم؟',
-    answer: 'بله. با تغییر تعداد کاربران یا نیازهای امنیتی می‌توانید برای ارتقا یا تغییر پلن اقدام کنید. زمان اعمال تغییر و نحوه محاسبه صورتحساب بر اساس دوره پرداخت فعلی شما مشخص می‌شود.',
+    answer: 'بله. تغییر پلن وسط دوره به‌تناسب محاسبه می‌شود.',
+  },
+  {
+    question: 'فاکتور رسمی می‌دهید؟',
+    answer: 'بله. برای هر پرداخت فاکتور رسمی صادر می‌شود.',
+  },
+  {
+    question: 'پرداخت چطور است؟',
+    answer: 'با کیف پول تومانی و کردیت پیش‌پرداخت، بدون کارت بین‌المللی.',
   },
   {
     question: 'برای پرسش‌های فنی یا انتخاب پلن از کجا کمک بگیریم؟',
@@ -220,137 +230,122 @@ export function CommercialPricing({ plans }: { plans: PublicCommercialPlan[] }) 
 
   return (
     <FeatureTooltipProvider>
-      <main className="overflow-hidden">
-      <section className="relative px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8">
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.16),transparent_60%)]" />
-        <div className="mx-auto max-w-7xl">
-          <header className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
-              <Sparkles aria-hidden="true" className="size-4" />
-              پلن‌های گدارAI
-            </div>
-            <h1 className="text-4xl font-bold leading-[1.35] tracking-tight text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
-              در هر نقطه از مسیر رشد، همراهتانیم
-            </h1>
-            <p className="max-w-2xl text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
-              از ساخت اولین نمونه تا پردازش میلیون‌ها درخواست؛ امکانات هر پلن را شفاف مقایسه کنید و متناسب با نیاز تیمتان انتخاب کنید.
-            </p>
-          </header>
+      <main className="bg-site-ground">
+        <section className="px-4 pb-10 pt-10 sm:px-6 lg:pb-16 lg:pt-20">
+          <div className="mx-auto max-w-content">
+            <header className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center">
+              <h1 className="text-balance text-h1 font-extrabold text-site-ink lg:text-display">قیمت روشن. به تومان.</h1>
+              <p className="max-w-2xl text-lead font-light text-site-ink-soft">
+                اول پانزده روز رایگان امتحان کنید. بعد پلن ماهانه را انتخاب کنید، یا گدارAI را روی سرورهای خودتان نصب کنید.
+              </p>
+            </header>
 
-          <div className="mt-10 flex justify-center">
-            <div aria-label="دوره پرداخت" className="inline-grid grid-cols-3 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group">
-              {(['monthly', 'quarterly', 'yearly'] as BillingInterval[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  aria-pressed={interval === item}
-                  onClick={() => setInterval(item)}
-                  className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 sm:px-5 ${interval === item ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}
-                >
-                  {intervalLabel(item)}
-                </button>
+            <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-card border border-site-line bg-site-sand px-6 py-5 sm:flex-row">
+              <p className="m-0 text-body font-medium text-site-ink">۱۵ روز کاملاً رایگان، با اعتبار اولیه.</p>
+              <Link href="/onboarding" className={buttonPrimary}>
+                شروع ۱۵ روز رایگان
+              </Link>
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <div aria-label="دوره پرداخت" className="inline-grid grid-cols-3 rounded-full border border-site-line bg-site-surface p-1" role="group">
+                {(['monthly', 'quarterly', 'yearly'] as BillingInterval[]).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-pressed={interval === item}
+                    onClick={() => setInterval(item)}
+                    className={`min-h-11 rounded-full px-4 text-label font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus sm:px-6 ${interval === item ? 'bg-site-ink text-site-surface' : 'text-site-ink-soft hover:bg-site-panel'}`}
+                  >
+                    {intervalLabel(item)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 grid items-stretch gap-3 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
+              {planDefinitions.map((definition) => (
+                <PlanCard key={definition.slug} definition={definition} plan={plansBySlug.get(definition.slug)} interval={interval} />
               ))}
             </div>
+
+            {plans.length === 0 ? (
+              <p className="mt-5 text-center text-label text-site-ink-soft">
+                فهرست قیمت‌ها الان بارگیری نشد؛ جزئیات پلن‌ها همچنان قابل مقایسه است. برای قیمت با ما تماس بگیرید.
+              </p>
+            ) : null}
           </div>
+        </section>
 
-          <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {planDefinitions.map((definition) => (
-              <PlanCard
-                key={definition.slug}
-                definition={definition}
-                plan={plansBySlug.get(definition.slug)}
-                interval={interval}
-              />
-            ))}
-          </div>
-
-          {plans.length === 0 ? (
-            <p className="mt-5 text-center text-sm leading-6 text-slate-500 dark:text-slate-400">
-              قیمت‌های آنلاین موقتاً در دسترس نیستند؛ جزئیات پلن‌ها همچنان قابل مقایسه است.
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <section aria-labelledby="compare-plans" className="border-y border-slate-200 bg-slate-50/70 px-4 py-16 dark:border-slate-800 dark:bg-slate-950/40 sm:px-6 sm:py-20 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">مقایسه کامل</p>
-            <h2 id="compare-plans" className="mt-2 text-3xl font-bold text-slate-950 dark:text-white sm:text-4xl">همه قابلیت‌ها، کنار هم</h2>
-            <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">جدول را بررسی کنید تا تفاوت محدودیت‌ها، امنیت، مشاهده‌پذیری و سطح پشتیبانی هر پلن را ببینید.</p>
-          </div>
-
-          <div className="mt-8 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="max-w-full overflow-x-auto" dir="ltr" tabIndex={0}>
-              <table className="w-full min-w-[920px] border-collapse text-sm" dir="rtl">
-              <caption className="sr-only">مقایسه قابلیت‌های پلن‌های توسعه‌دهنده، تیم، رشد و سازمانی</caption>
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="sticky right-0 bg-white px-5 py-5 text-right font-semibold text-slate-500 dark:bg-slate-900 dark:text-slate-400" scope="col">قابلیت</th>
-                  {planDefinitions.map((plan) => (
-                    <th key={plan.slug} className={`min-w-40 px-4 py-5 text-center text-base font-bold ${plan.slug === 'growth' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}`} scope="col">
-                      {plan.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonSections.map((section) => (
-                  <ComparisonSection key={section.title} section={section} />
-                ))}
-              </tbody>
-              </table>
+        <section className="bg-site-panel px-4 py-10 sm:px-6 lg:py-20">
+          <div className="mx-auto grid max-w-content gap-3 sm:gap-6 lg:grid-cols-3">
+            <div className="flex flex-col gap-4 rounded-card bg-site-night p-6 text-site-night-ink lg:col-span-2 lg:p-10">
+              <h2 className="m-0 text-h3 font-bold lg:text-h2">روی سرورهای خودتان.</h2>
+              <p className="m-0 max-w-xl text-body text-site-night-soft">
+                نصب داخل زیرساخت سازمان (Kubernetes) با قرارداد سالانه و پشتیبانی؛ همان فضای کاری، گاردریل و کنترل هزینه، با ورود سازمانی.
+              </p>
+              <div>
+                <Link href="/on-premise" className={buttonOnNavy}>
+                  درخواست استقرار در سازمان
+                  <ArrowLeft aria-hidden="true" className="size-4" />
+                </Link>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-card border border-site-line bg-site-surface p-6 lg:p-8">
+              <h2 className="m-0 text-h3 font-semibold text-site-ink">مصرف مدل‌ها</h2>
+              <p className="m-0 text-body text-site-ink-soft">
+                مصرف مدل با کردیت از کیف پول تومانی کم می‌شود و برای هر تیم و هر کلید سقف می‌گذارید.
+              </p>
+              <Link href="/features/cost-control" className={textLink}>
+                مدیریت هزینه
+                <ArrowLeft aria-hidden="true" className="size-4" />
+              </Link>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 md:hidden">برای مشاهده همه ستون‌ها، جدول را به طرفین بکشید.</p>
-        </div>
-      </section>
+        </section>
 
-      <section aria-labelledby="pricing-faq" className="relative px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-96 max-w-5xl bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.09),transparent_65%)]" />
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">پرسش‌های پرتکرار</p>
-            <h2 id="pricing-faq" className="mt-2 text-3xl font-bold leading-[1.45] text-slate-950 dark:text-white sm:text-4xl">
-              پیش از انتخاب پلن بدانید
-            </h2>
-            <p className="mt-4 max-w-md leading-8 text-slate-600 dark:text-slate-300">
-              پاسخ کوتاه به پرسش‌های رایج درباره هزینه، محدودیت‌ها، امنیت و استقرار گدارAI.
-            </p>
-            <Link href="/contact" className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
-              پاسخ پرسشتان را پیدا نکردید؟
-              <ArrowLeft aria-hidden="true" className="size-4" />
-            </Link>
+        <section aria-labelledby="compare-plans" className="px-4 py-10 sm:px-6 lg:py-20">
+          <div className="mx-auto max-w-content">
+            <div className="flex max-w-2xl flex-col gap-4">
+              <h2 id="compare-plans" className={sectionHeading}>همه‌ی قابلیت‌ها، کنار هم.</h2>
+              <p className={`m-0 ${sectionCopy}`}>تفاوت محدودیت‌ها، امنیت، مشاهده‌پذیری و پشتیبانی هر پلن.</p>
+            </div>
+
+            <div className="mt-8 max-w-full overflow-hidden rounded-card border border-site-line bg-site-surface">
+              <div className="max-w-full overflow-x-auto" dir="ltr" tabIndex={0}>
+                <table className="w-full min-w-230 border-collapse text-label" dir="rtl">
+                  <caption className="sr-only">مقایسه‌ی قابلیت‌های پلن‌های توسعه‌دهنده، تیم، رشد و سازمانی</caption>
+                  <thead>
+                    <tr className="border-b border-site-line">
+                      <th className="sticky right-0 bg-site-surface px-5 py-5 text-right font-medium text-site-ink-soft" scope="col">قابلیت</th>
+                      {planDefinitions.map((plan) => (
+                        <th key={plan.slug} className={`min-w-40 px-4 py-5 text-center text-body font-bold text-site-ink ${plan.slug === 'growth' ? 'bg-site-sand' : ''}`} scope="col">
+                          {plan.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonSections.map((section) => (
+                      <ComparisonSection key={section.title} section={section} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="mt-3 text-label text-site-ink-soft md:hidden">برای دیدن همه‌ی ستون‌ها، جدول را به طرفین بکشید.</p>
           </div>
+        </section>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-7">
-            {pricingFaqs.map((item, index) => (
-              <details key={item.question} className="group border-b border-slate-200 last:border-b-0 dark:border-slate-800" open={index === 0}>
-                <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-right font-bold leading-7 text-slate-950 marker:content-none focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-white [&::-webkit-details-marker]:hidden">
-                  <span>{item.question}</span>
-                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-colors group-open:bg-indigo-50 group-open:text-indigo-600 dark:bg-slate-800 dark:text-slate-400 dark:group-open:bg-indigo-500/15 dark:group-open:text-indigo-300">
-                    <ChevronDown aria-hidden="true" className="size-4 transition-transform duration-200 group-open:rotate-180" />
-                  </span>
-                </summary>
-                <p className="max-w-3xl pb-6 pl-12 text-sm leading-8 text-slate-600 dark:text-slate-300 sm:text-base">
-                  {item.answer}
-                </p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
+        <FAQ title="پیش از انتخاب پلن بدانید." id="pricing-faq" items={pricingFaqs.map((item) => ({ ...item }))} />
 
-      <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 rounded-3xl border border-indigo-200 bg-indigo-50 px-6 py-10 text-center dark:border-indigo-500/30 dark:bg-indigo-500/10 sm:px-10">
-          <h2 className="text-2xl font-bold text-slate-950 dark:text-white sm:text-3xl">هنوز برای انتخاب پلن مطمئن نیستید؟</h2>
-          <p className="max-w-2xl leading-7 text-slate-600 dark:text-slate-300">نیازهای فنی، حجم درخواست و الزامات استقرار تیمتان را با ما در میان بگذارید تا انتخاب دقیق‌تری داشته باشید.</p>
-          <Link href="/contact" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
-            مشاوره برای انتخاب پلن
-            <ArrowLeft aria-hidden="true" className="size-4" />
-          </Link>
-        </div>
-      </section>
+        <ClosingBand
+          title="هنوز مطمئن نیستید؟"
+          titleMuted="با هم انتخاب می‌کنیم."
+          copy="نیازهای تیم، حجم درخواست و الزامات استقرار را بگویید تا پلن درست را پیدا کنیم."
+          primary={{ href: '/demo', label: 'درخواست دمو' }}
+          secondary={{ href: '/onboarding', label: 'شروع ۱۵ روز رایگان' }}
+        />
       </main>
     </FeatureTooltipProvider>
   );
@@ -363,54 +358,55 @@ function PlanCard({ definition, plan, interval }: { definition: PlanDefinition; 
   const isEnterprise = definition.slug === 'enterprise';
 
   return (
-    <article className={`relative flex min-h-[34rem] flex-col rounded-2xl border bg-white p-6 shadow-sm transition-transform duration-200 hover:-translate-y-1 dark:bg-slate-900 ${isGrowth ? 'border-indigo-500 ring-2 ring-indigo-500/15' : 'border-slate-200 dark:border-slate-800'}`}>
+    <article className={`relative flex flex-col rounded-card border bg-site-surface p-6 ${isGrowth ? 'border-site-ink' : 'border-site-line'}`}>
       {isGrowth ? (
-        <span className="absolute -top-3 right-5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-sm">پیشنهاد ما</span>
+        <span className="absolute -top-3 right-5 rounded-full bg-site-ink px-3 py-0.5 text-caption font-medium text-site-surface">پیشنهاد ما</span>
       ) : null}
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-bold text-slate-950 dark:text-white">{definition.name}</h2>
-        <p className="min-h-14 text-sm leading-7 text-slate-600 dark:text-slate-400">{definition.description}</p>
+        <h2 className="m-0 text-h3 font-bold text-site-ink">{definition.name}</h2>
+        <p className="m-0 min-h-14 text-label text-site-ink-soft">{definition.description}</p>
       </div>
 
-      <div className="mt-5 min-h-24 border-b border-slate-200 pb-5 dark:border-slate-700">
+      <div className="mt-5 min-h-24 border-b border-site-line pb-5">
         {isDeveloper ? (
           <>
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">{formatAmount(0)}</span>
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">رایگان</span>
+              <span className="text-h2 font-extrabold text-site-ink">{formatAmount(0)}</span>
+              <span className="text-label font-medium text-site-ink-soft">رایگان</span>
             </div>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">بدون نیاز به پرداخت</p>
+            <p className="mt-2 text-label text-site-ink-soft">بدون نیاز به پرداخت</p>
           </>
         ) : price?.amount_minor != null ? (
           <>
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">{formatAmount(price.amount_minor)}</span>
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{currencyLabel(price.currency)} / {intervalUnit(interval)}</span>
+              <span className="text-h2 font-extrabold text-site-ink">{formatAmount(price.amount_minor)}</span>
+              <span className="text-label font-medium text-site-ink-soft">{currencyLabel(price.currency)} / {intervalUnit(interval)}</span>
             </div>
-            {price.discount_percent > 0 ? <p className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{formatAmount(price.discount_percent)}٪ تخفیف</p> : null}
+            {price.discount_percent > 0 ? <p className="mt-2 text-label font-medium text-site-success">{formatAmount(price.discount_percent)}٪ تخفیف</p> : null}
           </>
         ) : (
           <>
-            <p className="text-2xl font-bold text-slate-950 dark:text-white">{isEnterprise ? 'قیمت‌گذاری سفارشی' : 'استعلام قیمت'}</p>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">متناسب با نیاز و دوره پرداخت</p>
+            <p className="m-0 text-h3 font-bold text-site-ink">{isEnterprise ? 'قیمت‌گذاری سفارشی' : 'استعلام قیمت'}</p>
+            <p className="mt-2 text-label text-site-ink-soft">متناسب با نیاز و دوره‌ی پرداخت</p>
           </>
         )}
       </div>
 
-      <p className="mt-5 text-sm font-bold text-slate-900 dark:text-white">امکانات کلیدی</p>
-      <ul className="mt-4 flex flex-1 flex-col gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
+      <p className="mt-5 text-label font-semibold text-site-ink">امکانات کلیدی</p>
+      <ul className="mt-3 flex flex-1 flex-col gap-3 text-label text-site-ink">
         {definition.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
-            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-              <Check aria-hidden="true" className="size-3.5" />
-            </span>
+            <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-site-success" />
             <FeatureLabel label={feature} description={featureExplanations[feature]} />
           </li>
         ))}
       </ul>
 
-      <Link href={`/onboarding?plan=${encodeURIComponent(definition.slug)}`} className={`mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${isGrowth ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-950 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700'}`}>
-        {isEnterprise ? 'تماس با فروش' : '۱۵ روز رایگان شروع کنید'}
+      <Link
+        href={isEnterprise ? '/demo' : `/onboarding?plan=${encodeURIComponent(definition.slug)}`}
+        className={`mt-6 ${isGrowth ? buttonPrimary : buttonSecondary}`}
+      >
+        {isEnterprise ? 'تماس با فروش' : 'شروع ۱۵ روز رایگان'}
         <ArrowLeft aria-hidden="true" className="size-4" />
       </Link>
     </article>
@@ -421,15 +417,15 @@ function ComparisonSection({ section }: { section: (typeof comparisonSections)[n
   return (
     <>
       <tr>
-        <th className="bg-slate-100 px-5 py-3 text-right text-sm font-bold text-slate-900 dark:bg-slate-800 dark:text-white" colSpan={5} scope="colgroup">{section.title}</th>
+        <th className="bg-site-panel px-5 py-3 text-right text-label font-bold text-site-ink" colSpan={5} scope="colgroup">{section.title}</th>
       </tr>
       {section.rows.map((row) => (
-        <tr key={row.label} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
-          <th className="sticky right-0 z-10 w-[28%] bg-white px-5 py-4 text-right font-medium leading-6 text-slate-700 dark:bg-slate-900 dark:text-slate-300" scope="row">
+        <tr key={row.label} className="border-b border-site-line last:border-b-0">
+          <th className="sticky right-0 z-10 w-1/4 bg-site-surface px-5 py-4 text-right font-medium text-site-ink" scope="row">
             <FeatureLabel label={row.label} description={featureExplanations[row.label]} />
           </th>
           {row.values.map((value, index) => (
-            <td key={`${row.label}-${planDefinitions[index].slug}`} className={`px-4 py-4 text-center leading-6 ${index === 2 ? 'bg-indigo-50/70 dark:bg-indigo-500/5' : ''}`}>
+            <td key={`${row.label}-${planDefinitions[index].slug}`} className={`px-4 py-4 text-center ${index === 2 ? 'bg-site-ground' : ''}`}>
               <ComparisonCell value={value} />
             </td>
           ))}
@@ -440,9 +436,9 @@ function ComparisonSection({ section }: { section: (typeof comparisonSections)[n
 }
 
 function ComparisonCell({ value }: { value: ComparisonValue }) {
-  if (value === true) return <><Check aria-hidden="true" className="mx-auto size-5 text-emerald-600 dark:text-emerald-400" /><span className="sr-only">دارد</span></>;
-  if (value === false) return <><Minus aria-hidden="true" className="mx-auto size-5 text-slate-300 dark:text-slate-600" /><span className="sr-only">ندارد</span></>;
-  return <span className="text-slate-700 dark:text-slate-300">{value}</span>;
+  if (value === true) return <><Check aria-hidden="true" className="mx-auto size-5 text-site-success" /><span className="sr-only">دارد</span></>;
+  if (value === false) return <><Minus aria-hidden="true" className="mx-auto size-5 text-site-line-strong" /><span className="sr-only">ندارد</span></>;
+  return <span className="text-site-ink">{value}</span>;
 }
 
 function FeatureLabel({ label, description }: { label: string; description?: string }) {
@@ -495,7 +491,7 @@ function FeatureHelp({ label, description }: { label: string; description: strin
       onFocus={(event) => tooltip?.show(id, label, description, event.currentTarget)}
       onMouseEnter={(event) => tooltip?.show(id, label, description, event.currentTarget)}
       onMouseLeave={() => tooltip?.hide(id)}
-      className="inline-grid size-6 shrink-0 place-items-center rounded-full text-indigo-600 transition-colors hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-indigo-300 dark:hover:bg-indigo-500/15"
+      className="inline-grid size-6 shrink-0 place-items-center rounded-full text-site-ink-soft transition-colors hover:bg-site-panel hover:text-site-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus"
     >
       <Info aria-hidden="true" className="size-3.5" />
     </button>
@@ -574,14 +570,14 @@ function FeatureTooltipProvider({ children }: { children: ReactNode }) {
           id={active.id}
           role="tooltip"
           dir="rtl"
-          className="pointer-events-none fixed z-50 max-h-[calc(100vh-1.5rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 text-right text-xs font-normal leading-6 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+          className="pointer-events-none fixed z-50 max-h-svh w-72 overflow-y-auto rounded-card border border-site-line bg-site-surface p-3 text-right text-caption font-normal text-site-ink"
           style={{
             left: active.left,
             top: active.top,
             transform: active.placement === 'top' ? 'translateY(-100%)' : undefined,
           }}
         >
-          <span className="mb-1 block font-bold text-slate-950 dark:text-white">{active.label}</span>
+          <span className="mb-1 block font-bold text-site-ink">{active.label}</span>
           {active.description}
         </div>,
         document.body,

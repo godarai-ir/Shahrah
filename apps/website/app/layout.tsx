@@ -99,7 +99,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fa" dir="rtl" suppressHydrationWarning className="h-full antialiased" style={{ fontFamily: 'Vazirmatn, sans-serif' }}>
+    <html lang="fa" dir="rtl" suppressHydrationWarning className="h-full antialiased" style={{ fontFamily: 'Estedad, Vazirmatn, Tahoma, sans-serif' }}>
       <head>
         <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />
       </head>

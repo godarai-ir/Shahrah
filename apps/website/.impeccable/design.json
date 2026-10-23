@@ -1,168 +1,171 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-22T12:00:00Z",
+  "generatedAt": "2026-10-23T12:00:00Z",
   "title": "Design System: GodarAI Website",
   "extensions": {
     "colorMeta": {
-      "accent": {
-        "role": "primary",
-        "displayName": "Steady Blue",
-        "canonical": "oklch(0.5 0.1 232)",
-        "tonalRamp": [
-          "oklch(0.2 0.05 235)",
-          "oklch(0.3 0.07 234)",
-          "oklch(0.4 0.09 233)",
-          "oklch(0.5 0.1 232)",
-          "oklch(0.62 0.09 230)",
-          "oklch(0.74 0.07 228)",
-          "oklch(0.86 0.04 226)",
-          "oklch(0.95 0.015 225)"
-        ]
-      },
-      "accent-hover": {
-        "role": "primary",
-        "displayName": "Steady Blue Deep",
-        "canonical": "oklch(0.43 0.09 235)"
-      },
-      "on-accent": {
+      "surface": {
         "role": "neutral",
-        "displayName": "On Accent White",
-        "canonical": "oklch(0.99 0 0)"
+        "displayName": "White Card",
+        "canonical": "#ffffff",
+        "dark": "#0a1222"
       },
       "ground": {
         "role": "neutral",
-        "displayName": "Daylight Paper",
-        "canonical": "oklch(0.985 0.005 220)"
+        "displayName": "Paper",
+        "canonical": "#f6f4ef",
+        "dark": "#0f1a2e"
       },
       "panel": {
         "role": "neutral",
-        "displayName": "Workbench Grey",
-        "canonical": "oklch(0.962 0.013 220)"
+        "displayName": "Linen",
+        "canonical": "#ebe7dd",
+        "dark": "#18253f"
       },
-      "panel-deep": {
+      "sand": {
         "role": "neutral",
-        "displayName": "Tool-Steel Mist",
-        "canonical": "oklch(0.93 0.025 222)"
-      },
-      "line": {
-        "role": "neutral",
-        "displayName": "Pencil Line",
-        "canonical": "oklch(0.9 0.015 225)"
+        "displayName": "Sand",
+        "canonical": "#d9cdb4",
+        "dark": "#3a3426"
       },
       "ink": {
         "role": "neutral",
-        "displayName": "Workshop Ink",
-        "canonical": "oklch(0.21 0.025 245)",
-        "tonalRamp": [
-          "oklch(0.15 0.02 245)",
-          "oklch(0.21 0.025 245)",
-          "oklch(0.3 0.025 243)",
-          "oklch(0.46 0.025 240)",
-          "oklch(0.6 0.02 235)",
-          "oklch(0.75 0.02 225)",
-          "oklch(0.9 0.015 225)",
-          "oklch(0.985 0.005 220)"
-        ]
+        "displayName": "Ink",
+        "canonical": "#0f1b33",
+        "dark": "#f4f1ea"
       },
       "ink-soft": {
         "role": "neutral",
-        "displayName": "Graphite",
-        "canonical": "oklch(0.46 0.025 240)"
+        "displayName": "Slate",
+        "canonical": "#4b5569",
+        "dark": "#a9b2c4"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#d6d2c7",
+        "dark": "#26344f"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#7b8396",
+        "dark": "#7d889e"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Orange",
+        "canonical": "#ff6a13",
+        "dark": "#ff7a2b"
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Signal Orange Hover",
+        "canonical": "#ff7f36",
+        "dark": "#ff8c45"
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "Signal Navy (on accent)",
+        "canonical": "#0f1b33"
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Ember",
+        "canonical": "#ad3c08",
+        "dark": "#ff9a5c"
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Ember",
+        "canonical": "#ad3c08",
+        "dark": "#ff9a5c"
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success",
+        "canonical": "#1f6f8b",
+        "dark": "#7cc3dc"
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger",
+        "canonical": "#b3261e",
+        "dark": "#ff8a80"
       },
       "night": {
         "role": "neutral",
-        "displayName": "Evening Ink",
-        "canonical": "oklch(0.2 0.03 245)"
+        "displayName": "Signal Navy",
+        "canonical": "#0f1b33",
+        "dark": "#060c18"
+      },
+      "night-raised": {
+        "role": "neutral",
+        "displayName": "Deep Navy",
+        "canonical": "#1d2d50"
       },
       "night-ink": {
         "role": "neutral",
-        "displayName": "Lamp White",
-        "canonical": "oklch(0.96 0.01 220)"
+        "displayName": "Paper on Navy",
+        "canonical": "#f6f4ef",
+        "dark": "#f4f1ea"
       },
       "night-soft": {
         "role": "neutral",
-        "displayName": "Dusk Grey",
-        "canonical": "oklch(0.78 0.02 225)"
-      },
-      "night-strong": {
-        "role": "neutral",
-        "displayName": "Lamp Glow",
-        "canonical": "oklch(0.995 0 0)"
-      },
-      "tone-guard": {
-        "role": "tertiary",
-        "displayName": "Sage",
-        "canonical": "oklch(0.955 0.03 160)",
-        "dark": "oklch(0.26 0.03 160)"
-      },
-      "tone-govern": {
-        "role": "tertiary",
-        "displayName": "Lilac",
-        "canonical": "oklch(0.955 0.025 295)",
-        "dark": "oklch(0.26 0.03 295)"
-      },
-      "tone-observe": {
-        "role": "tertiary",
-        "displayName": "Sky",
-        "canonical": "oklch(0.955 0.03 230)",
-        "dark": "oklch(0.26 0.03 230)"
-      },
-      "tone-cost": {
-        "role": "tertiary",
-        "displayName": "Sand",
-        "canonical": "oklch(0.96 0.035 80)",
-        "dark": "oklch(0.27 0.03 80)"
+        "displayName": "Mist",
+        "canonical": "#a9b2c4"
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Hero heading only."
+        "purpose": "The single hero line."
       },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Section headings."
+      "h1": {
+        "displayName": "H1",
+        "purpose": "Page titles; closing card."
       },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Card and panel titles."
+      "h2": {
+        "displayName": "H2",
+        "purpose": "Section headings on desktop."
+      },
+      "h3": {
+        "displayName": "H3",
+        "purpose": "Tile titles; section headings on mobile."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Hero subhead, section intros."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Section copy, 60 to 70 characters per line."
+        "purpose": "Running text."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Buttons, tabs, window titles, captions."
+        "purpose": "Buttons, navigation, form labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Metadata, window titles, footnotes."
       }
     },
-    "shadows": [
-      {
-        "name": "shadow-window",
-        "value": "0 20px 25px -5px oklch(0.21 0.025 245 / 0.1), 0 8px 10px -6px oklch(0.21 0.025 245 / 0.1)",
-        "purpose": "Product windows resting on a panel."
-      },
-      {
-        "name": "shadow-card",
-        "value": "0 10px 40px -10px rgba(0,0,0,0.1)",
-        "purpose": "White cards at rest; tinted cards on hover and focus. 0.5 alpha in dark mode."
-      },
-      {
-        "name": "shadow-hairline",
-        "value": "0 1px 2px rgba(0,0,0,0.05)",
-        "purpose": "Small controls and chips."
-      }
-    ],
+    "shadows": [],
     "motion": [
       {
-        "name": "reveal",
-        "value": "opacity 0 to 1, translateY 16px to 0, 500ms ease-out",
-        "purpose": "Section entry, once."
+        "name": "state",
+        "value": "150–200ms ease-out",
+        "purpose": "Hover and focus state changes."
+      },
+      {
+        "name": "step-row",
+        "value": "400ms ease-out, 350ms apart",
+        "purpose": "Tool rows arriving in a product window, once, on entry."
       },
       {
         "name": "step-complete",
-        "value": "700ms cubic-bezier(0.16, 1, 0.3, 1), after 2.6s",
-        "purpose": "A tool call resolving inside a product window, once."
+        "value": "700ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The result resolving to a success check."
       }
     ],
     "breakpoints": [
@@ -180,7 +183,7 @@
       },
       {
         "name": "xl",
-        "value": "1280px"
+        "value": "1280px (full navbar)"
       }
     ]
   },
@@ -189,108 +192,100 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The single primary action in a section: trial or demo.",
-      "html": "<button class=\"ds-btn-primary\">۱۵ روز رایگان شروع کنید</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 28px; border: none; border-radius: 9999px; background: oklch(0.5 0.1 232); color: oklch(0.99 0 0); font-family: Vazirmatn, system-ui, sans-serif; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background-color 150ms ease; } .ds-btn-primary:hover { background: oklch(0.43 0.09 235); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.5 0.1 232); outline-offset: 2px; }"
+      "description": "The section's one orange: trial or demo.",
+      "html": "<button class=\"ds-btn-primary\">شروع ۱۵ روز رایگان</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; min-height:44px; padding:10px 16px; border:none; border-radius:9999px; background:#ff6a13; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; font-size:.875rem; font-weight:500; line-height:1.5; cursor:pointer; transition:background-color 150ms ease-out; } .ds-btn-primary:hover { background:#ff7f36; } .ds-btn-primary:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; }"
     },
     {
-      "name": "Quiet Button",
+      "name": "Secondary Button",
       "kind": "button",
-      "refersTo": "button-quiet",
-      "description": "Secondary action beside a primary button.",
-      "html": "<button class=\"ds-btn-quiet\">درخواست دمو</button>",
-      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 20px; border: none; border-radius: 9999px; background: transparent; color: oklch(0.46 0.025 240); font-family: Vazirmatn, system-ui, sans-serif; font-size: 1rem; font-weight: 500; cursor: pointer; transition: color 150ms ease; } .ds-btn-quiet:hover { color: oklch(0.21 0.025 245); } .ds-btn-quiet:focus-visible { outline: 2px solid oklch(0.5 0.1 232); outline-offset: 2px; }"
+      "refersTo": "button-secondary",
+      "description": "The second action beside a primary.",
+      "html": "<button class=\"ds-btn-secondary\">درخواست دمو</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; min-height:44px; padding:10px 16px; border:1px solid #7b8396; border-radius:9999px; background:transparent; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; font-size:.875rem; font-weight:500; cursor:pointer; transition:background-color 150ms ease-out; } .ds-btn-secondary:hover { background:#ebe7dd; } .ds-btn-secondary:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; }"
+    },
+    {
+      "name": "Tile",
+      "kind": "card",
+      "refersTo": "tile",
+      "description": "A flat feature tile: icon well, bold H3 label, one line of body.",
+      "html": "<a class=\"ds-tile\" href=\"#\" dir=\"rtl\"><span class=\"ds-well\"></span><span class=\"ds-tile-title\">گاردریل معنایی</span><span class=\"ds-tile-text\">داده‌ی محرمانه را از معنایش می‌شناسد.</span></a>",
+      "css": ".ds-tile { display:flex; flex-direction:column; gap:12px; max-width:280px; padding:24px; border:1px solid #d6d2c7; border-radius:12px; background:#ffffff; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; text-decoration:none; transition:background-color 150ms ease-out; } .ds-tile:hover { background:#f6f4ef; } .ds-tile:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; } .ds-well { width:40px; height:40px; border-radius:12px; background:#d9cdb4; } .ds-tile-title { font-size:1.5rem; font-weight:600; line-height:1.4; } .ds-tile-text { font-size:1rem; line-height:1.8; color:#4b5569; }"
     },
     {
       "name": "Product Window",
       "kind": "custom",
       "refersTo": "product-window",
-      "description": "Signature: real product UI framed as a window resting on a tinted panel.",
-      "html": "<div class=\"ds-panel\" dir=\"rtl\"><div class=\"ds-window\"><div class=\"ds-window-bar\"><span class=\"ds-window-title\">دستیار پشتیبانی</span><span class=\"ds-window-meta\">نمونه</span></div><div class=\"ds-window-row\"><span class=\"ds-well\"></span><span><span class=\"ds-row-title\">جست‌وجو در پایگاه دانش</span><br><span class=\"ds-window-meta\">سه سند مرتبط پیدا شد</span></span></div></div></div>",
-      "css": ".ds-panel { background: oklch(0.962 0.013 220); border-radius: 24px; padding: 40px; font-family: Vazirmatn, system-ui, sans-serif; } .ds-window { max-width: 384px; background: oklch(0.985 0.005 220); border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px oklch(0.21 0.025 245 / 0.1), 0 8px 10px -6px oklch(0.21 0.025 245 / 0.1); } .ds-window-bar { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid oklch(0.9 0.015 225); } .ds-window-title { font-size: 0.875rem; font-weight: 600; color: oklch(0.21 0.025 245); } .ds-window-meta { font-size: 0.75rem; color: oklch(0.46 0.025 240); } .ds-window-row { display: flex; gap: 12px; align-items: center; padding: 14px 24px; } .ds-well { width: 36px; height: 36px; flex-shrink: 0; border-radius: 14px; background: oklch(0.93 0.025 222); } .ds-row-title { font-size: 0.875rem; font-weight: 500; color: oklch(0.21 0.025 245); }"
+      "description": "Signature: product UI framed flat on a sand tile.",
+      "html": "<div class=\"ds-stage\" dir=\"rtl\"><div class=\"ds-window\"><div class=\"ds-bar\"><span>دستیار پشتیبانی</span><span class=\"ds-meta\">نمونه</span></div><div class=\"ds-row\"><span class=\"ds-well\"></span><span>جست‌وجو در CRM</span></div></div></div>",
+      "css": ".ds-stage { padding:40px; border-radius:12px; background:#d9cdb4; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; } .ds-window { max-width:384px; overflow:hidden; border:1px solid #d6d2c7; border-radius:12px; background:#ffffff; } .ds-bar { display:flex; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #d6d2c7; font-size:.875rem; font-weight:600; color:#0f1b33; } .ds-meta { font-size:.75rem; font-weight:400; color:#4b5569; } .ds-row { display:flex; gap:12px; align-items:center; padding:14px 24px; font-size:.875rem; color:#0f1b33; } .ds-well { width:36px; height:36px; border-radius:12px; background:#d9cdb4; }"
     },
     {
-      "name": "Pillar Card",
+      "name": "Closing Card",
       "kind": "card",
-      "refersTo": "pillar-card",
-      "description": "One differentiator on its own tone; links to its page.",
-      "html": "<a class=\"ds-pillar\" href=\"#\" dir=\"rtl\"><span class=\"ds-pillar-well\"></span><span class=\"ds-pillar-title\">گاردریل معنایی</span><span class=\"ds-pillar-text\">داده‌ی محرمانه را از معنایش می‌شناسد.</span></a>",
-      "css": ".ds-pillar { display: flex; flex-direction: column; gap: 12px; max-width: 280px; padding: 32px; border-radius: 24px; background: oklch(0.955 0.03 160); color: oklch(0.21 0.025 245); font-family: Vazirmatn, system-ui, sans-serif; text-decoration: none; transition: box-shadow 300ms ease; } .ds-pillar:hover, .ds-pillar:focus-visible { box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); } .ds-pillar:focus-visible { outline: 2px solid oklch(0.5 0.1 232); outline-offset: 2px; } .ds-pillar-well { width: 40px; height: 40px; border-radius: 16px; background: oklch(0.985 0.005 220 / 0.7); } .ds-pillar-title { font-size: 1.25rem; font-weight: 600; } .ds-pillar-text { font-size: 1rem; line-height: 2; color: oklch(0.46 0.025 240); }"
-    },
-    {
-      "name": "Team Tabs",
-      "kind": "nav",
-      "refersTo": "team-tabs",
-      "description": "Underlined tabs that switch the team panel; arrow keys follow RTL reading direction.",
-      "html": "<div class=\"ds-tabs\" dir=\"rtl\" role=\"tablist\"><button class=\"ds-tab ds-tab-active\" role=\"tab\" aria-selected=\"true\">فروش</button><button class=\"ds-tab\" role=\"tab\" tabindex=\"-1\">پشتیبانی</button><button class=\"ds-tab\" role=\"tab\" tabindex=\"-1\">منابع انسانی</button></div>",
-      "css": ".ds-tabs { display: flex; border-bottom: 1px solid oklch(0.9 0.015 225); font-family: Vazirmatn, system-ui, sans-serif; } .ds-tab { flex: 1; margin-bottom: -1px; padding: 20px; border: none; border-bottom: 2px solid transparent; background: transparent; color: oklch(0.46 0.025 240); font-size: 1rem; font-weight: 500; cursor: pointer; transition: color 500ms ease; } .ds-tab:hover { color: oklch(0.21 0.025 245); } .ds-tab-active { border-bottom-color: oklch(0.21 0.025 245); color: oklch(0.21 0.025 245); font-weight: 600; } .ds-tab:focus-visible { outline: 2px solid oklch(0.5 0.1 232); outline-offset: -2px; }"
-    },
-    {
-      "name": "Closing Band",
-      "kind": "card",
-      "refersTo": "closing-band",
-      "description": "The one dark band per page with the final call to action.",
-      "html": "<section class=\"ds-band\" dir=\"rtl\"><h2 class=\"ds-band-title\">بی‌گدار به آب نزنید</h2><p class=\"ds-band-copy\">پانزده روز رایگان، با اعتبار اولیه.</p><button class=\"ds-btn-primary-dark\">شروع کنید</button></section>",
-      "css": ".ds-band { background: oklch(0.2 0.03 245); border-radius: 24px; padding: 64px 32px; text-align: center; font-family: Vazirmatn, system-ui, sans-serif; } .ds-band-title { margin: 0; font-size: 2.25rem; font-weight: 600; line-height: 1.375; color: oklch(0.96 0.01 220); } .ds-band-copy { margin: 16px 0 28px; font-size: 1.125rem; line-height: 2; color: oklch(0.78 0.02 225); } .ds-btn-primary-dark { height: 48px; padding: 0 28px; border: none; border-radius: 9999px; background: oklch(0.96 0.01 220); color: oklch(0.2 0.03 245); font-family: inherit; font-size: 1rem; font-weight: 500; cursor: pointer; } .ds-btn-primary-dark:focus-visible { outline: 2px solid oklch(0.96 0.01 220); outline-offset: 2px; }"
+      "refersTo": "night-band",
+      "description": "The one inverted navy card with the final call to action.",
+      "html": "<section class=\"ds-close\" dir=\"rtl\"><h2>اول امتحان کنید. <span>بعد تصمیم بگیرید.</span></h2><button class=\"ds-btn-primary\">شروع ۱۵ روز رایگان</button></section>",
+      "css": ".ds-close { padding:64px 24px; border-radius:12px; background:#0f1b33; color:#f6f4ef; text-align:center; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; } .ds-close h2 { margin:0 0 24px; font-size:2.5rem; font-weight:800; line-height:1.2; } .ds-close h2 span { font-weight:300; color:#a9b2c4; } .ds-btn-primary { min-height:44px; padding:10px 16px; border:none; border-radius:9999px; background:#ff6a13; color:#0f1b33; font-family:inherit; font-size:.875rem; font-weight:500; }"
     }
   ],
   "narrative": {
-    "northStar": "The Lit Workshop",
-    "overview": "A good workshop in daylight: wide benches, every tool on its hook, each team's work laid out where the manager can see it. Nothing is hidden and nothing is shouting. The visitor is a technology lead deciding whether AI can join the daily work of every team, and the page should feel like walking through that workshop: real work in progress, clearly arranged, with the controls in plain sight.\n\nThe structure follows dust.tt, the reference the owner pinned: a bright open canvas, large confident headings, short copy, one idea per section, soft colored panels, real product UI resting on those panels, tabs by team, numbered pillars and one dark closing band. The product is the picture. Real screenshots of GodarChat and the admin panel, framed as windows on calm tinted panels, carry the argument; decorative illustration does not.\n\nThe system is product-centered and alive: motion shows an assistant doing work (a message arriving, a tool call completing, a cost meter settling) rather than decorating the page. Persian and right-to-left are the home language of every decision, and light and dark themes are equal citizens.",
+    "northStar": "The Marked Crossing",
+    "overview": "A ford is safe only where someone has marked it. GodarAI is that marker: a confident navy ground, warm paper to stand on, and one signal orange that says \"cross here\". The visitor is a technology lead deciding whether AI can join the daily work of every team. The page should feel like an expert who knows the water and has a sense of humour about it: sure-footed, direct, a pun when it earns its place, never at the reader's expense.\n\nStructure stays the Dust-like rhythm the site was built on: one idea per section, a large heading, short copy, a visual. The character is bolder: the hero sits on the navy field, the closing call to action is one inverted navy card, and orange marks exactly one thing per section.\n\nPersian and right-to-left are the home language of every decision. Light and dark themes are equal citizens.",
     "keyCharacteristics": [
-      "Dust's structure and clarity, in Persian, right to left.",
-      "Real product screenshots in window frames on soft colored panels; the product is the hero image.",
-      "A small family of calm pastel panels, one per differentiator, all at the same lightness.",
-      "One steady blue accent for actions; neutrals tinted cool.",
-      "Cards lift slightly off the bench with soft shadows.",
-      "Motion that demonstrates work, never ambient decoration."
+      "Navy for the big fields: the hero band, the closing card, the footer.",
+      "Warm paper surfaces; sections alternate ground and panel.",
+      "One signal orange per section, almost always the primary button.",
+      "Flat tiles with hairlines; no shadows, no glass.",
+      "Estedad, heavy for display, light for leads, with generous line height.",
+      "Headlines in two short clauses, the second a turn."
     ],
     "rules": [
       {
-        "name": "The Matched Lightness Rule",
-        "body": "Differentiator panels change hue, never lightness or chroma. Side by side they read as one family; none may outshout another.",
+        "name": "The One Signal Rule",
+        "body": "At most one Signal Orange element per section, usually the primary button. A check mark, a bullet or an icon is never orange.",
         "section": "colors"
       },
       {
-        "name": "The One Accent Rule",
-        "body": "Steady Blue is the only saturated color on the page. Panels are tinted, never saturated, and are never used for text or buttons.",
+        "name": "The Ember Rule",
+        "body": "Orange text on a light surface is always Ember, never Signal Orange. Ember holds 4.9:1 on Paper, Linen and White Card but only 3.9:1 on Sand, so it never sets small text on Sand.",
         "section": "colors"
       },
       {
-        "name": "The Color Means a Promise Rule",
-        "body": "Each differentiator keeps its panel color on every page it appears. A panel color is not chosen for variety.",
+        "name": "The Navy Field Rule",
+        "body": "Navy is for the big fields only: the hero band, one inverted card per page, the footer.",
         "section": "colors"
       },
       {
         "name": "The No Tracking Rule",
-        "body": "Never apply negative or positive letter-spacing to Persian text; it breaks Arabic-script joining.",
+        "body": "Never add letter-spacing to Persian; it breaks the joins.",
         "section": "typography"
       },
       {
-        "name": "The Quiet Heading Rule",
-        "body": "One weight step above body is enough; size carries the hierarchy, not stacked bold, color and caps. No eyebrows above headings; numbering only where the sequence carries meaning.",
+        "name": "The Two Clause Rule",
+        "body": "Section headlines are two short clauses, the second a turn: «کنترل را جدی بگیرید. نه دست‌وپاگیر.»",
         "section": "typography"
       },
       {
-        "name": "The Tinted Shadow Rule",
-        "body": "Shadows are tinted with Workshop Ink and offset downward. No zero-offset glows, no hard offset shadows, no glass or backdrop blur.",
+        "name": "The Flat Tile Rule",
+        "body": "No box shadows, glows, glass or backdrop blur. A tile is a White Card with a Hairline outline; hover steps its fill one surface (surface to ground, ground to panel).",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do show the real product: real screenshots in Product Windows on tinted panels.",
-      "Do keep each differentiator on its own panel color everywhere it appears.",
-      "Do use motion to demonstrate an assistant's work, once, on entry, and honor `prefers-reduced-motion`.",
-      "Do build and check every section in light and dark themes.",
-      "Do build pages from the shared patterns in `app/components/patterns` (live samples at `/_patterns`) and the `site-*` / `tone-*` utilities; never raw palette colors."
+      "Do build pages from the shared patterns in `app/components/patterns` (live samples at `/_patterns`) and the `site-*` utilities and type scale; never raw palette colors.",
+      "Do keep orange to one element per section, and use Ember for orange words and links.",
+      "Do quote the tagline exactly, «بی‌گدار به آب و AI نزنید!», with its half-space and exclamation mark, at most once per page.",
+      "Do write headlines as two short clauses with a turn, and buttons as two- or three-word verbs.",
+      "Do build and check every section in light and dark themes."
     ],
     "donts": [
-      "Don't use water, ford or river illustration, ripples or wave motifs; that world is retired.",
-      "Don't introduce a second saturated color or use a panel tint for text or buttons.",
-      "Don't use indigo, slate or other raw Tailwind palette colors; feature pages that still do are debt to migrate.",
-      "Don't apply letter-spacing to Persian text.",
-      "Don't present invented numbers, logos or quotes inside mocks as real.",
-      "Don't use glass, glows, gradients on text, or decorative blobs."
+      "Don't use shadows, glows, glass or gradients.",
+      "Don't put orange text on light surfaces, or white text on orange.",
+      "Don't use navy for anything smaller than a field or a card.",
+      "Don't add letter-spacing to Persian.",
+      "Don't use emoji, blue-purple gradients, emoji cards or left-border accent cards.",
+      "Don't present invented numbers, logos or quotes inside mocks as real."
     ]
   }
 }

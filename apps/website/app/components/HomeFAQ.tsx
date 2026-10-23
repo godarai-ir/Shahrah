@@ -62,5 +62,5 @@ const groups: FAQGroup[] = [
 ];
 
 export function HomeFAQ() {
-  return <FAQ title="چیزهایی که معمولاً می‌پرسند" groups={groups} />;
+  return <FAQ title="پیش از پریدن، بپرسید." groups={groups} />;
 }

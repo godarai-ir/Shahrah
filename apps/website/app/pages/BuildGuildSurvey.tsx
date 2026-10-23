@@ -106,13 +106,12 @@ export function BuildGuildSurvey() {
 
   return (
     <main className="relative overflow-hidden px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-96 bg-gradient-to-b from-violet-500/10 to-transparent" />
       <div className="mx-auto max-w-2xl">
         <header className="mb-8 text-center">
-          <h1 className="mb-4 text-2xl font-black leading-relaxed text-slate-950 dark:text-white sm:text-3xl">
+          <h1 className="mb-4 text-2xl font-extrabold leading-relaxed text-site-ink sm:text-3xl">
             🎁 هدیهٔ ما به شرکت‌کنندگان Build-Guild: ۱ میلیون تومان اعتبار رایگان API هوش مصنوعی
           </h1>
-          <p className="text-base leading-8 text-slate-600 dark:text-slate-300">
+          <p className="text-base leading-8 text-site-ink-soft">
             پاسخ‌های شما به ما کمک می‌کند تجربهٔ گدارAI را برای تیم‌ها و سازمان‌ها، بهتر طراحی کنیم. پاسخ به همهٔ سؤال‌ها اختیاری است.
           </p>
         </header>
@@ -122,21 +121,21 @@ export function BuildGuildSurvey() {
         <form
           onSubmit={handleContinue}
           noValidate
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/5 dark:border-slate-800 dark:bg-slate-900"
+          className="overflow-hidden rounded-card border border-site-line bg-site-surface"
         >
           <div className="px-5 pt-5 sm:px-8 sm:pt-7">
-            <div className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div className="mb-2 text-xs font-medium text-site-ink-soft">
               سؤال {toFa(step + 1)} از {toFa(totalSteps)}
             </div>
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+              className="h-1.5 overflow-hidden rounded-full bg-site-panel"
               role="progressbar"
               aria-valuemin={1}
               aria-valuemax={totalSteps}
               aria-valuenow={step + 1}
               aria-valuetext={`سؤال ${toFa(step + 1)} از ${toFa(totalSteps)}`}
             >
-              <div className="h-full rounded-full bg-violet-600 transition-[width] duration-500" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-site-accent transition-[width] duration-500" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
@@ -223,13 +222,13 @@ export function BuildGuildSurvey() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-site-line px-5 py-4 sm:px-8">
             {step > 0 ? (
               <button
                 type="button"
                 onClick={() => setStep(step - 1)}
                 disabled={finishing}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="inline-flex min-h-11 items-center gap-2 rounded-card px-3 text-sm font-semibold text-site-ink-soft transition-colors hover:bg-site-panel focus-visible:outline-2 focus-visible:outline-site-focus disabled:opacity-50"
               >
                 <ArrowRight aria-hidden="true" className="size-4" />
                 بازگشت
@@ -242,14 +241,14 @@ export function BuildGuildSurvey() {
                 type="button"
                 onClick={handleSkip}
                 disabled={finishing}
-                className="min-h-11 rounded-xl px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="min-h-11 rounded-card px-3 text-sm font-medium text-site-ink-soft transition-colors hover:bg-site-panel hover:text-site-ink focus-visible:outline-2 focus-visible:outline-site-focus disabled:opacity-50"
               >
                 رد کردن این سؤال
               </button>
               <button
                 type="submit"
                 disabled={finishing}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center gap-2 rounded-card bg-site-accent px-6 text-sm font-semibold text-site-on-accent transition-colors hover:bg-site-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus disabled:cursor-not-allowed disabled:opacity-60"
               >
                 ادامه
                 {finishing ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : <ArrowLeft aria-hidden="true" className="size-4" />}
@@ -263,7 +262,7 @@ export function BuildGuildSurvey() {
 }
 
 const inputClassName =
-  'w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500';
+  'w-full rounded-card border bg-site-surface px-4 py-3 text-sm text-site-ink transition-colors placeholder:text-site-ink-soft focus:outline-none focus:ring-2 focus:ring-site-focus';
 
 function QuestionShell({
   headingRef,
@@ -279,11 +278,11 @@ function QuestionShell({
   return (
     <fieldset>
       <legend className="contents">
-        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-bold leading-8 text-slate-950 outline-none dark:text-white sm:text-xl">
+        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-bold leading-8 text-site-ink outline-none sm:text-xl">
           {title}
         </h2>
       </legend>
-      {hint && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && <p className="mt-1 text-sm text-site-ink-soft">{hint}</p>}
       <div className="mt-5">{children}</div>
     </fieldset>
   );
@@ -312,7 +311,7 @@ function TextField({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-800 dark:text-slate-200">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-site-ink">
         {label}
       </label>
       <input
@@ -324,11 +323,11 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        className={`${inputClassName} ${dir === 'ltr' ? 'text-left' : ''} ${error ? 'border-red-400 dark:border-red-500/60' : 'border-slate-200 dark:border-slate-700'}`}
+        className={`${inputClassName} ${dir === 'ltr' ? 'text-left' : ''} ${error ? 'border-site-danger' : 'border-site-line'}`}
         {...inputProps}
       />
       {error && (
-        <p id={`${id}-error`} className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-site-danger">
           {error}
         </p>
       )}
@@ -359,12 +358,12 @@ function OptionList({
         return (
           <label
             key={option.value}
-            className={`flex min-h-12 select-none items-center gap-3 rounded-xl border px-4 py-2.5 text-sm leading-6 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-violet-500 ${
+            className={`flex min-h-12 select-none items-center gap-3 rounded-card border px-4 py-2.5 text-sm leading-6 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-site-focus ${
               isChecked
-                ? 'border-violet-500 bg-violet-50 font-medium text-violet-900 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-100'
+                ? 'border-site-line-strong bg-site-sand font-medium text-site-accent-text'
                 : isDisabled
-                  ? 'cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-800 dark:text-slate-600'
-                  : 'cursor-pointer border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50/40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-violet-500/5'
+                  ? 'cursor-not-allowed border-site-line text-site-ink-soft'
+                  : 'cursor-pointer border-site-line text-site-ink hover:border-site-line hover:bg-site-sand'
             }`}
           >
             <input
@@ -379,7 +378,7 @@ function OptionList({
             <span
               aria-hidden="true"
               className={`grid size-5 shrink-0 place-items-center border ${multiple ? 'rounded-md' : 'rounded-full'} ${
-                isChecked ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                isChecked ? 'border-site-line-strong bg-site-accent text-site-on-accent' : 'border-site-line'
               }`}
             >
               {isChecked && <Check className="size-3.5" strokeWidth={3} />}
@@ -406,7 +405,7 @@ function OtherInput({ id, label, value, onChange }: { id: string; label: string;
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={label}
-        className={`${inputClassName} border-slate-200 dark:border-slate-700`}
+        className={`${inputClassName} border-site-line`}
       />
     </div>
   );

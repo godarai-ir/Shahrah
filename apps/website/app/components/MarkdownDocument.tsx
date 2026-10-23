@@ -11,50 +11,50 @@ export function MarkdownDocument({ content }: MarkdownDocumentProps) {
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mb-6 text-2xl font-bold leading-9 text-foreground md:text-3xl">
+          <h1 className="mb-6 text-h2 font-bold text-site-ink">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mb-4 mt-8 text-xl font-bold leading-8 text-foreground md:text-2xl">
+          <h2 className="mb-4 mt-10 text-h3 font-bold text-site-ink">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mb-3 mt-6 text-base font-semibold leading-7 text-foreground md:text-lg">
+          <h3 className="mb-3 mt-8 text-lead font-semibold text-site-ink">
             {children}
           </h3>
         ),
         p: ({ children }) => (
-          <p className="mb-5 text-sm leading-8 text-card-foreground md:text-base">
+          <p className="mb-5 text-body leading-8 text-site-ink">
             {children}
           </p>
         ),
         ul: ({ children }) => (
-          <ul className="mb-5 flex list-disc flex-col gap-2 pe-6 text-sm leading-8 text-card-foreground md:text-base">
+          <ul className="mb-5 flex list-disc flex-col gap-2 pe-6 text-body leading-8 text-site-ink">
             {children}
           </ul>
         ),
         ol: ({ children }) => (
-          <ol className="mb-5 flex list-decimal flex-col gap-2 pe-6 text-sm leading-8 text-card-foreground md:text-base">
+          <ol className="mb-5 flex list-decimal flex-col gap-2 pe-6 text-body leading-8 text-site-ink">
             {children}
           </ol>
         ),
         li: ({ children }) => <li className="ps-1">{children}</li>,
         strong: ({ children }) => (
-          <strong className="font-semibold text-foreground">{children}</strong>
+          <strong className="font-semibold text-site-ink">{children}</strong>
         ),
         a: ({ children, href }) => (
           <a
             href={href}
-            className="font-medium text-primary underline underline-offset-4"
+            className="rounded-field font-medium text-site-accent-text underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus"
           >
             {children}
           </a>
         ),
-        hr: () => <hr className="my-8 border-border" />,
+        hr: () => <hr className="my-10 border-site-line" />,
         code: ({ children }) => (
-          <code className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">
+          <code className="rounded-field bg-site-panel px-1.5 py-0.5 font-mono text-label text-site-ink">
             {children}
           </code>
         ),

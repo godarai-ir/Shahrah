@@ -4,7 +4,7 @@ import { buildMetadata } from '@/app/lib/seo';
 import { OnPremiseRequest } from '@/app/pages/OnPremiseRequest';
 
 export const metadata: Metadata = buildMetadata({
-  title: 'درخواست استقرار درون‌سازمانی گدارAI',
+  title: 'استقرار گدارAI در سازمان (On-Premise)',
   description:
     'با تکمیل یک فرم کوتاه مرحله‌ای، وضعیت زیرساخت سازمان خود را معرفی کنید تا استقرار On-Premise گدارAI را برنامه‌ریزی کنیم.',
   path: '/on-premise',

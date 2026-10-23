@@ -11,7 +11,7 @@ const item = (label: string, href?: string): ControlItem => ({ label, href: href
 const groups: ControlGroup[] = [
   {
     title: 'امنیت',
-    surface: 'guard',
+    surface: 'surface',
     items: [
       item('گاردریل معنایی روی ورودی، خروجی و فایل‌ها', '/features/guardrails'),
       item('گدارAI با داده‌ی شما مدل آموزش نمی‌دهد', '/features/security'),
@@ -19,7 +19,7 @@ const groups: ControlGroup[] = [
   },
   {
     title: 'مدیریت',
-    surface: 'govern',
+    surface: 'sand',
     items: [
       item('نقش و دسترسی هر تیم به مدل، دستیار و ابزار', '/features/governance'),
       item('ثبت هر درخواست و هر تغییر تنظیمات'),
@@ -28,7 +28,7 @@ const groups: ControlGroup[] = [
   },
   {
     title: 'هزینه',
-    surface: 'cost',
+    surface: 'surface',
     items: [
       item('سقف مصرف برای هر تیم و هر کلید', '/features/cost-control'),
       item('پرداخت تومانی و فاکتور رسمی', '/pricing'),
@@ -36,7 +36,7 @@ const groups: ControlGroup[] = [
   },
   {
     title: 'استقرار',
-    surface: 'panel',
+    surface: 'sand',
     items: [
       item('روی ابر گدارAI، بدون نصب'),
       item('روی سرورهای خودتان، با قرارداد سالانه', '/on-premise'),
@@ -47,10 +47,10 @@ const groups: ControlGroup[] = [
 
 export function Enterprise() {
   return (
-    <Section id="enterprise" layout="flex flex-col gap-14">
-      <div className="flex flex-col gap-6">
+    <Section id="enterprise" layout="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
         <div>
-          <h2 className={`max-w-3xl ${sectionHeading}`}>داده و دسترسی‌ها دست خودتان است</h2>
+          <h2 className={`max-w-3xl ${sectionHeading}`}>اول عمق آب را بسنجید.</h2>
         </div>
         <div>
           <p className={`max-w-3xl ${sectionCopy}`}>

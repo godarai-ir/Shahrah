@@ -11,15 +11,6 @@ export type Pillar = {
   icon: LucideIcon;
 };
 
-// Each differentiator keeps its tone on every page it appears (DESIGN.md, The Color Means a Promise Rule).
-// Class names are spelled out in full so Tailwind can find them.
-export const toneSurface: Record<PillarId, string> = {
-  guard: 'bg-tone-guard',
-  govern: 'bg-tone-govern',
-  observe: 'bg-tone-observe',
-  cost: 'bg-tone-cost',
-};
-
 export const pillars: Pillar[] = [
   {
     id: 'guard',

@@ -65,7 +65,7 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 
 ## Capabilities and Constraints
 
-- Next.js App Router, RTL, Vazirmatn. Pages under `app/(site)`; login, signup and onboarding sit outside the marketing shell. Run with `pnpm --filter @shahrah/website ...`.
+- Next.js App Router, RTL, Estedad (Vazirmatn as fallback). Pages under `app/(site)`; login, signup and onboarding sit outside the marketing shell. Run with `pnpm --filter @shahrah/website ...`.
 - All existing routes are kept when pages are added or redesigned.
 - Do not state a credit-to-dollar ratio in public copy.
 - Not shipped today, never claim: PII masking as a guardrail feature; human approval of tool actions before execution; live intervention from the dashboard (pausing a key or switching a model without a deploy) as a marketed capability; automatic sync of sources such as Drive or Confluence; local open-weight models inside On-Premise; a usage-only cloud plan without subscription.
@@ -75,10 +75,10 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 ## Brand Commitments
 
 - Name: «گدارAI» in Persian prose; `GodarAI` only in code, domains and identifiers.
-- Tagline play on words: «بی‌گدار به آب نزنید» (gadar = ford). Used sparingly as copy: one hero line and one closing line, never as filler.
+- Tagline, fixed: «بی‌گدار به آب و AI نزنید!» (gadar = ford), quoted exactly with its half-space and exclamation mark, at most once per page.
 - Assistants are called «دستیار». The word «هوشواره» is retired and must not appear in public copy.
 - Logo comes only from `/brand` assets through the `GodarAILogo` component; never redrawn or recolored.
-- Voice: calm, confident, advisory, like a trusted advisor showing the safe way across. Short, concrete, Persian-native; second person with «تان»; no calques from English, no stacks of adjectives, no machine rhythm of three parallel verbs, no hype.
+- Voice: bold and witty, a sharp, friendly expert. Short sentences; a pun when it earns its place (water, fords, depth: «اول عمق آب را بسنجید.»), never at the reader's expense. Headlines are two short clauses, the second a turn. Address the reader as «شما»; GodarAI speaks as «ما». Buttons are two- or three-word verbs. Persian-native; no calques from English, no stacks of adjectives, no emoji. Wit never bends a fact: every claim still follows Capabilities and Constraints.
 
 ## Evidence on Hand
 

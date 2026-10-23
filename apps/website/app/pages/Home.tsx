@@ -12,7 +12,7 @@ import { TwoWays } from '../components/TwoWays';
 // QuoteCard stay in the codebase and return here when there is something true to show.
 export function Home() {
   return (
-    <main className="bg-site-ground selection:bg-site-panel-deep">
+    <main className="bg-site-ground selection:bg-site-sand">
       <Hero />
       <Scenario />
       <TwoWays />

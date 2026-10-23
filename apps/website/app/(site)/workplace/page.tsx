@@ -3,9 +3,9 @@ import { Workplace } from "@/app/pages/Workplace";
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "هوش مصنوعی در کار روزانه‌ی سازمان",
+  title: "فضای کاری هوش مصنوعی برای سازمان‌ها",
   description:
-    "گدارAI هوش مصنوعی را به دست همه‌ی تیم‌ها می‌رساند؛ امن، قابل کنترل و متصل به ابزارهای کار روزانه، با پرداخت تومانی.",
+    "گفتگو با هر مدل، دستیار برای هر تیم، اتصال به ابزارهای سازمان و کنترل کامل دسترسی و هزینه.",
   path: "/workplace",
   keywords: ["پذیرش هوش مصنوعی در سازمان", "هوش مصنوعی در محیط کار", "دستیار هوش مصنوعی سازمانی", "گدارAI"],
   noIndex: true,

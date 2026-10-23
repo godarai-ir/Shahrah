@@ -1,11 +1,30 @@
 'use client';
 
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { ArrowLeft, Mail, MapPin, Phone } from 'lucide-react';
+import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
+import { PageHero, Section } from '@/app/components/patterns';
+import { buttonPrimary, iconWell, sectionHeading, textLink } from '@/app/components/sectionType';
 import { submitForm } from '@/app/lib/submit-form';
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
+
+const fieldClass =
+  'w-full rounded-field border border-site-line-strong bg-site-surface px-4 py-3 text-body text-site-ink placeholder:text-site-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus';
+const labelClass = 'text-label font-medium text-site-ink';
+
+const contacts = [
+  { icon: Mail, title: 'ایمیل', value: 'support@godarai.ir', description: 'پاسخگویی در کمتر از ۲۴ ساعت', dir: 'ltr' as const },
+  { icon: Phone, title: 'تلفن', value: '021-4415-9743', description: 'شنبه تا چهارشنبه، ۹ صبح تا ۶ عصر', dir: 'ltr' as const },
+  {
+    icon: MapPin,
+    title: 'آدرس',
+    value: 'تهران، کارخانه نوآوری آزادی',
+    description: 'بزرگراه شهید لشکری (جاده مخصوص کرج) نبش خیابان شهید آزمون نیا، پلاک 31',
+    dir: undefined,
+  },
+];
 
 export function Contact() {
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
@@ -34,131 +53,81 @@ export function Contact() {
   }
 
   return (
-    <div className="py-24 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-l from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            تماس با ما
-          </h1>
-          <p className="text-xl text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">
-            سوال، پیشنهاد یا بازخوردی دارید؟ دوست داریم از شما بشنویم
-          </p>
-        </div>
+    <main className="bg-site-ground">
+      <PageHero
+        title="با ما در تماس باشید."
+        lead="سؤال، پیشنهاد یا بازخوردی دارید؟ دوست داریم از شما بشنویم."
+        primary={{ href: '#contact-form', label: 'نوشتن پیام' }}
+        secondary={{ href: '/demo', label: 'درخواست دمو' }}
+      />
 
-        <div className="grid md:grid-cols-2 gap-12">
-          <div>
-            <h2 className="text-2xl font-bold mb-8">راه‌های ارتباطی</h2>
-            <div className="space-y-6">
-              {[
-                {
-                  icon: Mail,
-                  title: 'ایمیل',
-                  value: 'support@godarai.ir',
-                  description: 'پاسخگویی در کمتر از ۲۴ ساعت',
-                },
-                {
-                  icon: Phone,
-                  title: 'تلفن',
-                  value: '021-4415-9743',
-                  description: 'شنبه تا چهارشنبه، ۹ صبح تا ۶ عصر',
-                },
-                {
-                  icon: MapPin,
-                  title: 'آدرس',
-                  value: 'تهران، کارخانه نوآوری آزادی',
-                  description: 'بزرگراه شهید لشکری (جاده مخصوص کرج) نبش خیابان شهید آزمون نیا، پلاک 31',
-                },
-              ].map((contact) => (
-                <div key={contact.title} className="flex gap-4 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
-                  <contact.icon className="w-6 h-6 text-indigo-500 shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-bold mb-1">{contact.title}</h3>
-                    <p className="text-slate-900 dark:text-white mb-1">{contact.value}</p>
-                    <p className="text-sm text-slate-600 dark:text-gray-400">{contact.description}</p>
-                  </div>
+      <Section id="contact" tone="panel" layout="grid gap-12 lg:grid-cols-2 lg:gap-16">
+        <div className="flex flex-col gap-8">
+          <h2 className={sectionHeading}>راه‌های ارتباطی</h2>
+          <ul className="m-0 flex list-none flex-col divide-y divide-site-line border-y border-site-line p-0">
+            {contacts.map((contact) => (
+              <li key={contact.title} className="flex gap-4 py-5">
+                <span className={`size-10 ${iconWell}`}>
+                  <contact.icon aria-hidden="true" className="size-5" />
+                </span>
+                <div className="flex min-w-0 flex-col gap-1">
+                  <h3 className="m-0 text-label font-semibold text-site-ink">{contact.title}</h3>
+                  <p dir={contact.dir} className="m-0 text-body text-site-ink">{contact.value}</p>
+                  <p className="m-0 text-caption text-site-ink-soft">{contact.description}</p>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold mb-8">پیام بگذارید</h2>
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="contact-name">نام و نام خانوادگی</label>
-                <input
-                  id="contact-name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  maxLength={120}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="نام شما"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="contact-email">ایمیل</label>
-                <input
-                  id="contact-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  maxLength={254}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="email@example.com"
-                  dir="ltr"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="contact-subject">موضوع</label>
-                <input
-                  id="contact-subject"
-                  name="subject"
-                  type="text"
-                  maxLength={200}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="موضوع پیام شما"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" htmlFor="contact-message">پیام</label>
-                <textarea
-                  id="contact-message"
-                  name="message"
-                  rows={5}
-                  maxLength={5000}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="پیام خود را بنویسید..."
-                />
-              </div>
-              <div className="hidden" aria-hidden="true">
-                <label htmlFor="contact-website">وب‌سایت</label>
-                <input id="contact-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
-              </div>
-              <button
-                type="submit"
-                disabled={submitState === 'submitting'}
-                className="w-full py-3 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)]"
-              >
-                {submitState === 'submitting' ? 'در حال ارسال...' : 'ارسال پیام'}
-              </button>
-              {submitMessage && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className={submitState === 'success' ? 'text-sm text-emerald-600' : 'text-sm text-red-600'}
-                >
-                  {submitMessage}
-                </p>
-              )}
-            </form>
-          </div>
+              </li>
+            ))}
+          </ul>
+          <Link href="/demo" className={textLink}>
+            گفت‌وگو درباره‌ی خرید؟ درخواست دمو
+            <ArrowLeft aria-hidden="true" className="size-4" />
+          </Link>
         </div>
-      </div>
-    </div>
+
+        <div className="flex flex-col gap-8 rounded-card border border-site-line bg-site-surface p-6 lg:p-8">
+          <h2 className={sectionHeading}>پیام بگذارید</h2>
+          <form id="contact-form" className="flex flex-col gap-6" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-2">
+              <label className={labelClass} htmlFor="contact-name">نام و نام خانوادگی</label>
+              <input id="contact-name" name="name" type="text" autoComplete="name" maxLength={120} required className={fieldClass} placeholder="نام شما" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className={labelClass} htmlFor="contact-email">ایمیل</label>
+              <input
+                id="contact-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                maxLength={254}
+                required
+                className={`${fieldClass} text-left`}
+                placeholder="email@example.com"
+                dir="ltr"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className={labelClass} htmlFor="contact-subject">موضوع</label>
+              <input id="contact-subject" name="subject" type="text" maxLength={200} required className={fieldClass} placeholder="موضوع پیام شما" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className={labelClass} htmlFor="contact-message">پیام</label>
+              <textarea id="contact-message" name="message" rows={5} maxLength={5000} required className={fieldClass} placeholder="پیام خود را بنویسید…" />
+            </div>
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="contact-website">وب‌سایت</label>
+              <input id="contact-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
+            <button type="submit" disabled={submitState === 'submitting'} className={`${buttonPrimary} w-full disabled:cursor-not-allowed disabled:opacity-60`}>
+              {submitState === 'submitting' ? 'در حال ارسال…' : 'ارسال پیام'}
+            </button>
+            {submitMessage && (
+              <p role="status" aria-live="polite" className={`m-0 text-label ${submitState === 'success' ? 'text-site-success' : 'text-site-danger'}`}>
+                {submitMessage}
+              </p>
+            )}
+          </form>
+        </div>
+      </Section>
+    </main>
   );
 }

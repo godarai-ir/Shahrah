@@ -46,7 +46,7 @@ export function MediaSlot({ id, className = '', priority = false, fallback }: Me
     src?: string;
     poster?: string;
   } = homeMedia[id];
-  const frame = cn('relative w-full overflow-hidden rounded-2xl', aspectClass[media.aspect], className);
+  const frame = cn('relative w-full overflow-hidden rounded-card', aspectClass[media.aspect], className);
 
   if (media.src && media.kind === 'video') {
     return (
@@ -92,7 +92,7 @@ export function MediaSlot({ id, className = '', priority = false, fallback }: Me
     <div
       className={cn(frame, 'flex flex-col items-center justify-center gap-3 border-2 border-dashed border-site-line bg-site-panel p-4 text-center')}
     >
-      <span className="flex size-12 items-center justify-center rounded-full bg-site-panel-deep text-site-ink-soft">
+      <span className="flex size-12 items-center justify-center rounded-full bg-site-sand text-site-ink-soft">
         <Icon className="size-5" />
       </span>
       <div className="min-w-0 max-w-md">
