@@ -36,7 +36,7 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -47,7 +47,7 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:create", "provider_account:read", "provider_account:manage", "provider_account:delete",
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
-		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+		"logs:read_metadata", "logs:read_content",
 	},
 	"member": {
 		"user:list",
