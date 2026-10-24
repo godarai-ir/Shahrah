@@ -9,23 +9,67 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/domain/credits"
 	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/jackc/pgx/v5"
 )
+
+// supportTenantColumns and supportTenantJoins select a tenant summary row: plan,
+// wallet, seats held and bought per type, and the shared credit pool (the
+// balance left after the members' personal credits).
+const supportTenantColumns = `
+	t.tenant_id::text, t.slug, t.domain, t.status, t.created_at,
+	COALESCE(cp.slug, ''), COALESCE(cp.display_name, ''), COALESCE(ts.status, ''), ts.current_period_end,
+	ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint,
+	sa.free, sa.pro, sb.pro, sa.max, sb.max,
+	COALESCE(cb.available_mc, 0) - COALESCE(pl.personal_mc, 0)`
+
+const supportTenantJoins = `
+	FROM tenants t
+	LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
+	LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
+	LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
+	LEFT JOIN credit_tenant_balances cb ON cb.tenant_id = t.tenant_id
+	CROSS JOIN LATERAL (
+		SELECT COUNT(1) FILTER (WHERE a.seat_type = 'free')::int AS free,
+		       COUNT(1) FILTER (WHERE a.seat_type = 'pro')::int AS pro,
+		       COUNT(1) FILTER (WHERE a.seat_type = 'max')::int AS max
+		FROM tenant_seat_assignments a
+		JOIN users u ON u.user_id = a.user_id AND u.tenant_id = a.tenant_id AND COALESCE(u.active, true)
+		WHERE a.tenant_id = t.tenant_id
+	) sa
+	CROSS JOIN LATERAL (
+		SELECT COALESCE(SUM(quantity) FILTER (WHERE seat_type = 'pro'), 0)::int AS pro,
+		       COALESCE(SUM(quantity) FILTER (WHERE seat_type = 'max'), 0)::int AS max
+		FROM tenant_seat_blocks WHERE tenant_id = t.tenant_id AND paid_through > NOW()
+	) sb
+	CROSS JOIN LATERAL (
+		SELECT SUM(remaining_mc)::bigint AS personal_mc FROM credit_lot_balances
+		WHERE tenant_id = t.tenant_id AND owner_user_id IS NOT NULL AND remaining_mc > 0
+	) pl`
+
+func scanSupportTenant(row pgx.Row, item *platform.SupportTenantSummary) error {
+	var poolMC int64
+
+	if err := row.Scan(&item.ID, &item.Slug, &item.Domain, &item.Status, &item.CreatedAt,
+		&item.PlanSlug, &item.PlanDisplayName, &item.SubscriptionStatus, &item.PeriodEnd,
+		&item.WalletBalanceMinor, &item.WalletPendingMinor,
+		&item.SeatsFree, &item.SeatsPro, &item.SeatsProPurchased, &item.SeatsMax, &item.SeatsMaxPurchased,
+		&poolMC); err != nil {
+		return err
+	}
+
+	item.PoolCredits = credits.Format(credits.Millicredits(poolMC))
+
+	return nil
+}
 
 func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, status, plan string, limit, offset int) ([]platform.SupportTenantSummary, error) {
 	query = strings.TrimSpace(query)
 	status = strings.TrimSpace(strings.ToLower(status))
 	plan = strings.TrimSpace(strings.ToLower(plan))
 
-	rows, err := s.pool.Query(ctx, `
-		SELECT t.tenant_id::text, t.slug, t.domain, t.status, t.created_at,
-		       COALESCE(cp.slug, ''), COALESCE(cp.display_name, ''), COALESCE(ts.status, ''), ts.current_period_end,
-		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint
-		FROM tenants t
-		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
-		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
-		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
+	rows, err := s.pool.Query(ctx, `SELECT `+supportTenantColumns+supportTenantJoins+`
 		WHERE ($1 = '' OR t.slug ILIKE '%' || $1 || '%' OR t.domain ILIKE '%' || $1 || '%' OR t.tenant_id::text = $1)
 		  AND ($2 = '' OR LOWER(t.status) = $2)
 		  AND ($3 = '' OR LOWER(COALESCE(cp.slug, '')) = $3)
@@ -41,9 +85,7 @@ func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, statu
 
 	for rows.Next() {
 		var item platform.SupportTenantSummary
-		if err := rows.Scan(&item.ID, &item.Slug, &item.Domain, &item.Status, &item.CreatedAt,
-			&item.PlanSlug, &item.PlanDisplayName, &item.SubscriptionStatus, &item.PeriodEnd,
-			&item.WalletBalanceMinor, &item.WalletPendingMinor); err != nil {
+		if err := scanSupportTenant(rows, &item); err != nil {
 			return nil, err
 		}
 
@@ -56,21 +98,10 @@ func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, statu
 func (s *SupportRepository) GetSupportTenantSummary(ctx context.Context, tenantID string) (*platform.SupportTenantSummary, error) {
 	var item platform.SupportTenantSummary
 
-	err := s.pool.QueryRow(ctx, `
-		SELECT t.tenant_id::text, t.slug, t.domain, t.status, t.created_at,
-		       COALESCE(cp.slug, ''), COALESCE(cp.display_name, ''), COALESCE(ts.status, ''), ts.current_period_end,
-		       ROUND(COALESCE(w.balance_irr, 0))::bigint, ROUND(COALESCE(w.pending_irr, 0))::bigint
-		FROM tenants t
-		LEFT JOIN tenant_subscriptions ts ON ts.tenant_id = t.tenant_id AND ts.status IN ('trialing', 'active', 'past_due')
-		LEFT JOIN commercial_plans cp ON cp.plan_id = ts.plan_id
-		LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
+	err := scanSupportTenant(s.pool.QueryRow(ctx, `SELECT `+supportTenantColumns+supportTenantJoins+`
 		WHERE t.tenant_id::text = $1
 		LIMIT 1
-	`, tenantID).Scan(
-		&item.ID, &item.Slug, &item.Domain, &item.Status, &item.CreatedAt,
-		&item.PlanSlug, &item.PlanDisplayName, &item.SubscriptionStatus, &item.PeriodEnd,
-		&item.WalletBalanceMinor, &item.WalletPendingMinor,
-	)
+	`, tenantID), &item)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, supportdomain.ErrTenantNotFound
 	}

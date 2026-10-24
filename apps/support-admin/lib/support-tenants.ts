@@ -10,6 +10,12 @@ export type TenantSummary = {
   period_end?: string;
   wallet_balance_minor: number;
   wallet_pending_minor: number;
+  seats_free: number;
+  seats_pro: number;
+  seats_pro_purchased: number;
+  seats_max: number;
+  seats_max_purchased: number;
+  pool_credits: string;
 };
 
 export type TenantListResponse = { data: TenantSummary[]; next_cursor?: string };
