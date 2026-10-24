@@ -92,17 +92,6 @@ type TenantSubscription struct {
 	UpdatedAt          time.Time              `json:"updated_at"`
 }
 
-type CommercialSignupSettings struct {
-	TrialDays       int       `json:"trial_days"`
-	SignupCreditIRR int64     `json:"signup_credit_irr"`
-	UpdatedBy       string    `json:"updated_by,omitempty"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-type UpdateCommercialSignupSettingsRequest struct {
-	SignupCreditIRR *int64 `json:"signup_credit_irr"`
-}
-
 type TenantEntitlementOverride struct {
 	ID         string      `json:"id"`
 	TenantID   string      `json:"tenant_id"`

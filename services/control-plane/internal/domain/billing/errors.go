@@ -7,7 +7,6 @@ var (
 	ErrFeatureNotFound                   = errors.New("feature not found")
 	ErrFeatureOverrideForbidden          = errors.New("feature override is not allowed")
 	ErrInsufficientWalletBalance         = errors.New("insufficient wallet balance")
-	ErrInvalidSignupCredit               = errors.New("signup credit must be a non-negative whole IRR amount")
 	ErrPlanNotFound                      = errors.New("commercial plan not found")
 	ErrPlanPriceUnavailable              = errors.New("plan price is not configured")
 	ErrPlanVersionNotFound               = errors.New("plan version not found")
