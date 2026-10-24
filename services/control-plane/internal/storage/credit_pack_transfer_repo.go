@@ -37,17 +37,35 @@ func (s *FinancialRepository) createCreditPackBankTransfer(ctx context.Context, 
 		return nil, billingdomain.ErrCreditPackTransferMismatch
 	}
 
+	return insertOrderBankTransfer(ctx, tx, tenantID, req, actor, "credit_pack_order_id", order.PublicID, order.ID)
+}
+
+// insertOrderBankTransfer stores a pending-review transfer that pays one order
+// and commits tx. column is an internal constant naming the order link column,
+// never request input.
+func insertOrderBankTransfer(ctx context.Context, tx pgx.Tx, tenantID string, req platform.CreateBankTransferRequest, actor, column, orderPublicID, orderID string) (*platform.BankTransferRequest, error) {
+	var pending bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM bank_transfer_requests WHERE `+column+` = $1::uuid AND status = 'pending_review')
+	`, orderID).Scan(&pending); err != nil {
+		return nil, err
+	}
+
+	if pending {
+		return nil, billingdomain.ErrBankTransferAlreadyPending
+	}
+
 	metadata := req.Metadata
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
 
-	metadata["credit_pack_order_id"] = order.PublicID
+	metadata[column] = orderPublicID
 
 	item, err := scanBankTransferRequest(tx.QueryRow(ctx, `
 		INSERT INTO bank_transfer_requests (
 			tenant_id, amount_irr, tracking_number, bank_transaction_at, receipt_file_url,
-			status, metadata, created_by, credit_pack_order_id
+			status, metadata, created_by, `+column+`
 		)
 		VALUES ($1::uuid, $2, $3, $4, NULLIF($5, ''), 'pending_review', $6, NULLIF($7, ''), $8::uuid)
 		RETURNING bank_transfer_request_id::text, public_id::text, tenant_id::text, amount_irr::bigint,
@@ -55,7 +73,7 @@ func (s *FinancialRepository) createCreditPackBankTransfer(ctx context.Context, 
 		          COALESCE(rejection_reason, ''), COALESCE(wallet_tx_id::text, ''), COALESCE(reviewed_by, ''),
 		          reviewed_at, metadata, COALESCE(created_by, ''), created_at, updated_at
 	`, tenantID, req.AmountIRR, strings.TrimSpace(req.TrackingNumber), req.BankTransactionAt, strings.TrimSpace(req.ReceiptFileURL),
-		marshalJSONBestEffort(metadata), strings.TrimSpace(actor), order.ID))
+		marshalJSONBestEffort(metadata), strings.TrimSpace(actor), orderID))
 	if err != nil {
 		return nil, err
 	}

@@ -329,8 +329,7 @@ func (h *Handlers) CreateSeatOrder(c *fiber.Ctx) error {
 		req.Provider = h.payment.DefaultSubscriptionProvider
 	}
 
-	// Seats are paid through a gateway; bank transfers are for credit packs.
-	if req.Provider == platform.CreditPackProviderBankTransfer || !h.creditPackProviderAllowed(req.Provider) {
+	if !h.creditPackProviderAllowed(req.Provider) {
 		return creditPackError(c, billingdomain.ErrCreditPaymentProviderUnavailable)
 	}
 
@@ -344,6 +343,11 @@ func (h *Handlers) CreateSeatOrder(c *fiber.Ctx) error {
 	order, err := store.CreateSeatOrder(c.Context(), currentTenant.ID, req, baseURL+seatCallbackPath+req.Provider, returnURL, billingActorID(c), time.Now())
 	if err != nil {
 		return seatError(c, err)
+	}
+
+	// A bank-transfer order waits for a transfer that names it.
+	if order.Status == platform.CreditPackOrderAwaitingTransfer {
+		return c.Status(fiber.StatusCreated).JSON(order)
 	}
 
 	payment, err := h.selectPaymentProvider(order.Provider).CreatePayment(c, &platform.WalletTopUpIntent{

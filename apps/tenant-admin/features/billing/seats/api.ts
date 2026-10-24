@@ -182,8 +182,12 @@ export function previewSeatRenewal(keep: Partial<Record<PaidSeatType, number>>, 
   return requestParsedJSON(seatRenewalPreviewSchema, `/api/billing/seats/renewal/preview?${query.toString()}`, { signal });
 }
 
+/** The provider that makes an order wait for a bank transfer instead of a gateway payment. */
+export const BANK_TRANSFER_PROVIDER = "bank_transfer";
+
 export function createSeatOrder(input: {
   kind: "purchase" | "renewal";
+  provider?: string;
   seat?: PaidSeatType;
   quantity?: number;
   billing_interval?: SeatInterval;

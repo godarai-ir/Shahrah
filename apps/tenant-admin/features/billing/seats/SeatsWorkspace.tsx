@@ -32,11 +32,13 @@ import {
 import { SeatRenewalSummary } from "./SeatRenewalSummary";
 import { SeatRequestsTable } from "./SeatRequestsTable";
 import { SeatSettingsCard } from "./SeatSettingsCard";
+import { SeatTransferSheet } from "./SeatTransferSheet";
 import { SeatSummaryCards } from "./SeatSummaryCards";
 
-const ORDER_TONE: Record<string, "success" | "pending" | "error" | "neutral"> = {
+const ORDER_TONE: Record<string, "success" | "pending" | "warning" | "error" | "neutral"> = {
   COMPLETED: "success",
   PENDING: "pending",
+  AWAITING_TRANSFER: "warning",
   FAILED: "error",
   CANCELED: "neutral",
 };
@@ -63,6 +65,7 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
   const { summary } = props;
   const [pendingID, setPendingID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transferOrder, setTransferOrder] = useState<SeatOrder | null>(null);
   const openRequests = requests.filter((request) => request.status === "pending").length;
 
   const refresh = useCallback(() => router.refresh(), [router]);
@@ -118,8 +121,17 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
         ),
       },
       { accessorKey: "created_at", header: t("orders.columns.createdAt"), cell: ({ row }) => <DateTimeValue value={row.original.created_at} locale={locale} /> },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">{t("orders.columns.actions")}</span>,
+        cell: ({ row }) => row.original.status === "AWAITING_TRANSFER" && canManageBilling ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setTransferOrder(row.original)}>
+            {t("orders.submitReceipt")}
+          </Button>
+        ) : null,
+      },
     ],
-    [format, locale, t],
+    [canManageBilling, format, locale, t],
   );
 
   return (
@@ -174,6 +186,15 @@ export function SeatsWorkspace(props: SeatsWorkspaceProps) {
           <DataTable tableId="seat-orders" columns={orderColumns} data={orders} getRowId={(order) => order.id} emptyLabel={t("orders.empty")} />
         </TabsContent>
       </Tabs>
+
+      <SeatTransferSheet
+        order={transferOrder}
+        onClose={() => setTransferOrder(null)}
+        onSubmitted={() => {
+          setTransferOrder(null);
+          refresh();
+        }}
+      />
 
       <SeatRenewalSummary summary={summary} />
       {settings ? <SeatSettingsCard initialSettings={settings} canManage={canManageBilling} /> : null}
