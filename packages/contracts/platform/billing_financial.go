@@ -166,6 +166,20 @@ type BankTransferListResponse struct {
 	Data []BankTransferRequest `json:"data"`
 }
 
+// PlatformBankTransferItem is a bank transfer in the support review queue.
+// Kind is "wallet_topup", "credit_pack" or "seat".
+type PlatformBankTransferItem struct {
+	BankTransferRequest
+	TenantSlug string `json:"tenant_slug"`
+	Kind       string `json:"kind"`
+}
+
+// PlatformBankTransferListResponse is one page of the support review queue.
+type PlatformBankTransferListResponse struct {
+	Data  []PlatformBankTransferItem `json:"data"`
+	Total int                        `json:"total"`
+}
+
 type InvoiceListResponse struct {
 	Data []Invoice `json:"data"`
 }

@@ -131,6 +131,10 @@ function controlPlanePermission(path: string[], method: string): AdminPermission
     if (joined.includes('/disable') || joined.includes('/revoke')) return 'platform_credentials:disable';
     return 'platform_credentials:create_version';
   }
+  // Reviewing a bank transfer moves money, so approve/reject are granted like a wallet adjustment.
+  if (joined === 'bank-transfers' || joined.includes('/wallet/bank-transfer')) {
+    return method === 'GET' ? 'wallet:read' : 'wallet:adjust';
+  }
   if (joined.startsWith('tenants/')) {
     if (method === 'GET') {
       if (joined.includes('/wallet')) return 'wallet:read';

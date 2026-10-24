@@ -53,6 +53,8 @@ type Handler interface {
 	GetPlatformTenantWallet(*fiber.Ctx) error
 	ListPlatformTenantWalletTransactions(*fiber.Ctx) error
 	AdjustPlatformTenantWallet(*fiber.Ctx) error
+	ListPlatformBankTransfers(*fiber.Ctx) error
+	DownloadPlatformBankTransferReceipt(*fiber.Ctx) error
 	ApprovePlatformBankTransfer(*fiber.Ctx) error
 	RejectPlatformBankTransfer(*fiber.Ctx) error
 	SchedulePlatformTenantSubscriptionCancellation(*fiber.Ctx) error
@@ -196,6 +198,8 @@ func (r *Routes) RegisterPlatform(router fiber.Router) {
 	router.Get("/tenants/:tenantID/wallet", r.handler.GetPlatformTenantWallet)
 	router.Get("/tenants/:tenantID/wallet/transactions", r.handler.ListPlatformTenantWalletTransactions)
 	router.Post("/tenants/:tenantID/wallet/adjustments", r.handler.AdjustPlatformTenantWallet)
+	router.Get("/bank-transfers", r.handler.ListPlatformBankTransfers)
+	router.Get("/tenants/:tenantID/wallet/bank-transfer-receipts/:fileName", r.handler.DownloadPlatformBankTransferReceipt)
 	router.Post("/tenants/:tenantID/wallet/bank-transfers/:requestID/approve", r.handler.ApprovePlatformBankTransfer)
 	router.Post("/tenants/:tenantID/wallet/bank-transfers/:requestID/reject", r.handler.RejectPlatformBankTransfer)
 	router.Post("/tenants/:tenantID/subscription/cancel-at-period-end", r.handler.SchedulePlatformTenantSubscriptionCancellation)

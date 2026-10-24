@@ -11,6 +11,7 @@ const links = [
   ['/admin/models', 'Models'],
   ['/admin/pricing', 'Pricing'],
   ['/admin/credits', 'Credits'],
+  ['/admin/bank-transfers', 'Bank Transfers'],
   ['/admin/audit-log', 'Audit Log'],
 ];
 
