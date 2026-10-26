@@ -4,11 +4,11 @@ import { buildMetadata } from "@/app/lib/seo";
 import { SOCIAL_LINK_URLS } from "@/app/lib/social-links";
 
 export const metadata: Metadata = buildMetadata({
-  title: "درگاه مدل‌های زبانی برای تیم‌های ایرانی",
+  title: "هوش مصنوعی امن برای کار روزانه‌ی تیم‌ها",
   description:
-    "گدارAI به تیم‌های ایرانی کمک می‌کند اتصال به مدل‌های زبانی، مسیریابی، پایش و کنترل هزینه را از یک مسیر واحد مدیریت کنند.",
+    "دستیار هوش مصنوعی برای هر تیم، با گاردریل معنایی، سقف هزینه و گزارش کامل. پرداخت تومانی، روی ابر یا سرور خودتان.",
   path: "/",
-  keywords: ["درگاه مدل‌های زبانی", "LLM Gateway", "گدارAI", "زیرساخت هوش مصنوعی ایران"],
+  keywords: ["دستیار هوش مصنوعی سازمانی", "هوش مصنوعی برای شرکت", "MCP", "گدارAI", "درگاه مدل‌های زبانی"],
 });
 
 export default function Page() {
@@ -18,7 +18,7 @@ export default function Page() {
     name: "گدارAI",
     url: "https://godarai.ir",
     description:
-      "درگاه مدل‌های زبانی برای توسعه‌دهندگان و کسب‌وکارهای ایرانی.",
+      "فضای کاری هوش مصنوعی و درگاه مدل‌های زبانی برای سازمان‌های ایرانی، با گاردریل معنایی، کنترل دسترسی و سقف هزینه.",
     areaServed: "IR",
     sameAs: SOCIAL_LINK_URLS,
   };

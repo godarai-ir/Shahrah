@@ -6,13 +6,9 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
-  Clock3,
   Loader2,
   Pencil,
-  Save,
   Send,
-  ServerCog,
-  ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useReducer, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 
@@ -158,6 +154,14 @@ function writeDraft(state: FormState | null) {
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 
+// Only confirmed On-Premise facts (docs/site-architecture/04-open-questions.md): local models and GodarAI-managed
+// updates are not claimed.
+const onPremisePoints = [
+  { title: 'داده و گزارش‌ها روی زیرساخت شما', text: 'گدارAI داخل سرورهای سازمان اجرا می‌شود.' },
+  { title: 'همان فضای کاری و کنترل‌ها', text: 'دستیارها، گاردریل معنایی و سقف هزینه، با ورود سازمانی و همگام‌سازی کاربران.' },
+  { title: 'قرارداد سالانه و پشتیبانی', text: 'با فاکتور رسمی.' },
+];
+
 export function OnPremiseRequest() {
   const [state, dispatch] = useReducer(reducer, { ...initialState, hydrated: false });
   const [contactErrors, setContactErrors] = useState<Partial<Record<ContactFieldId, string>>>({});
@@ -236,35 +240,27 @@ export function OnPremiseRequest() {
   const progress = Math.round((step / reviewStepIndex) * 100);
 
   return (
-    <main className="relative overflow-hidden px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-96 bg-gradient-to-b from-indigo-500/10 to-transparent" />
-      <div className="mx-auto max-w-6xl">
-        <header className="mx-auto mb-10 max-w-3xl text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-            <ServerCog aria-hidden="true" className="size-4" />
-            استقرار درون‌سازمانی
-          </div>
-          <h1 className="mb-4 text-3xl font-black leading-relaxed text-slate-950 dark:text-white sm:text-4xl">
-            گدارAI را در زیرساخت سازمان خود مستقر کنید
-          </h1>
-          <p className="text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
-            با چند پرسش کوتاه، تصویر اولیه‌ای از زیرساخت شما می‌گیریم تا مسیر استقرار را دقیق‌تر برنامه‌ریزی کنیم.
+    <main className="bg-site-ground px-4 py-10 sm:px-6 lg:py-20">
+      <div className="mx-auto max-w-content">
+        <header className="mx-auto mb-8 flex max-w-3xl flex-col items-center gap-4 text-center">
+          <h1 className="m-0 text-balance text-h1 font-extrabold text-site-ink lg:text-display">گدارAI، داخل سرورهای خودتان.</h1>
+          <p className="m-0 text-lead font-light text-site-ink-soft">
+            برای سازمانی که داده‌اش نباید از زیرساخت خودش بیرون برود؛ با قرارداد سالانه و پشتیبانی.
           </p>
-          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
-            <li className="inline-flex items-center gap-1.5">
-              <Clock3 aria-hidden="true" className="size-4 text-indigo-500" />
-              حدود ۵ دقیقه
-            </li>
-            <li className="inline-flex items-center gap-1.5">
-              <Save aria-hidden="true" className="size-4 text-indigo-500" />
-              پاسخ‌ها خودکار ذخیره می‌شوند
-            </li>
-            <li className="inline-flex items-center gap-1.5">
-              <ShieldCheck aria-hidden="true" className="size-4 text-indigo-500" />
-              «نمی‌دانم» هم پاسخ قابل‌قبولی است
-            </li>
-          </ul>
         </header>
+
+        <ul className="m-0 mb-6 grid list-none gap-3 p-0 sm:grid-cols-3 sm:gap-6">
+          {onPremisePoints.map((point) => (
+            <li key={point.title} className="flex flex-col gap-2 rounded-card border border-site-line bg-site-surface p-5">
+              <span className="text-label font-semibold text-site-ink">{point.title}</span>
+              <span className="text-caption text-site-ink-soft">{point.text}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mx-auto mb-10 max-w-3xl text-center text-label text-site-ink-soft">
+          روند کار: پرسشنامه، جلسه‌ی فنی، نصب. زیرساخت لازم: Kubernetes. حدود ۵ دقیقه وقت می‌گیرد، پاسخ‌ها خودکار ذخیره می‌شوند و «نمی‌دانم» هم پاسخ قابل‌قبولی است.
+        </p>
 
         <div ref={topRef} className="scroll-mt-24">
           {submitState === 'success' ? (
@@ -286,27 +282,27 @@ export function OnPremiseRequest() {
                             onClick={() => canJump && goTo(index)}
                             disabled={!canJump}
                             aria-current={isCurrent ? 'step' : undefined}
-                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-right transition-colors focus-visible:outline-2 focus-visible:outline-indigo-500 ${
-                              isCurrent ? 'bg-indigo-50 dark:bg-indigo-500/10' : canJump ? 'hover:bg-slate-100 dark:hover:bg-slate-800/60' : 'cursor-default'
+                            className={`flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-right transition-colors focus-visible:outline-2 focus-visible:outline-site-focus ${
+                              isCurrent ? 'bg-site-sand' : canJump ? 'hover:bg-site-panel' : 'cursor-default'
                             }`}
                           >
                             <span
                               className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${
                                 isCurrent
-                                  ? 'bg-indigo-600 text-white'
+                                  ? 'bg-site-ink text-site-surface'
                                   : isDone
-                                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
-                                    : 'border border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500'
+                                    ? 'bg-site-sand text-site-accent-text'
+                                    : 'border border-site-line text-site-ink-soft'
                               }`}
                             >
                               {isDone && !isCurrent ? <Check aria-hidden="true" className="size-4" /> : toFa(index + 1)}
                             </span>
                             <span className="min-w-0">
-                              <span className={`block text-sm font-semibold ${isCurrent ? 'text-indigo-700 dark:text-indigo-300' : isDone ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-500'}`}>
+                              <span className={`block text-sm font-semibold ${isCurrent ? 'text-site-accent-text' : isDone ? 'text-site-ink' : 'text-site-ink-soft'}`}>
                                 {item.title}
                               </span>
                               {counts && index <= state.furthestStep && (
-                                <span className="block text-xs text-slate-500 dark:text-slate-400">
+                                <span className="block text-xs text-site-ink-soft">
                                   {toFa(counts.answered)} از {toFa(counts.total)} پاسخ
                                 </span>
                               )}
@@ -322,35 +318,35 @@ export function OnPremiseRequest() {
               <form
                 onSubmit={handleSubmit}
                 noValidate
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/5 dark:border-slate-800 dark:bg-slate-900"
+                className="overflow-hidden rounded-card border border-site-line bg-site-surface"
               >
-                <div className="border-b border-slate-200 px-5 pb-5 pt-5 dark:border-slate-800 sm:px-8 sm:pt-7">
+                <div className="border-b border-site-line px-5 pb-5 pt-5 sm:px-8 sm:pt-7">
                   <div className="mb-4 lg:hidden">
-                    <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <div className="mb-2 flex items-center justify-between text-xs font-medium text-site-ink-soft">
                       <span>
                         مرحله {toFa(step + 1)} از {toFa(wizardSteps.length)}
                       </span>
                       {step < reviewStepIndex && <span>بعدی: {wizardSteps[step + 1].shortTitle}</span>}
                     </div>
                     <div
-                      className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+                      className="h-1.5 overflow-hidden rounded-full bg-site-panel"
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={progress}
                       aria-label="پیشرفت تکمیل فرم"
                     >
-                      <div className="h-full rounded-full bg-indigo-600 transition-[width] duration-500" style={{ width: `${Math.max(progress, 4)}%` }} />
+                      <div className="h-full rounded-full bg-site-accent transition-[width] duration-500" style={{ width: `${Math.max(progress, 4)}%` }} />
                     </div>
                   </div>
-                  <h2 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-slate-950 outline-none dark:text-white sm:text-2xl">
+                  <h2 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-site-ink outline-none sm:text-2xl">
                     {current.title}
                   </h2>
-                  <p className="mt-1.5 text-sm leading-7 text-slate-600 dark:text-slate-400">{current.description}</p>
+                  <p className="mt-1.5 text-sm leading-7 text-site-ink-soft">{current.description}</p>
                   {state.restoredDraft && (
-                    <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-site-ink-soft">
                       پاسخ‌های قبلی شما بازیابی شد.
-                      <button type="button" onClick={startOver} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+                      <button type="button" onClick={startOver} className="font-semibold text-site-accent-text hover:underline">
                         شروع از ابتدا
                       </button>
                     </p>
@@ -373,10 +369,10 @@ export function OnPremiseRequest() {
                     <div className="space-y-8">
                       {questionnaireSteps[step - 1].groups.map((group) => (
                         <section key={group.title} aria-labelledby={`group-${group.title}`}>
-                          <h3 id={`group-${group.title}`} className="mb-1 text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                          <h3 id={`group-${group.title}`} className="mb-1 text-sm font-bold text-site-accent-text">
                             {group.title}
                           </h3>
-                          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                          <div className="divide-y divide-site-line">
                             {group.questions
                               .filter((question) => isQuestionVisible(question, answers))
                               .map((question) => (
@@ -409,18 +405,18 @@ export function OnPremiseRequest() {
                   </div>
 
                   {submitState === 'error' && (
-                    <p role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                    <p role="alert" className="mt-6 rounded-card border border-site-danger bg-site-panel px-4 py-3 text-sm text-site-danger">
                       {submitError}
                     </p>
                   )}
                 </div>
 
-                <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:px-8">
+                <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-site-line bg-site-surface px-5 py-4 sm:px-8">
                   {step > 0 ? (
                     <button
                       type="button"
                       onClick={() => goTo(step - 1)}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-card px-4 text-sm font-semibold text-site-ink-soft transition-colors hover:bg-site-panel focus-visible:outline-2 focus-visible:outline-site-focus"
                     >
                       <ArrowRight aria-hidden="true" className="size-4" />
                       قبلی
@@ -431,7 +427,7 @@ export function OnPremiseRequest() {
                   <button
                     type="submit"
                     disabled={submitState === 'submitting'}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-card bg-site-accent px-6 text-sm font-semibold text-site-on-accent transition-colors hover:bg-site-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-focus disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {step < reviewStepIndex ? (
                       <>
@@ -461,7 +457,7 @@ export function OnPremiseRequest() {
 }
 
 const inputClassName =
-  'w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500';
+  'w-full rounded-card border bg-site-surface px-4 py-3 text-sm text-site-ink transition-colors placeholder:text-site-ink-soft focus:outline-none focus:ring-2 focus:ring-site-focus';
 
 function ContactStep({
   contact,
@@ -488,9 +484,9 @@ function ContactStep({
           const error = errors[field.id];
           return (
             <div key={field.id} className={field.wide ? 'sm:col-span-2' : undefined}>
-              <label htmlFor={`onprem-${field.id}`} className="mb-2 block text-sm font-medium text-slate-800 dark:text-slate-200">
+              <label htmlFor={`onprem-${field.id}`} className="mb-2 block text-sm font-medium text-site-ink">
                 {definition.label}
-                {!definition.required && <span className="mr-1 text-xs font-normal text-slate-400">(اختیاری)</span>}
+                {!definition.required && <span className="mr-1 text-xs font-normal text-site-ink-soft">(اختیاری)</span>}
               </label>
               <input
                 id={`onprem-${field.id}`}
@@ -505,11 +501,11 @@ function ContactStep({
                 aria-invalid={!!error}
                 aria-describedby={error ? `onprem-${field.id}-error` : undefined}
                 className={`${inputClassName} ${field.dir === 'ltr' ? 'text-left' : ''} ${
-                  error ? 'border-red-400 dark:border-red-500/60' : 'border-slate-200 dark:border-slate-700'
+                  error ? 'border-site-danger' : 'border-site-line'
                 }`}
               />
               {error && (
-                <p id={`onprem-${field.id}-error`} className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                <p id={`onprem-${field.id}-error`} className="mt-1.5 text-xs text-site-danger">
                   {error}
                 </p>
               )}
@@ -538,7 +534,7 @@ function QuestionField({
   return (
     <div className="py-4">
       <div className={`flex flex-col gap-3 ${question.kind === 'choice' ? 'sm:flex-row sm:items-center sm:justify-between sm:gap-6' : ''}`}>
-        <p id={labelId} className="text-sm font-medium leading-7 text-slate-800 dark:text-slate-200">
+        <p id={labelId} className="text-sm font-medium leading-7 text-site-ink">
           {question.label}
         </p>
         <div role="radiogroup" aria-labelledby={labelId} className="flex shrink-0 flex-wrap gap-2">
@@ -547,10 +543,10 @@ function QuestionField({
             return (
               <label
                 key={option.value}
-                className={`inline-flex min-h-10 cursor-pointer select-none items-center justify-center rounded-lg border border-slate-200 px-3.5 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/50 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-indigo-500 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-indigo-500/10 ${
+                className={`inline-flex min-h-10 cursor-pointer select-none items-center justify-center rounded-lg border border-site-line px-3.5 text-sm font-medium text-site-ink transition-colors hover:border-site-line hover:bg-site-sand has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-site-focus ${
                   isNeutral
-                    ? 'has-[:checked]:border-slate-500 has-[:checked]:bg-slate-600 has-[:checked]:text-white dark:has-[:checked]:bg-slate-600'
-                    : 'has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-600 has-[:checked]:text-white dark:has-[:checked]:border-indigo-500 dark:has-[:checked]:bg-indigo-500'
+                    ? 'has-[:checked]:border-site-line has-[:checked]:bg-site-line-strong has-[:checked]:text-site-on-accent'
+                    : 'has-[:checked]:border-site-line-strong has-[:checked]:bg-site-accent has-[:checked]:text-site-on-accent'
                 }`}
               >
                 <input
@@ -569,9 +565,9 @@ function QuestionField({
       </div>
       {showDetail && question.kind === 'choice' && question.detail && (
         <div className="animate-in fade-in slide-in-from-top-1 mt-3 flex items-center gap-3 duration-200">
-          <label htmlFor={`q-${question.id}-detail`} className="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <label htmlFor={`q-${question.id}-detail`} className="shrink-0 text-xs font-medium text-site-ink-soft">
             {question.detail.label}
-            <span className="mr-1 text-slate-400">(اختیاری)</span>
+            <span className="mr-1 text-site-ink-soft">(اختیاری)</span>
           </label>
           <input
             id={`q-${question.id}-detail`}
@@ -581,7 +577,7 @@ function QuestionField({
             value={answers[detailKey(question.id)] ?? ''}
             onChange={(event) => onAnswer(detailKey(question.id), event.target.value)}
             placeholder={question.detail.placeholder}
-            className={`${inputClassName} border-slate-200 py-2 dark:border-slate-700 sm:max-w-xs ${question.detail.dir === 'ltr' ? 'text-left' : ''}`}
+            className={`${inputClassName} border-site-line py-2 sm:max-w-xs ${question.detail.dir === 'ltr' ? 'text-left' : ''}`}
           />
         </div>
       )}
@@ -614,10 +610,10 @@ function ReviewStep({
   return (
     <div className="space-y-4">
       <div
-        className={`rounded-xl border px-4 py-3 text-sm leading-7 ${
+        className={`rounded-card border px-4 py-3 text-sm leading-7 ${
           unanswered === 0
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
-            : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+            ? 'border-site-success bg-site-panel text-site-success'
+            : 'border-site-line bg-site-panel text-site-accent-text'
         }`}
       >
         {unanswered === 0
@@ -631,8 +627,8 @@ function ReviewStep({
             .filter((id) => contact[id].trim())
             .map((id) => (
               <div key={id} className="flex gap-2">
-                <dt className="shrink-0 text-slate-500 dark:text-slate-400">{contactFields[id].label}:</dt>
-                <dd className="min-w-0 break-words font-medium text-slate-900 dark:text-white">{contact[id]}</dd>
+                <dt className="shrink-0 text-site-ink-soft">{contactFields[id].label}:</dt>
+                <dd className="min-w-0 break-words font-medium text-site-ink">{contact[id]}</dd>
               </div>
             ))}
         </dl>
@@ -648,7 +644,7 @@ function ReviewStep({
             complete={counts.answered === counts.total}
             onEdit={() => onEdit(index + 1)}
           >
-            <dl className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+            <dl className="divide-y divide-site-line text-sm">
               {stepQuestions(step)
                 .filter((question) => isQuestionVisible(question, answers))
                 .map((question) => {
@@ -656,10 +652,10 @@ function ReviewStep({
                   const detail = isDetailVisible(question, answers) ? answers[detailKey(question.id)]?.trim() : '';
                   return (
                     <div key={question.id} className="flex flex-col gap-1 py-2 sm:flex-row sm:justify-between sm:gap-6">
-                      <dt className="text-slate-600 dark:text-slate-400">{question.label}</dt>
-                      <dd className={`shrink-0 font-medium ${label ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
+                      <dt className="text-site-ink-soft">{question.label}</dt>
+                      <dd className={`shrink-0 font-medium ${label ? 'text-site-ink' : 'text-site-ink-soft'}`}>
                         {label ?? 'بی‌پاسخ'}
-                        {detail && <span className="mr-1 font-normal text-slate-500 dark:text-slate-400">({detail})</span>}
+                        {detail && <span className="mr-1 font-normal text-site-ink-soft">({detail})</span>}
                       </dd>
                     </div>
                   );
@@ -670,9 +666,9 @@ function ReviewStep({
       })}
 
       <div className="pt-4">
-        <label htmlFor="onprem-notes" className="mb-2 block text-sm font-medium text-slate-800 dark:text-slate-200">
+        <label htmlFor="onprem-notes" className="mb-2 block text-sm font-medium text-site-ink">
           توضیحات تکمیلی
-          <span className="mr-1 text-xs font-normal text-slate-400">(اختیاری)</span>
+          <span className="mr-1 text-xs font-normal text-site-ink-soft">(اختیاری)</span>
         </label>
         <textarea
           id="onprem-notes"
@@ -681,7 +677,7 @@ function ReviewStep({
           value={notes}
           onChange={(event) => onNotes(event.target.value)}
           placeholder="الزامات خاص، محدودیت‌های شبکه، زمان‌بندی موردنظر یا هر نکته‌ای که بهتر است بدانیم..."
-          className={`${inputClassName} border-slate-200 dark:border-slate-700`}
+          className={`${inputClassName} border-site-line`}
         />
       </div>
     </div>
@@ -704,15 +700,15 @@ function ReviewCard({
   children: ReactNode;
 }) {
   return (
-    <details open={defaultOpen} className="group rounded-xl border border-slate-200 dark:border-slate-800">
-      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 marker:content-none focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-indigo-500 [&::-webkit-details-marker]:hidden">
-        <span className="flex-1 font-semibold text-slate-900 dark:text-white">{title}</span>
+    <details open={defaultOpen} className="group rounded-card border border-site-line">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 marker:content-none focus-visible:rounded-card focus-visible:outline-2 focus-visible:outline-site-focus [&::-webkit-details-marker]:hidden">
+        <span className="flex-1 font-semibold text-site-ink">{title}</span>
         {badge && (
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
               complete
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                ? 'bg-site-panel text-site-success'
+                : 'bg-site-panel text-site-ink-soft'
             }`}
           >
             {badge}
@@ -724,13 +720,13 @@ function ReviewCard({
             event.preventDefault();
             onEdit();
           }}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-site-accent-text hover:bg-site-sand focus-visible:outline-2 focus-visible:outline-site-focus"
         >
           <Pencil aria-hidden="true" className="size-3.5" />
           ویرایش
         </button>
       </summary>
-      <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-800">{children}</div>
+      <div className="border-t border-site-line px-4 py-3">{children}</div>
     </details>
   );
 }
@@ -745,26 +741,26 @@ function SuccessPanel({
   onStartOver: () => void;
 }) {
   return (
-    <div className="animate-in fade-in zoom-in-95 mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-xl shadow-slate-950/5 duration-300 dark:border-slate-800 dark:bg-slate-900 sm:px-10">
-      <CheckCircle2 aria-hidden="true" className="mx-auto mb-4 size-14 text-emerald-500" />
-      <h2 ref={headingRef} tabIndex={-1} className="mb-3 text-2xl font-bold text-slate-950 outline-none dark:text-white">
+    <div className="animate-in fade-in zoom-in-95 mx-auto max-w-2xl rounded-card border border-site-line bg-site-surface px-6 py-10 text-center duration-300 sm:px-10">
+      <CheckCircle2 aria-hidden="true" className="mx-auto mb-4 size-14 text-site-success" />
+      <h2 ref={headingRef} tabIndex={-1} className="mb-3 text-2xl font-bold text-site-ink outline-none">
         درخواست شما ثبت شد
       </h2>
-      <p className="leading-8 text-slate-600 dark:text-slate-300">
+      <p className="leading-8 text-site-ink-soft">
         از اینکه وقت گذاشتید سپاسگزاریم{organization ? `؛ درخواست ${organization} به دست ما رسید` : ''}. کارشناسان گدارAI پاسخ‌ها را بررسی می‌کنند و برای هماهنگی‌های فنی با شما تماس می‌گیرند.
       </p>
-      <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
+      <p className="mt-3 text-sm leading-7 text-site-ink-soft">
         تکمیل این پرسشنامه به معنای تأیید یا رد آمادگی سازمان نیست؛ ارزیابی نهایی پس از بررسی پاسخ‌ها انجام می‌شود.
       </p>
       <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <Link
           href="/demo"
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex min-h-11 items-center gap-2 rounded-card bg-site-accent px-5 text-sm font-semibold text-site-on-accent transition-colors hover:bg-site-accent-hover"
         >
           در این فاصله، یک دموی خصوصی رزرو کنید
           <ArrowLeft aria-hidden="true" className="size-4" />
         </Link>
-        <button type="button" onClick={onStartOver} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+        <button type="button" onClick={onStartOver} className="min-h-11 rounded-card px-4 text-sm font-semibold text-site-ink-soft hover:bg-site-panel">
           ثبت درخواست دیگر
         </button>
       </div>

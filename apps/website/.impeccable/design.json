@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T12:00:00Z",
+  "title": "Design System: GodarAI Website",
+  "extensions": {
+    "colorMeta": {
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Card",
+        "canonical": "#ffffff",
+        "dark": "#0a1222"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#f6f4ef",
+        "dark": "#0f1a2e"
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Linen",
+        "canonical": "#ebe7dd",
+        "dark": "#18253f"
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Sand",
+        "canonical": "#d9cdb4",
+        "dark": "#3a3426"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0f1b33",
+        "dark": "#f4f1ea"
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "#4b5569",
+        "dark": "#a9b2c4"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#d6d2c7",
+        "dark": "#26344f"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#7b8396",
+        "dark": "#7d889e"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Orange",
+        "canonical": "#ff6a13",
+        "dark": "#ff7a2b"
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Signal Orange Hover",
+        "canonical": "#ff7f36",
+        "dark": "#ff8c45"
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "Signal Navy (on accent)",
+        "canonical": "#0f1b33"
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Ember",
+        "canonical": "#ad3c08",
+        "dark": "#ff9a5c"
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Ember",
+        "canonical": "#ad3c08",
+        "dark": "#ff9a5c"
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success",
+        "canonical": "#1f6f8b",
+        "dark": "#7cc3dc"
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger",
+        "canonical": "#b3261e",
+        "dark": "#ff8a80"
+      },
+      "night": {
+        "role": "neutral",
+        "displayName": "Signal Navy",
+        "canonical": "#0f1b33",
+        "dark": "#060c18"
+      },
+      "night-raised": {
+        "role": "neutral",
+        "displayName": "Deep Navy",
+        "canonical": "#1d2d50"
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Paper on Navy",
+        "canonical": "#f6f4ef",
+        "dark": "#f4f1ea"
+      },
+      "night-soft": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "#a9b2c4"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The single hero line."
+      },
+      "h1": {
+        "displayName": "H1",
+        "purpose": "Page titles; closing card."
+      },
+      "h2": {
+        "displayName": "H2",
+        "purpose": "Section headings on desktop."
+      },
+      "h3": {
+        "displayName": "H3",
+        "purpose": "Tile titles; section headings on mobile."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Hero subhead, section intros."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, navigation, form labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Metadata, window titles, footnotes."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150–200ms ease-out",
+        "purpose": "Hover and focus state changes."
+      },
+      {
+        "name": "step-row",
+        "value": "400ms ease-out, 350ms apart",
+        "purpose": "Tool rows arriving in a product window, once, on entry."
+      },
+      {
+        "name": "step-complete",
+        "value": "700ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The result resolving to a success check."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px (full navbar)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The section's one orange: trial or demo.",
+      "html": "<button class=\"ds-btn-primary\">شروع با اعتبار هدیه</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; min-height:44px; padding:10px 16px; border:none; border-radius:9999px; background:#ff6a13; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; font-size:.875rem; font-weight:500; line-height:1.5; cursor:pointer; transition:background-color 150ms ease-out; } .ds-btn-primary:hover { background:#ff7f36; } .ds-btn-primary:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The second action beside a primary.",
+      "html": "<button class=\"ds-btn-secondary\">درخواست دمو</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; min-height:44px; padding:10px 16px; border:1px solid #7b8396; border-radius:9999px; background:transparent; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; font-size:.875rem; font-weight:500; cursor:pointer; transition:background-color 150ms ease-out; } .ds-btn-secondary:hover { background:#ebe7dd; } .ds-btn-secondary:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; }"
+    },
+    {
+      "name": "Tile",
+      "kind": "card",
+      "refersTo": "tile",
+      "description": "A flat feature tile: icon well, bold H3 label, one line of body.",
+      "html": "<a class=\"ds-tile\" href=\"#\" dir=\"rtl\"><span class=\"ds-well\"></span><span class=\"ds-tile-title\">گاردریل معنایی</span><span class=\"ds-tile-text\">داده‌ی محرمانه را از معنایش می‌شناسد.</span></a>",
+      "css": ".ds-tile { display:flex; flex-direction:column; gap:12px; max-width:280px; padding:24px; border:1px solid #d6d2c7; border-radius:12px; background:#ffffff; color:#0f1b33; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; text-decoration:none; transition:background-color 150ms ease-out; } .ds-tile:hover { background:#f6f4ef; } .ds-tile:focus-visible { outline:2px solid #ad3c08; outline-offset:2px; } .ds-well { width:40px; height:40px; border-radius:12px; background:#d9cdb4; } .ds-tile-title { font-size:1.5rem; font-weight:600; line-height:1.4; } .ds-tile-text { font-size:1rem; line-height:1.8; color:#4b5569; }"
+    },
+    {
+      "name": "Product Window",
+      "kind": "custom",
+      "refersTo": "product-window",
+      "description": "Signature: product UI framed flat on a sand tile.",
+      "html": "<div class=\"ds-stage\" dir=\"rtl\"><div class=\"ds-window\"><div class=\"ds-bar\"><span>دستیار پشتیبانی</span><span class=\"ds-meta\">نمونه</span></div><div class=\"ds-row\"><span class=\"ds-well\"></span><span>جست‌وجو در CRM</span></div></div></div>",
+      "css": ".ds-stage { padding:40px; border-radius:12px; background:#d9cdb4; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; } .ds-window { max-width:384px; overflow:hidden; border:1px solid #d6d2c7; border-radius:12px; background:#ffffff; } .ds-bar { display:flex; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #d6d2c7; font-size:.875rem; font-weight:600; color:#0f1b33; } .ds-meta { font-size:.75rem; font-weight:400; color:#4b5569; } .ds-row { display:flex; gap:12px; align-items:center; padding:14px 24px; font-size:.875rem; color:#0f1b33; } .ds-well { width:36px; height:36px; border-radius:12px; background:#d9cdb4; }"
+    },
+    {
+      "name": "Closing Card",
+      "kind": "card",
+      "refersTo": "night-band",
+      "description": "The one inverted navy card with the final call to action.",
+      "html": "<section class=\"ds-close\" dir=\"rtl\"><h2>اول امتحان کنید. <span>بعد تصمیم بگیرید.</span></h2><button class=\"ds-btn-primary\">شروع با اعتبار هدیه</button></section>",
+      "css": ".ds-close { padding:64px 24px; border-radius:12px; background:#0f1b33; color:#f6f4ef; text-align:center; font-family:Estedad, Vazirmatn, Tahoma, system-ui, sans-serif; } .ds-close h2 { margin:0 0 24px; font-size:2.5rem; font-weight:800; line-height:1.2; } .ds-close h2 span { font-weight:300; color:#a9b2c4; } .ds-btn-primary { min-height:44px; padding:10px 16px; border:none; border-radius:9999px; background:#ff6a13; color:#0f1b33; font-family:inherit; font-size:.875rem; font-weight:500; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Marked Crossing",
+    "overview": "A ford is safe only where someone has marked it. GodarAI is that marker: a confident navy ground, warm paper to stand on, and one signal orange that says \"cross here\". The visitor is a technology lead deciding whether AI can join the daily work of every team. The page should feel like an expert who knows the water and has a sense of humour about it: sure-footed, direct, a pun when it earns its place, never at the reader's expense.\n\nStructure stays the Dust-like rhythm the site was built on: one idea per section, a large heading, short copy, a visual. The character is bolder: the hero sits on the navy field, the closing call to action is one inverted navy card, and orange marks exactly one thing per section.\n\nPersian and right-to-left are the home language of every decision. Light and dark themes are equal citizens.",
+    "keyCharacteristics": [
+      "Navy for the big fields: the hero band, the closing card, the footer.",
+      "Warm paper surfaces; sections alternate ground and panel.",
+      "One signal orange per section, almost always the primary button.",
+      "Flat tiles with hairlines; no shadows, no glass.",
+      "Estedad, heavy for display, light for leads, with generous line height.",
+      "Headlines in two short clauses, the second a turn."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "At most one Signal Orange element per section, usually the primary button. A check mark, a bullet or an icon is never orange.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ember Rule",
+        "body": "Orange text on a light surface is always Ember, never Signal Orange. Ember holds 4.9:1 on Paper, Linen and White Card but only 3.9:1 on Sand, so it never sets small text on Sand.",
+        "section": "colors"
+      },
+      {
+        "name": "The Navy Field Rule",
+        "body": "Navy is for the big fields only: the hero band, one inverted card per page, the footer.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Tracking Rule",
+        "body": "Never add letter-spacing to Persian; it breaks the joins.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two Clause Rule",
+        "body": "Section headlines are two short clauses, the second a turn: «کنترل را جدی بگیرید. نه دست‌وپاگیر.»",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Tile Rule",
+        "body": "No box shadows, glows, glass or backdrop blur. A tile is a White Card with a Hairline outline; hover steps its fill one surface (surface to ground, ground to panel).",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do build pages from the shared patterns in `app/components/patterns` (live samples at `/_patterns`) and the `site-*` utilities and type scale; never raw palette colors.",
+      "Do keep orange to one element per section, and use Ember for orange words and links.",
+      "Do quote the tagline exactly, «بی‌گدار به آب و AI نزنید!», with its half-space and exclamation mark, at most once per page.",
+      "Do write headlines as two short clauses with a turn, and buttons as two- or three-word verbs.",
+      "Do build and check every section in light and dark themes."
+    ],
+    "donts": [
+      "Don't use shadows, glows, glass or gradients.",
+      "Don't put orange text on light surfaces, or white text on orange.",
+      "Don't use navy for anything smaller than a field or a card.",
+      "Don't add letter-spacing to Persian.",
+      "Don't use emoji, blue-purple gradients, emoji cards or left-border accent cards.",
+      "Don't present invented numbers, logos or quotes inside mocks as real."
+    ]
+  }
+}

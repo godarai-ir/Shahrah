@@ -3,9 +3,9 @@ import { AIGateway } from '@/app/pages/features/AIGateway';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "درگاه مدل‌های زبانی",
+  title: "درگاه مدل‌های زبانی سازگار با OpenAI",
   description:
-    "اتصال به مدل‌ها، مسیریابی، مسیر جایگزین، کنترل مصرف و پایش درخواست‌ها را در یک درگاه مدیریت کنید.",
+    "یک API برای ۱۲۰۰+ مدل از ۲۱ ارائه‌دهنده، با مدل مجازی، حافظه‌ی نهان، کلید جدا و گزارش کامل؛ پرداخت تومانی.",
   path: "/features/ai-gateway",
 });
 

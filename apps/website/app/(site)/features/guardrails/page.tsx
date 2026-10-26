@@ -3,9 +3,9 @@ import { Guardrails } from '@/app/pages/features/Guardrails';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "گاردریل‌های ورودی و خروجی",
+  title: "گاردریل معنایی: جلوگیری از نشت داده به مدل‌ها",
   description:
-    "متن ورودی و خروجی مدل را پیش از ادامه مسیر بررسی، نشانه‌گذاری، متوقف یا اصلاح کنید.",
+    "داده‌ی محرمانه‌ی سازمان را بر اساس معنا تشخیص دهید و برای هر تیم سیاست جدا بگذارید؛ روی ورودی، خروجی و فایل‌ها.",
   path: "/features/guardrails",
 });
 

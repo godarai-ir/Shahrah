@@ -1,37 +1,27 @@
-﻿import dynamic from "next/dynamic";
+import { ClosingCta } from '../components/ClosingCta';
+import { Enterprise } from '../components/Enterprise';
+import { GetStarted } from '../components/GetStarted';
 import { Hero } from '../components/Hero';
-import { Problem } from '../components/Problem';
-import { Solution } from '../components/Solution';
-import { Trust } from '../components/Trust';
+import { HomeFAQ } from '../components/HomeFAQ';
+import { Pillars } from '../components/Pillars';
+import { Scenario } from '../components/Scenario';
+import { TeamTabs } from '../components/TeamTabs';
+import { TwoWays } from '../components/TwoWays';
 
-const Features = dynamic(() =>
-  import('../components/Features').then((mod) => mod.Features),
-);
-const Developer = dynamic(() =>
-  import('../components/Developer').then((mod) => mod.Developer),
-);
-const HowItWorks = dynamic(() =>
-  import('../components/HowItWorks').then((mod) => mod.HowItWorks),
-);
-const UseCases = dynamic(() =>
-  import('../components/UseCases').then((mod) => mod.UseCases),
-);
-const DashboardPreview = dynamic(() =>
-  import('../components/DashboardPreview').then((mod) => mod.DashboardPreview),
-);
-
+// Customer logos and quotes are left out until real material exists: LogoStrip and
+// QuoteCard stay in the codebase and return here when there is something true to show.
 export function Home() {
   return (
-    <main>
+    <main className="bg-site-ground selection:bg-site-sand">
       <Hero />
-      <Problem />
-      <Solution />
-      <Features />
-      <Developer />
-      <HowItWorks />
-      <UseCases />
-      <DashboardPreview />
-      <Trust />
+      <Scenario />
+      <TwoWays />
+      <Pillars />
+      <TeamTabs />
+      <Enterprise />
+      <GetStarted />
+      <HomeFAQ />
+      <ClosingCta />
     </main>
   );
 }

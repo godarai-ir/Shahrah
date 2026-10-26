@@ -1,3 +1,12 @@
+/* Estedad (SIL Open Font License, public/fonts/estedad/OFL-Estedad.txt): the one family for Persian and Latin. */
+@font-face {
+  font-family: 'Estedad';
+  src: url('/fonts/estedad/Estedad-Variable.woff2') format('woff2-variations'), url('/fonts/estedad/Estedad-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: 'Vazirmatn';
   src: url('/fonts/vazirmatn/Vazirmatn-Thin.woff2') format('woff2');

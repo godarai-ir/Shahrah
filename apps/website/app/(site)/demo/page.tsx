@@ -4,8 +4,8 @@ import { DemoBooking } from '@/app/components/DemoBooking';
 import { buildMetadata } from '@/app/lib/seo';
 
 export const metadata: Metadata = buildMetadata({
-  title: 'رزرو دموی خصوصی گدارAI',
-  description: 'یک جلسه خصوصی ۶۰ دقیقه‌ای برای آشنایی با گدارAI و بررسی نیازهای فنی تیم خود رزرو کنید.',
+  title: 'درخواست دمو',
+  description: 'یک جلسه‌ی ۶۰ دقیقه‌ای برای دیدن فضای کاری، گاردریل معنایی و گزارش‌های گدارAI روی نیاز سازمان شما.',
   path: '/demo',
 });
 
