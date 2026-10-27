@@ -67,7 +67,7 @@ export function Patterns() {
       <Section layout="grid grid-cols-1 gap-6 md:grid-cols-2">
         {pillars.map((pillar) => (
           <ProductStage key={pillar.id} tone={(['sand', 'panel', 'surface', 'ground'] as const)[pillars.indexOf(pillar)]}>
-            <ProductWindow title={pillar.title} meta="نمونه" media="teamSupport" />
+            <ProductWindow title={pillar.title} meta="نمونه" media="heroDemo" />
           </ProductStage>
         ))}
       </Section>

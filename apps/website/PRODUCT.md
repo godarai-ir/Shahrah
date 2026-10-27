@@ -47,6 +47,9 @@ Local advantages a foreign product cannot truthfully claim:
 - payment in tomans, stable access to foreign models, no international card or sanctions friction;
 - deployment on the organization's own servers (On-Premise) in addition to the GodarAI cloud;
 - sending and reading messages in messengers such as Telegram, WhatsApp and Bale, alongside common tools.
+- compatibility with Iranian software: accounting and sales, routing/navigation apps, messengers and more («سازگار با نرم‌افزارهای ایرانی»).
+
+Persian language support is not marketed as a feature or differentiator.
 
 The real competitor named on the site is unmanaged, shadow use of ChatGPT by employees. Foreign workplace products (Dust, Langdock, Claude Enterprise) are design and product references only and are not named or compared on the site. Existing gateway comparisons (`/vs/litellm`, `/vs/portkey`) stay.
 
@@ -85,7 +88,7 @@ The real competitor named on the site is unmanaged, shadow use of ChatGPT by emp
 
 - Real: 1200+ models from 21 providers; initial gift credit with no expiry; On-Premise request page; solutions pages; gateway comparison pages (LiteLLM, Portkey); feature pages for agents, MCP gateway, guardrails, observability, security, model discovery, prompt engineering; real product screenshots of GodarChat and the admin panel (to be supplied by the owner).
 - Not available, never fabricate: customer logos, testimonials, case studies, certifications, press, usage statistics, savings percentages.
-- The product mock UIs in `components/workplace/mocks.tsx` and the dashboards on feature pages are drawn in code with invented demo numbers; they are illustrative, to be replaced by real screenshots, and never presented as claims.
+- The product mock windows (`MockRows`, `MockBars`) and the dashboards on feature pages are drawn in code with invented demo numbers; they are illustrative, to be replaced by real screenshots, and never presented as claims.
 
 ## Product Principles
 

@@ -1,3 +1,4 @@
+import { ArrowLeft, Check } from 'lucide-react';
 import Link from 'next/link';
 import { Section, StepList } from './patterns';
 import { sectionHeading, textLink } from './sectionType';
@@ -8,17 +9,11 @@ const steps = [
   { title: 'تیم را دعوت کنید', text: 'سقف مصرف را بگذارید و بگذارید همکارها امتحان کنند.' },
 ];
 
-const code = `from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_GODARAI_TOKEN",
-    base_url="https://YOUR_WORKSPACE.godarai.ir/v1",
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "یک پیام کوتاه برای پیگیری سفارش بنویس."}],
-)`;
+const developerPoints = [
+  { title: 'یک کلید، همه‌ی مدل‌ها', text: 'به‌جای چند حساب و چند کلید، از یک جا به همه‌ی مدل‌ها وصل می‌شوید.' },
+  { title: 'بدون بازنویسی کد', text: 'اگر امروز از OpenAI استفاده می‌کنید، فقط نشانی و کلید عوض می‌شود.' },
+  { title: 'همان سقف، همان گزارش', text: 'مصرف برنامه‌تان هم سقف و گزارش دارد، درست مثل مصرف تیم.' },
+];
 
 export function GetStarted() {
   return (
@@ -37,21 +32,34 @@ export function GetStarted() {
         </Link>
       </p>
 
-      <div className="grid items-center gap-8 rounded-card border border-site-line bg-site-surface p-6 sm:p-10 lg:grid-cols-2 lg:gap-16">
-        <div>
-          <h3 className="mb-2 text-h3 font-semibold text-site-ink">برای تیم فنی</h3>
-          <p className="mb-4 text-body text-site-ink-soft">
-            اگر خودتان محصول می‌سازید، همان درگاه را مستقیم هم می‌توانید بردارید. API سازگار با OpenAI است؛ فقط نشانی و کلید را عوض می‌کنید.
+      <div className="grid gap-8 rounded-card border border-site-line bg-site-surface p-6 sm:p-10 lg:grid-cols-2 lg:gap-16">
+        <div className="flex flex-col gap-4">
+          <h3 className="m-0 text-h3 font-semibold text-site-ink">محصول خودتان را می‌سازید؟</h3>
+          <p className="m-0 text-body text-site-ink-soft">
+            همان مدل‌ها و همان کنترل‌ها را در برنامه‌ی خودتان هم دارید. لازم نیست چیزی را از اول بسازید.
           </p>
-          <Link href="/docs" className={textLink}>
-            مشاهده‌ی مستندات
-          </Link>
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <Link href="/features/ai-gateway" className={textLink}>
+              درگاه مدل‌های زبانی
+              <ArrowLeft aria-hidden="true" className="size-4" />
+            </Link>
+            <a href="/docs" className={textLink}>
+              مستندات
+              <ArrowLeft aria-hidden="true" className="size-4" />
+            </a>
+          </div>
         </div>
-        <div dir="ltr" className="min-w-0 overflow-hidden rounded-card bg-site-night">
-          <pre className="overflow-x-auto p-5 text-caption text-site-night-soft sm:p-6 sm:text-label">
-            <code>{code}</code>
-          </pre>
-        </div>
+        <ul className="m-0 flex list-none flex-col divide-y divide-site-line p-0">
+          {developerPoints.map((point) => (
+            <li key={point.title} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+              <Check aria-hidden="true" className="mt-1 size-5 shrink-0 text-site-ink" />
+              <div className="flex flex-col gap-1">
+                <span className="text-body font-semibold text-site-ink">{point.title}</span>
+                <span className="text-label text-site-ink-soft">{point.text}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </Section>
   );

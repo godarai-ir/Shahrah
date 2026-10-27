@@ -82,7 +82,7 @@ const targetState: Record<RoutingTarget['state'], { label: string; icon: typeof 
 
 function RoutingVisual({ virtualModel, targets }: { virtualModel: string; targets: RoutingTarget[] }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 pt-4">
       <div className="flex items-center justify-between gap-3 rounded-field bg-site-panel px-4 py-3">
         <span className="text-caption text-site-ink-soft">مدل مجازی</span>
         <span dir="ltr" className="text-label font-semibold text-site-ink">{virtualModel}</span>
@@ -111,26 +111,42 @@ function RoutingVisual({ virtualModel, targets }: { virtualModel: string; target
   );
 }
 
-const auditTone: Record<AuditEvent['tone'], keyof typeof statusTone> = { info: 'neutral', warn: 'neutral', block: 'danger' };
+// Only events that stopped something carry a status; routine admin actions stay quiet.
+const auditStatus: Record<AuditEvent['tone'], { label: string; tone: keyof typeof statusTone } | null> = {
+  info: null,
+  warn: { label: 'متوقف شد', tone: 'neutral' },
+  block: { label: 'رد شد', tone: 'danger' },
+};
 
 function AuditVisual({ events }: { events: AuditEvent[] }) {
   return (
-    <ul className="m-0 flex list-none flex-col divide-y divide-site-line p-0">
-      {events.map((event) => (
-        <li key={event.time} className="flex flex-col gap-1 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <span dir="ltr" className="truncate text-caption font-medium text-site-ink">{event.actor}</span>
-            <span className="shrink-0 text-caption text-site-ink-soft">{event.time}</span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-label text-site-ink">{event.action}</span>
-            {event.tone === 'block' ? <Status label="رد شد" tone={auditTone[event.tone]} /> : null}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <ol className="m-0 flex list-none flex-col divide-y divide-site-line p-0">
+      {events.map((event) => {
+        const status = auditStatus[event.tone];
+
+        return (
+          <li key={event.time} className="flex items-start justify-between gap-4 py-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-label font-medium text-site-ink">{event.action}</span>
+              <span className="flex min-w-0 items-center gap-2 text-caption text-site-ink-soft">
+                <span dir="ltr" className="truncate">{event.actor}</span>
+                <span aria-hidden="true">·</span>
+                <span className="shrink-0">{event.time}</span>
+              </span>
+            </div>
+            {status ? <Status label={status.label} tone={status.tone} /> : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
+
+const visualWindowTitle: Record<SolutionVisual['kind'], string> = {
+  usage: 'مصرف و سقف‌ها',
+  routing: 'مسیریابی مدل مجازی',
+  audit: 'گزارش رخدادها',
+};
 
 function SolutionVisualBlock({ visual }: { visual: SolutionVisual }) {
   if (visual.kind === 'usage') {
@@ -163,7 +179,7 @@ export function SolutionPage({ slug }: { slug: string }) {
         secondary={{ href: '/demo', label: 'رزرو دمو' }}
         visual={
           <ProductStage layout="flex size-full items-center justify-center p-6 sm:p-10">
-            <CodeWindow title={solution.badge} meta={solution.code.filename} code={solution.code.lines.join('\n')} />
+            <CodeWindow title="نمونه‌ی پیکربندی" meta={solution.code.filename} code={solution.code.lines.join('\n')} />
           </ProductStage>
         }
       />
@@ -194,8 +210,15 @@ export function SolutionPage({ slug }: { slug: string }) {
       <Section id="practice" tone="panel" layout="flex flex-col gap-8">
         <h2 className={`max-w-3xl ${sectionHeading}`}>{solution.visual.title}</h2>
         <ProductStage layout="flex w-full justify-center p-6 sm:p-12">
-          <ProductWindow title="پنل گدارAI" meta="نمونه" size="w-full max-w-2xl" label={`نمونه: ${solution.visual.title}. عددها ساختگی‌اند.`}>
-            <SolutionVisualBlock visual={solution.visual} />
+          <ProductWindow
+            title={visualWindowTitle[solution.visual.kind]}
+            meta="نمونه"
+            size="w-full max-w-2xl"
+            label={`نمونه: ${solution.visual.title.replace(/\.$/, '')}. داده‌ها ساختگی‌اند.`}
+          >
+            <div className="px-5 py-1 sm:px-6">
+              <SolutionVisualBlock visual={solution.visual} />
+            </div>
           </ProductWindow>
         </ProductStage>
       </Section>

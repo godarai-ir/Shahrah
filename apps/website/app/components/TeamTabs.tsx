@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { isReady } from '@/app/lib/navigation';
 import { Section } from './patterns';
 import { sectionCopy, sectionHeading, textLink } from './sectionType';
-import { MediaSlot } from './MediaSlot';
+import { TeamScene } from './TeamScene';
 import { teams } from '@/app/lib/teams';
 
 export function TeamTabs() {
@@ -90,8 +90,8 @@ export function TeamTabs() {
         aria-labelledby={`${baseId}-tab-${active.id}`}
         className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-16"
       >
-        <div className="relative">
-          <MediaSlot key={active.media} id={active.media} className="rounded-card lg:aspect-auto lg:h-full lg:min-h-96" />
+        <div className="relative flex lg:min-h-96">
+          <TeamScene id={active.id} />
         </div>
         <div className="flex flex-col gap-6 lg:gap-8 lg:py-4">
           <h3 className="m-0 whitespace-pre-line text-h2 font-bold text-site-ink lg:text-h1">
