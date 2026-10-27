@@ -298,7 +298,9 @@ type DecideSeatUpgradeRequest struct {
 type SeatStatus struct {
 	Enforced bool   `json:"enforced"`
 	Type     string `json:"type"`
-	// Credits are decimal strings with two places.
+	// Credits are decimal strings with two places. MonthlyCredits is the total
+	// of the member's active personal lots, the same lots RemainingCredits is
+	// left of; it exceeds the seat quota when free-seat credits were kept.
 	MonthlyCredits   string     `json:"monthly_credits"`
 	RemainingCredits string     `json:"remaining_credits"`
 	RenewsAt         *time.Time `json:"renews_at,omitempty"`

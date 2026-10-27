@@ -217,9 +217,12 @@ func (s *SeatRepository) GetSeatStatus(ctx context.Context, tenantID, userID str
 	seatType := seats.Type(member.Seat)
 	enforced := seats.Enforced(sub.Status)
 
+	// Remaining is drawn from every active personal lot, such as a free seat's
+	// credits kept after an upgrade, so its total must count the same lots,
+	// not only the current seat's monthly quota.
 	status := &platform.SeatStatus{
 		Enforced: enforced, Type: member.Seat,
-		MonthlyCredits:     credits.Format(credits.Millicredits(seatType.MonthlyGrantMC())),
+		MonthlyCredits:     member.PersonalGrantedCredits,
 		RemainingCredits:   member.PersonalRemainingCredits,
 		PoolAccess:         seats.PoolAccess(seatType, enforced),
 		PoolLimitCredits:   member.PoolLimitCredits,
