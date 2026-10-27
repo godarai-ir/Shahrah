@@ -30,11 +30,17 @@ func (b *builder) buildOIDC() error {
 		return err
 	}
 
+	assertions, err := b.userAssertionVerifier()
+	if err != nil {
+		return err
+	}
+
 	service, err := oidc.NewService(oidc.Dependencies{
 		Repository: b.store.OIDCRepository,
 		Sessions:   tenantAdminSessionLookup{sessions: b.tenantAdminApplication},
 		Principals: b.store.AuthRepository,
 		Keys:       keys,
+		Assertions: assertions,
 		Settings: oidc.Settings{
 			IssuerScheme:            settings.IssuerScheme,
 			LoginURLTemplate:        settings.LoginURLTemplate,
@@ -73,6 +79,26 @@ func (b *builder) oidcKeySet() (*oidc.KeySet, error) {
 	default:
 		return nil, errors.New("OIDC_ENABLED requires OIDC_SIGNING_KEY_PEM or OIDC_SIGNING_KEY_FILE")
 	}
+}
+
+// userAssertionVerifier is nil when no LibreChat verification key is configured.
+func (b *builder) userAssertionVerifier() (*oidc.UserAssertionVerifier, error) {
+	settings := b.cfg.OIDC.UserAssertion
+	if !settings.Enabled() {
+		return nil, nil
+	}
+
+	verifier, err := oidc.NewUserAssertionVerifier(oidc.UserAssertionSettings{
+		PublicKeyPEM: settings.PublicKeyPEM,
+		KeyID:        settings.KeyID,
+		Issuer:       settings.Issuer,
+		Audience:     settings.Audience,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load user assertion verifier: %w", err)
+	}
+
+	return verifier, nil
 }
 
 func (b *builder) oidcAccessTokens() auth.AccessTokenAuthenticator {
