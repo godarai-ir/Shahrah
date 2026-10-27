@@ -49,7 +49,12 @@ func (s *Service) VerifyAccessToken(token string) (*AccessTokenClaims, error) {
 // AuthenticateAccessToken resolves the gateway auth context for an access token presented to
 // tenantID. Membership, role, and the model allowlist are read on every call, so deactivating
 // a member or changing their models takes effect without waiting for the token to expire.
+// A LibreChat user assertion, recognized by its key id, is accepted the same way.
 func (s *Service) AuthenticateAccessToken(ctx context.Context, tenantID, token string) (*platform.AuthContext, error) {
+	if s.assertions != nil && s.assertions.matches(strings.TrimSpace(token)) {
+		return s.authenticateUserAssertion(ctx, tenantID, strings.TrimSpace(token))
+	}
+
 	claims, err := s.VerifyAccessToken(token)
 	if err != nil {
 		return nil, err

@@ -27,6 +27,21 @@ type OIDCSettings struct {
 	GrantTTL                time.Duration
 	AuthorizationRequestTTL time.Duration
 	CodeTTL                 time.Duration
+	// UserAssertion verifies LibreChat's per-request member assertions; empty disables it.
+	UserAssertion UserAssertionSettings
+}
+
+// UserAssertionSettings configures LibreChat user assertions on gateway routes.
+type UserAssertionSettings struct {
+	PublicKeyPEM string
+	KeyID        string
+	Issuer       string
+	Audience     string
+}
+
+// Enabled reports whether a verification key is configured.
+func (s UserAssertionSettings) Enabled() bool {
+	return s.PublicKeyPEM != ""
 }
 
 // LoadOIDCSettings reads OIDC provider settings once at the configuration edge.
@@ -43,6 +58,13 @@ func LoadOIDCSettings() OIDCSettings {
 		GrantTTL:                positiveDurationEnv("OIDC_GRANT_TTL", 30*24*time.Hour),
 		AuthorizationRequestTTL: positiveDurationEnv("OIDC_AUTHORIZATION_REQUEST_TTL", 10*time.Minute),
 		CodeTTL:                 positiveDurationEnv("OIDC_CODE_TTL", time.Minute),
+		UserAssertion: UserAssertionSettings{
+			// Kubernetes secrets often carry PEM with escaped newlines.
+			PublicKeyPEM: strings.ReplaceAll(strings.TrimSpace(os.Getenv("USER_ASSERTION_PUBLIC_KEY_PEM")), `\n`, "\n"),
+			KeyID:        stringEnv("USER_ASSERTION_KEY_ID", "librechat-user-assertion"),
+			Issuer:       stringEnv("USER_ASSERTION_ISSUER", "librechat"),
+			Audience:     strings.TrimSpace(os.Getenv("USER_ASSERTION_AUDIENCE")),
+		},
 	}
 
 	if settings.SigningKeyPEM == "" {

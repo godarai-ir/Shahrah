@@ -65,6 +65,8 @@ type Dependencies struct {
 	Principals PrincipalResolver
 	Keys       *KeySet
 	Settings   Settings
+	// Assertions enables LibreChat user assertions on gateway routes when non-nil.
+	Assertions *UserAssertionVerifier
 	// Now overrides the clock in tests.
 	Now func() time.Time
 }
@@ -78,6 +80,7 @@ type Service struct {
 	sessions   SessionLookup
 	principals PrincipalResolver
 	keys       *KeySet
+	assertions *UserAssertionVerifier
 	settings   Settings
 	now        func() time.Time
 }
@@ -124,6 +127,7 @@ func NewService(deps Dependencies) (*Service, error) {
 		sessions:   deps.Sessions,
 		principals: deps.Principals,
 		keys:       deps.Keys,
+		assertions: deps.Assertions,
 		settings:   settings,
 		now:        func() time.Time { return now().UTC() },
 	}, nil
