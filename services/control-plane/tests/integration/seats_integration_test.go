@@ -178,6 +178,38 @@ func TestIntegration_SeatsPurchaseAssignsAndGrantsAProSeat(t *testing.T) {
 	require.Equal(t, seats.FreeSeatLimit+2, *usage.Limit, "paid seats add members beyond the free seats")
 }
 
+func TestIntegration_SeatStatusTotalCountsKeptFreeSeatCredits(t *testing.T) {
+	store, pool := newCreditIntegrationStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	tenantID := seatTenant(t, pool, now.AddDate(0, 0, -10))
+	member := addTenantUser(t, pool, tenantID, true)
+
+	_, err := store.RunSeatLifecycle(ctx, now)
+	require.NoError(t, err)
+
+	insertChatSpendLog(t, pool, tenantID, member, platform.CreditProductLibreChat, 100_000)
+	settleAllCredits(t, store)
+
+	order, err := store.CreateSeatOrder(ctx, tenantID, platform.CreateSeatOrderRequest{
+		Seat: "pro", Quantity: 1, Provider: "mock", AssignUserID: member,
+	}, "https://example.test/callback", "https://example.test/return", "test", now)
+	require.NoError(t, err)
+
+	authority := "seat-auth-" + uuid.NewString()
+	require.NoError(t, store.AttachSeatOrderGatewayData(ctx, order.PublicID, authority, "https://pay.example", nil))
+
+	_, _, err = store.CompleteSeatOrderByAuthority(ctx, authority, billing.PaymentVerification{RefID: "ref-1"}, now)
+	require.NoError(t, err)
+
+	status, err := store.GetSeatStatus(ctx, tenantID, member, now)
+	require.NoError(t, err)
+	require.Equal(t, "pro", status.Type)
+	require.Equal(t, "2400.00", status.RemainingCredits, "the Pro quota plus what is left of the free seat")
+	require.Equal(t, "2500.00", status.MonthlyCredits, "the total counts the same lots as the remainder, not only the Pro quota")
+}
+
 func TestIntegration_SeatsDowngradesWaitForThePeriodEnd(t *testing.T) {
 	store, pool := newCreditIntegrationStore(t)
 	ctx := context.Background()
