@@ -63,6 +63,7 @@ type Handler interface {
 	GetPlatformCreditPricePolicy(*fiber.Ctx) error
 	ApprovePlatformCreditPriceRevision(*fiber.Ctx) error
 	RejectPlatformCreditPriceRevision(*fiber.Ctx) error
+	SetPlatformCreditListPrice(*fiber.Ctx) error
 	ListPlatformCreditRateCards(*fiber.Ctx) error
 	CreatePlatformCreditRateCardDraft(*fiber.Ctx) error
 	UpsertPlatformCreditRateCardMultiplier(*fiber.Ctx) error
@@ -211,6 +212,7 @@ func (r *Routes) RegisterPlatform(router fiber.Router) {
 // registerPlatformCredits registers support-admin credit billing endpoints.
 func (r *Routes) registerPlatformCredits(router fiber.Router) {
 	router.Get("/credits/price-policy", r.handler.GetPlatformCreditPricePolicy)
+	router.Post("/credits/price-revisions", r.handler.SetPlatformCreditListPrice)
 	router.Post("/credits/price-revisions/:revisionID/approve", r.handler.ApprovePlatformCreditPriceRevision)
 	router.Post("/credits/price-revisions/:revisionID/reject", r.handler.RejectPlatformCreditPriceRevision)
 	router.Get("/credits/rate-cards", r.handler.ListPlatformCreditRateCards)

@@ -34,6 +34,12 @@ type CreditPriceDecisionRequest struct {
 	Reason string `json:"reason"`
 }
 
+// SetCreditPriceRequest sets the active credit list price by hand.
+type SetCreditPriceRequest struct {
+	PriceTomanPerCredit int64  `json:"price_toman_per_credit"`
+	Reason              string `json:"reason"`
+}
+
 // PricingChangelog is the public history of rate-card and credit price changes.
 type PricingChangelog struct {
 	RateCards    []PricingChangelogRateCard `json:"rate_cards"`

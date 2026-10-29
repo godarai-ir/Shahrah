@@ -40,6 +40,10 @@ type Offer struct {
 	YearlyDiscountPercent int64
 	// PoolAccess lets the member spend from the tenant pool after the seat's credits.
 	PoolAccess bool
+	// MonthlyPriceIRR and YearlyPriceIRR are the prices support set for the
+	// seat. Zero means the suggested price from the credit list price.
+	MonthlyPriceIRR int64
+	YearlyPriceIRR  int64
 }
 
 // Offers are the launch seat types.
@@ -178,9 +182,10 @@ func (t Type) MonthlyGrantMC() int64 {
 	return offer.MonthlyCredits * credits.MillicreditsPerCredit
 }
 
-// MonthlyPriceIRR is one seat-month before VAT: the seat's credits at the list
-// price less the seat discount.
-func MonthlyPriceIRR(offer Offer, listPriceIRRPerCredit int64) int64 {
+// SuggestedMonthlyPriceIRR is the formula price of one seat-month before VAT:
+// the seat's credits at the list price less the seat discount. Support sees it
+// as a suggestion next to the price it sets.
+func SuggestedMonthlyPriceIRR(offer Offer, listPriceIRRPerCredit int64) int64 {
 	if offer.Lifetime || offer.MonthlyCredits <= 0 || listPriceIRRPerCredit <= 0 {
 		return 0
 	}
@@ -188,11 +193,34 @@ func MonthlyPriceIRR(offer Offer, listPriceIRRPerCredit int64) int64 {
 	return offer.MonthlyCredits * listPriceIRRPerCredit * (100 - offer.DiscountPercent) / 100
 }
 
-// PeriodPriceIRR is one seat for a whole billing period before VAT. Yearly
-// billing gets the seat type's yearly discount; credits still arrive monthly.
-func PeriodPriceIRR(offer Offer, listPriceIRRPerCredit int64, interval string) (int64, error) {
-	monthly := MonthlyPriceIRR(offer, listPriceIRRPerCredit)
+// SuggestedPeriodPriceIRR is the formula price of one seat for a whole billing
+// period before VAT. Yearly billing gets the seat type's yearly discount.
+func SuggestedPeriodPriceIRR(offer Offer, listPriceIRRPerCredit int64, interval string) (int64, error) {
+	return periodPriceIRR(offer, SuggestedMonthlyPriceIRR(offer, listPriceIRRPerCredit), interval)
+}
 
+// PeriodPriceIRR is what one seat costs for a whole billing period before
+// VAT: the price support set, else the suggested price. A yearly price without
+// its own setting is the monthly price less the yearly discount, so a set
+// monthly price keeps yearly billing round too. Credits still arrive monthly.
+func PeriodPriceIRR(offer Offer, listPriceIRRPerCredit int64, interval string) (int64, error) {
+	if offer.Lifetime {
+		return periodPriceIRR(offer, 0, interval)
+	}
+
+	if offer.YearlyPriceIRR > 0 && NormalizeInterval(interval) == "yearly" {
+		return offer.YearlyPriceIRR, nil
+	}
+
+	monthly := offer.MonthlyPriceIRR
+	if monthly <= 0 {
+		monthly = SuggestedMonthlyPriceIRR(offer, listPriceIRRPerCredit)
+	}
+
+	return periodPriceIRR(offer, monthly, interval)
+}
+
+func periodPriceIRR(offer Offer, monthly int64, interval string) (int64, error) {
 	switch NormalizeInterval(interval) {
 	case "monthly":
 		return monthly, nil

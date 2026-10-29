@@ -24,6 +24,7 @@ var (
 	ErrOverageManagedBySupport           = errors.New("overage settings can only be changed by support")
 	ErrCreditPriceRevisionNotFound       = errors.New("credit price revision not found")
 	ErrDecisionReasonRequired            = errors.New("a reason is required")
+	ErrInvalidCreditPrice                = errors.New("list price must be a whole number of toman between 1 and 1,000,000")
 	ErrCreditRateCardNotDraft            = errors.New("credit rate card version is not a draft")
 	ErrInvalidCreditMultiplier           = errors.New("multiplier must be a positive decimal with at most four places")
 	ErrCreditPackVersionNotFound         = errors.New("credit pack version not found")

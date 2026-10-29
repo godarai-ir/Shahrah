@@ -45,8 +45,18 @@ type SeatTypeOffer struct {
 	DiscountPercent string `json:"discount_percent"`
 	// YearlyDiscountPercent is the extra discount of yearly billing.
 	YearlyDiscountPercent string `json:"yearly_discount_percent"`
-	MonthlyPriceIRR       int64  `json:"monthly_price_irr"`
-	YearlyPriceIRR        int64  `json:"yearly_price_irr"`
+	// MonthlyPriceIRR and YearlyPriceIRR are what a buyer pays: support's
+	// price when set, else the suggested price.
+	MonthlyPriceIRR int64 `json:"monthly_price_irr"`
+	YearlyPriceIRR  int64 `json:"yearly_price_irr"`
+	// SuggestedMonthlyPriceIRR and SuggestedYearlyPriceIRR follow the credit
+	// list price and the seat discounts; they only guide support.
+	SuggestedMonthlyPriceIRR int64 `json:"suggested_monthly_price_irr"`
+	SuggestedYearlyPriceIRR  int64 `json:"suggested_yearly_price_irr"`
+	// CustomMonthlyPriceIRR and CustomYearlyPriceIRR are support's prices;
+	// absent means the price is derived.
+	CustomMonthlyPriceIRR *int64 `json:"custom_monthly_price_irr,omitempty"`
+	CustomYearlyPriceIRR  *int64 `json:"custom_yearly_price_irr,omitempty"`
 	Active                bool   `json:"active"`
 }
 
@@ -314,10 +324,13 @@ type SeatStatus struct {
 	PendingRequest     string `json:"pending_request,omitempty"`
 }
 
-// SeatTypeUpdate changes one seat type's quota or discount (support admin).
+// SeatTypeUpdate changes one seat type's quota, discount, or price (support
+// admin). A price of 0 clears it back to the suggested price.
 type SeatTypeUpdate struct {
 	MonthlyCredits        *int64  `json:"monthly_credits,omitempty"`
 	DiscountPercent       *string `json:"discount_percent,omitempty"`
 	YearlyDiscountPercent *string `json:"yearly_discount_percent,omitempty"`
+	MonthlyPriceIRR       *int64  `json:"monthly_price_irr,omitempty"`
+	YearlyPriceIRR        *int64  `json:"yearly_price_irr,omitempty"`
 	Active                *bool   `json:"active,omitempty"`
 }

@@ -19,6 +19,7 @@ type creditAdminStore interface {
 	GetCreditPriceStatus(ctx context.Context, now time.Time) (*platform.CreditPriceStatus, error)
 	ApproveCreditPriceRevision(ctx context.Context, revisionID string, actor platform.SupportActor, reason string, now time.Time) (*platform.CreditPriceRevision, error)
 	RejectCreditPriceRevision(ctx context.Context, revisionID string, actor platform.SupportActor, reason string) (*platform.CreditPriceRevision, error)
+	SetCreditListPrice(ctx context.Context, priceToman int64, actor platform.SupportActor, reason string, now time.Time) (*platform.CreditPriceRevision, error)
 	ListCreditRateCardVersions(ctx context.Context) ([]platform.CreditRateCardVersion, error)
 	CreateCreditRateCardDraft(ctx context.Context, actor platform.SupportActor) (int, error)
 	UpsertCreditRateCardMultiplier(ctx context.Context, version int, req platform.UpsertCreditMultiplierRequest, actor platform.SupportActor) error
@@ -65,6 +66,30 @@ func (h *Handlers) GetPlatformCreditPricePolicy(c *fiber.Ctx) error {
 // ApprovePlatformCreditPriceRevision activates a proposed list price.
 func (h *Handlers) ApprovePlatformCreditPriceRevision(c *fiber.Ctx) error {
 	return h.decideCreditPriceRevision(c, true)
+}
+
+// SetPlatformCreditListPrice sets the active list price by hand.
+func (h *Handlers) SetPlatformCreditListPrice(c *fiber.Ctx) error {
+	store, err := h.requireCreditAdminStore()
+	if err != nil {
+		return err
+	}
+
+	var req platform.SetCreditPriceRequest
+	if parseErr := c.BodyParser(&req); parseErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if len(req.Reason) > 1000 {
+		return fiber.NewError(fiber.StatusBadRequest, "request field is too long")
+	}
+
+	revision, err := store.SetCreditListPrice(c.Context(), req.PriceTomanPerCredit, supportActor(c), req.Reason, time.Now())
+	if err != nil {
+		return creditPackError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(revision)
 }
 
 // RejectPlatformCreditPriceRevision closes a proposed list price.

@@ -51,6 +51,18 @@ export function CreditsWorkspace() {
       approve ? 'Price approved; plan versions are scheduled.' : 'Proposal rejected.');
   }
 
+  function setListPrice() {
+    const raw = window.prompt('New list price per credit, in toman:', String(price?.active?.price_toman_per_credit ?? ''))?.trim();
+    if (!raw) return;
+    const priceToman = Number(raw.replaceAll(',', ''));
+    if (!Number.isSafeInteger(priceToman) || priceToman <= 0) { setError('The list price must be a positive whole number of toman.'); return; }
+    const reason = window.prompt(`Set ${formatToman(priceToman)} per credit. Reason:`)?.trim();
+    if (!reason) return;
+    if (!window.confirm('This replaces any open proposal. Add-on pack prices and seat prices without a set price change immediately; plan prices publish after the 30-day notice. Continue?')) return;
+    void run(() => controlPlaneRequest('credits/price-revisions', { method: 'POST', body: JSON.stringify({ price_toman_per_credit: priceToman, reason }) }),
+      'List price set; plan versions are scheduled.');
+  }
+
   const draft = rateCards.find((card) => card.status === 'draft');
 
   function saveMultiplier(event: FormEvent) {
@@ -95,7 +107,7 @@ export function CreditsWorkspace() {
       <FleetConversion />
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card><p className="text-sm text-zinc-400">Active list price</p><p className="mt-2 text-xl font-semibold">{price?.active ? formatToman(price.active.price_toman_per_credit) : '—'}</p><p className="mt-1 text-xs text-zinc-500">Base {price?.active ? formatToman(price.active.base_usd_toman) : '—'} per USD · ±{price?.active?.band_pct ?? '10'}% band</p></Card>
+        <Card><p className="text-sm text-zinc-400">Active list price</p><p className="mt-2 text-xl font-semibold">{price?.active ? formatToman(price.active.price_toman_per_credit) : '—'}</p><p className="mt-1 text-xs text-zinc-500">Base {price?.active ? formatToman(price.active.base_usd_toman) : '—'} per USD · ±{price?.active?.band_pct ?? '10'}% band</p><div className="mt-3"><Button onClick={setListPrice}>Set price</Button></div></Card>
         <Card><p className="text-sm text-zinc-400">7-day average</p><p className="mt-2 text-xl font-semibold">{price?.seven_day_average_usd_toman ? formatToman(price.seven_day_average_usd_toman) : 'Not enough samples'}</p><p className="mt-1 text-xs text-zinc-500">Needs one sample on each of the last 7 days</p></Card>
         <Card><p className="text-sm text-zinc-400">Proposal</p>{price?.proposed ? <><p className="mt-2 text-xl font-semibold">{formatToman(price.proposed.price_toman_per_credit)}</p><p className="mt-1 text-xs text-zinc-500">From {formatToman(price.proposed.previous_price_toman ?? 0)} · average {formatToman(price.proposed.observed_avg_usd_toman ?? price.proposed.base_usd_toman)}</p><div className="mt-3 flex gap-2"><Button onClick={() => decide(price.proposed as CreditPriceRevision, true)}>Approve</Button><Button className="bg-zinc-800 text-zinc-100 hover:bg-zinc-700" onClick={() => decide(price.proposed as CreditPriceRevision, false)}>Reject</Button></div></> : <p className="mt-2 text-sm text-zinc-400">No open proposal.</p>}</Card>
       </section>

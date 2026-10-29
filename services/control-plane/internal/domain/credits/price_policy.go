@@ -19,6 +19,9 @@ const (
 	PriceAverageDays = 7
 	// PlanPriceNoticeDays is how far ahead plan price changes are announced.
 	PlanPriceNoticeDays = 30
+	// MaxListPriceToman bounds a list price support sets by hand, well inside
+	// the integer column and far above any plausible credit price.
+	MaxListPriceToman = 1_000_000
 )
 
 // RateSample is one observation of the dollar rate in toman.

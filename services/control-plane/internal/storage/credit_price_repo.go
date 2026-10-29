@@ -230,13 +230,88 @@ func (s *CreditPriceRepository) ApproveCreditPriceRevision(ctx context.Context, 
 		return nil, err
 	}
 
+	if activateErr := activateCreditPriceRevisionTx(ctx, tx, proposal, "credit_price.approved", actor, reason, now); activateErr != nil {
+		return nil, activateErr
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, commitErr
+	}
+
+	return scanCreditPriceRevision(s.pool.QueryRow(ctx, `SELECT `+creditPriceRevisionColumns+` FROM credit_price_revisions r WHERE r.revision_id = $1::uuid`, proposal.ID))
+}
+
+// SetCreditListPrice makes priceToman the active list price at once, without
+// waiting for the price policy. An open policy proposal is rejected because it
+// was priced from the old list price. The dollar base stays, so the band keeps
+// tracking the rate the previous price was set at.
+func (s *CreditPriceRepository) SetCreditListPrice(ctx context.Context, priceToman int64, actor platform.SupportActor, reason string, now time.Time) (*platform.CreditPriceRevision, error) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, billingdomain.ErrDecisionReasonRequired
+	}
+
+	if priceToman <= 0 || priceToman > credits.MaxListPriceToman {
+		return nil, billingdomain.ErrInvalidCreditPrice
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTxBestEffort(ctx, tx)
+
+	if _, execErr := tx.Exec(ctx, `
+		UPDATE credit_price_revisions
+		SET status = 'rejected', decided_by = NULLIF($1, ''), decided_at = NOW(),
+		    decision_reason = 'Replaced by a list price set by support.', updated_at = NOW()
+		WHERE status = 'proposed'
+	`, actor.ID); execErr != nil {
+		return nil, execErr
+	}
+
+	revision, err := scanCreditPriceRevision(tx.QueryRow(ctx, `
+		WITH active AS (
+			SELECT price_toman_per_credit, base_usd_toman, band_pct FROM credit_price_revisions
+			WHERE status = 'active' FOR UPDATE
+		), inserted AS (
+			INSERT INTO credit_price_revisions (
+				price_toman_per_credit, previous_price_toman, base_usd_toman, observed_avg_usd_toman,
+				band_pct, status, proposed_by
+			)
+			SELECT $1, a.price_toman_per_credit, COALESCE(a.base_usd_toman, $2), COALESCE(a.base_usd_toman, $2),
+			       COALESCE(a.band_pct, $3), 'proposed', NULLIF($4, '')
+			FROM (SELECT 1) one LEFT JOIN active a ON true
+			RETURNING *
+		)
+		SELECT `+creditPriceRevisionColumns+` FROM inserted r
+	`, priceToman, credits.LaunchBaseUSDToman, credits.PriceBandPercent, actor.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	if activateErr := activateCreditPriceRevisionTx(ctx, tx, revision, "credit_price.set", actor, reason, now); activateErr != nil {
+		return nil, activateErr
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, commitErr
+	}
+
+	return scanCreditPriceRevision(s.pool.QueryRow(ctx, `SELECT `+creditPriceRevisionColumns+` FROM credit_price_revisions r WHERE r.revision_id = $1::uuid`, revision.ID))
+}
+
+// activateCreditPriceRevisionTx makes a proposed revision the active list
+// price: add-on packs follow it at once, plan prices get draft versions that
+// publish after the notice period, and the change is audited as event.
+func activateCreditPriceRevisionTx(ctx context.Context, tx pgx.Tx, proposal *platform.CreditPriceRevision, event string, actor platform.SupportActor, reason string, now time.Time) error {
 	var activePrice int64
 	if activeErr := tx.QueryRow(ctx, `
 		UPDATE credit_price_revisions SET status = 'superseded', updated_at = NOW()
 		WHERE status = 'active'
 		RETURNING price_toman_per_credit
 	`).Scan(&activePrice); activeErr != nil && !errors.Is(activeErr, pgx.ErrNoRows) {
-		return nil, activeErr
+		return activeErr
 	}
 
 	planEffective := now.UTC().AddDate(0, 0, credits.PlanPriceNoticeDays)
@@ -247,27 +322,19 @@ func (s *CreditPriceRepository) ApproveCreditPriceRevision(ctx context.Context, 
 		    decided_by = NULLIF($4, ''), decided_at = $2, decision_reason = $5, updated_at = NOW()
 		WHERE revision_id = $1::uuid
 	`, proposal.ID, now.UTC(), planEffective, actor.ID, reason); execErr != nil {
-		return nil, execErr
+		return execErr
 	}
 
 	scheduled, err := scheduleRevisionPlanVersionsTx(ctx, tx, proposal.ID, proposal.PriceTomanPerCredit, planEffective)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if auditErr := insertFinancialAuditTx(ctx, tx, "", "credit_price.approved", actor, "credit_price_revision", proposal.ID, "credit_price:"+proposal.ID,
+	return insertFinancialAuditTx(ctx, tx, "", event, actor, "credit_price_revision", proposal.ID, "credit_price:"+proposal.ID,
 		map[string]interface{}{
 			"price_toman_per_credit": proposal.PriceTomanPerCredit, "previous_price_toman": activePrice,
 			"plan_versions_scheduled": scheduled, "plan_effective_from": planEffective, "reason": reason,
-		}); auditErr != nil {
-		return nil, auditErr
-	}
-
-	if commitErr := tx.Commit(ctx); commitErr != nil {
-		return nil, commitErr
-	}
-
-	return scanCreditPriceRevision(s.pool.QueryRow(ctx, `SELECT `+creditPriceRevisionColumns+` FROM credit_price_revisions r WHERE r.revision_id = $1::uuid`, proposal.ID))
+		})
 }
 
 // RejectCreditPriceRevision closes a proposal without changing the price.
