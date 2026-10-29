@@ -338,6 +338,8 @@ func creditAdminErrorStatus(err error) (int, string) {
 		return fiber.StatusNotFound, "credit_price_revision_not_found"
 	case errors.Is(err, billingdomain.ErrDecisionReasonRequired):
 		return fiber.StatusBadRequest, "reason_required"
+	case errors.Is(err, billingdomain.ErrInvalidCreditPrice):
+		return fiber.StatusBadRequest, "invalid_credit_price"
 	case errors.Is(err, billingdomain.ErrCreditRateCardNotDraft):
 		return fiber.StatusConflict, "rate_card_not_draft"
 	case errors.Is(err, billingdomain.ErrInvalidCreditMultiplier):

@@ -37,8 +37,41 @@ func TestSeatPricesAtLaunchListPrice(t *testing.T) {
 }
 
 func TestSeatPricesFollowListPrice(t *testing.T) {
-	got := MonthlyPriceIRR(Offers[Pro], 12_000)
+	got := SuggestedMonthlyPriceIRR(Offers[Pro], 12_000)
 	require.Equal(t, int64(2_000*12_000*90/100), got)
+}
+
+func TestSetSeatPricesWinOverTheFormula(t *testing.T) {
+	list := int64(credits.ListPriceIRRPerCredit)
+
+	pro := Offers[Pro]
+	pro.MonthlyPriceIRR = 22_500_000
+
+	monthly, err := PeriodPriceIRR(pro, list, "monthly")
+	require.NoError(t, err)
+	require.Equal(t, int64(22_500_000), monthly)
+
+	// Without its own yearly price, yearly billing discounts the set monthly price.
+	yearly, err := PeriodPriceIRR(pro, list, "yearly")
+	require.NoError(t, err)
+	require.Equal(t, int64(22_500_000*12*90/100), yearly)
+
+	pro.YearlyPriceIRR = 240_000_000
+
+	yearly, err = PeriodPriceIRR(pro, list, "yearly")
+	require.NoError(t, err)
+	require.Equal(t, int64(240_000_000), yearly)
+
+	suggested, err := SuggestedPeriodPriceIRR(pro, list, "monthly")
+	require.NoError(t, err)
+	require.Equal(t, int64(18_000_000), suggested, "the suggestion still follows the list price")
+
+	free := Offers[Free]
+	free.MonthlyPriceIRR = 10
+
+	freePrice, err := PeriodPriceIRR(free, list, "monthly")
+	require.NoError(t, err)
+	require.Zero(t, freePrice, "a lifetime seat is never charged")
 }
 
 func TestProrate(t *testing.T) {

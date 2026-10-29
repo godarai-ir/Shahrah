@@ -7,7 +7,8 @@ import { ClosingBand, ComparisonTable, FAQ, Section } from '@/app/components/pat
 import { buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
 
 // Public seat pricing, following the owner's pricing reference: free seats, then Pro and Max at fixed monthly
-// prices. Task counts are estimates from the same credit formulas the reference uses.
+// prices. Seat credits are sized so the price is about twice the provider cost (540 toman a credit at 270k toman
+// a dollar). Task counts are estimates from the same credit formulas the reference uses.
 
 const fa = (value: number) => value.toLocaleString('fa-IR');
 
@@ -30,12 +31,14 @@ function taskCredits(task: Task, model: Model) {
   }[task];
 }
 
-// Rounds a monthly count to a readable step, the way the pricing reference does.
-function roundCount(value: number) {
-  const step = value < 100 ? 10 : value < 1000 ? 50 : value < 3000 ? 100 : value < 10000 ? 500 : 1000;
-  const whole = Math.floor(value / step);
+const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 8, 10];
 
-  return (whole + ((value - whole * step) / step >= 0.3 ? 1 : 0)) * step;
+// Rounds a monthly count to the nearest round number of its magnitude, such as 150, 200, 750 or 1,000.
+function roundCount(value: number) {
+  const scale = 10 ** Math.floor(Math.log10(value));
+  const nearest = niceSteps.reduce((best, step) => (Math.abs(step * scale - value) < Math.abs(best * scale - value) ? step : best));
+
+  return nearest * scale;
 }
 
 const monthlyCount = (credits: number, task: Task, model: Model) => roundCount(credits / taskCredits(task, model));
@@ -46,7 +49,7 @@ const paidSeats = [
     id: 'pro' as const,
     name: 'Pro',
     tagline: 'برای اعضایی که هر روز با هوش مصنوعی کار می‌کنند',
-    credits: 4000,
+    credits: 2000,
     price: 2250000,
     popular: true,
     roles: ['مدیر پروژه', 'کارشناس فروش و بازاریابی', 'پشتیبانی', 'منابع انسانی'],
@@ -56,7 +59,7 @@ const paidSeats = [
     id: 'max' as const,
     name: 'Max',
     tagline: 'برای تحلیل‌گران، تولید محتوا و مصرف سنگین',
-    credits: 20000,
+    credits: 10000,
     price: 11250000,
     popular: false,
     roles: ['تحلیل‌گر', 'تولیدکننده‌ی محتوا', 'توسعه‌دهنده', 'پژوهشگر', 'مدیر محصول'],
@@ -129,7 +132,7 @@ const faqs = [
   },
   {
     question: 'عددهای روی کارت‌ها دقیق است؟',
-    answer: 'نه، تقریبی است و فرض می‌کند بخشی از اعتبار صرف ابزارها می‌شود. با مدل سبک تعداد بیشتر می‌شود و با گفت‌وگوی طولانی یا عامل هوش مصنوعی سنگین کمتر.',
+    answer: 'نه، تقریبی است و فرض می‌کند بخشی از اعتبار صرف ابزارها می‌شود. هر عدد یعنی اعتبار یک ماه فقط صرف همان یک کار شود؛ عددها جمع نمی‌شوند و نمی‌توان همه‌ی آن کارها را با هم در یک ماه انجام داد. با مدل سنگین‌تر، گفت‌وگوی طولانی یا عامل هوش مصنوعی پرمصرف، تعداد کمتر می‌شود.',
   },
   {
     question: 'دوره‌ی آزمایشی دارید؟',
@@ -137,7 +140,7 @@ const faqs = [
   },
   {
     question: 'Pro و Max چقدر هزینه دارند؟',
-    answer: 'Pro ماهی ۲٬۲۵۰٬۰۰۰ تومان با ۴٬۰۰۰ اعتبار و Max ماهی ۱۱٬۲۵۰٬۰۰۰ تومان با ۲۰٬۰۰۰ اعتبار است. قیمت‌ها بدون مالیات بر ارزش افزوده است و صورتحساب سالانه تخفیف دارد؛ اعتبار در هر حال ماه‌به‌ماه داده می‌شود.',
+    answer: 'Pro ماهی ۲٬۲۵۰٬۰۰۰ تومان با ۲٬۰۰۰ اعتبار و Max ماهی ۱۱٬۲۵۰٬۰۰۰ تومان با ۱۰٬۰۰۰ اعتبار است. قیمت‌ها بدون مالیات بر ارزش افزوده است و صورتحساب سالانه تخفیف دارد؛ اعتبار در هر حال ماه‌به‌ماه داده می‌شود.',
   },
   {
     question: 'اعتبار مصرف‌نشده به ماه بعد می‌رسد؟',
@@ -327,7 +330,9 @@ function Seats() {
                 <span className="text-label text-site-ink-soft">{fa(seat.credits)} اعتبار در ماه</span>
               </div>
               <div className="flex flex-col gap-2">
-                <p className="m-0 text-label text-site-ink-soft">در یک ماه، با مدل سبک، حدود:</p>
+                <p className="m-0 text-label text-site-ink-soft">
+                  اعتبار یک ماه، با مدل سبک، برای <span className="font-semibold text-site-ink">یکی</span> از این‌ها کافی است:
+                </p>
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                   {cardTasks.map((item) => (
                     <li key={item.task} className="text-body text-site-ink">
@@ -335,6 +340,7 @@ function Seats() {
                     </li>
                   ))}
                 </ul>
+                <p className="m-0 text-caption text-site-ink-soft">هر ردیف به‌تنهایی است؛ عددها جمع نمی‌شوند و همه‌ی این کارها با هم در یک ماه انجام نمی‌شود.</p>
               </div>
               <div className="flex flex-col gap-2">
                 <p className="m-0 text-caption font-medium text-site-ink-soft">مناسب برای</p>
@@ -365,7 +371,7 @@ function Examples() {
       <div className="flex flex-col gap-4">
         <h2 className={`max-w-3xl ${sectionHeading}`}>هر کار را چند بار در ماه می‌شود انجام داد؟</h2>
         <p className={`m-0 max-w-2xl ${sectionCopy}`}>
-          تعداد تقریبی هر کار در یک ماه، با اعتبار هر صندلی. عددها برای انجام فقط همان یک کار است؛ اگر چند کار انجام دهید، اعتبار بینشان تقسیم می‌شود.
+          تعداد تقریبی هر کار در یک ماه، با اعتبار هر صندلی. هر عدد برای انجام فقط همان یک کار است و ردیف‌ها با هم جمع نمی‌شوند؛ اگر چند کار انجام دهید، اعتبار بینشان تقسیم می‌شود.
         </p>
       </div>
 

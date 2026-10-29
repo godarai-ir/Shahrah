@@ -75,12 +75,16 @@ type seatTypeRow struct {
 	YearlyDiscount decimal.Decimal
 	PoolAccess     bool
 	Active         bool
+	// MonthlyPriceIRR and YearlyPriceIRR are support's prices; 0 means unset.
+	MonthlyPriceIRR int64
+	YearlyPriceIRR  int64
 }
 
 func (r seatTypeRow) offer() seats.Offer {
 	return seats.Offer{
 		Type: r.Type, MonthlyCredits: r.MonthlyGrantMC / credits.MillicreditsPerCredit, Lifetime: r.Lifetime,
 		DiscountPercent: r.Discount.IntPart(), YearlyDiscountPercent: r.YearlyDiscount.IntPart(), PoolAccess: r.PoolAccess,
+		MonthlyPriceIRR: r.MonthlyPriceIRR, YearlyPriceIRR: r.YearlyPriceIRR,
 	}
 }
 
@@ -90,7 +94,8 @@ type rowsQuerier interface {
 
 func loadSeatTypes(ctx context.Context, q rowsQuerier) (map[seats.Type]seatTypeRow, error) {
 	rows, err := q.Query(ctx, `
-		SELECT seat_type, monthly_grant_mc, lifetime, discount_percent::text, yearly_discount_percent::text, pool_access, active
+		SELECT seat_type, monthly_grant_mc, lifetime, discount_percent::text, yearly_discount_percent::text, pool_access, active,
+		       COALESCE(monthly_price_irr, 0), COALESCE(yearly_price_irr, 0)
 		FROM seat_types ORDER BY rank
 	`)
 	if err != nil {
@@ -104,7 +109,8 @@ func loadSeatTypes(ctx context.Context, q rowsQuerier) (map[seats.Type]seatTypeR
 			discount, yearly string
 		)
 
-		if scanErr := row.Scan(&seatType, &item.MonthlyGrantMC, &item.Lifetime, &discount, &yearly, &item.PoolAccess, &item.Active); scanErr != nil {
+		if scanErr := row.Scan(&seatType, &item.MonthlyGrantMC, &item.Lifetime, &discount, &yearly, &item.PoolAccess, &item.Active,
+			&item.MonthlyPriceIRR, &item.YearlyPriceIRR); scanErr != nil {
 			return item, scanErr
 		}
 
@@ -359,9 +365,21 @@ func (s *SeatRepository) seatOffers(ctx context.Context) ([]platform.SeatTypeOff
 			return nil, yearlyErr
 		}
 
+		suggestedMonthly, suggestedErr := seats.SuggestedPeriodPriceIRR(offer, listPrice, "monthly")
+		if suggestedErr != nil {
+			return nil, suggestedErr
+		}
+
+		suggestedYearly, suggestedErr := seats.SuggestedPeriodPriceIRR(offer, listPrice, "yearly")
+		if suggestedErr != nil {
+			return nil, suggestedErr
+		}
+
 		out = append(out, platform.SeatTypeOffer{
 			Type: string(seatType), MonthlyCredits: offer.MonthlyCredits, Lifetime: row.Lifetime, PoolAccess: row.PoolAccess,
-			DiscountPercent: row.Discount.StringFixed(2), YearlyDiscountPercent: row.YearlyDiscount.StringFixed(2), MonthlyPriceIRR: monthly, YearlyPriceIRR: yearly, Active: row.Active,
+			DiscountPercent: row.Discount.StringFixed(2), YearlyDiscountPercent: row.YearlyDiscount.StringFixed(2), MonthlyPriceIRR: monthly, YearlyPriceIRR: yearly,
+			SuggestedMonthlyPriceIRR: suggestedMonthly, SuggestedYearlyPriceIRR: suggestedYearly,
+			CustomMonthlyPriceIRR: setPrice(row.MonthlyPriceIRR), CustomYearlyPriceIRR: setPrice(row.YearlyPriceIRR), Active: row.Active,
 		})
 	}
 
@@ -415,15 +433,26 @@ func (s *SeatRepository) UpdateSeatType(ctx context.Context, seatType string, re
 		return nil, err
 	}
 
+	if priceErr := validSeatPrice(parsed, req.MonthlyPriceIRR); priceErr != nil {
+		return nil, priceErr
+	}
+
+	if priceErr := validSeatPrice(parsed, req.YearlyPriceIRR); priceErr != nil {
+		return nil, priceErr
+	}
+
+	// A sent price of 0 clears it back to the suggested price; an absent one keeps it.
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE seat_types
 		SET monthly_grant_mc = COALESCE($2, monthly_grant_mc),
 		    discount_percent = COALESCE($3::numeric, discount_percent),
 		    yearly_discount_percent = COALESCE($6::numeric, yearly_discount_percent),
+		    monthly_price_irr = CASE WHEN $7::bigint IS NULL THEN monthly_price_irr ELSE NULLIF($7::bigint, 0) END,
+		    yearly_price_irr = CASE WHEN $8::bigint IS NULL THEN yearly_price_irr ELSE NULLIF($8::bigint, 0) END,
 		    active = COALESCE($4, active),
 		    updated_by = NULLIF($5, ''), updated_at = NOW()
 		WHERE seat_type = $1
-	`, string(parsed), grantMC, discount, req.Active, actor, yearly)
+	`, string(parsed), grantMC, discount, req.Active, actor, yearly, req.MonthlyPriceIRR, req.YearlyPriceIRR)
 	if err != nil {
 		return nil, err
 	}
@@ -433,6 +462,33 @@ func (s *SeatRepository) UpdateSeatType(ctx context.Context, seatType string, re
 	}
 
 	return s.seatOffers(ctx)
+}
+
+// validSeatPrice checks an optional seat price: whole toman (a multiple of 10
+// IRR), zero to clear it, and only on a paid seat.
+func validSeatPrice(seatType seats.Type, priceIRR *int64) error {
+	if priceIRR == nil {
+		return nil
+	}
+
+	if *priceIRR < 0 || *priceIRR%credits.IRRPerToman != 0 {
+		return fmt.Errorf("%w: price must be a whole number of toman", seats.ErrInvalidSeatType)
+	}
+
+	if *priceIRR > 0 && !seatType.Paid() {
+		return fmt.Errorf("%w: only paid seats have a price", seats.ErrInvalidSeatType)
+	}
+
+	return nil
+}
+
+// setPrice reports a stored seat price, or nil when it is unset.
+func setPrice(priceIRR int64) *int64 {
+	if priceIRR <= 0 {
+		return nil
+	}
+
+	return &priceIRR
 }
 
 // wholePercent validates an optional discount: a whole percentage below 100,

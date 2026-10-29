@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
@@ -21,7 +22,18 @@ type creditAdminStoreFake struct {
 	conversions int
 	rollbacks   int
 	fleetRuns   int
+	setPrice    int64
 	err         error
+}
+
+func (f *creditAdminStoreFake) SetCreditListPrice(_ context.Context, priceToman int64, _ platform.SupportActor, reason string, _ time.Time) (*platform.CreditPriceRevision, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	f.setPrice = priceToman
+
+	return &platform.CreditPriceRevision{PriceTomanPerCredit: priceToman, Status: "active", DecisionReason: reason}, nil
 }
 
 func (f *creditAdminStoreFake) ConvertTenantToCredits(_ context.Context, tenantID, reason string, _ platform.SupportActor) (*platform.CreditConversion, error) {
@@ -65,6 +77,7 @@ func creditAdminAppWithPacks(store *creditAdminStoreFake, packs *creditPackStore
 	app.Post("/tenants/:tenantID/credits/conversion", h.ConvertPlatformTenantToCredits)
 	app.Post("/tenants/:tenantID/credits/conversion/rollback", h.RollbackPlatformTenantCredits)
 	app.Post("/credits/conversions/fleet", h.ConvertPlatformCreditFleet)
+	app.Post("/credits/price-revisions", h.SetPlatformCreditListPrice)
 	app.Post("/credits/price-revisions/:revisionID/approve", h.ApprovePlatformCreditPriceRevision)
 
 	return app
@@ -118,6 +131,17 @@ func TestCreditPriceDecisionsRejectMalformedIDs(t *testing.T) {
 	status := doCreditAdmin(t, creditAdminApp(&creditAdminStoreFake{}), fiber.MethodPost, "/credits/price-revisions/1%27%3B--/approve", `{"reason":"x"}`)
 	require.Equal(t, fiber.StatusNotFound, status)
 	require.NotEqual(t, http.StatusInternalServerError, status)
+}
+
+func TestSupportSetsTheListPriceByHand(t *testing.T) {
+	store := &creditAdminStoreFake{}
+
+	status := doCreditAdmin(t, creditAdminApp(store), fiber.MethodPost, "/credits/price-revisions", `{"price_toman_per_credit":1125,"reason":"round seat prices"}`)
+	require.Equal(t, fiber.StatusCreated, status)
+	require.Equal(t, int64(1125), store.setPrice)
+
+	invalid := &creditAdminStoreFake{err: billingdomain.ErrInvalidCreditPrice}
+	require.Equal(t, fiber.StatusBadRequest, doCreditAdmin(t, creditAdminApp(invalid), fiber.MethodPost, "/credits/price-revisions", `{"price_toman_per_credit":0,"reason":"x"}`))
 }
 
 func TestSupportOverageUpdateChangesOnlyOverage(t *testing.T) {
