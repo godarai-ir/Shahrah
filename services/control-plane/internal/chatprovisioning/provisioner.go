@@ -18,6 +18,8 @@ const (
 	provisionerActor = "chat-provisioner"
 	slugPlaceholder  = "{slug}"
 	callbackPath     = "/oauth/openid/callback"
+	// adminCallbackPath is where the tenant's admin panel sign-in returns, on the same chat origin.
+	adminCallbackPath = "/api/admin/oauth/openid/callback"
 
 	// retryBase is the first retry delay after a failure; it doubles each time up to retryMax.
 	retryBase = 15 * time.Second
@@ -211,10 +213,11 @@ func (p *Provisioner) sync(ctx context.Context, work Work, outcome *Outcome) err
 }
 
 // ensureClient finds or creates the tenant's chat OIDC client and keeps its URIs on the tenant's
-// chat origin. The secret is non-empty only when the client was just created.
+// chat origin: the chat sign-in callback and the admin panel sign-in callback, which LibreChat
+// serves on the same origin. The secret is non-empty only when the client was just created.
 func (p *Provisioner) ensureClient(ctx context.Context, work Work) (*oidc.Client, string, error) {
 	origin := strings.Replace(p.template, slugPlaceholder, work.Slug, 1)
-	redirectURIs := []string{origin + callbackPath}
+	redirectURIs := []string{origin + callbackPath, origin + adminCallbackPath}
 	logoutURIs := []string{origin + "/"}
 
 	clients, err := p.clients.ListClients(ctx, work.TenantID)

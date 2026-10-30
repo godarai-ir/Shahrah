@@ -156,7 +156,7 @@ func TestReconcileCreatesTheClientAndDeliversTheSecretForANewTenant(t *testing.T
 
 	require.Len(t, h.clients.created, 1)
 	require.Equal(t, ClientName, h.clients.created[0].Name)
-	require.Equal(t, []string{"https://acme.chat.example.com/oauth/openid/callback"}, h.clients.created[0].RedirectURIs)
+	require.Equal(t, chatRedirectURIs("acme"), h.clients.created[0].RedirectURIs)
 	require.Equal(t, []string{"https://acme.chat.example.com/"}, h.clients.created[0].PostLogoutRedirectURIs)
 	require.Equal(t, "librechat", h.clients.created[0].CreditProduct)
 	require.Zero(t, h.clients.rotated)
@@ -179,7 +179,7 @@ func TestReconcileDoesNotResendTheSecretOnceDelivered(t *testing.T) {
 	h := newHarness(t, work)
 	h.clients.clients = []oidc.Client{{
 		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
-		RedirectURIs:           []string{"https://acme.chat.example.com/oauth/openid/callback"},
+		RedirectURIs:           chatRedirectURIs("acme"),
 		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
 	}}
 
@@ -199,7 +199,7 @@ func TestReconcileRotatesTheSecretForAClientTheChatNeverReceived(t *testing.T) {
 	h := newHarness(t, newTenant("acme"))
 	h.clients.clients = []oidc.Client{{
 		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
-		RedirectURIs:           []string{"https://acme.chat.example.com/oauth/openid/callback"},
+		RedirectURIs:           chatRedirectURIs("acme"),
 		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
 	}}
 
@@ -222,6 +222,30 @@ func TestReconcileMovesTheClientURIsWhenTheSlugChanges(t *testing.T) {
 	h := newHarness(t, work)
 	h.clients.clients = []oidc.Client{{
 		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
+		RedirectURIs:           chatRedirectURIs("acme"),
+		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
+	}}
+
+	outcome := h.reconcile(t)
+
+	require.Len(t, h.clients.updated, 1)
+	require.Equal(t, chatRedirectURIs("acme-new"), *h.clients.updated[0].RedirectURIs)
+	require.Equal(t, "acme-new", h.chat.registered[0].Slug)
+	require.Empty(t, h.chat.registered[0].ClientSecret)
+	require.Equal(t, "acme-new", outcome.SyncedSlug)
+}
+
+func TestReconcileAddsTheAdminCallbackToAClientProvisionedBeforeIt(t *testing.T) {
+	t.Parallel()
+
+	work := newTenant("acme")
+	work.CredentialsDelivered = true
+	work.SyncedSlug = "acme"
+	work.SyncedStatus = "active"
+
+	h := newHarness(t, work)
+	h.clients.clients = []oidc.Client{{
+		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
 		RedirectURIs:           []string{"https://acme.chat.example.com/oauth/openid/callback"},
 		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
 	}}
@@ -229,10 +253,13 @@ func TestReconcileMovesTheClientURIsWhenTheSlugChanges(t *testing.T) {
 	outcome := h.reconcile(t)
 
 	require.Len(t, h.clients.updated, 1)
-	require.Equal(t, []string{"https://acme-new.chat.example.com/oauth/openid/callback"}, *h.clients.updated[0].RedirectURIs)
-	require.Equal(t, "acme-new", h.chat.registered[0].Slug)
+	require.Equal(t, []string{
+		"https://acme.chat.example.com/oauth/openid/callback",
+		"https://acme.chat.example.com/api/admin/oauth/openid/callback",
+	}, *h.clients.updated[0].RedirectURIs)
+	require.Zero(t, h.clients.rotated, "the chat already holds the secret")
 	require.Empty(t, h.chat.registered[0].ClientSecret)
-	require.Equal(t, "acme-new", outcome.SyncedSlug)
+	require.Equal(t, StateReady, outcome.State)
 }
 
 func TestReconcileSuspendsAndReactivatesTheChatWithTheTenant(t *testing.T) {
@@ -247,7 +274,7 @@ func TestReconcileSuspendsAndReactivatesTheChatWithTheTenant(t *testing.T) {
 	h := newHarness(t, suspended)
 	h.clients.clients = []oidc.Client{{
 		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
-		RedirectURIs:           []string{"https://acme.chat.example.com/oauth/openid/callback"},
+		RedirectURIs:           chatRedirectURIs("acme"),
 		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
 	}}
 
@@ -299,7 +326,7 @@ func TestReconcileAsksForTheSecretAgainWhenTheChatLostTheTenant(t *testing.T) {
 	h := newHarness(t, work)
 	h.clients.clients = []oidc.Client{{
 		ID: "row-1", ClientID: "gdc_existing", Name: ClientName, Active: true,
-		RedirectURIs:           []string{"https://acme.chat.example.com/oauth/openid/callback"},
+		RedirectURIs:           chatRedirectURIs("acme"),
 		PostLogoutRedirectURIs: []string{"https://acme.chat.example.com/"},
 	}}
 	h.chat.err = &APIError{Status: 400, Code: "INVALID_OIDC"}
@@ -440,4 +467,11 @@ func TestRunReconcilesAtOnceAndStopsWhenCancelled(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run did not stop after cancellation")
 	}
+}
+
+// chatRedirectURIs are the redirect URIs of the chat client of the tenant with this slug.
+func chatRedirectURIs(slug string) []string {
+	origin := "https://" + slug + ".chat.example.com"
+
+	return []string{origin + "/oauth/openid/callback", origin + "/api/admin/oauth/openid/callback"}
 }

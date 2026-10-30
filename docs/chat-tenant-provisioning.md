@@ -12,8 +12,10 @@ A worker (`internal/chatprovisioning`) runs every `CHAT_PROVISIONING_INTERVAL`. 
 need work, so a tenant created by any path (onboarding, social sign-in, an operator) is picked up
 without a hook in that path. For each tenant it:
 
-1. Finds or creates the OIDC client named `GodarChat` (credit product `librechat`) whose redirect URI is
-   `https://<slug>.chat.<domain>/oauth/openid/callback`. If the slug changed, it moves the URIs.
+1. Finds or creates the OIDC client named `GodarChat` (credit product `librechat`) whose redirect URIs are
+   `https://<slug>.chat.<domain>/oauth/openid/callback` (chat sign-in) and
+   `https://<slug>.chat.<domain>/api/admin/oauth/openid/callback` (admin panel sign-in). If the slug
+   changed, or a client predates the admin callback, it updates the URIs; the secret is not resent.
 2. Obtains the client secret. The secret is shown once, when a client is created or rotated, and is
    never stored here: a client the chat has not received credentials for gets a fresh secret.
 3. Calls `PUT /tenants/<tenant_id>` on LibreChat with the slug, client id and secret. The tenant id is
@@ -27,6 +29,31 @@ hour. Progress is stored in `tenant_chat_provisioning` (migration 064): state (`
 error. A lease on each claimed tenant keeps several replicas from working on the same tenant.
 
 Tenants whose slug cannot be a chat host (reserved slugs such as `default`) are `skipped`.
+
+## Admin panel sign-in
+
+Each tenant's LibreChat admin panel (`https://<slug>.admin.<domain>`, LibreChat's
+`ADMIN_HOST_BASE_DOMAIN`) signs in through the same `GodarChat` client: LibreChat starts the flow on the
+chat origin and receives the code at `/api/admin/oauth/openid/callback`, then hands the panel a one-time
+exchange code. LibreChat docs: `docs/multi-tenancy-host-mode.md` section 17.
+
+What the panel needs from Godar is already issued to this client:
+
+- `tid` (tenant UUID) and `tenant` (slug) in every ID token and userinfo, which LibreChat checks against
+  the host's tenant.
+- `roles: [<tenant role>]` with the `profile` scope. Tenant admins carry `tenant_admin`.
+- A refresh token, which LibreChat uses to renew admin sessions. LibreChat's default tenant scopes are
+  `openid profile email offline_access`.
+
+On the LibreChat side, map the role to admin access:
+
+```env
+OPENID_ADMIN_ROLE=tenant_admin
+OPENID_ADMIN_ROLE_PARAMETER_PATH=roles
+OPENID_ADMIN_ROLE_TOKEN_KIND=id
+```
+
+Admin sign-in never creates users, so a tenant admin signs in to the chat once before using the panel.
 
 ## Settings
 
