@@ -1,0 +1,465 @@
+# Single-host demo stack for Shahrah.
+#
+# Runs every product workload on one VPS with Docker Compose instead of K3s.
+# Images are pulled from the registry used by production; nothing is built on
+# the host. See README.md in this directory before the first start.
+
+name: shahrah-demo
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "3"
+
+x-app: &app
+  <<: *logging
+  restart: unless-stopped
+  networks: [internal]
+
+services:
+  # ---------------------------------------------------------------------------
+  # Edge
+  # ---------------------------------------------------------------------------
+  caddy:
+    <<: *logging
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?DEMO_DOMAIN is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    networks: [internal]
+    depends_on:
+      - control-plane
+      - tenant-admin
+      - website
+
+  # ---------------------------------------------------------------------------
+  # Datastores
+  # ---------------------------------------------------------------------------
+  postgres:
+    <<: *app
+    image: postgres:18
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=120
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: sharah_db
+      SUPPORT_ADMIN_DB_PASSWORD: ${SUPPORT_ADMIN_DB_PASSWORD:?SUPPORT_ADMIN_DB_PASSWORD is required}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ../postgres/initdb/01-create-model-discovery.sql:/docker-entrypoint-initdb.d/01-create-model-discovery.sql:ro
+      - ../postgres/initdb/02-create-support-admin.sh:/docker-entrypoint-initdb.d/02-create-support-admin.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1g
+
+  redis:
+    <<: *app
+    image: redis:8-alpine
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 320m
+
+  # Single ClickHouse node with embedded Keeper. The migrations use
+  # Replicated* engines, so a Keeper is still required even with one replica.
+  clickhouse:
+    <<: *app
+    image: clickhouse/clickhouse-server:26.3
+    environment:
+      CLICKHOUSE_USER: sharah_user
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhousedata:/var/lib/clickhouse
+      - ./clickhouse/config.d/demo.xml:/etc/clickhouse-server/config.d/demo.xml:ro
+      - ./clickhouse/users.d/demo.xml:/etc/clickhouse-server/users.d/demo.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user sharah_user --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    mem_limit: 1536m
+
+  typesense:
+    <<: *app
+    image: typesense/typesense:29.1
+    command:
+      - --api-key=${TYPESENSE_API_KEY:?TYPESENSE_API_KEY is required}
+      - --data-dir=/data
+      - --enable-cors
+    volumes:
+      - typesensedata:/data
+    mem_limit: 512m
+
+  minio:
+    <<: *app
+    image: minio/minio:latest
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY:?PRIVATE_FILES_S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY:?PRIVATE_FILES_S3_SECRET_KEY is required}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 384m
+
+  # Optional malware scanning for support attachments (~1.2 GB RAM).
+  # Enable with: docker compose --profile clamav up -d
+  # and set SUPPORT_CLAMAV_ADDRESS=clamav:3310 in .env.
+  clamav:
+    <<: *app
+    image: clamav/clamav:stable
+    profiles: [clamav]
+    volumes:
+      - clamavdata:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "printf 'PING\\n' | nc 127.0.0.1 3310 | grep PONG"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+    mem_limit: 1536m
+
+  # ---------------------------------------------------------------------------
+  # One-shot migrations and bootstrap jobs
+  # ---------------------------------------------------------------------------
+  migrate-main-db:
+    <<: *logging
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:goose-${GOOSE_TAG:?GOOSE_TAG is required}
+    command: ["sh", "-c", "goose -dir /migrations postgres \"$$DATABASE_URL\" up"]
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/sharah_db?sslmode=disable
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate-model-discovery:
+    <<: *logging
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:model-discovery-migrate-${MODEL_DISCOVERY_TAG:?MODEL_DISCOVERY_TAG is required}
+    command:
+      - sh
+      - -c
+      - >
+        pnpm exec prisma migrate deploy &&
+        pnpm run import:providers:yaml -- --providers-root /app/apps/model-discovery/providers
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/model_discovery?schema=public
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate-support-admin:
+    <<: *logging
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:support-admin-migrate-${SUPPORT_ADMIN_TAG:?SUPPORT_ADMIN_TAG is required}
+    command: ["pnpm", "exec", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://support_admin:${SUPPORT_ADMIN_DB_PASSWORD}@postgres:5432/support_admin?schema=public
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate-clickhouse:
+    <<: *logging
+    image: clickhouse/clickhouse-server:26.3
+    entrypoint: ["sh", "/scripts/migrate-clickhouse.sh"]
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: sharah_user
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: sharah_db
+    volumes:
+      - ../../clickhouse/migrations:/migrations:ro
+      - ./scripts/migrate-clickhouse.sh:/scripts/migrate-clickhouse.sh:ro
+    networks: [internal]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  minio-init:
+    <<: *logging
+    image: minio/mc:latest
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/godarai-support &&
+        mc anonymous set none local/godarai-support
+    environment:
+      MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY}
+    networks: [internal]
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Application workloads
+  # ---------------------------------------------------------------------------
+  silk-road:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:silk-road-${SILK_ROAD_TAG:?SILK_ROAD_TAG is required}
+    environment:
+      SILK_ROAD_ADDR: :8083
+      SILK_ROAD_EGRESS_PROXY_URL: ${SILK_ROAD_EGRESS_PROXY_URL:-}
+      SILK_ROAD_EGRESS_PROXY_REQUIRED: ${SILK_ROAD_EGRESS_PROXY_REQUIRED:-false}
+    mem_limit: 256m
+
+  control-plane:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:control-plane-${CONTROL_PLANE_TAG:?CONTROL_PLANE_TAG is required}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/sharah_db?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://sharah_user:${CLICKHOUSE_PASSWORD}@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s
+      CLICKHOUSE_REQUIRED: "true"
+      METRICS_MODEL_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      SILK_ROAD_URL: http://silk-road:8083
+      SHAHRAH_MODEL_DISCOVERY_URL: http://model-discovery:3002/api/v1
+      SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
+      PLATFORM_PROVIDER_CREDENTIAL_MODE: platform_store
+      PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT: production
+      PLATFORM_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION: ${PLATFORM_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION:-demo-v1}
+      PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON: ${PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON:?PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON is required}
+      PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY: ${PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY:?PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY is required}
+      TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION: ${TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION:-demo-v1}
+      TENANT_PROVIDER_CREDENTIAL_KEKS_JSON: ${TENANT_PROVIDER_CREDENTIAL_KEKS_JSON:?TENANT_PROVIDER_CREDENTIAL_KEKS_JSON is required}
+      TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY: ${TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY:?TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY is required}
+      TRACE_PAYLOAD_ENCRYPTION_KEY: ${TRACE_PAYLOAD_ENCRYPTION_KEY:?TRACE_PAYLOAD_ENCRYPTION_KEY is required}
+      TRACE_PII_HASH_SALT: ${TRACE_PII_HASH_SALT:?TRACE_PII_HASH_SALT is required}
+      TRACE_DEFAULT_SAMPLE_RATE: "0.05"
+      TRACE_SLOW_REQUEST_MS: "1500"
+      TRACE_CAPTURE_POLICY: metadata-only
+      TRACE_RETENTION_CLEANUP_ENABLED: "true"
+      TRACE_RETENTION_CLEANUP_INTERVAL_MS: "3600000"
+      TRACE_RETENTION_CLEANUP_TIMEOUT_MS: "30000"
+      RESPONSE_CACHE_ENABLED: "true"
+      SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL: ${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL:-}
+      SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY: ${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY:-}
+      EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_FROM_NAME: ${RESEND_FROM_NAME:-Godar-AI}
+      RESEND_REPLY_TO: ${RESEND_REPLY_TO:-}
+      PRIVATE_FILES_S3_ENDPOINT: http://minio:9000
+      PRIVATE_FILES_S3_REGION: us-east-1
+      PRIVATE_FILES_S3_BUCKET: godarai-support
+      PRIVATE_FILES_S3_ACCESS_KEY: ${PRIVATE_FILES_S3_ACCESS_KEY}
+      PRIVATE_FILES_S3_SECRET_KEY: ${PRIVATE_FILES_S3_SECRET_KEY}
+      PRIVATE_FILES_S3_FORCE_PATH_STYLE: "true"
+      SUPPORT_CLAMAV_ADDRESS: ${SUPPORT_CLAMAV_ADDRESS:-}
+      SUPPORT_CLAMAV_TIMEOUT: 30s
+      # Accept attachments without a malware scan when ClamAV is not running.
+      SUPPORT_ATTACHMENT_ALLOW_UNSCANNED_DEV: ${SUPPORT_ATTACHMENT_ALLOW_UNSCANNED:-true}
+      BALE_OTP_ENABLED: ${BALE_OTP_ENABLED:-false}
+      BALE_SAFIR_API_ACCESS_KEY: ${BALE_SAFIR_API_ACCESS_KEY:-}
+      BALE_SAFIR_BOT_ID: ${BALE_SAFIR_BOT_ID:-}
+    depends_on:
+      migrate-main-db:
+        condition: service_completed_successfully
+      migrate-clickhouse:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      silk-road:
+        condition: service_started
+    mem_limit: 768m
+
+  model-discovery:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:model-discovery-${MODEL_DISCOVERY_TAG}
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=384
+      PORT: "3002"
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/model_discovery?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: "8108"
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      TYPESENSE_COLLECTION_MODELS: models
+      TYPESENSE_READS_ENABLED: "true"
+      TYPESENSE_READY_STRICT: "true"
+      MASTER_KEY: ${MASTER_KEY}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CORS_ORIGIN: https://${DEMO_DOMAIN},https://*.${DEMO_DOMAIN}
+    depends_on:
+      migrate-model-discovery:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+    mem_limit: 512m
+
+  model-discovery-web:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:model-discovery-web-${MODEL_DISCOVERY_WEB_TAG:?MODEL_DISCOVERY_WEB_TAG is required}
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+      MODEL_DISCOVERY_API_BASE_INTERNAL: http://model-discovery:3002/api/v1
+      SHAHRAH_CONTROL_PLANE_URL: http://control-plane:4000
+    depends_on:
+      - model-discovery
+    mem_limit: 384m
+
+  tenant-admin:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:tenant-admin-${TENANT_ADMIN_TAG:?TENANT_ADMIN_TAG is required}
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+      SHAHRAH_CONTROL_PLANE_URL: http://control-plane:4000
+      SHAHRAH_MODEL_DISCOVERY_URL: http://model-discovery:3002/api/v1
+      NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL: https://${DEMO_DOMAIN}/catalog
+      GODARAI_AUTH_BASE_URL: https://auth.${DEMO_DOMAIN}
+      SHAHRAH_TENANT_BASE_DOMAIN: ${DEMO_DOMAIN}
+      MASTER_KEY: ${MASTER_KEY}
+      EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_FROM_NAME: ${RESEND_FROM_NAME:-Godar-AI}
+      RESEND_REPLY_TO: ${RESEND_REPLY_TO:-}
+    depends_on:
+      - control-plane
+    mem_limit: 512m
+
+  website:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:website-${WEBSITE_TAG:?WEBSITE_TAG is required}
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/sharah_db?sslmode=disable
+      SHAHRAH_CONTROL_PLANE_URL: http://control-plane:4000
+      MASTER_KEY: ${MASTER_KEY}
+      NEXT_PUBLIC_SITE_URL: https://${DEMO_DOMAIN}
+      SHAHRAH_BASE_DOMAIN: ${DEMO_DOMAIN}
+      SHAHRAH_TENANT_BASE_DOMAIN: ${DEMO_DOMAIN}
+      GODARAI_AUTH_BASE_URL: https://auth.${DEMO_DOMAIN}
+      GODARAI_TENANT_ORIGIN_TEMPLATE: https://{tenant}.${DEMO_DOMAIN}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: common
+      EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_FROM_NAME: ${RESEND_FROM_NAME:-Godar-AI}
+      RESEND_REPLY_TO: ${RESEND_REPLY_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      - control-plane
+    mem_limit: 512m
+
+  support-admin:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:support-admin-${SUPPORT_ADMIN_TAG}
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256
+      DATABASE_URL: postgresql://support_admin:${SUPPORT_ADMIN_DB_PASSWORD}@postgres:5432/support_admin?schema=public
+      MODEL_DISCOVERY_API_BASE_INTERNAL: http://model-discovery:3002/api/v1
+      SHAHRAH_CONTROL_PLANE_URL: http://control-plane:4000
+      SUPPORT_ADMIN_ORIGIN: https://admin.${DEMO_DOMAIN}
+      MODEL_DISCOVERY_SERVICE_TOKEN: ${MODEL_DISCOVERY_SERVICE_TOKEN:-}
+      CONTROL_PLANE_SERVICE_TOKEN: ${CONTROL_PLANE_SERVICE_TOKEN:-}
+    depends_on:
+      migrate-support-admin:
+        condition: service_completed_successfully
+      model-discovery:
+        condition: service_started
+      control-plane:
+        condition: service_started
+    mem_limit: 384m
+
+  # Marketing content. Enable with: docker compose --profile marketing up -d
+  blog:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:blog-${BLOG_TAG:-v0.43.0}
+    profiles: [marketing]
+    environment:
+      PUBLIC_SITE_URL: https://${DEMO_DOMAIN}/blog
+      PUBLIC_BASE_PATH: /blog
+      PUBLIC_ALLOWED_HOSTS: ${DEMO_DOMAIN}
+    mem_limit: 256m
+
+  docs:
+    <<: *app
+    image: ${IMAGE_REGISTRY:-docker.io/delpak}/godar-ai:docs-${DOCS_TAG:-v0.51.0}
+    profiles: [marketing]
+    mem_limit: 256m
+
+networks:
+  internal:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pgdata:
+  redisdata:
+  clickhousedata:
+  typesensedata:
+  miniodata:
+  clamavdata:
