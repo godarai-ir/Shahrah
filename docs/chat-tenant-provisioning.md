@@ -14,8 +14,10 @@ without a hook in that path. For each tenant it:
 
 1. Finds or creates the OIDC client named `GodarChat` (credit product `librechat`) whose redirect URIs are
    `https://<slug>.chat.<domain>/oauth/openid/callback` (chat sign-in) and
-   `https://<slug>.chat.<domain>/api/admin/oauth/openid/callback` (admin panel sign-in). If the slug
-   changed, or a client predates the admin callback, it updates the URIs; the secret is not resent.
+   `https://<slug>.chat.<domain>/api/admin/oauth/openid/callback` (admin panel sign-in). If the URIs
+   differ, it updates them; the secret is not resent. A `ready` tenant is only claimed again when its
+   slug or status changes, so a change to the URIs themselves needs a migration that re-queues the
+   tenants (`086_requeue_chat_tenants_for_admin_callback.sql` did this for the admin callback).
 2. Obtains the client secret. The secret is shown once, when a client is created or rotated, and is
    never stored here: a client the chat has not received credentials for gets a fresh secret.
 3. Calls `PUT /tenants/<tenant_id>` on LibreChat with the slug, client id and secret. The tenant id is
