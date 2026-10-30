@@ -158,12 +158,6 @@ export type CreditConversion = {
 
 export type TenantCreditConversionStatus = { preview: CreditConversionPreview; conversions: CreditConversion[] };
 
-export type CreditFleetConversionResult = {
-  converted: CreditConversion[];
-  failed: { tenant_id: string; tenant_slug: string; error: string }[];
-  remaining: number;
-};
-
 const CONVERSION_WARNINGS: Record<string, string> = {
   no_subscription: 'No active subscription: the plan is not moved.',
   no_published_credit_plan: 'The plan has no published credit version: publish it first or the plan is not moved.',
@@ -175,9 +169,4 @@ const CONVERSION_WARNINGS: Record<string, string> = {
 
 export function conversionWarning(code: string): string {
   return CONVERSION_WARNINGS[code] ?? code;
-}
-
-/** Warnings that leave the tenant on its current plan instead of moving it. */
-export function blocksPlanMove(preview: CreditConversionPreview): boolean {
-  return preview.warnings.some((code) => code === 'no_subscription' || code === 'no_published_credit_plan');
 }

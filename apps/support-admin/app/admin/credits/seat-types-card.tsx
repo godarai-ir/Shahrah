@@ -112,9 +112,9 @@ export function SeatTypesCard() {
               return (
                 <tr key={item.type} className="align-top">
                   <td className="py-3 capitalize">{item.type}{item.lifetime ? ' (once)' : ''}</td>
-                  <td className="py-2"><Input className="w-28" inputMode="numeric" value={draft?.credits ?? ''} onChange={(e) => update(item.type, { credits: e.target.value })} /></td>
-                  <td className="py-2"><Input className="w-20" inputMode="numeric" disabled={item.lifetime} value={draft?.discount ?? ''} onChange={(e) => update(item.type, { discount: e.target.value })} /></td>
-                  <td className="py-2"><Input className="w-20" inputMode="numeric" disabled={item.lifetime} value={draft?.yearly ?? ''} onChange={(e) => update(item.type, { yearly: e.target.value })} /></td>
+                  <td className="py-2"><Input className="w-28" inputMode="numeric" aria-label={`${item.type} monthly credits`} value={draft?.credits ?? ''} onChange={(e) => update(item.type, { credits: e.target.value })} /></td>
+                  <td className="py-2"><Input className="w-20" inputMode="numeric" disabled={item.lifetime} aria-label={`${item.type} discount percent`} value={draft?.discount ?? ''} onChange={(e) => update(item.type, { discount: e.target.value })} /></td>
+                  <td className="py-2"><Input className="w-20" inputMode="numeric" disabled={item.lifetime} aria-label={`${item.type} yearly extra discount percent`} value={draft?.yearly ?? ''} onChange={(e) => update(item.type, { yearly: e.target.value })} /></td>
                   {(['monthly', 'yearly'] as const).map((interval) => {
                     const field = interval === 'monthly' ? 'monthlyPrice' : 'yearlyPrice';
                     const charged = interval === 'monthly' ? item.monthly_price_irr : item.yearly_price_irr;
@@ -133,7 +133,7 @@ export function SeatTypesCard() {
                     );
                   })}
                   <td className="py-3"><input type="checkbox" aria-label={`${item.type} active`} checked={draft?.active ?? false} onChange={(e) => update(item.type, { active: e.target.checked })} /></td>
-                  <td className="py-2"><Button onClick={() => void save(item)}>Save</Button></td>
+                  <td className="py-2"><Button aria-label={`Save ${item.type} seat`} onClick={() => void save(item)}>Save</Button></td>
                 </tr>
               );
             })}
