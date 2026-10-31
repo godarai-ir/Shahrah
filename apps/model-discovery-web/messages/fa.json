@@ -64,6 +64,8 @@
     "toman": "تومان",
     "perToken": "به‌ازای هر توکن",
     "perMillionTokens": "به‌ازای هر یک میلیون توکن",
+    "perImage": "به‌ازای هر تصویر",
+    "perSecond": "به‌ازای هر ثانیه",
     "oneTokenShort": "۱ . ت",
     "oneMillionTokensShort": "۱ . م . ت",
     "oneToken": "یک توکن",
