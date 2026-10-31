@@ -29,6 +29,7 @@ type ModelRuntimeProfile struct {
 	DeferredCompletions   ModelRuntimeDeferredProfile   `json:"deferredCompletions,omitempty"`
 	ResponseResources     ModelRuntimeResponseResources `json:"responseResources,omitempty"`
 	ImageControls         ModelRuntimeImageControls     `json:"imageControls,omitempty"`
+	VideoControls         ModelRuntimeVideoControls     `json:"videoControls,omitempty"`
 	UsageAccounting       ModelRuntimeUsageAccounting   `json:"usageAccounting,omitempty"`
 	UnsupportedParameters []string                      `json:"unsupportedParameters,omitempty"`
 	BetaHeaders           []string                      `json:"betaHeaders"`
@@ -207,6 +208,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 		profile.validateResourcePolicies,
 		profile.validateModalitiesAndRequestControls,
 		profile.validateBetaCapabilitiesAndLimits,
+		profile.validateVideoControls,
 	}
 
 	for _, validate := range validators {

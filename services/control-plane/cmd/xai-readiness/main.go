@@ -50,7 +50,18 @@ type probe struct {
 	name, model, method, path, body string
 	wantStatus                      int
 	maxCostUSD                      float64
+	// run replaces the single request for multi-step probes.
+	run func(ctx context.Context, call gatewayCall) error
 }
+
+// gatewayCall sends one authenticated request and returns its status and a
+// bounded body. Bodies are only parsed, never written to the report.
+type gatewayCall func(ctx context.Context, method, path, body string) (int, []byte, error)
+
+const videoPollLimit = 60
+
+// videoPollInterval is a variable so tests can poll without waiting.
+var videoPollInterval = 5 * time.Second
 
 func main() {
 	var (
@@ -173,6 +184,12 @@ func readinessProbes() []probe {
 			body:       `{"model":"grok-imagine-image-quality","prompt":"A small blue circle on white","n":1,"resolution":"1k","response_format":"b64_json"}`,
 			wantStatus: http.StatusOK, maxCostUSD: 0.05,
 		},
+		{
+			name: "video lite create, poll, and download", model: "grok-imagine-video-1.5-lite", method: http.MethodPost,
+			path: "/v1/videos", maxCostUSD: 0.02, run: videoLifecycle,
+		},
+		{name: "video invalid duration rejection", model: "grok-imagine-video-1.5-lite", method: http.MethodPost, path: "/v1/videos", body: `{"model":"grok-imagine-video-1.5-lite","prompt":"A blue circle","seconds":"30"}`, wantStatus: http.StatusBadRequest},
+		{name: "video unknown job isolation", method: http.MethodGet, path: "/v1/videos/video_readiness_unknown", wantStatus: http.StatusNotFound},
 		{name: "unknown batch ownership rejection", method: http.MethodPost, path: "/v1/batches/readiness-invalid/requests", body: `{"batch_requests":[{"batch_request_id":"negative","batch_request":{"chat_get_completion":{"model":"grok-4.5","messages":[]}}}]}`, wantStatus: http.StatusNotFound},
 	}
 }
@@ -180,42 +197,124 @@ func readinessProbes() []probe {
 func executeProbe(parent context.Context, client *http.Client, timeout time.Duration, baseURL, key, account string, item probe) readinessCase {
 	result := readinessCase{Name: item.name, Model: item.model, Endpoint: item.method + " " + item.path, Status: "failed"}
 
-	ctx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
+	call := func(ctx context.Context, method, path, body string) (int, []byte, error) {
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, item.method, baseURL+item.path, bytes.NewBufferString(item.body))
-	if err != nil {
-		result.Error = "request construction failed"
-		return result
+		req, err := http.NewRequestWithContext(ctx, method, baseURL+path, bytes.NewBufferString(body))
+		if err != nil {
+			return 0, nil, errors.New("request construction failed")
+		}
+
+		req.Header.Set("Authorization", "Bearer "+key)
+		req.Header.Set("x-godarai-provider", "xai")
+		req.Header.Set("x-godarai-provider-account", account)
+
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0, nil, errors.New("request failed: " + safeError(err))
+		}
+		defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
+		received, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if err != nil {
+			return resp.StatusCode, nil, errors.New("response read failed")
+		}
+
+		return resp.StatusCode, received, nil
 	}
 
-	req.Header.Set("Authorization", "Bearer "+key)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-godarai-provider", "xai")
-	req.Header.Set("x-godarai-provider-account", account)
+	if item.run != nil {
+		if err := item.run(parent, call); err != nil {
+			result.Error = err.Error()
 
-	if item.body != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
+			return result
+		}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		result.Error = "request failed: " + safeError(err)
-		return result
-	}
-	defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
-
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20)) //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
-
-	result.HTTPCode = resp.StatusCode
-	if resp.StatusCode == item.wantStatus {
 		result.Status = "passed"
+
 		return result
 	}
 
-	result.Error = fmt.Sprintf("unexpected HTTP status: got %d want %d", resp.StatusCode, item.wantStatus)
+	status, _, err := call(parent, item.method, item.path, item.body)
+	if err != nil {
+		result.Error = err.Error()
+
+		return result
+	}
+
+	result.HTTPCode = status
+	if status == item.wantStatus {
+		result.Status = "passed"
+
+		return result
+	}
+
+	result.Error = fmt.Sprintf("unexpected HTTP status: got %d want %d", status, item.wantStatus)
 
 	return result
+}
+
+// videoLifecycle creates the cheapest clip (1 s, 480p, lite), polls it to
+// completion, and downloads it. Settlement is checked separately in the
+// tenant's spend logs, because the API never exposes provider cost.
+func videoLifecycle(ctx context.Context, call gatewayCall) error {
+	status, body, err := call(ctx, http.MethodPost, "/v1/videos", `{"model":"grok-imagine-video-1.5-lite","prompt":"A small blue circle on white","seconds":"1","size":"854x480"}`)
+	if err != nil {
+		return err
+	}
+
+	var video struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Error  *struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+
+	if status != http.StatusOK || json.Unmarshal(body, &video) != nil || video.ID == "" {
+		return fmt.Errorf("video create returned HTTP %d", status)
+	}
+
+	for attempt := 0; video.Status != "completed"; attempt++ {
+		if video.Status == "failed" || attempt >= videoPollLimit {
+			code := "timeout"
+			if video.Error != nil {
+				code = video.Error.Code
+			}
+
+			return fmt.Errorf("video did not complete: %s", code)
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(videoPollInterval):
+		}
+
+		if status, body, err = call(ctx, http.MethodGet, "/v1/videos/"+video.ID, ""); err != nil {
+			return err
+		}
+
+		if status != http.StatusOK || json.Unmarshal(body, &video) != nil {
+			return fmt.Errorf("video poll returned HTTP %d", status)
+		}
+	}
+
+	status, body, err = call(ctx, http.MethodGet, "/v1/videos/"+video.ID+"/content", "")
+	if err != nil {
+		return err
+	}
+
+	if status != http.StatusOK || len(body) == 0 {
+		return fmt.Errorf("video download returned HTTP %d", status)
+	}
+
+	return nil
 }
 
 func spendCeiling(raw string) (float64, error) {

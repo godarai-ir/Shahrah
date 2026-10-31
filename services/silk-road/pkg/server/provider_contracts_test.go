@@ -113,7 +113,6 @@ func TestGeminiAdapterCarriesDocumentedOpenAICompatibleEndpointsAndStreaming(t *
 		{name: "chat stream", stream: true, wantPath: "/v1beta/openai/chat/completions"},
 		{name: "embeddings", path: "/embeddings", wantPath: "/v1beta/openai/embeddings"},
 		{name: "images", path: "/images/generations", wantPath: "/v1beta/openai/images/generations"},
-		{name: "videos", path: "/videos", wantPath: "/v1beta/openai/videos"},
 	}
 
 	for _, tt := range tests {

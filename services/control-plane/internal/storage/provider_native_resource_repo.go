@@ -366,6 +366,151 @@ func (s *ProviderResourceRepository) UpdateProviderNativeResourceStatus(
 	return nil
 }
 
+const providerNativeResourceColumns = `
+	public_id, tenant_id::text, provider, provider_account_id::text,
+	resource_kind, upstream_id, status, metadata_json,
+	COALESCE(pricing_revision, ''), COALESCE(reservation_id, ''),
+	reservation_json, estimated_usage_json, expires_at`
+
+// FindTenantProviderNativeResourceMapping resolves a public ID inside one
+// tenant without knowing its provider, for provider-neutral resources.
+func (s *ProviderResourceRepository) FindTenantProviderNativeResourceMapping(
+	ctx context.Context,
+	tenantID string,
+	resourceKind string,
+	publicID string,
+) (*platform.ProviderNativeResourceMapping, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT `+providerNativeResourceColumns+`
+		FROM provider_native_resource_mappings
+		WHERE tenant_id = $1 AND resource_kind = $2 AND public_id = $3
+	`, tenantID, strings.ToLower(strings.TrimSpace(resourceKind)), publicID)
+
+	mapping, err := scanProviderNativeResourceMapping(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProviderNativeResourceNotFound
+	}
+
+	return mapping, err
+}
+
+// ListTenantProviderNativeResourceMappings pages one tenant's resources of a
+// kind by creation time, skipping soft-deleted rows. `after` is a public ID
+// cursor; an unknown cursor yields an empty page.
+func (s *ProviderResourceRepository) ListTenantProviderNativeResourceMappings(
+	ctx context.Context,
+	tenantID string,
+	resourceKind string,
+	after string,
+	ascending bool,
+	limit int,
+) ([]platform.ProviderNativeResourceMapping, error) {
+	if limit <= 0 || limit > 501 {
+		limit = 101
+	}
+
+	direction, comparison := "DESC", "<"
+	if ascending {
+		direction, comparison = "ASC", ">"
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT `+providerNativeResourceColumns+`
+		FROM provider_native_resource_mappings
+		WHERE tenant_id = $1 AND resource_kind = $2
+		  AND NOT (metadata_json ? 'deleted_at')
+		  AND ($3 = '' OR (created_at, public_id) `+comparison+` (
+		      SELECT created_at, public_id FROM provider_native_resource_mappings
+		      WHERE tenant_id = $1 AND resource_kind = $2 AND public_id = $3))
+		ORDER BY created_at `+direction+`, public_id `+direction+`
+		LIMIT $4
+	`, tenantID, strings.ToLower(strings.TrimSpace(resourceKind)), after, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	mappings := make([]platform.ProviderNativeResourceMapping, 0, limit)
+
+	for rows.Next() {
+		mapping, scanErr := scanProviderNativeResourceMapping(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+
+		mappings = append(mappings, *mapping)
+	}
+
+	return mappings, rows.Err()
+}
+
+// PatchProviderNativeResourceState merges metadata keys and, when status is
+// set, moves the resource to it. With expectedStatus set the write applies
+// only while the row still holds that status, so concurrent writers never
+// regress a claimed job.
+func (s *ProviderResourceRepository) PatchProviderNativeResourceState(
+	ctx context.Context,
+	tenantID string,
+	provider string,
+	resourceKind string,
+	publicID string,
+	expectedStatus string,
+	status string,
+	patch map[string]interface{},
+) (bool, error) {
+	if patch == nil {
+		patch = map[string]interface{}{}
+	}
+
+	encoded, err := json.Marshal(patch)
+	if err != nil {
+		return false, err
+	}
+
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE provider_native_resource_mappings
+		SET status = COALESCE(NULLIF($6, ''), status),
+		    metadata_json = metadata_json || $7::jsonb,
+		    updated_at = now()
+		WHERE tenant_id = $1 AND provider = $2 AND resource_kind = $3 AND public_id = $4
+		  AND ($5 = '' OR status = $5)
+	`, tenantID, strings.ToLower(strings.TrimSpace(provider)),
+		strings.ToLower(strings.TrimSpace(resourceKind)), publicID,
+		strings.TrimSpace(expectedStatus), strings.TrimSpace(status), encoded,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	return tag.RowsAffected() == 1, nil
+}
+
+func scanProviderNativeResourceMapping(row pgx.Row) (*platform.ProviderNativeResourceMapping, error) {
+	var (
+		mapping                          platform.ProviderNativeResourceMapping
+		metadata, reservation, estimated []byte
+	)
+
+	if err := row.Scan(
+		&mapping.PublicID, &mapping.TenantID, &mapping.Provider,
+		&mapping.ProviderAccountID, &mapping.ResourceKind, &mapping.UpstreamID,
+		&mapping.Status, &metadata, &mapping.PricingRevision,
+		&mapping.ReservationID, &reservation, &estimated, &mapping.ExpiresAt,
+	); err != nil {
+		return nil, err
+	}
+
+	for target, raw := range map[interface{}][]byte{
+		&mapping.Metadata: metadata, &mapping.Reservation: reservation, &mapping.EstimatedUsage: estimated,
+	} {
+		if err := decodeOptionalJSON(raw, target); err != nil {
+			return nil, err
+		}
+	}
+
+	return &mapping, nil
+}
+
 func decodeOptionalJSON(raw []byte, target interface{}) error {
 	if len(raw) == 0 || string(raw) == "null" || string(raw) == "{}" {
 		return nil

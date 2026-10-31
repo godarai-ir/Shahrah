@@ -772,10 +772,10 @@ function getEndpointExample(mode: string, modelId: string) {
   }
   if (normalized.includes("video")) {
     return createEndpointExample(
-      `${WORKSPACE_BASE_URL}/v1/videos/generations`,
-      DOCS_BASE_URL,
+      `${WORKSPACE_BASE_URL}/v1/videos`,
+      `${DOCS_BASE_URL}/video-generation`,
       `  -H "Content-Type: application/json" \\
-  -d '{"model":"${modelId}","prompt":"یک نمای سینمایی از شهر در شب"}'`,
+  -d '{"model":"${modelId}","prompt":"یک نمای سینمایی از شهر در شب","seconds":"8"}'`,
     );
   }
 

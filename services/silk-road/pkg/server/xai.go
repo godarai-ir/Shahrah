@@ -77,6 +77,10 @@ func (a *xaiAdapter) Dispatch(ctx context.Context, client *http.Client, payload 
 		if err := validateXAIRequestBodyDecoded(requestBody, payload.Operation, binding.Profile); err != nil {
 			return nil, err
 		}
+
+		if err := validateXAIVideoRequest(payload, binding.Profile); err != nil {
+			return nil, err
+		}
 	}
 
 	return a.dispatchWithRetry(ctx, client, payload)
@@ -84,6 +88,8 @@ func (a *xaiAdapter) Dispatch(ctx context.Context, client *http.Client, payload 
 
 func (a *xaiAdapter) DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error) {
 	switch payload.Operation {
+	case platform.ProviderOperationXAIVideosContent:
+		return a.dispatchVideoContent(ctx, client, payload)
 	case platform.ProviderOperationOpenAIFilesCreate,
 		platform.ProviderOperationOpenAIFilesContent:
 		// These are the only xAI resource operations whose payload or response
@@ -756,6 +762,12 @@ func xaiRuntimeEndpoint(operation platform.ProviderOperation) string {
 		return "language_models"
 	case platform.ProviderOperationXAIImageGenerationModelsList, platform.ProviderOperationXAIImageGenerationModelsGet:
 		return "image_generation_models"
+	case platform.ProviderOperationXAIVideosGenerate,
+		platform.ProviderOperationXAIVideosEdit,
+		platform.ProviderOperationXAIVideosExtend,
+		platform.ProviderOperationXAIVideosGet,
+		platform.ProviderOperationXAIVideosContent:
+		return "videos"
 	default:
 		return ""
 	}
@@ -768,7 +780,12 @@ func xaiOperationRequiresModel(operation platform.ProviderOperation) bool {
 		platform.ProviderOperationOpenAIResponsesCompact,
 		platform.ProviderOperationOpenAIResponsesInputTokens,
 		platform.ProviderOperationOpenAIImagesGenerations,
-		platform.ProviderOperationOpenAIImagesEdits:
+		platform.ProviderOperationOpenAIImagesEdits,
+		platform.ProviderOperationXAIVideosGenerate,
+		platform.ProviderOperationXAIVideosEdit,
+		platform.ProviderOperationXAIVideosExtend,
+		platform.ProviderOperationXAIVideosGet,
+		platform.ProviderOperationXAIVideosContent:
 		return true
 	default:
 		return false

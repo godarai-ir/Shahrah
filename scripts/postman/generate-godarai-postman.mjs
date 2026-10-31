@@ -46,7 +46,7 @@ const endpoints = [
   { key: 'layout_parsing', method: 'POST', path: '/v1/layout_parsing', implemented: true },
   { key: 'batch', method: 'POST', path: '/v1/batches', implemented: false },
   { key: 'files', method: 'POST', path: '/v1/files', implemented: false },
-  { key: 'video', method: 'POST', path: '/v1/videos', implemented: false },
+  { key: 'video', method: 'POST', path: '/v1/videos', implemented: true },
 ];
 
 function uid(seed) {
@@ -396,7 +396,6 @@ function openAICollection(provider) {
         item: [
           rawJsonRequest('Batch Placeholder - Route Not Registered', 'POST', '/v1/batches', { input_file_id: '{{batch_input_file_id}}', endpoint: '/v1/chat/completions' }, basicJsonTests([404, 501]), skipUnlessRunnable),
           rawJsonRequest('Files Placeholder - Route Not Registered', 'POST', '/v1/files', { purpose: 'batch' }, basicJsonTests([404, 501]), skipUnlessRunnable),
-          rawJsonRequest('Video Placeholder - Route Not Registered', 'POST', '/v1/videos', { model: '{{openai_video_model_fqn}}', prompt: 'GodarAI video placeholder' }, basicJsonTests([404, 501]), skipUnlessRunnable),
         ],
       },
     ],
@@ -423,6 +422,7 @@ function placeholderCollection(provider) {
     ['model_fqn_embeddings', `${modelPrefix}:{{provider_account_name}}:{{provider_embedding_model_slug}}`],
     ['model_fqn_images', `${modelPrefix}:{{provider_account_name}}:{{provider_image_model_slug}}`],
     ['model_fqn_video', `${modelPrefix}:{{provider_account_name}}:{{provider_video_model_slug}}`],
+    ['provider_video_model_slug', provider.slug === 'xai' ? 'grok-imagine-video-1.5-lite' : ''],
     ['model_fqn_ocr', `${modelPrefix}:{{provider_account_name}}:{{provider_ocr_model_slug}}`],
     ['provider_ocr_model_slug', provider.slug === 'zai' ? 'glm-ocr' : ''],
     ['ocr_file_url', 'https://example.com/document.pdf'],
@@ -431,7 +431,7 @@ function placeholderCollection(provider) {
     ['supports_responses', 'false'],
     ['supports_embeddings', 'false'],
     ['supports_images', 'false'],
-    ['supports_video', 'false'],
+    ['supports_video', provider.slug === 'xai' ? 'true' : 'false'],
     ['supports_ocr', provider.slug === 'zai' ? 'true' : 'false'],
     ['supports_batch', 'false'],
   ].map(([key, value]) => ({ key, value, type: 'string' }));
@@ -507,10 +507,13 @@ function placeholderCollection(provider) {
             input_file_id: '{{batch_input_file_id}}',
             endpoint: '/v1/chat/completions',
           }, basicJsonTests([404, 501]), placeholderSkip),
-          rawJsonRequest('Video Placeholder - Route Not Registered', 'POST', '/v1/videos', {
+          // Video jobs are async: this creates one 1 s 480p clip; poll GET /v1/videos/{id}.
+          rawJsonRequest('Video - Create', 'POST', '/v1/videos', {
             model: '{{model_fqn_video}}',
-            prompt: `Video diagnostic placeholder for ${provider.name}`,
-          }, basicJsonTests([404, 501]), placeholderSkip),
+            prompt: `Video diagnostic for ${provider.name}`,
+            seconds: '1',
+            size: '854x480',
+          }, basicJsonTests([200]), skipUnlessCapability('supports_video', 'model_fqn_video')),
         ],
       },
     ],
@@ -532,7 +535,6 @@ function environment() {
     ['openai_embedding_model_fqn', 'openai:openai-daring-voyager:text-embedding-3-small', 'default'],
     ['openai_moderation_model_fqn', 'openai:openai-daring-voyager:omni-moderation-latest', 'default'],
     ['openai_image_model_fqn', 'openai:openai-daring-voyager:gpt-image-1', 'default'],
-    ['openai_video_model_fqn', 'openai:openai-daring-voyager:sora-2', 'default'],
     ['openai_audio_speech_model_fqn', 'openai:openai-daring-voyager:gpt-4o-mini-tts', 'default'],
     ['openai_audio_transcription_model_fqn', 'openai:openai-daring-voyager:gpt-4o-mini-transcribe', 'default'],
     ['request_timeout_ms', '60000', 'default'],

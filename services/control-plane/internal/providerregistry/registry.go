@@ -131,7 +131,6 @@ var definitions = []Definition{
 			CapabilityUploads,
 			CapabilityVectorStores,
 			CapabilityContainers,
-			CapabilityVideos,
 			CapabilityConversations,
 		},
 		OperationNamespaces: []string{"openai_"},
@@ -169,6 +168,7 @@ var definitions = []Definition{
 			CapabilityBatches,
 			CapabilityFiles,
 			CapabilityModels,
+			CapabilityVideos,
 		},
 		OperationNamespaces: []string{"xai_"},
 		Operations: []platform.ProviderOperation{

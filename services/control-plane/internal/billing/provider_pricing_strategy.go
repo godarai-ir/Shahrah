@@ -263,6 +263,12 @@ type xAIPricingStrategy struct {
 	standardPricingStrategy
 }
 
+// MeteredUsageFailsClosed is true because xAI's only metered dimension is
+// generated video seconds, which must never be billed at zero.
+func (xAIPricingStrategy) MeteredUsageFailsClosed() bool {
+	return true
+}
+
 func (xAIPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
 	breakdown, err := standardPricingStrategy{}.FinalizeUsage(input)
 	if err != nil {
