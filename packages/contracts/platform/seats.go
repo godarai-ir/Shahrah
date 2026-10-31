@@ -60,6 +60,15 @@ type SeatTypeOffer struct {
 	Active                bool   `json:"active"`
 }
 
+// PublicSeatType is the public view of an active seat type, for the pricing
+// page. Amounts are IRR before VAT.
+type PublicSeatType struct {
+	Type            string `json:"type"`
+	MonthlyCredits  int64  `json:"monthly_credits"`
+	MonthlyPriceIRR int64  `json:"monthly_price_irr"`
+	YearlyPriceIRR  int64  `json:"yearly_price_irr"`
+}
+
 // SeatTypeCount is how many seats of one paid type a tenant holds and uses.
 type SeatTypeCount struct {
 	Type      string `json:"type"`

@@ -521,6 +521,36 @@ func (h *Handlers) ListPlatformSeatTypes(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": types})
 }
 
+// ListPublicSeatTypes returns the active seat types with the price a buyer
+// pays, for the public pricing page. It leaves out discounts and suggested prices.
+func (h *Handlers) ListPublicSeatTypes(c *fiber.Ctx) error {
+	store, err := h.requireSeatStore()
+	if err != nil {
+		return err
+	}
+
+	types, err := store.ListSeatTypes(c.Context())
+	if err != nil {
+		return seatError(c, err)
+	}
+
+	out := make([]platform.PublicSeatType, 0, len(types))
+
+	for _, offer := range types {
+		if !offer.Active {
+			continue
+		}
+
+		out = append(out, platform.PublicSeatType{
+			Type: offer.Type, MonthlyCredits: offer.MonthlyCredits, MonthlyPriceIRR: offer.MonthlyPriceIRR, YearlyPriceIRR: offer.YearlyPriceIRR,
+		})
+	}
+
+	c.Set(fiber.HeaderCacheControl, "public, max-age=300")
+
+	return c.JSON(fiber.Map{"data": out})
+}
+
 // UpdatePlatformSeatType changes a seat type's quota, discount, or availability.
 func (h *Handlers) UpdatePlatformSeatType(c *fiber.Ctx) error {
 	store, err := h.requireSeatStore()

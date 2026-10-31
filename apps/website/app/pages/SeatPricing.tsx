@@ -6,9 +6,9 @@ import { ArrowDown, Check, Minus, Search } from 'lucide-react';
 import { ClosingBand, ComparisonTable, FAQ, Section } from '@/app/components/patterns';
 import { buttonPrimary, buttonSecondary, sectionCopy, sectionHeading, textLink } from '@/app/components/sectionType';
 
-// Public seat pricing, following the owner's pricing reference: free seats, then Pro and Max at fixed monthly
-// prices. Seat credits are sized so the price is about twice the provider cost (540 toman a credit at 270k toman
-// a dollar). Task counts are estimates from the same credit formulas the reference uses.
+// Public seat pricing: free seats, then Pro and Max. Prices and credits come from the seat types support sets
+// (GET /api/v1/seat-types); the numbers below are only used when that is unreachable, and then no price is shown.
+// Task counts are estimates from the credit formulas of the owner's pricing reference.
 
 const fa = (value: number) => value.toLocaleString('fa-IR');
 
@@ -43,14 +43,18 @@ function roundCount(value: number) {
 
 const monthlyCount = (credits: number, task: Task, model: Model) => roundCount(credits / taskCredits(task, model));
 
-const freeCredits = 500;
-const paidSeats = [
+// PublicSeatType mirrors the control-plane's public seat type. Amounts are IRR before VAT.
+export type PublicSeatType = { type: string; monthly_credits: number; monthly_price_irr: number; yearly_price_irr: number };
+
+type PaidSeat = (typeof paidSeatCopy)[number] & { credits: number; price: number | null };
+
+const defaultFreeCredits = 500;
+const paidSeatCopy = [
   {
     id: 'pro' as const,
     name: 'Pro',
     tagline: 'برای اعضایی که هر روز با هوش مصنوعی کار می‌کنند',
     credits: 2000,
-    price: 2250000,
     popular: true,
     roles: ['مدیر پروژه', 'کارشناس فروش و بازاریابی', 'پشتیبانی', 'منابع انسانی'],
     sign: 'بیشتر کارهای روزانه‌اش را با گدار انجام می‌دهد، ولی با فایل‌های حجیم و مدل‌های سنگین زیاد سروکار ندارد.',
@@ -60,12 +64,25 @@ const paidSeats = [
     name: 'Max',
     tagline: 'برای تحلیل‌گران، تولید محتوا و مصرف سنگین',
     credits: 10000,
-    price: 11250000,
     popular: false,
     roles: ['تحلیل‌گر', 'تولیدکننده‌ی محتوا', 'توسعه‌دهنده', 'پژوهشگر', 'مدیر محصول'],
     sign: 'کارش را عملاً با گدار پیش می‌برد: ساعت‌ها در روز، با فایل‌های حجیم یا عامل‌های هوش مصنوعی.',
   },
 ];
+
+// Prices are shown in toman (IRR / 10); a seat missing from the live list keeps its default credits and shows no price.
+function liveSeats(seatTypes: PublicSeatType[] | null) {
+  const find = (id: string) => seatTypes?.find((item) => item.type === id);
+  const paidSeats: PaidSeat[] = paidSeatCopy.map((seat) => {
+    const live = find(seat.id);
+
+    return { ...seat, credits: live?.monthly_credits || seat.credits, price: live?.monthly_price_irr ? live.monthly_price_irr / 10 : null };
+  });
+
+  return { freeCredits: find('free')?.monthly_credits || defaultFreeCredits, paidSeats };
+}
+
+const priceLabel = (price: number | null) => (price === null ? 'قیمت در دسترس نیست' : `${fa(price)} تومان`);
 
 const cardTasks: { task: Task; label: string }[] = [
   { task: 'msg', label: 'پیام گفت‌وگو' },
@@ -121,7 +138,7 @@ const comparison: { title: string; rows: { label: string; note?: string; cloud: 
   },
 ];
 
-const faqs = [
+const faqs = (paidSeats: PaidSeat[]) => [
   {
     question: 'اعتبار چیست؟',
     answer: 'اعتبار واحد مصرف در گدار است. هر عضو با صندلی خودش اعتبار شخصی می‌گیرد و هر پیام، فایل یا اجرای عامل هوش مصنوعی مقداری از آن را مصرف می‌کند. مدل قوی‌تر یا متن طولانی‌تر اعتبار بیشتری مصرف می‌کند.',
@@ -140,7 +157,7 @@ const faqs = [
   },
   {
     question: 'Pro و Max چقدر هزینه دارند؟',
-    answer: 'Pro ماهی ۲٬۲۵۰٬۰۰۰ تومان با ۲٬۰۰۰ اعتبار و Max ماهی ۱۱٬۲۵۰٬۰۰۰ تومان با ۱۰٬۰۰۰ اعتبار است. قیمت‌ها بدون مالیات بر ارزش افزوده است و صورتحساب سالانه تخفیف دارد؛ اعتبار در هر حال ماه‌به‌ماه داده می‌شود.',
+    answer: `${paidSeats.map((seat) => `${seat.name} ماهی ${priceLabel(seat.price)} با ${fa(seat.credits)} اعتبار`).join(' و ')} است. قیمت‌ها بدون مالیات بر ارزش افزوده است و صورتحساب سالانه تخفیف دارد؛ اعتبار در هر حال ماه‌به‌ماه داده می‌شود.`,
   },
   {
     question: 'اعتبار مصرف‌نشده به ماه بعد می‌رسد؟',
@@ -192,7 +209,7 @@ function Bullet({ children }: { children: ReactNode }) {
   );
 }
 
-function Plans() {
+function Plans({ freeCredits, paidSeats }: ReturnType<typeof liveSeats>) {
   return (
     <section className="bg-site-ground px-4 pb-10 pt-12 sm:px-6 lg:pb-20 lg:pt-20">
       <div className="mx-auto flex w-full max-w-content flex-col gap-10">
@@ -211,7 +228,7 @@ function Plans() {
             </div>
             <div className="flex flex-col gap-1 border-y border-site-line py-5">
               <span className="text-caption text-site-ink-soft">صندلی Pro</span>
-              <span className="text-h2 font-extrabold text-site-ink">{fa(paidSeats[0].price)} تومان</span>
+              <span className="text-h2 font-extrabold text-site-ink">{priceLabel(paidSeats[0].price)}</span>
               <span className="text-label text-site-ink-soft">برای هر عضو در ماه</span>
             </div>
             <p className="m-0 text-label text-site-ink">
@@ -266,7 +283,7 @@ function Plans() {
   );
 }
 
-function Seats() {
+function Seats({ freeCredits, paidSeats }: ReturnType<typeof liveSeats>) {
   const [picked, setPicked] = useState<(typeof quiz)[number] | undefined>();
   const highlight = (id: SeatId) => (picked?.seat === id ? 'border-site-ink ring-2 ring-site-ink' : 'border-site-line');
 
@@ -326,7 +343,7 @@ function Seats() {
                 ) : null}
               </div>
               <div className="flex flex-col gap-1 border-y border-site-line py-4">
-                <span className="text-h3 font-extrabold text-site-ink">{fa(seat.price)} تومان در ماه</span>
+                <span className="text-h3 font-extrabold text-site-ink">{seat.price === null ? priceLabel(null) : `${priceLabel(seat.price)} در ماه`}</span>
                 <span className="text-label text-site-ink-soft">{fa(seat.credits)} اعتبار در ماه</span>
               </div>
               <div className="flex flex-col gap-2">
@@ -363,7 +380,7 @@ function Seats() {
   );
 }
 
-function Examples() {
+function Examples({ paidSeats }: { paidSeats: PaidSeat[] }) {
   const [model, setModel] = useState<Model>('light');
 
   return (
@@ -502,14 +519,16 @@ function Compare() {
   );
 }
 
-export function SeatPricing() {
+export function SeatPricing({ seatTypes }: { seatTypes: PublicSeatType[] | null }) {
+  const seats = liveSeats(seatTypes);
+
   return (
     <main className="bg-site-ground">
-      <Plans />
-      <Seats />
-      <Examples />
+      <Plans {...seats} />
+      <Seats {...seats} />
+      <Examples paidSeats={seats.paidSeats} />
       <Compare />
-      <FAQ id="pricing-faq" title="پیش از خرید صندلی بدانید." items={faqs} />
+      <FAQ id="pricing-faq" title="پیش از خرید صندلی بدانید." items={faqs(seats.paidSeats)} />
       <ClosingBand
         title="با صندلی‌های رایگان شروع کنید."
         titleMuted="بعد تصمیم بگیرید."
