@@ -355,6 +355,7 @@
         "fqn": "Model FQN",
         "customPricing": "Adjusted pricing",
         "pricingPerMillion": "Cost per 1M tokens (some models use tiered pricing)",
+        "pricingPerImage": "Cost per image (lowest resolution tier)",
         "modelId": "Model ID",
         "providerId": "Provider ID",
         "apiMode": "API mode",

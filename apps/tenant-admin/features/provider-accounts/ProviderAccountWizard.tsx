@@ -98,6 +98,7 @@ import {
   buildModelDiscoveryProviderHref,
   formatProviderDisplayName,
   generateProviderAccountName,
+  hasCatalogPricing,
   normalizeError,
   normalizeProviderSlug,
   shouldGenerateProviderAccountName,
@@ -414,10 +415,7 @@ export default function ProviderAccountWizard(props?: {
         if (typeof input !== "number" && typeof output !== "number") unresolved += 1;
         continue;
       }
-      const hasCatalog =
-        typeof model.public_pricing?.input_usd_per_1m === "number" ||
-        typeof model.public_pricing?.output_usd_per_1m === "number";
-      if (!hasCatalog) unresolved += 1;
+      if (!hasCatalogPricing(model)) unresolved += 1;
     }
     return unresolved;
   }, [modelDrafts, providerModels]);

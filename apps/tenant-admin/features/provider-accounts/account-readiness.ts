@@ -5,6 +5,8 @@ import type {
   TenantProviderAccount,
   TenantProviderAccountModel,
 } from "./types";
+import { hasCatalogPricing } from "./utils";
+
 export function deriveAccountListReadiness(account: TenantProviderAccount): Readiness {
   if (!account.has_credential && !account.use_platform_managed_credentials && account.auth_mode !== "no_credential") {
     return "needs_credentials";
@@ -34,11 +36,7 @@ export function deriveAccountDetailsReadiness(
         typeof model.private_pricing?.output_usd_per_1m !== "number"
       );
     }
-    const catalog = catalogByModel.get(model.model);
-    return (
-      typeof catalog?.public_pricing?.input_usd_per_1m !== "number" &&
-      typeof catalog?.public_pricing?.output_usd_per_1m !== "number"
-    );
+    return !hasCatalogPricing(catalogByModel.get(model.model));
   });
   return hasUnresolvedPricing ? "pricing_incomplete" : "ready";
 }

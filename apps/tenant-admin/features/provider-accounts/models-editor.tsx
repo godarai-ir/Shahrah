@@ -78,6 +78,7 @@ import {
   getCurlGuideEndpoint,
   getModelCapabilities,
   getModelModes,
+  getImageUnitPrices,
   getModelSelectionTypes,
   getTenantApiBaseURL,
   normalizeCapabilityList,
@@ -165,6 +166,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       customPricing: ux("models.card.customPricing"),
       pricingPerMillion: ux("models.card.pricingPerMillion"),
       pricingPerToken: ux("models.displayUnit.perToken"),
+      pricingPerImage: ux("models.card.pricingPerImage"),
       modelId: ux("models.card.modelId"),
       providerId: ux("models.card.providerId"),
       apiMode: ux("models.card.apiMode"),
@@ -495,6 +497,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     const outputPrice = draft?.pricingMode === "private" && typeof privateOutputPrice === "number"
       ? privateOutputPrice
       : model.public_pricing?.output_usd_per_1m;
+    const imagePrices = getImageUnitPrices(model);
     const categories: ModelCardData["category"] = [];
     if (modes.includes("embedding") || selectionTypes.includes("embedding")) categories.push("embedding");
     if (caps.some((c) => c.toLowerCase().includes("vision") || c.toLowerCase().includes("image")) || inputModalities.includes("image") || outputModalities.includes("image")) categories.push("vision");
@@ -520,6 +523,9 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       pricing: {
         inputPerMillion: inputPrice,
         outputPerMillion: outputPrice,
+        ...(inputPrice === undefined && outputPrice === undefined
+          ? { inputPerImage: imagePrices.input, outputPerImage: imagePrices.output }
+          : {}),
       },
       latencyTier: "medium",
       qualityTier: "good",

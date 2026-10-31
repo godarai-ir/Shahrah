@@ -125,3 +125,15 @@ func TestAccountReadinessPrecedence(t *testing.T) {
 		t.Fatalf("expected ready, got %q", got)
 	}
 }
+
+func TestModelPriceResolvedAcceptsRateOnlyPricing(t *testing.T) {
+	t.Parallel()
+
+	if modelPriceResolved(&platform.ModelPrice{}) {
+		t.Fatal("empty price must be unresolved")
+	}
+
+	if !modelPriceResolved(&platform.ModelPrice{Rates: []platform.ModelPricingRate{{Key: "output_images_1k"}}}) {
+		t.Fatal("per-image rates must resolve pricing")
+	}
+}
