@@ -14,6 +14,8 @@ type ProviderFeatureSettings struct {
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
 	AnthropicAccountIDs          []string
+	VideosEnabled                bool
+	VideoCanaryTenantIDs         []string
 }
 
 // LoadProviderFeatureSettings reads provider rollout flags at the configuration edge.
@@ -25,6 +27,8 @@ func LoadProviderFeatureSettings() ProviderFeatureSettings {
 		MistralConversationsEnabled:  strictBooleanEnv("SHAHRAH_MISTRAL_CONVERSATIONS_ENABLED", false),
 		MistralConversationStreaming: strictBooleanEnv("SHAHRAH_MISTRAL_CONVERSATIONS_STREAMING_ENABLED", false),
 		AnthropicAccountIDs:          csvEnv("ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST"),
+		VideosEnabled:                strictBooleanEnv("SHAHRAH_VIDEOS_ENABLED", false),
+		VideoCanaryTenantIDs:         csvEnv("SHAHRAH_VIDEOS_CANARY_TENANT_IDS"),
 	}
 }
 

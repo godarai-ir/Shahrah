@@ -14,10 +14,10 @@ import { modelRuntimeProfileSchema } from './runtime-profile.schema';
 describe('xAI provider importer', () => {
   const providersRoot = join(__dirname, '..', '..', 'providers');
 
-  it('validates exactly four curated models and their non-colliding aliases', async () => {
+  it('validates exactly the curated models and their non-colliding aliases', async () => {
     const result = await validateXAIProviderDirectory(providersRoot);
     expect(result.modelIds).toEqual([...XAI_SUPPORTED_MODEL_IDS].sort());
-    expect(result.modelFiles).toHaveLength(4);
+    expect(result.modelFiles).toHaveLength(XAI_SUPPORTED_MODEL_IDS.length);
     expect(result.aliases['grok-imagine-image-pro']).toBe(
       'grok-imagine-image-quality',
     );
@@ -35,9 +35,43 @@ describe('xAI provider importer', () => {
         exactProviderCost: true,
         requiredResponseFields: ['cost_in_usd_ticks'],
       });
-      expect(profile.batch.eligible).toBe(true);
+      // Video jobs are not offered through xAI batches.
+      expect(profile.batch.eligible).toBe(
+        !model.startsWith('grok-imagine-video'),
+      );
       expect(profile.batch.discounted).toBe(model === 'grok-4.3');
     }
+  });
+
+  it('declares a priced, profile-driven contract for every video model', async () => {
+    const videoModels = XAI_SUPPORTED_MODEL_IDS.filter((model) =>
+      model.startsWith('grok-imagine-video'),
+    );
+    expect(videoModels).toHaveLength(3);
+    for (const model of videoModels) {
+      const document = parse(
+        await readFile(join(providersRoot, 'xai', `${model}.yaml`), 'utf8'),
+      ) as { costs?: Array<Record<string, unknown>>; runtimeProfile?: unknown };
+      const profile = modelRuntimeProfileSchema.parse(document.runtimeProfile);
+      expect(profile.endpoints).toEqual(['videos']);
+      expect(profile.videoControls.contentHosts).toEqual(['vidgen.x.ai']);
+      expect(document.costs?.[0]?.output_cost_per_second).toBeGreaterThan(0);
+    }
+    const editor = modelRuntimeProfileSchema.parse(
+      (
+        parse(
+          await readFile(
+            join(providersRoot, 'xai', 'grok-imagine-video.yaml'),
+            'utf8',
+          ),
+        ) as { runtimeProfile?: unknown }
+      ).runtimeProfile,
+    );
+    expect(editor.videoControls.operations).toEqual([
+      'generate',
+      'edit',
+      'extend',
+    ]);
   });
 
   it('rejects a downgraded xAI runtime profile before import', async () => {

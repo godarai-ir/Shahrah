@@ -11,6 +11,9 @@ export const XAI_SUPPORTED_MODEL_IDS = [
   'grok-4.5',
   'grok-imagine-image',
   'grok-imagine-image-quality',
+  'grok-imagine-video',
+  'grok-imagine-video-1.5',
+  'grok-imagine-video-1.5-lite',
 ] as const;
 
 export const XAI_RUNTIME_PROFILE_VERSIONS: Record<string, number> = {
@@ -18,7 +21,14 @@ export const XAI_RUNTIME_PROFILE_VERSIONS: Record<string, number> = {
   'grok-4.5': 4,
   'grok-imagine-image': 4,
   'grok-imagine-image-quality': 4,
+  'grok-imagine-video': 4,
+  'grok-imagine-video-1.5': 4,
+  'grok-imagine-video-1.5-lite': 4,
 };
+
+function isVideoModel(model: string): boolean {
+  return model.startsWith('grok-imagine-video');
+}
 
 type StringRecord = Record<string, unknown>;
 type XAIYamlDocument = {
@@ -109,6 +119,7 @@ function requiredCostKeys(model: string): string[] {
       'xai_long_context_output_cost_per_token',
     ];
   }
+  if (isVideoModel(model)) return ['output_cost_per_second'];
   return [
     'input_cost_per_image',
     'output_cost_per_image_1k',
@@ -150,9 +161,7 @@ export async function validateXAIProviderDirectory(
     const relativeFile = relative(providerDir, file);
     let document: XAIYamlDocument | undefined;
     try {
-      document = asObject(parse(await fs.readFile(file, 'utf8'))) as
-        | XAIYamlDocument
-        | undefined;
+      document = asObject(parse(await fs.readFile(file, 'utf8')));
     } catch {
       invalid.push(`${relativeFile}(malformed_yaml)`);
       continue;
@@ -208,7 +217,12 @@ export async function validateXAIProviderDirectory(
     if (costs.length !== 1 || missingCosts.length > 0) {
       invalid.push(`${relativeFile}(pricing:${missingCosts.join(',')})`);
     }
-    if (profile.success && !profile.data.batch.eligible) {
+    // Video jobs are not offered through xAI batches.
+    if (
+      profile.success &&
+      !isVideoModel(model) &&
+      !profile.data.batch.eligible
+    ) {
       invalid.push(`${relativeFile}(batch_required)`);
     }
     if (

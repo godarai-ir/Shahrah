@@ -54,6 +54,7 @@ type Dependencies struct {
 	ModerationsHandler                *proxy.ModerationsHandler
 	RerankHandler                     *proxy.RerankHandler
 	ImagesHandler                     *proxy.ImagesHandler
+	VideosHandler                     *proxy.VideosHandler
 	AudioTranscriptionsHandler        *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler                *proxy.AudioSpeechHandler
 	MistralOCRHandler                 *proxy.MistralOCRHandler

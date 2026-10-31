@@ -68,6 +68,7 @@ const sidebars: SidebarsConfig = {
         'supported-apis/image-generation',
         'supported-apis/image-edit',
         'supported-apis/image-variation',
+        'supported-apis/video-generation',
         'supported-apis/speech-to-text',
         'supported-apis/text-to-speech',
         'supported-apis/audio-translation',

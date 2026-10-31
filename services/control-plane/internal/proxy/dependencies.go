@@ -59,6 +59,7 @@ type BillingCapabilities struct {
 	BudgetReservationPolicy  CapabilityPolicy
 	BatchUsage               batchUsageFinalizer
 	BatchUsagePolicy         CapabilityPolicy
+	VideoUsage               videoUsagePricer
 }
 
 // Validate verifies that required billing capabilities are available at startup.
@@ -140,6 +141,8 @@ type ProviderFeatureConfig struct {
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
 	AnthropicAccountIDs          []string
+	VideosEnabled                bool
+	VideoCanaryTenantIDs         []string
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.

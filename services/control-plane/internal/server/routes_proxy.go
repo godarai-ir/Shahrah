@@ -129,6 +129,17 @@ func registerOpenAICoreRoutes(app *fiber.App, v1 fiber.Router, deps Dependencies
 
 // registerMediaRoutes registers image, audio, layout-parsing and OCR routes.
 func registerMediaRoutes(app *fiber.App, v1 fiber.Router, deps Dependencies) {
+	if deps.VideosHandler != nil {
+		v1.Post("/videos", deps.VideosHandler.HandleCreate)
+		v1.Get("/videos", deps.VideosHandler.HandleList)
+		v1.Post("/videos/generations", deps.VideosHandler.HandleGenerations)
+		v1.Post("/videos/edits", deps.VideosHandler.HandleEdits)
+		v1.Post("/videos/extensions", deps.VideosHandler.HandleExtensions)
+		v1.Get("/videos/:video_id", deps.VideosHandler.HandleGet)
+		v1.Delete("/videos/:video_id", deps.VideosHandler.HandleDelete)
+		v1.Get("/videos/:video_id/content", deps.VideosHandler.HandleContent)
+	}
+
 	if deps.ImagesHandler != nil {
 		v1.Post("/images/generations", deps.ImagesHandler.HandleGenerations)
 		v1.Post("/images/edits", deps.ImagesHandler.HandleEdits)

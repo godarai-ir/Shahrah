@@ -75,7 +75,6 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 				CapabilityUploads,
 				CapabilityVectorStores,
 				CapabilityContainers,
-				CapabilityVideos,
 				CapabilityConversations,
 			},
 			operations: []platform.ProviderOperation{
@@ -110,6 +109,7 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 				CapabilityBatches,
 				CapabilityFiles,
 				CapabilityModels,
+				CapabilityVideos,
 			},
 			operations: []platform.ProviderOperation{
 				platform.ProviderOperationCredentialProbe,

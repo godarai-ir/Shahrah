@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 )
+
+func init() { videoPollInterval = time.Millisecond }
 
 func TestReadinessBlocksWithoutGatewayCredentials(t *testing.T) {
 	t.Setenv("GODARAI_BASE_URL", "")
@@ -39,6 +42,12 @@ func TestReadinessUsesOnlyGatewayCredentialAndRedactsReport(t *testing.T) {
 
 		if r.URL.Path == "/v1/batches/readiness-invalid/requests" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if strings.HasPrefix(r.URL.Path, "/v1/videos") {
+			serveReadinessVideo(w, r)
+
 			return
 		}
 
@@ -101,6 +110,24 @@ func TestReadinessHonorsApprovedSpendCeiling(t *testing.T) {
 
 	if requests >= len(readinessProbes()) {
 		t.Fatalf("expected cost-bearing probes to be blocked, got %d requests", requests)
+	}
+}
+
+// serveReadinessVideo fakes the GodarAI video surface for the lifecycle probe.
+func serveReadinessVideo(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+
+	switch {
+	case r.Method == http.MethodPost && strings.Contains(string(body), `"seconds":"30"`):
+		w.WriteHeader(http.StatusBadRequest)
+	case r.Method == http.MethodPost:
+		_, _ = w.Write([]byte(`{"id":"video_ready","status":"queued"}`))
+	case r.URL.Path == "/v1/videos/video_ready":
+		_, _ = w.Write([]byte(`{"id":"video_ready","status":"completed"}`))
+	case r.URL.Path == "/v1/videos/video_ready/content":
+		_, _ = w.Write([]byte("MP4"))
+	default:
+		w.WriteHeader(http.StatusNotFound)
 	}
 }
 

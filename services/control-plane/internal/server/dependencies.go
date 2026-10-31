@@ -34,6 +34,7 @@ func (d Dependencies) ValidateRequired() error {
 	require("moderations handler", d.ModerationsHandler != nil)
 	require("rerank handler", d.RerankHandler != nil)
 	require("images handler", d.ImagesHandler != nil)
+	require("videos handler", d.VideosHandler != nil)
 	require("audio transcriptions handler", d.AudioTranscriptionsHandler != nil)
 	require("audio speech handler", d.AudioSpeechHandler != nil)
 	require("Mistral OCR handler", d.MistralOCRHandler != nil)

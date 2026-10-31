@@ -1,0 +1,95 @@
+# lowest-cost text-to-video and image-to-video. Facts verified against docs.x.ai on 2026-10-31.
+model: grok-imagine-video-1.5-lite
+aliases: []
+status: active
+supportedModes: [video]
+modalities:
+  input: [text, image]
+  output: [video]
+features: []
+params:
+  - key: duration
+    minValue: 1
+    maxValue: 15
+  - key: aspect_ratio
+    supportedValues: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9', '5:2']
+  - key: resolution
+    supportedValues: [480p, 720p, 1080p]
+costs:
+  - region: '*'
+    output_cost_per_second: 0.02
+sources:
+  - https://docs.x.ai/developers/models
+  - https://docs.x.ai/developers/pricing
+  - https://docs.x.ai/developers/model-capabilities/video/overview
+  - https://docs.x.ai/developers/model-capabilities/video/generation
+  - https://docs.x.ai/developers/model-capabilities/video/image-to-video
+  - https://docs.x.ai/developers/model-capabilities/video/reference-to-video
+  - https://docs.x.ai/developers/model-capabilities/video/editing
+  - https://docs.x.ai/developers/model-capabilities/video/extension
+  - https://docs.x.ai/developers/rest-api-reference/inference/videos
+runtimeProfile:
+  version: 4
+  aliases: []
+  endpoints: [videos]
+  transports: [http]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+    manualDeprecated: false
+    effortValues: []
+  assistantPrefill: false
+  sampling:
+    parameters: []
+    disallowedWithThinking: []
+  tools:
+    custom: false
+    server: false
+    parallel: false
+    structuredOutput: false
+    supported: []
+  modalities:
+    input: [text, image]
+    output: [video]
+  requestControls:
+    serviceTierValues: []
+    inferenceGeoValues: [global]
+    speedValues: []
+  videoControls:
+    operations: [generate]
+    minDurationSeconds: 1
+    maxDurationSeconds: 15
+    defaultDurationSeconds: 8
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9', '5:2']
+    resolutions: [480p, 720p, 1080p]
+    defaultResolution: 480p
+    sizes:
+      {
+      '854x480': { aspectRatio: '16:9', resolution: 480p },
+      '480x854': { aspectRatio: '9:16', resolution: 480p },
+      '480x480': { aspectRatio: '1:1', resolution: 480p },
+      '1280x720': { aspectRatio: '16:9', resolution: 720p },
+      '720x1280': { aspectRatio: '9:16', resolution: 720p },
+      '720x720': { aspectRatio: '1:1', resolution: 720p },
+      '1920x1080': { aspectRatio: '16:9', resolution: 1080p },
+      '1080x1920': { aspectRatio: '9:16', resolution: 1080p },
+      '1080x1080': { aspectRatio: '1:1', resolution: 1080p },
+      }
+    referenceModes: [first_frame]
+    maxInputImageBytes: 10485760
+    contentVariants: [video]
+    contentHosts: [vidgen.x.ai]
+    extensionFields: [aspect_ratio, resolution]
+    audio: true
+  usageAccounting:
+    requiredResponseFields: [cost_in_usd_ticks]
+    exactProviderCost: true
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 0
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 26214400
+    fileBytes: 50000000

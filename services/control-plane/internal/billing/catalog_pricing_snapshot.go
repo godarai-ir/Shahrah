@@ -309,6 +309,10 @@ func normalizeCatalogPricingSnapshot(
 			return nil, fmt.Errorf("%w: incomplete Z.ai pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
 
+		if len(runtimeBinding.Profile.VideoControls.Operations) > 0 && !videoPricingDimensionsComplete(rates) {
+			return nil, fmt.Errorf("%w: incomplete video pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
+
 		if provider == "google-gemini" && !googleGeminiPricingDimensionsComplete(runtimeBinding.Profile, rates) {
 			return nil, fmt.Errorf("%w: incomplete Google Gemini pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
@@ -335,6 +339,14 @@ func normalizeCatalogPricingSnapshot(
 		NextPricingTransitionAt: payload.NextPricingTransitionAt,
 		Models:                  models,
 	}, nil
+}
+
+// videoPricingDimensionsComplete requires an unconditional per-second rate, so
+// every video model can be reserved and settled before it is advertised.
+func videoPricingDimensionsComplete(rates map[string]normalizedPricingRate) bool {
+	rate, ok := rates[VideoOutputSecondsDimension]
+
+	return ok && rate.UnitPriceUSD.IsPositive() && len(rate.Condition) == 0
 }
 
 func moonshotPricingDimensionsComplete(rates map[string]normalizedPricingRate) bool {

@@ -229,6 +229,30 @@ func (s *PricingEngine) PriceMeteredUsage(
 	return out, nil
 }
 
+// VideoOutputSecondsDimension is the catalog dimension for generated video seconds.
+const VideoOutputSecondsDimension = "output_video_seconds"
+
+// PriceVideoUsage prices generated video seconds from the pinned catalog and,
+// when the provider reports its exact charge, settles to that charge instead.
+func (s *PricingEngine) PriceVideoUsage(
+	ctx context.Context,
+	model string,
+	seconds int,
+	providerCostUSDTicks *int64,
+	estimated platform.UsageCostBreakdown,
+) (platform.UsageCostBreakdown, error) {
+	if seconds <= 0 {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: video duration is unknown", ErrPricingUnavailable)
+	}
+
+	breakdown, err := s.PriceMeteredUsage(ctx, model, VideoOutputSecondsDimension, fmt.Sprintf("%d", seconds), estimated)
+	if err != nil || providerCostUSDTicks == nil {
+		return breakdown, err
+	}
+
+	return reconcileXAIProviderCost(breakdown, *providerCostUSDTicks, breakdown.ExchangeRate)
+}
+
 func costBreakdown(model string, inputTokens int, outputTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
 	inputRate := price.InputPerToken
 	if inputRate.IsZero() && price.Input != 0 {

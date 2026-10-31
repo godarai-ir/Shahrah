@@ -159,11 +159,11 @@ func TestResolveOpenAIOperationRoutesDomainResolvers(t *testing.T) {
 			wantPath:   "/containers/container%2F1/files/file%2F1/content",
 		},
 		{
-			name:       "video remix",
-			operation:  platform.ProviderOperationOpenAIVideosRemix,
+			name:       "xai video poll",
+			operation:  platform.ProviderOperationXAIVideosGet,
 			input:      platform.ProviderOperationInput{ResourceID: "video/1"},
-			wantMethod: http.MethodPost,
-			wantPath:   "/videos/video%2F1/remix",
+			wantMethod: http.MethodGet,
+			wantPath:   "/videos/video%2F1",
 		},
 		{
 			name:       "xai language model",

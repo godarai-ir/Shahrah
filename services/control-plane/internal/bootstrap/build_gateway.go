@@ -31,6 +31,7 @@ func (b *builder) buildGateway() error {
 		BudgetReservationPolicy:  proxy.CapabilityFailClosed,
 		BatchUsage:               b.billing,
 		BatchUsagePolicy:         proxy.CapabilityFailClosed,
+		VideoUsage:               b.billing,
 	}
 	pipeline := proxy.NewRequestPipelineWithConfig(
 		b.tunnel,
@@ -70,6 +71,8 @@ func (b *builder) buildGateway() error {
 			MistralConversationsEnabled:  b.cfg.ProviderFeatures.MistralConversationsEnabled,
 			MistralConversationStreaming: b.cfg.ProviderFeatures.MistralConversationStreaming,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
+			VideosEnabled:                b.cfg.ProviderFeatures.VideosEnabled,
+			VideoCanaryTenantIDs:         b.cfg.ProviderFeatures.VideoCanaryTenantIDs,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
@@ -105,6 +108,7 @@ func (b *builder) buildGateway() error {
 	tokenBazaarMessagesHandler := proxy.NewTokenBazaarMessagesHandlerWithDependencies(baseDependencies)
 	tokenBazaarGenerateContentHandler := proxy.NewTokenBazaarGenerateContentHandlerWithDependencies(baseDependencies)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseDependencies, nativeResources)
+	videosHandler := proxy.NewVideosHandler(baseDependencies, b.store.ProviderResourceRepository)
 
 	if err := b.lifecycle.AddLoop("Anthropic batch reconciler", func(ctx context.Context) {
 		anthropicNativeHandler.RunBatchWorker(ctx, 15*time.Second)
@@ -114,6 +118,12 @@ func (b *builder) buildGateway() error {
 
 	if err := b.lifecycle.AddLoop("Mistral batch reconciler", func(ctx context.Context) {
 		mistralNativeHandler.RunBatchWorker(ctx, 15*time.Second)
+	}); err != nil {
+		return err
+	}
+
+	if err := b.lifecycle.AddLoop("Video job reconciler", func(ctx context.Context) {
+		videosHandler.RunVideoWorker(ctx, 5*time.Second)
 	}); err != nil {
 		return err
 	}
@@ -132,6 +142,7 @@ func (b *builder) buildGateway() error {
 		ModerationsHandler:                moderationsHandler,
 		RerankHandler:                     rerankHandler,
 		ImagesHandler:                     imagesHandler,
+		VideosHandler:                     videosHandler,
 		AudioTranscriptionsHandler:        audioTranscriptionsHandler,
 		AudioSpeechHandler:                audioSpeechHandler,
 		MistralOCRHandler:                 mistralOCRHandler,

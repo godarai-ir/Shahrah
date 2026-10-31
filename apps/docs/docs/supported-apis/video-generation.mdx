@@ -1,0 +1,165 @@
+---
+title: Video Generation
+description: ساخت ویدیو از متن یا تصویر، ویرایش و ادامه‌دادن ویدیو با مسیر Videos در گدارAI، با ثبت هزینه دقیق و دسترسی جداشده برای هر فضای کاری.
+---
+
+import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
+
+# Video Generation
+
+`Video Generation` از یک پرامپت متنی یا یک تصویر، ویدیوی کوتاه با صدا می‌سازد. ساخت ویدیو چند ثانیه تا چند دقیقه طول می‌کشد، پس این API **ناهمگام** است: درخواست را ثبت می‌کنید، وضعیت را دنبال می‌کنید و بعد از تکمیل، فایل MP4 را دریافت می‌کنید.
+
+```text
+POST   /v1/videos                  ساخت ویدیو (شکل OpenAI)
+GET    /v1/videos/{video_id}       وضعیت و پیشرفت
+GET    /v1/videos/{video_id}/content   دریافت فایل MP4
+GET    /v1/videos                  فهرست ویدیوهای فضای کاری
+DELETE /v1/videos/{video_id}       حذف ویدیو از فهرست
+POST   /v1/videos/edits            ویرایش ویدیوی ساخته‌شده
+POST   /v1/videos/extensions       ادامه‌دادن ویدیوی ساخته‌شده
+```
+
+:::info
+شکل درخواست و پاسخ همان Videos API در SDK رسمی OpenAI است؛ کافی است `base_url` را روی درگاه گدارAI بگذارید. مسیرهای بومی xAI (`POST /v1/videos/generations`) هم پشتیبانی می‌شوند.
+:::
+
+## مدل‌های پشتیبانی‌شده
+
+| مدل | مناسب برای | حداکثر کیفیت | هزینه هر ثانیه |
+| --- | --- | --- | --- |
+| `grok-imagine-video-1.5` | تصویر مرجع، صدای آماده، فریم اول/آخر و فریم‌های کلیدی | 1080p | 0.08 دلار |
+| `grok-imagine-video-1.5-lite` | ویدیوهای ساده با کمترین هزینه | 1080p (ارتقایافته از 720p) | 0.02 دلار |
+| `grok-imagine-video` | ویرایش و ادامه‌دادن ویدیو | 720p | 0.05 دلار |
+
+همه مدل‌ها ویدیوی 1 تا 15 ثانیه‌ای با صدا می‌سازند. هزینه نهایی همان مبلغی است که ارائه‌دهنده برای همان ویدیو اعلام می‌کند.
+
+## شروع سریع
+
+<ApiCodeTabs
+  endpoint="/v1/videos"
+  groupId="video-generation-language"
+  body={{
+    model: "xai:default:grok-imagine-video-1.5-lite",
+    prompt: "نمای سینمایی آرام از فانوس دریایی هنگام طلوع، دوربین آهسته به جلو حرکت می‌کند",
+    seconds: "8",
+    size: "1280x720",
+  }}
+  snippets={{
+    openaiPython: `from openai import OpenAI
+
+client = OpenAI(base_url="https://YOUR_WORKSPACE.godarai.ir/v1", api_key="YOUR_GODARAI_TOKEN")
+
+video = client.videos.create_and_poll(
+    model="xai:default:grok-imagine-video-1.5-lite",
+    prompt="نمای سینمایی آرام از فانوس دریایی هنگام طلوع",
+    seconds="8",
+    size="1280x720",
+)
+
+if video.status == "completed":
+    client.videos.download_content(video.id).write_to_file("lighthouse.mp4")
+else:
+    print(video.error)`,
+    openaiNodejs: `import OpenAI from "openai";
+
+const client = new OpenAI({ baseURL: "https://YOUR_WORKSPACE.godarai.ir/v1", apiKey: "YOUR_GODARAI_TOKEN" });
+
+const video = await client.videos.createAndPoll({
+  model: "xai:default:grok-imagine-video-1.5-lite",
+  prompt: "نمای سینمایی آرام از فانوس دریایی هنگام طلوع",
+  seconds: "8",
+  size: "1280x720",
+});
+
+if (video.status === "completed") {
+  const content = await client.videos.downloadContent(video.id);
+  await (await import("node:fs/promises")).writeFile("lighthouse.mp4", Buffer.from(await content.arrayBuffer()));
+}`,
+  }}
+/>
+
+## ساختار درخواست
+
+| پارامتر | کاربرد |
+| --- | --- |
+| `model` | شناسه مدل ویدیویی، مثل `xai:default:grok-imagine-video-1.5`. |
+| `prompt` | توضیح صحنه: نوع نما، سوژه، حرکت، نور، صدا و حرکت دوربین. |
+| `seconds` | مدت ویدیو به ثانیه، به‌صورت رشته (`"8"`). پیش‌فرض 8 ثانیه است. |
+| `size` | ابعاد خروجی، مثل `1280x720`، `720x1280`، `854x480` یا `1920x1080`. |
+| `input_reference` | تصویر فریم اول. در JSON به‌شکل `{"image_url": "..."}` یا `{"file_id": "..."}`، یا فایل آپلودی در درخواست multipart (JPEG، PNG یا WebP). |
+
+پارامترهای اختصاصی هر مدل (مثل `aspect_ratio`، `resolution`، `reference_images`، `last_frame`، `keyframes` و `reference_audios` با `voice_id`) فقط برای مدل‌هایی پذیرفته می‌شوند که از آن پشتیبانی کنند. در SDK OpenAI آن‌ها را با `extra_body` بفرستید. پارامتر ناشناخته رد می‌شود و هرگز بی‌صدا نادیده گرفته نمی‌شود.
+
+## ساخت ویدیو از تصویر
+
+```json
+{
+  "model": "xai:default:grok-imagine-video-1.5",
+  "prompt": "باد آرام موها را تکان می‌دهد و دوربین کمی عقب می‌رود",
+  "seconds": "6",
+  "input_reference": { "image_url": "https://example.com/portrait.jpg" }
+}
+```
+
+نسبت تصویر خروجی همان نسبت تصویر ورودی است.
+
+## پیگیری وضعیت
+
+```json
+{
+  "id": "video_9f2c...",
+  "object": "video",
+  "model": "xai:default:grok-imagine-video-1.5-lite",
+  "status": "in_progress",
+  "progress": 40,
+  "seconds": "8",
+  "size": "1280x720",
+  "error": null
+}
+```
+
+مقدار `status` یکی از `queued`، `in_progress`، `completed` یا `failed` است. هر چند ثانیه یک بار وضعیت را بخوانید؛ `create_and_poll` در SDK این کار را خودکار انجام می‌دهد.
+
+## دریافت فایل
+
+```bash
+curl --request GET "https://YOUR_WORKSPACE.godarai.ir/v1/videos/VIDEO_ID/content" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --output video.mp4
+```
+
+:::warning
+ارائه‌دهنده فایل را فقط مدت کوتاهی نگه می‌دارد. ویدیو را بلافاصله بعد از تکمیل دانلود کنید و در فضای ذخیره‌سازی خودتان نگه دارید. در حال حاضر فقط `variant=video` (فایل MP4) در دسترس است.
+:::
+
+## ویرایش و ادامه‌دادن ویدیو
+
+با `grok-imagine-video` می‌توانید ویدیویی را که در همین فضای کاری ساخته‌اید ویرایش کنید (ویدیوی منبع حداکثر 8.7 ثانیه) یا 2 تا 10 ثانیه به انتهای آن اضافه کنید:
+
+```json
+{
+  "model": "xai:default:grok-imagine-video",
+  "prompt": "یک قایق بادبانی کوچک به افق اضافه کن و بقیه صحنه را دست نزن",
+  "video": { "id": "video_9f2c..." }
+}
+```
+
+برای ادامه‌دادن، همین ساختار را به `POST /v1/videos/extensions` بفرستید و `seconds` را برای طول بخش تازه مشخص کنید.
+
+## هزینه و بودجه
+
+- هنگام ثبت درخواست، هزینه حداکثری (مدت × قیمت هر ثانیه) از بودجه رزرو می‌شود.
+- بعد از تکمیل، دقیقاً همان مبلغی که ارائه‌دهنده اعلام می‌کند ثبت می‌شود.
+- اگر ساخت ویدیو ناموفق باشد یا ویدیو توسط فیلتر محتوای ارائه‌دهنده رد شود و ارائه‌دهنده هزینه‌ای اعلام نکند، رزرو کامل آزاد می‌شود.
+- حذف ویدیویی که هنوز در حال ساخت است هزینه آن را لغو نمی‌کند، چون ارائه‌دهنده کار را متوقف نمی‌کند.
+
+## خطاهای رایج
+
+| کد | معنی |
+| --- | --- |
+| `invalid_video_request` | پارامتر نامعتبر، مثل مدت خارج از بازه یا قابلیتی که مدل ندارد. پیش از هر هزینه‌ای رد می‌شود. |
+| `video_not_found` | شناسه ویدیو در این فضای کاری وجود ندارد. |
+| `video_not_ready` | ویدیو هنوز کامل نشده است. |
+| `unsupported_variant` | این نوع خروجی برای این مدل در دسترس نیست. |
+| `content_policy_violation` | ارائه‌دهنده ویدیو را به‌دلیل سیاست محتوا رد کرده است. |
+| `upstream_expired` | ارائه‌دهنده دیگر این کار را نگه نمی‌دارد. |

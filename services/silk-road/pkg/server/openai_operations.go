@@ -43,7 +43,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		return resolveVectorStoreOperation(payload, input, resource, parent)
 	case strings.HasPrefix(operation, "openai_container"):
 		return resolveContainerOperation(payload, input, resource, parent)
-	case strings.HasPrefix(operation, "openai_videos_"),
+	case strings.HasPrefix(operation, "xai_videos_"),
 		strings.HasPrefix(operation, "openai_models_"),
 		strings.HasPrefix(operation, "xai_language_models_"),
 		strings.HasPrefix(operation, "xai_image_generation_models_"):
@@ -482,35 +482,21 @@ func resolveMediaAndModelOperation(
 	resource func() (string, error),
 ) (string, string, error) {
 	switch payload.Operation {
-	case platform.ProviderOperationOpenAIVideosCreate:
-		return http.MethodPost, "/videos", nil
-	case platform.ProviderOperationOpenAIVideosList:
-		return http.MethodGet, withListQuery("/videos", input), nil
-	case platform.ProviderOperationOpenAIVideosGet,
-		platform.ProviderOperationOpenAIVideosDelete,
-		platform.ProviderOperationOpenAIVideosContent,
-		platform.ProviderOperationOpenAIVideosRemix:
+	case platform.ProviderOperationXAIVideosGenerate:
+		return http.MethodPost, "/videos/generations", nil
+	case platform.ProviderOperationXAIVideosEdit:
+		return http.MethodPost, "/videos/edits", nil
+	case platform.ProviderOperationXAIVideosExtend:
+		return http.MethodPost, "/videos/extensions", nil
+	case platform.ProviderOperationXAIVideosGet,
+		platform.ProviderOperationXAIVideosContent:
+		// Content is a poll first: the adapter follows the signed URL it returns.
 		value, err := resource()
 		if err != nil {
 			return "", "", err
 		}
 
-		method, suffix := http.MethodGet, ""
-
-		switch payload.Operation {
-		case platform.ProviderOperationOpenAIVideosDelete:
-			method = http.MethodDelete
-		case platform.ProviderOperationOpenAIVideosContent:
-			suffix = "/content"
-		case platform.ProviderOperationOpenAIVideosRemix:
-			method, suffix = http.MethodPost, "/remix"
-		}
-
-		return method, "/videos/" + value + suffix, nil
-	case platform.ProviderOperationOpenAIVideosEdit:
-		return http.MethodPost, "/videos/edits", nil
-	case platform.ProviderOperationOpenAIVideosExtend:
-		return http.MethodPost, "/videos/extensions", nil
+		return http.MethodGet, "/videos/" + value, nil
 	case platform.ProviderOperationOpenAIModelsList:
 		return http.MethodGet, "/models", nil
 	case platform.ProviderOperationOpenAIModelsGet:
@@ -670,7 +656,6 @@ func resolveLegacyOpenAICompatibleOperation(metadata map[string]interface{}) (st
 		"/embeddings": {}, "/moderations": {}, "/rerank": {}, "/v2/rerank": {},
 		"/images/generations": {}, "/images/edits": {}, "/images/variations": {},
 		"/audio/speech": {}, "/audio/transcriptions": {}, "/audio/translations": {},
-		"/videos": {},
 	}
 	if _, ok := allowed[path]; !ok {
 		return "", "", fmt.Errorf("unsupported legacy provider endpoint %q", path)
