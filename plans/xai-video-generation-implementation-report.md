@@ -33,7 +33,7 @@ All routes are behind `SHAHRAH_VIDEOS_ENABLED` (default **off**). `SHAHRAH_VIDEO
 | # | Question | Fail-closed choice now | Probe that resolves it |
 |---|---|---|---|
 | 1 | Is the per-second price flat (Models page) or does it depend on resolution (guides)? | Settle from `cost_in_usd_ticks`. The catalog rate is used only for the reservation, and a drift above the reservation is logged. | Generate 480p and 1080p clips; compare the ticks. |
-| 2 | Is `expired` a real poll status? | Mapped to `failed` / `upstream_expired`, charged at the estimate. | Poll an old request ID. |
+| 2 | Is `expired` a real poll status? | Mapped to `failed` / `upstream_expired`; the reservation is released, not charged. The 2-hour `upstream_timeout` is treated the same. | Poll an old request ID. |
 | 3 | How long does `video.url` stay valid? | The URL is never stored; every download polls for a fresh one. | Download the same job at increasing delays. |
 | 4 | Are failed or moderation-blocked jobs billed? | Charge only when the poll reports ticks > 0; otherwise release the reservation. | Run one forced failure and one moderation block; read the ticks. |
 | 5 | Is an extension's `video.duration` the new segment or the stitched total? | Bill the requested segment seconds when ticks are missing. | Extend a 4 s clip by 2 s and read the duration. |

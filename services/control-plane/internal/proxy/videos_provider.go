@@ -25,9 +25,6 @@ type videoJobState struct {
 	CostUSDTicks *int64
 	ErrorCode    string
 	ErrorMessage string
-	// ChargeEstimate settles at the reservation when the provider's own
-	// outcome can no longer be read (timeout or expired job).
-	ChargeEstimate bool
 }
 
 func (s videoJobState) terminal() bool {

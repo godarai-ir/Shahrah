@@ -109,18 +109,29 @@ func (h *VideosHandler) reconcileVideoJob(ctx context.Context, mapping *platform
 	state, err := h.currentVideoState(ctx, mapping)
 	if err != nil {
 		h.logWarn("video poll failed; retrying later", err, mapping.PublicID)
-		h.patchVideo(ctx, mapping, videoStatusReconciling, retryVideoStatus(mapping), nil)
+		h.patchVideo(ctx, mapping, videoStatusReconciling, retryVideoStatus(mapping), h.polledAtPatch(nil))
 
 		return
 	}
 
 	if !state.terminal() {
-		h.patchVideo(ctx, mapping, videoStatusReconciling, state.Status, map[string]interface{}{videoMetaProgress: state.Progress})
+		h.patchVideo(ctx, mapping, videoStatusReconciling, state.Status, h.polledAtPatch(map[string]interface{}{videoMetaProgress: state.Progress}))
 
 		return
 	}
 
 	h.settleVideo(ctx, mapping, state)
+}
+
+// polledAtPatch stamps the poll time so client GETs can be rate limited.
+func (h *VideosHandler) polledAtPatch(patch map[string]interface{}) map[string]interface{} {
+	if patch == nil {
+		patch = map[string]interface{}{}
+	}
+
+	patch[videoMetaPolledAt] = h.now().UnixMilli()
+
+	return patch
 }
 
 func (h *VideosHandler) claimVideo(ctx context.Context, mapping *platform.ProviderNativeResourceMapping, from []string, to string) bool {
@@ -146,7 +157,7 @@ func (h *VideosHandler) currentVideoState(ctx context.Context, mapping *platform
 	if created := intValue(mapping.Metadata[videoMetaCreatedAt]); created > 0 &&
 		h.now().Sub(time.Unix(int64(created), 0)) > h.maxJobAge {
 		return videoJobState{Status: videoStatusFailed, ErrorCode: "upstream_timeout",
-			ErrorMessage: "The provider did not finish the video in time.", ChargeEstimate: true}, nil
+			ErrorMessage: "The provider did not finish the video in time."}, nil
 	}
 
 	deployment, codec, err := h.mappingDeployment(ctx, mapping)
@@ -157,7 +168,7 @@ func (h *VideosHandler) currentVideoState(ctx context.Context, mapping *platform
 	poll, err := h.pollVideo(ctx, mapping, deployment)
 	if errors.Is(err, errVideoUpstreamGone) {
 		return videoJobState{Status: videoStatusFailed, ErrorCode: "upstream_expired",
-			ErrorMessage: "The provider no longer has this video job.", ChargeEstimate: true}, nil
+			ErrorMessage: "The provider no longer has this video job."}, nil
 	}
 
 	if err != nil {
@@ -208,12 +219,6 @@ func (h *VideosHandler) videoSettlementCost(
 	estimated := platform.UsageCostBreakdown{}
 	if mapping.EstimatedUsage != nil {
 		estimated = *mapping.EstimatedUsage
-	}
-
-	if state.ChargeEstimate {
-		h.logWarn("video settled at its estimate", errors.New(state.ErrorCode), mapping.PublicID)
-
-		return estimated, true, "estimate_charged"
 	}
 
 	reportedCharge := state.CostUSDTicks != nil && *state.CostUSDTicks > 0
@@ -289,7 +294,9 @@ func (h *VideosHandler) chargeVideo(ctx context.Context, mapping *platform.Provi
 }
 
 // abandonInterruptedSettlement finishes a job whose settlement was cut off.
-// Whether the charge landed is unknown, so it is never applied twice.
+// Whether the charge landed is unknown, so it is never applied twice. The
+// hold is released so it cannot outlive the job. If the charge did land, the
+// release finds nothing to free and only logs a warning.
 func (h *VideosHandler) abandonInterruptedSettlement(ctx context.Context, mapping *platform.ProviderNativeResourceMapping) {
 	if h.logger != nil {
 		h.logger.Error("video settlement was interrupted; charge not re-applied", zap.String("video_id", mapping.PublicID))
@@ -300,9 +307,13 @@ func (h *VideosHandler) abandonInterruptedSettlement(ctx context.Context, mappin
 		final = videoStatusFailed
 	}
 
-	h.patchVideo(ctx, mapping, videoStatusSettling, final, map[string]interface{}{
+	if !h.patchVideo(ctx, mapping, videoStatusSettling, final, map[string]interface{}{
 		videoMetaCompletedAt: h.now().Unix(), videoMetaSettlement: "interrupted",
-	})
+	}) {
+		return
+	}
+
+	h.pipeline.Release(ctx, mapping.Reservation, "video_settlement_interrupted")
 }
 
 func (h *VideosHandler) patchVideo(ctx context.Context, mapping *platform.ProviderNativeResourceMapping, expected, status string, patch map[string]interface{}) bool {

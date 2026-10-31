@@ -31,6 +31,8 @@ const (
 	videoRequestType = "videos"
 	// maxVideoRequestBytes bounds create bodies, which may carry inline images.
 	maxVideoRequestBytes = 32 << 20
+	// minVideoRefreshInterval caps how often client GETs reach the provider.
+	minVideoRefreshInterval = 2 * time.Second
 )
 
 // Metadata keys persisted on a video job record.
@@ -41,6 +43,7 @@ const (
 	videoMetaCreatedAt      = "created_at"
 	videoMetaCompletedAt    = "completed_at"
 	videoMetaProgress       = "progress"
+	videoMetaPolledAt       = "polled_at"
 	videoMetaSeconds        = "seconds"
 	videoMetaSize           = "size"
 	videoMetaSourceID       = "source_video_id"
@@ -522,7 +525,7 @@ func (h *VideosHandler) respondWithVideo(c *fiber.Ctx, tenantID, publicID string
 		return writeVideoLookupError(c, err)
 	}
 
-	if isPendingVideoStatus(mapping.Status) {
+	if isPendingVideoStatus(mapping.Status) && h.refreshDue(mapping) {
 		// Refresh through the shared, idempotent settlement path.
 		h.reconcileVideoJob(c.Context(), mapping)
 
@@ -532,6 +535,14 @@ func (h *VideosHandler) respondWithVideo(c *fiber.Ctx, tenantID, publicID string
 	}
 
 	return c.JSON(renderVideo(c, mapping))
+}
+
+// refreshDue reports whether a client GET may poll the provider. Faster
+// pollers get the stored state; the worker still polls on its own schedule.
+func (h *VideosHandler) refreshDue(mapping *platform.ProviderNativeResourceMapping) bool {
+	polledAt := int64(intValue(mapping.Metadata[videoMetaPolledAt]))
+
+	return polledAt == 0 || h.now().Sub(time.UnixMilli(polledAt)) >= minVideoRefreshInterval
 }
 
 // HandleList serves GET /v1/videos from GodarAI's own job records, because

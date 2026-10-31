@@ -392,7 +392,28 @@ func videoTestProfile(provider, model string, operations []string, controls func
 	}
 }
 
+// videoTestClock lets tests step past the GET refresh throttle.
+type videoTestClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *videoTestClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.now
+}
+
+func (c *videoTestClock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.now = c.now.Add(d)
+}
+
 type videoTestEnv struct {
+	clock   *videoTestClock
 	app     *fiber.App
 	handler *VideosHandler
 	store   *videoTestStore
@@ -447,6 +468,9 @@ func newVideoTestEnv(t *testing.T, features ProviderFeatureConfig, models ...vid
 		RequestLogger: logs, SpendLogger: logs, Logger: zap.NewNop(), ProviderFeatures: features,
 	}, store)
 
+	clock := &videoTestClock{now: time.Now()}
+	handler.now = clock.Now
+
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		tenantID := c.Get("X-Test-Tenant", "tenant_a")
@@ -467,7 +491,7 @@ func newVideoTestEnv(t *testing.T, features ProviderFeatureConfig, models ...vid
 	app.Delete("/v1/videos/:video_id", handler.HandleDelete)
 	app.Get("/v1/videos/:video_id/content", handler.HandleContent)
 
-	return &videoTestEnv{app: app, handler: handler, store: store, tunnel: tunnel, billing: billing, logs: logs}
+	return &videoTestEnv{clock: clock, app: app, handler: handler, store: store, tunnel: tunnel, billing: billing, logs: logs}
 }
 
 func (e *videoTestEnv) do(t *testing.T, method, path, body, tenantID string) (int, string) {
@@ -580,6 +604,7 @@ func TestVideosSettleOnceFromProviderReportedCost(t *testing.T) {
 	assert.Empty(t, env.billing.commits)
 
 	env.tunnel.setPoll("req_up_1", `{"status":"done","progress":100,"video":{"url":"https://vidgen.x.ai/v.mp4","duration":4,"respect_moderation":true},"usage":{"cost_in_usd_ticks":1800000000}}`)
+	env.clock.advance(minVideoRefreshInterval)
 	status, body = env.do(t, "GET", "/v1/videos/"+id, "", "")
 	require.Equal(t, fiber.StatusOK, status)
 	assert.Contains(t, body, `"status":"completed"`)
@@ -621,7 +646,7 @@ func TestVideosReleaseFailedAndModeratedJobs(t *testing.T) {
 	}
 }
 
-func TestVideosChargeEstimateWhenUpstreamJobIsGone(t *testing.T) {
+func TestVideosReleaseReservationWhenUpstreamJobIsGone(t *testing.T) {
 	env := newVideoTestEnv(t, videoTestEnabled)
 	video := env.create(t, `{"model":"grok-imagine-video","prompt":"waves","seconds":"2"}`)
 
@@ -629,8 +654,39 @@ func TestVideosChargeEstimateWhenUpstreamJobIsGone(t *testing.T) {
 
 	require.Equal(t, fiber.StatusOK, status)
 	assert.Contains(t, body, "upstream_expired")
-	require.Len(t, env.billing.commits, 1)
-	assert.InDelta(t, 2*videoTestRatePerSecond, env.billing.commits[0].TotalCostUSD, 1e-9)
+	assert.Empty(t, env.billing.commits)
+	assert.Equal(t, []string{"video_upstream_expired"}, env.billing.releases)
+}
+
+func TestVideosClientPollsAreThrottledToTheProvider(t *testing.T) {
+	env := newVideoTestEnv(t, videoTestEnabled)
+	video := env.create(t, `{"model":"grok-imagine-video","prompt":"waves"}`)
+	path := "/v1/videos/" + video["id"].(string)
+
+	env.tunnel.setPoll("req_up_1", `{"status":"pending","progress":10}`)
+
+	polls := func() int {
+		count := 0
+
+		for _, req := range env.tunnel.requests {
+			if req.Operation == platform.ProviderOperationXAIVideosGet {
+				count++
+			}
+		}
+
+		return count
+	}
+
+	for i := 0; i < 3; i++ {
+		_, body := env.do(t, "GET", path, "", "")
+		assert.Contains(t, body, `"status":"in_progress"`)
+	}
+
+	assert.Equal(t, 1, polls())
+
+	env.clock.advance(minVideoRefreshInterval)
+	_, _ = env.do(t, "GET", path, "", "")
+	assert.Equal(t, 2, polls())
 }
 
 func TestVideosInterruptedSettlementIsNeverChargedTwice(t *testing.T) {
@@ -648,6 +704,7 @@ func TestVideosInterruptedSettlementIsNeverChargedTwice(t *testing.T) {
 	env.handler.reconcileVideos(context.Background())
 
 	assert.Empty(t, env.billing.commits)
+	assert.Equal(t, []string{"video_settlement_interrupted"}, env.billing.releases)
 	assert.Zero(t, env.spendCount())
 	assert.Equal(t, videoStatusCompleted, env.store.only(t).Status)
 	assert.Equal(t, "interrupted", env.store.only(t).Metadata[videoMetaSettlement])
@@ -760,6 +817,7 @@ func TestVideosNativeShapeRoundTrip(t *testing.T) {
 	_, polled := env.do(t, "GET", "/v1/videos/"+created["request_id"], "", "")
 	assert.Contains(t, polled, `"status":"pending"`)
 
+	env.clock.advance(minVideoRefreshInterval)
 	env.tunnel.setPoll("req_up_1", `{"status":"done","video":{"url":"https://vidgen.x.ai/v.mp4","duration":3,"respect_moderation":true},"usage":{"cost_in_usd_ticks":1500000000}}`)
 	_, done := env.do(t, "GET", "/v1/videos/"+created["request_id"], "", "")
 	assert.Contains(t, done, `"status":"done"`)
