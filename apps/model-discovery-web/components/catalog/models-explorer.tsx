@@ -106,6 +106,12 @@ type Pricing = {
   requestPrice?: number | null;
 };
 
+type PricingRate = {
+  dimension: string;
+  unit: string;
+  unitPriceUsd: string;
+};
+
 type ModelRow = {
   id?: string;
   canonicalId: string;
@@ -122,6 +128,7 @@ type ModelRow = {
   capabilities: string[];
   supportedParameters?: string[];
   pricing?: Pricing | null;
+  pricingRates?: PricingRate[];
   free: boolean;
   updatedAt?: string;
   catalogPreview?: boolean;
@@ -219,7 +226,8 @@ function previewModel(
 export function ModelsExplorer() {
   const t = useTranslations("Catalog");
   const tCommon = useTranslations("Common");
-  const { settings, formatPriceAmount } = useDisplayFormatters();
+  const { settings, formatPriceAmount, formatUnitPriceAmount } = useDisplayFormatters();
+  const tUnits = useTranslations("Units");
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
   const compactNumberFormatter = useMemo(
     () => new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 }),
@@ -710,8 +718,20 @@ export function ModelsExplorer() {
                                 </Tooltip>
                               </div>
                             </TableCell>
-                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell
+                              value={model.pricing?.inputPerMillionTokens}
+                              formatPrice={formatPriceAmount}
+                              unitPrice={getUnitPrices(model).input}
+                              formatUnitPrice={formatUnitPriceAmount}
+                              unitLabel={tUnits}
+                            />
+                            <PriceCell
+                              value={model.pricing?.outputPerMillionTokens}
+                              formatPrice={formatPriceAmount}
+                              unitPrice={getUnitPrices(model).output}
+                              formatUnitPrice={formatUnitPriceAmount}
+                              unitLabel={tUnits}
+                            />
                             <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPriceAmount} />
                             <TableCell className="text-muted-foreground">—</TableCell>
                           </TableRow>
@@ -859,16 +879,48 @@ function RangeFilter({
   );
 }
 
+type UnitPrice = { amount: number; unit: "image" | "second" };
+
+// Image and video models have no per-token price, only per-unit rates; the cheapest tier is shown.
+function getUnitPrices(model: ModelRow): { input?: UnitPrice; output?: UnitPrice } {
+  const lowest = (prefix: string, unit: UnitPrice["unit"]) => {
+    const amounts = (model.pricingRates ?? [])
+      .filter((rate) => rate.unit === unit && rate.dimension.startsWith(prefix))
+      .map((rate) => Number(rate.unitPriceUsd))
+      .filter(Number.isFinite);
+    return amounts.length ? { amount: Math.min(...amounts), unit } : undefined;
+  };
+  return {
+    input: lowest("input_images", "image"),
+    output: lowest("output_images", "image") ?? lowest("output_video_seconds", "second"),
+  };
+}
+
 function PriceCell({
   value,
   formatPrice,
+  unitPrice,
+  formatUnitPrice,
+  unitLabel,
 }: {
   value?: number | null;
   formatPrice: (value?: number | null) => string;
+  unitPrice?: UnitPrice;
+  formatUnitPrice?: (value?: number | null) => string;
+  unitLabel?: (key: "perImage" | "perSecond") => string;
 }) {
+  const showUnit = (value === undefined || value === null) && unitPrice && formatUnitPrice && unitLabel;
+
   return (
     <TableCell className="whitespace-nowrap font-sans text-sm tabular-nums" dir="rtl">
-      {value === undefined || value === null ? "—" : formatPrice(value)}
+      {showUnit ? (
+        <>
+          {formatUnitPrice(unitPrice.amount)}
+          <span className="block text-xs text-muted-foreground">
+            {unitLabel(unitPrice.unit === "image" ? "perImage" : "perSecond")}
+          </span>
+        </>
+      ) : value === undefined || value === null ? "—" : formatPrice(value)}
     </TableCell>
   );
 }

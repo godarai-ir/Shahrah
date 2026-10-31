@@ -45,11 +45,13 @@ export function formatDisplayPriceAmount(
   settings: DisplaySettings,
   labels: DisplayPriceLabels,
   usdToIrr?: number | null,
+  perUnit = false,
 ): string {
   if (value === null || value === undefined) return EMPTY;
 
   let transformed = value;
-  if (settings.priceScale === 'PER_TOKEN') {
+  // A per-unit price (image, second) is already final, so the token scale does not apply.
+  if (!perUnit && settings.priceScale === 'PER_TOKEN') {
     transformed = transformed / 1_000_000;
   }
 
@@ -62,7 +64,7 @@ export function formatDisplayPriceAmount(
     transformed /= 10;
   }
 
-  let fractionDigits = settings.priceScale === 'PER_TOKEN' ? 8 : 2;
+  let fractionDigits = perUnit ? 4 : settings.priceScale === 'PER_TOKEN' ? 8 : 2;
   if (settings.currencyUnit === 'IRR') {
     // Rial is the smallest currency unit and cannot have a fractional part.
     transformed = Math.ceil(transformed);

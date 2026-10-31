@@ -35,5 +35,7 @@ export function useDisplayFormatters() {
       formatDisplayPrice(value, settings, priceLabels, exchangeRate?.rate),
     formatPriceAmount: (value: number | null | undefined) =>
       formatDisplayPriceAmount(value, settings, priceLabels, exchangeRate?.rate),
+    formatUnitPriceAmount: (value: number | null | undefined) =>
+      formatDisplayPriceAmount(value, settings, priceLabels, exchangeRate?.rate, true),
   };
 }
