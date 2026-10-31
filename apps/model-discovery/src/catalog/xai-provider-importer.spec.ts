@@ -54,7 +54,7 @@ describe('xAI provider importer', () => {
       ) as { costs?: Array<Record<string, unknown>>; runtimeProfile?: unknown };
       const profile = modelRuntimeProfileSchema.parse(document.runtimeProfile);
       expect(profile.endpoints).toEqual(['videos']);
-      expect(profile.videoControls.contentHosts).toEqual(['vidgen.x.ai']);
+      expect(profile.videoControls?.contentHosts).toEqual(['vidgen.x.ai']);
       expect(document.costs?.[0]?.output_cost_per_second).toBeGreaterThan(0);
     }
     const editor = modelRuntimeProfileSchema.parse(
@@ -67,7 +67,7 @@ describe('xAI provider importer', () => {
         ) as { runtimeProfile?: unknown }
       ).runtimeProfile,
     );
-    expect(editor.videoControls.operations).toEqual([
+    expect(editor.videoControls?.operations).toEqual([
       'generate',
       'edit',
       'extend',
