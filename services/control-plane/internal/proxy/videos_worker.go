@@ -46,7 +46,7 @@ func (p *RequestPipeline) priceVideoUsage(
 }
 
 // RunVideoWorker polls pending video jobs and settles each reservation once.
-// It keeps running while routes are disabled so in-flight jobs still settle.
+// It runs for the life of the gateway so in-flight jobs always settle.
 func (h *VideosHandler) RunVideoWorker(ctx context.Context, interval time.Duration) {
 	if h == nil || h.resources == nil || !h.pipeline.HasTransport() {
 		return

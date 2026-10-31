@@ -141,8 +141,6 @@ type ProviderFeatureConfig struct {
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
 	AnthropicAccountIDs          []string
-	VideosEnabled                bool
-	VideoCanaryTenantIDs         []string
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.
