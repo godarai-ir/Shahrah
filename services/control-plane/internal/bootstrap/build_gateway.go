@@ -71,7 +71,6 @@ func (b *builder) buildGateway() error {
 			MistralConversationsEnabled:  b.cfg.ProviderFeatures.MistralConversationsEnabled,
 			MistralConversationStreaming: b.cfg.ProviderFeatures.MistralConversationStreaming,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
-			VideoCanaryTenantIDs:         b.cfg.ProviderFeatures.VideoCanaryTenantIDs,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {

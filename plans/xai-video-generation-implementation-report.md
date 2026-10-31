@@ -18,7 +18,7 @@ Status: implemented and tested offline. **No live xAI call has been made** and n
 
 ## Routes
 
-The routes are always on. `SHAHRAH_VIDEOS_CANARY_TENANT_IDS` optionally restricts them to listed tenants; every other tenant gets 404. The reconciliation worker runs for the life of the gateway.
+The routes are always on for every tenant, with no feature flag. The reconciliation worker runs for the life of the gateway.
 
 | Route | State |
 |---|---|

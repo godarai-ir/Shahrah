@@ -843,19 +843,6 @@ func TestVideosEditResolvesOwnCompletedSource(t *testing.T) {
 	assert.NotContains(t, body, "vidgen.x.ai")
 }
 
-func TestVideosRolloutGate(t *testing.T) {
-	open := newVideoTestEnv(t, videoTestEnabled)
-	status, _ := open.do(t, "GET", "/v1/videos", "", "tenant_b")
-	assert.Equal(t, fiber.StatusOK, status)
-
-	canary := newVideoTestEnv(t, ProviderFeatureConfig{VideoCanaryTenantIDs: []string{"tenant_a"}})
-	status, _ = canary.do(t, "GET", "/v1/videos", "", "tenant_b")
-	assert.Equal(t, fiber.StatusNotFound, status)
-
-	status, _ = canary.do(t, "GET", "/v1/videos", "", "tenant_a")
-	assert.Equal(t, fiber.StatusOK, status)
-}
-
 const fakeVideoPollOperation platform.ProviderOperation = "fakevideo_jobs_get"
 
 // fakeVideoCodec is a second provider with a different native state machine,

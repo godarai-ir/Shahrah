@@ -74,60 +74,35 @@ type videoResourceStore interface {
 // VideosHandler serves the provider-neutral /v1/videos surface and the
 // xAI-native video routes, and settles every job exactly once.
 type VideosHandler struct {
-	router        *router.Router
-	pipeline      *RequestPipeline
-	billing       budgeter
-	resources     videoResourceStore
-	logs          usageLogger
-	logger        *zap.Logger
-	emitMetric    func(input metricsobs.BuildInput)
-	codecs        map[string]videoProviderCodec
-	canaryTenants map[string]struct{}
-	maxJobAge     time.Duration
-	now           func() time.Time
+	router     *router.Router
+	pipeline   *RequestPipeline
+	billing    budgeter
+	resources  videoResourceStore
+	logs       usageLogger
+	logger     *zap.Logger
+	emitMetric func(input metricsobs.BuildInput)
+	codecs     map[string]videoProviderCodec
+	maxJobAge  time.Duration
+	now        func() time.Time
 }
 
-// NewVideosHandler creates the video handler. It serves only when the rollout
-// flag is on, and only canary tenants when a canary list is configured.
+// NewVideosHandler creates the video handler.
 func NewVideosHandler(deps BaseHandlerDependencies, resources videoResourceStore) *VideosHandler {
-	canary := make(map[string]struct{}, len(deps.ProviderFeatures.VideoCanaryTenantIDs))
-	for _, tenantID := range deps.ProviderFeatures.VideoCanaryTenantIDs {
-		if trimmed := strings.TrimSpace(tenantID); trimmed != "" {
-			canary[trimmed] = struct{}{}
-		}
-	}
-
 	return &VideosHandler{
-		router:        deps.Router,
-		pipeline:      deps.requestPipeline(),
-		billing:       deps.Billing,
-		resources:     resources,
-		logs:          deps.logger(),
-		logger:        deps.Logger,
-		emitMetric:    deps.metricEmitter(),
-		codecs:        map[string]videoProviderCodec{"xai": xaiVideoCodec{}},
-		canaryTenants: canary,
-		maxJobAge:     2 * time.Hour,
-		now:           time.Now,
+		router:     deps.Router,
+		pipeline:   deps.requestPipeline(),
+		billing:    deps.Billing,
+		resources:  resources,
+		logs:       deps.logger(),
+		logger:     deps.Logger,
+		emitMetric: deps.metricEmitter(),
+		codecs:     map[string]videoProviderCodec{"xai": xaiVideoCodec{}},
+		maxJobAge:  2 * time.Hour,
+		now:        time.Now,
 	}
 }
 
-func (h *VideosHandler) servesTenant(tenantID string) bool {
-	if h.resources == nil {
-		return false
-	}
-
-	if len(h.canaryTenants) == 0 {
-		return true
-	}
-
-	_, ok := h.canaryTenants[tenantID]
-
-	return ok
-}
-
-// videoRequestContext authenticates the caller and enforces the optional tenant canary.
-// Disabled tenants see 404 so the surface stays invisible outside the canary.
+// videoRequestContext authenticates the caller and resolves the tenant.
 func (h *VideosHandler) videoRequestContext(c *fiber.Ctx) (*platform.AuthContext, *platform.Tenant, error) {
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
@@ -142,7 +117,7 @@ func (h *VideosHandler) videoRequestContext(c *fiber.Ctx) (*platform.AuthContext
 	authInfo.TenantID = currentTenant.ID
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 
-	if !h.servesTenant(currentTenant.ID) {
+	if h.resources == nil {
 		return nil, nil, writeAPIErrorDetail(c, fiber.StatusNotFound, "Video generation is not available for this workspace", "invalid_request_error", "", "unsupported_endpoint")
 	}
 
