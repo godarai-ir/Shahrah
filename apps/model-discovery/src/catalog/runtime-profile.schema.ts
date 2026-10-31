@@ -307,19 +307,7 @@ export const modelRuntimeProfileSchema = z
         audio: z.boolean().default(false),
       })
       .strict()
-      .default({
-        operations: [],
-        aspectRatios: [],
-        resolutions: [],
-        referenceResolutions: [],
-        sizes: {},
-        referenceModes: [],
-        referenceVoiceIds: [],
-        contentVariants: [],
-        contentHosts: [],
-        extensionFields: [],
-        audio: false,
-      }),
+      .optional(),
     usageAccounting: z
       .object({
         requiredResponseFields: z
@@ -527,85 +515,91 @@ export const modelRuntimeProfileSchema = z
         });
       }
     }
+    // Absent on non-video models, so stored profiles stay byte-identical.
     const video = profile.videoControls;
-    if (video.operations.length > 0 && !profile.endpoints.includes('videos')) {
-      context.addIssue({
-        code: 'custom',
-        path: ['videoControls', 'operations'],
-        message: 'video operations require the videos endpoint',
-      });
-    }
-    const ranges: Array<
-      [string, number | undefined, number | undefined, number | undefined]
-    > = [];
-    if (video.operations.includes('generate')) {
-      ranges.push([
-        'DurationSeconds',
-        video.minDurationSeconds,
-        video.maxDurationSeconds,
-        video.defaultDurationSeconds,
-      ]);
+    if (video) {
       if (
-        !video.defaultResolution ||
-        !video.resolutions.includes(video.defaultResolution) ||
-        video.aspectRatios.length === 0
+        video.operations.length > 0 &&
+        !profile.endpoints.includes('videos')
       ) {
         context.addIssue({
           code: 'custom',
-          path: ['videoControls', 'defaultResolution'],
-          message:
-            'video generation requires formats and an allowed default resolution',
+          path: ['videoControls', 'operations'],
+          message: 'video operations require the videos endpoint',
         });
       }
-    }
-    if (video.operations.includes('extend')) {
-      ranges.push([
-        'ExtensionSeconds',
-        video.minExtensionSeconds,
-        video.maxExtensionSeconds,
-        video.defaultExtensionSeconds,
-      ]);
-    }
-    for (const [name, min, max, fallback] of ranges) {
-      if (
-        min === undefined ||
-        max === undefined ||
-        fallback === undefined ||
-        max < min ||
-        fallback < min ||
-        fallback > max
-      ) {
+      const ranges: Array<
+        [string, number | undefined, number | undefined, number | undefined]
+      > = [];
+      if (video.operations.includes('generate')) {
+        ranges.push([
+          'DurationSeconds',
+          video.minDurationSeconds,
+          video.maxDurationSeconds,
+          video.defaultDurationSeconds,
+        ]);
+        if (
+          !video.defaultResolution ||
+          !video.resolutions.includes(video.defaultResolution) ||
+          video.aspectRatios.length === 0
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['videoControls', 'defaultResolution'],
+            message:
+              'video generation requires formats and an allowed default resolution',
+          });
+        }
+      }
+      if (video.operations.includes('extend')) {
+        ranges.push([
+          'ExtensionSeconds',
+          video.minExtensionSeconds,
+          video.maxExtensionSeconds,
+          video.defaultExtensionSeconds,
+        ]);
+      }
+      for (const [name, min, max, fallback] of ranges) {
+        if (
+          min === undefined ||
+          max === undefined ||
+          fallback === undefined ||
+          max < min ||
+          fallback < min ||
+          fallback > max
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['videoControls', `default${name}`],
+            message: `video ${name} requires a valid range and default`,
+          });
+        }
+      }
+      if (video.operations.includes('edit') && !video.maxEditSourceSeconds) {
         context.addIssue({
           code: 'custom',
-          path: ['videoControls', `default${name}`],
-          message: `video ${name} requires a valid range and default`,
+          path: ['videoControls', 'maxEditSourceSeconds'],
+          message: 'video edits require a maximum source duration',
         });
       }
-    }
-    if (video.operations.includes('edit') && !video.maxEditSourceSeconds) {
-      context.addIssue({
-        code: 'custom',
-        path: ['videoControls', 'maxEditSourceSeconds'],
-        message: 'video edits require a maximum source duration',
-      });
-    }
-    if (video.operations.length > 0 && video.contentVariants.length === 0) {
-      context.addIssue({
-        code: 'custom',
-        path: ['videoControls', 'contentVariants'],
-        message: 'video models require at least one content variant',
-      });
-    }
-    for (const [size, mapping] of Object.entries(video.sizes)) {
-      if (
-        !video.aspectRatios.includes(mapping.aspectRatio) ||
-        !video.resolutions.includes(mapping.resolution)
-      ) {
+      if (video.operations.length > 0 && video.contentVariants.length === 0) {
         context.addIssue({
           code: 'custom',
-          path: ['videoControls', 'sizes', size],
-          message: `video size ${size} maps to an unsupported format`,
+          path: ['videoControls', 'contentVariants'],
+          message: 'video models require at least one content variant',
         });
+      }
+      for (const [size, mapping] of Object.entries(video.sizes)) {
+        if (
+          !video.aspectRatios.includes(mapping.aspectRatio) ||
+          !video.resolutions.includes(mapping.resolution)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['videoControls', 'sizes', size],
+            message: `video size ${size} maps to an unsupported format`,
+          });
+        }
       }
     }
     for (const endpoint of Object.keys(profile.requestHeaders.byEndpoint)) {

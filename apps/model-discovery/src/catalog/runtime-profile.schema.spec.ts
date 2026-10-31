@@ -215,4 +215,10 @@ describe('modelRuntimeProfileSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('leaves non-video profiles unchanged so stored profiles stay immutable', () => {
+    const parsed = modelRuntimeProfileSchema.parse(validProfile);
+
+    expect('videoControls' in parsed).toBe(false);
+  });
 });
