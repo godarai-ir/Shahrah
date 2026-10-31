@@ -6,6 +6,7 @@ import "github.com/gofiber/fiber/v2"
 // Handler defines billing operations consumed by this feature.
 type Handler interface {
 	ListPublicCommercialPlans(*fiber.Ctx) error
+	ListPublicSeatTypes(*fiber.Ctx) error
 	SubscriptionPaymentCallback(*fiber.Ctx) error
 	GetTenantSubscription(*fiber.Ctx) error
 	ChangeTenantSubscription(*fiber.Ctx) error
@@ -114,6 +115,7 @@ func NewRoutes(handler Handler) *Routes {
 // RegisterPublic registers public commercial billing endpoints.
 func (r *Routes) RegisterPublic(router fiber.Router) {
 	router.Get("/api/v1/commercial-plans", r.handler.ListPublicCommercialPlans)
+	router.Get("/api/v1/seat-types", r.handler.ListPublicSeatTypes)
 	router.Get("/api/v1/subscription/payment/callback/:provider", r.handler.SubscriptionPaymentCallback)
 	router.Post("/api/v1/subscription/payment/callback/:provider", r.handler.SubscriptionPaymentCallback)
 	router.Get("/api/v1/credits/packs/payment/callback/:provider", r.handler.CreditPackPaymentCallback)
