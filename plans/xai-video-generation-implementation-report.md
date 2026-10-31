@@ -18,12 +18,12 @@ Status: implemented and tested offline. **No live xAI call has been made** and n
 
 ## Routes
 
-All routes are behind `SHAHRAH_VIDEOS_ENABLED` (default **off**). `SHAHRAH_VIDEOS_CANARY_TENANT_IDS` optionally restricts them to listed tenants; every other tenant gets 404. The reconciliation worker runs even when the routes are off, so rolling back never strands a reservation.
+The routes are always on. `SHAHRAH_VIDEOS_CANARY_TENANT_IDS` optionally restricts them to listed tenants; every other tenant gets 404. The reconciliation worker runs for the life of the gateway.
 
 | Route | State |
 |---|---|
-| `POST /v1/videos` (JSON and multipart), `GET /v1/videos`, `GET /v1/videos/{id}`, `DELETE /v1/videos/{id}`, `GET /v1/videos/{id}/content` | Enabled with the flag |
-| `POST /v1/videos/generations` (xAI-native), `POST /v1/videos/edits`, `POST /v1/videos/extensions` (both shapes) | Enabled with the flag |
+| `POST /v1/videos` (JSON and multipart), `GET /v1/videos`, `GET /v1/videos/{id}`, `DELETE /v1/videos/{id}`, `GET /v1/videos/{id}/content` | Enabled |
+| `POST /v1/videos/generations` (xAI-native), `POST /v1/videos/edits`, `POST /v1/videos/extensions` (both shapes) | Enabled |
 | `content?variant=thumbnail\|spritesheet` | Rejected by the profile (`unsupported_variant`); xAI has no such variants |
 | `remix` | Not offered (OpenAI deprecated it; xAI has no equivalent) |
 | `output.upload_url`, `storage_options`, caller-supplied `reference_audios[].url` | Rejected by the strict parser (gated) |

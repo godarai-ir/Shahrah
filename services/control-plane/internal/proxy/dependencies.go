@@ -141,7 +141,6 @@ type ProviderFeatureConfig struct {
 	MistralConversationsEnabled  bool
 	MistralConversationStreaming bool
 	AnthropicAccountIDs          []string
-	VideosEnabled                bool
 	VideoCanaryTenantIDs         []string
 }
 

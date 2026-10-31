@@ -71,7 +71,6 @@ func (b *builder) buildGateway() error {
 			MistralConversationsEnabled:  b.cfg.ProviderFeatures.MistralConversationsEnabled,
 			MistralConversationStreaming: b.cfg.ProviderFeatures.MistralConversationStreaming,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
-			VideosEnabled:                b.cfg.ProviderFeatures.VideosEnabled,
 			VideoCanaryTenantIDs:         b.cfg.ProviderFeatures.VideoCanaryTenantIDs,
 		},
 	}

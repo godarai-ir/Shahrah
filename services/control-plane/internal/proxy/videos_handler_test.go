@@ -457,7 +457,6 @@ func newVideoTestEnv(t *testing.T, features ProviderFeatureConfig, models ...vid
 	require.NoError(t, err)
 
 	store, tunnel, logs := newVideoTestStore(), &videoTestTunnel{polls: map[string]string{}}, &testLogs{}
-	features.Configured = true
 	handler := NewVideosHandler(BaseHandlerDependencies{
 		Router: rt, Tunnel: tunnel, RawTunnel: tunnel, Billing: billing,
 		BillingCapabilities: BillingCapabilities{
@@ -536,7 +535,7 @@ func (e *videoTestEnv) spendCount() int {
 	return len(e.logs.loggedSpends)
 }
 
-var videoTestEnabled = ProviderFeatureConfig{VideosEnabled: true}
+var videoTestEnabled = ProviderFeatureConfig{}
 
 func TestVideosCanonicalCreateTranslatesAndReserves(t *testing.T) {
 	env := newVideoTestEnv(t, videoTestEnabled)
@@ -845,11 +844,11 @@ func TestVideosEditResolvesOwnCompletedSource(t *testing.T) {
 }
 
 func TestVideosRolloutGate(t *testing.T) {
-	disabled := newVideoTestEnv(t, ProviderFeatureConfig{})
-	status, _ := disabled.do(t, "POST", "/v1/videos", `{"model":"grok-imagine-video","prompt":"x"}`, "")
-	assert.Equal(t, fiber.StatusNotFound, status)
+	open := newVideoTestEnv(t, videoTestEnabled)
+	status, _ := open.do(t, "GET", "/v1/videos", "", "tenant_b")
+	assert.Equal(t, fiber.StatusOK, status)
 
-	canary := newVideoTestEnv(t, ProviderFeatureConfig{VideosEnabled: true, VideoCanaryTenantIDs: []string{"tenant_a"}})
+	canary := newVideoTestEnv(t, ProviderFeatureConfig{VideoCanaryTenantIDs: []string{"tenant_a"}})
 	status, _ = canary.do(t, "GET", "/v1/videos", "", "tenant_b")
 	assert.Equal(t, fiber.StatusNotFound, status)
 

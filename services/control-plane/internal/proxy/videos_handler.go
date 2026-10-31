@@ -82,7 +82,6 @@ type VideosHandler struct {
 	logger        *zap.Logger
 	emitMetric    func(input metricsobs.BuildInput)
 	codecs        map[string]videoProviderCodec
-	enabled       bool
 	canaryTenants map[string]struct{}
 	maxJobAge     time.Duration
 	now           func() time.Time
@@ -107,7 +106,6 @@ func NewVideosHandler(deps BaseHandlerDependencies, resources videoResourceStore
 		logger:        deps.Logger,
 		emitMetric:    deps.metricEmitter(),
 		codecs:        map[string]videoProviderCodec{"xai": xaiVideoCodec{}},
-		enabled:       deps.ProviderFeatures.Configured && deps.ProviderFeatures.VideosEnabled,
 		canaryTenants: canary,
 		maxJobAge:     2 * time.Hour,
 		now:           time.Now,
@@ -115,7 +113,7 @@ func NewVideosHandler(deps BaseHandlerDependencies, resources videoResourceStore
 }
 
 func (h *VideosHandler) servesTenant(tenantID string) bool {
-	if !h.enabled || h.resources == nil {
+	if h.resources == nil {
 		return false
 	}
 
@@ -128,7 +126,7 @@ func (h *VideosHandler) servesTenant(tenantID string) bool {
 	return ok
 }
 
-// videoRequestContext authenticates the caller and enforces the rollout gate.
+// videoRequestContext authenticates the caller and enforces the optional tenant canary.
 // Disabled tenants see 404 so the surface stays invisible outside the canary.
 func (h *VideosHandler) videoRequestContext(c *fiber.Ctx) (*platform.AuthContext, *platform.Tenant, error) {
 	authInfo := auth.GetAuthInfo(c)
