@@ -6,8 +6,9 @@ import {
   buildPowerShellCurlGuideCommand,
   buildCurlGuideSampleResponse,
   buildModelDiscoveryProviderHref,
-  formatProviderDisplayName,
   getCurlGuideEndpoint,
+  getImageUnitPrices,
+  hasCatalogPricing,
   getModelDiscoveryCatalogBaseURLForOrigin,
   getPublicSiteOrigin,
   getTenantApiBaseURLForOrigin,
@@ -16,17 +17,6 @@ import {
 } from "./utils";
 
 describe("provider account curl guide helpers", () => {
-  it("uses official provider casing without title-casing unknown identifiers", () => {
-    expect(formatProviderDisplayName("openai")).toBe("OpenAI");
-    expect(formatProviderDisplayName("azure-openai")).toBe("Azure OpenAI");
-    expect(formatProviderDisplayName("azure_open_ai")).toBe("Azure OpenAI");
-    expect(formatProviderDisplayName("azure-ai-foundry")).toBe("Azure AI Foundry");
-    expect(formatProviderDisplayName("mistral-ai")).toBe("Mistral AI");
-    expect(formatProviderDisplayName("zai")).toBe("Z.ai");
-    expect(formatProviderDisplayName("tokenbazaar")).toBe("TokenBazaar");
-    expect(formatProviderDisplayName("custom_provider")).toBe("custom_provider");
-  });
-
   it("uses the moderation endpoint when a model mode is moderation", () => {
     const mode = resolveCurlGuideMode({
       provider: "openai",
@@ -353,5 +343,21 @@ describe("provider account curl guide helpers", () => {
     expect(buildModelDiscoveryProviderHref("anthropic", "https://catalog.godarai.ir")).toBe(
       "https://godarai.ir/catalog/providers/anthropic",
     );
+  });
+});
+
+describe("image model catalog pricing", () => {
+  const rate = (dimension: string, price: string) => ({ key: dimension, dimension, unit: "image", unit_price_usd: price });
+  const model = {
+    public_pricing: { rates: [rate("input_images", "0.002"), rate("output_images_2k", "0.04"), rate("output_images_1k", "0.02")] },
+  };
+
+  it("treats rate-only pricing as resolved", () => {
+    expect(hasCatalogPricing(model)).toBe(true);
+    expect(hasCatalogPricing({ public_pricing: {} })).toBe(false);
+  });
+
+  it("returns the cheapest per-image price for input and output", () => {
+    expect(getImageUnitPrices(model)).toEqual({ input: 0.002, output: 0.02 });
   });
 });

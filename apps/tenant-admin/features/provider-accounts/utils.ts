@@ -25,6 +25,28 @@ export function toNumberOrUndefined(value: string): number | undefined {
   return parsed;
 }
 
+type CatalogPricing = Pick<ProviderCatalogModel, "public_pricing">;
+
+/** True when the catalog prices the model, per token or through per-unit rates (image models have only rates). */
+export function hasCatalogPricing(model?: CatalogPricing): boolean {
+  const pricing = model?.public_pricing;
+  return typeof pricing?.input_usd_per_1m === "number"
+    || typeof pricing?.output_usd_per_1m === "number"
+    || (pricing?.rates?.length ?? 0) > 0;
+}
+
+/** Lowest standard per-image USD price for input and output; output varies by resolution, so the cheapest tier is shown. */
+export function getImageUnitPrices(model?: CatalogPricing): { input?: number; output?: number } {
+  const lowest = (prefix: string) => {
+    const prices = (model?.public_pricing?.rates ?? [])
+      .filter((rate) => rate.unit === "image" && rate.dimension.startsWith(prefix))
+      .map((rate) => Number(rate.unit_price_usd))
+      .filter(Number.isFinite);
+    return prices.length ? Math.min(...prices) : undefined;
+  };
+  return { input: lowest("input_images"), output: lowest("output_images") };
+}
+
 export function normalizeCapabilityList(values: string[] | undefined): string[] {
   if (!Array.isArray(values)) return [];
   const seen = new Set<string>();

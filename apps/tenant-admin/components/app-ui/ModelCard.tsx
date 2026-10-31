@@ -59,6 +59,9 @@ export interface ModelCardData {
     cachedInputPerMillion?: number;
     imagePerMillion?: number;
     audioPerMillion?: number;
+    /** USD per image, for models billed per generated image rather than per token. */
+    inputPerImage?: number;
+    outputPerImage?: number;
   };
   latencyTier?: "low" | "medium" | "high";
   qualityTier?: "basic" | "good" | "high" | "frontier";
@@ -127,6 +130,7 @@ type ModelCardProps = {
     customPricing?: string;
     pricingPerMillion?: string;
     pricingPerToken?: string;
+    pricingPerImage?: string;
     modelId?: string;
     providerId?: string;
     apiMode?: string;
@@ -168,6 +172,9 @@ export function ModelCard(props: ModelCardProps) {
     scale: "PER_MILLION_TOKENS" as const,
     usdToIrr: 0,
   };
+  const perImage = model.pricing?.inputPerMillion === undefined
+    && model.pricing?.outputPerMillion === undefined
+    && (model.pricing?.inputPerImage !== undefined || model.pricing?.outputPerImage !== undefined);
   const [copied, setCopied] = useState(false);
   const labels = {
     context: "Context",
@@ -188,6 +195,7 @@ export function ModelCard(props: ModelCardProps) {
     customPricing: "Custom pricing",
     pricingPerMillion: "Cost per 1M tokens (some models use tiered pricing)",
     pricingPerToken: "Cost per token",
+    pricingPerImage: "Cost per image",
     modelId: "Model ID",
     providerId: "Provider ID",
     apiMode: "API mode",
@@ -391,9 +399,9 @@ export function ModelCard(props: ModelCardProps) {
           <MetricPanel className="sm:col-span-1" label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
             className="sm:col-span-2"
-            label={pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
-            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, pricingDisplay)}
-            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, pricingDisplay)}
+            label={perImage ? labels.pricingPerImage : pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
+            inputValue={formatPriceValueOnly(perImage ? model.pricing?.inputPerImage : model.pricing?.inputPerMillion, pricingDisplay, perImage)}
+            outputValue={formatPriceValueOnly(perImage ? model.pricing?.outputPerImage : model.pricing?.outputPerMillion, pricingDisplay, perImage)}
             inputLabel={labels.input}
             outputLabel={labels.output}
             action={props.pricingAction}
@@ -615,14 +623,16 @@ export function formatPriceWithDisplay(
 function formatPriceValueOnly(
   usdPerMillion: number | undefined,
   display: { currency: "USD" | "TOMAN"; scale: "PER_MILLION_TOKENS" | "PER_TOKEN"; usdToIrr: number },
+  perUnit = false,
 ) {
   if (typeof usdPerMillion !== "number" || !Number.isFinite(usdPerMillion)) return "N/A";
 
-  const value = display.scale === "PER_TOKEN" ? usdPerMillion / 1_000_000 : usdPerMillion;
+  // A per-unit price is already the final amount, so the token scale does not apply.
+  const value = !perUnit && display.scale === "PER_TOKEN" ? usdPerMillion / 1_000_000 : usdPerMillion;
   if (display.currency === "TOMAN") {
     const toman = (value * display.usdToIrr) / 10;
     return `${new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: display.scale === "PER_TOKEN" ? 2 : 0,
+      maximumFractionDigits: perUnit || display.scale === "PER_TOKEN" ? 2 : 0,
     }).format(toman)} toman`;
   }
 

@@ -1021,7 +1021,8 @@ func resolvedRecordPrice(record platform.TenantProviderAccountCatalogRecord, cat
 }
 
 func modelPriceResolved(price *platform.ModelPrice) bool {
-	return price != nil && (price.InputUSDPer1M != nil || price.OutputUSDPer1M != nil)
+	// Per-unit models (image, video) carry only rates and no per-token prices.
+	return price != nil && (price.InputUSDPer1M != nil || price.OutputUSDPer1M != nil || len(price.Rates) > 0)
 }
 
 func accountReadiness(account platform.TenantProviderAccount, summary platform.TenantProviderAccountSummary) platform.ProviderAccountReadiness {
